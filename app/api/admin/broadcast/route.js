@@ -1,4 +1,5 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
+import { allow, ipOf } from "@/lib/ratelimit";
 import { getSubscribers, unsubLink, canUnsubscribe } from "@/lib/subscribers";
 import { sendBatch, BATCH_MAX } from "@/lib/email";
 
@@ -50,6 +51,25 @@ export async function POST(request) {
     subject,
     text: `${text}\n\n—\nYou are getting this because you asked to hear when the directory changes.\nUnsubscribe: ${unsubLink(origin, to)}`,
   });
+
+  /*
+   * Separate buckets, because the two actions cost wildly different things.
+   * Iterating on wording means a run of test sends, each one email to yourself.
+   * A real send is bulk and cannot be recalled, so it gets the tight limit —
+   * enough for a send plus a couple of retries after a failed batch.
+   */
+  const ip = ipOf(request);
+  const within = body.test
+    ? await allow("broadcast-test", ip, 20, 60 * 60_000)
+    : await allow("broadcast", ip, 5, 60 * 60_000);
+  if (!within) {
+    return new Response(
+      body.test
+        ? "Too many test sends this hour."
+        : "Too many broadcasts this hour. This limit exists so a stuck button cannot mail the list repeatedly.",
+      { status: 429 },
+    );
+  }
 
   // A test goes to the admin alone and never touches the list.
   if (body.test) {

@@ -1,4 +1,5 @@
 import { normaliseEmail } from "@/lib/auth";
+import { allow, ipOf } from "@/lib/ratelimit";
 import { removeSubscriber, validUnsubToken } from "@/lib/subscribers";
 import { C } from "@/lib/tools";
 
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
  * the page is identical whether or not the address was on the list, so this is
  * not a membership oracle either.
  */
-const page = (title, detail) =>
+const page = (title, detail, status = 200) =>
   new Response(
     `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
@@ -26,7 +27,7 @@ const page = (title, detail) =>
     `<p style="font-size:15px;color:${C.muted};line-height:1.6;margin:10px 0 0">${detail}</p>` +
     `<p style="margin:18px 0 0"><a href="/" style="color:#00E08A;font-size:14px">Back to the directory</a></p>` +
     `</div></body></html>`,
-    { status: 200, headers: { "content-type": "text/html; charset=utf-8" } },
+    { status, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 
 export async function GET(request) {
@@ -40,6 +41,23 @@ export async function GET(request) {
       "It may have been trimmed by your email client. Copy the whole link from the " +
       "message, or reply to any email from the directory and the address will be " +
       "removed by hand.",
+    );
+  }
+
+  /*
+   * Deliberately after the token check, which does no I/O — a bad token is
+   * rejected on an HMAC compare alone and never reaches Redis. allow() costs a
+   * read and a write, so limiting first would turn the cheapest rejection into
+   * the most expensive one and hand an attacker amplification. Past the token
+   * check the request is doing real work, which is what is worth bounding.
+   */
+  const ip = ipOf(request);
+  if (!(await allow("unsubscribe", ip, 20, 60 * 60_000))) {
+    return page(
+      "Try that again shortly",
+      "Too many requests from this address in the last hour. The link is still good — " +
+      "open it again in a few minutes.",
+      429,
     );
   }
 

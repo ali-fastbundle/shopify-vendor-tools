@@ -1,4 +1,5 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
+import { allow, ipOf } from "@/lib/ratelimit";
 import { read, write, KEYS } from "@/lib/store";
 import { getClaims, revokeClaim } from "@/lib/listings";
 
@@ -16,6 +17,16 @@ const DENY = () => new Response("Not found", { status: 404 });
 export async function POST(request) {
   const session = sessionFrom(request);
   if (!session || !isAdmin(session.email)) return DENY();
+
+  /*
+   * After the admin check, so a stranger's requests neither consume the bucket
+   * nor cost a Redis write. Generous enough to clear a large moderation
+   * backlog by hand; low enough that a runaway client or a stolen session
+   * cannot churn the store indefinitely.
+   */
+  if (!(await allow("admin", ipOf(request), 300, 60 * 60_000))) {
+    return new Response("Too many admin actions this hour.", { status: 429 });
+  }
 
   let body;
   try { body = await request.json(); } catch { body = {}; }
