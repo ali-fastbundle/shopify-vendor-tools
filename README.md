@@ -13,8 +13,10 @@ Next.js 14 (App Router) · Upstash Redis · Anthropic API · deploys to Vercel.
 | Piece | Where it lives |
 |---|---|
 | Catalogue, categories, palette | `lib/tools.js` — edit tools here, nothing else |
+| Roadmap sections | `RESOURCE_KINDS` in `lib/tools.js` — flip `live: true` when a section opens |
 | UI | `components/Directory.jsx` (single client component) |
 | Community data | `app/api/data` (read), `app/api/vote`, `app/api/review`, `app/api/suggest` |
+| Subscribers | `app/api/subscribe` — write-only, stored in the `svt:subscribers` key |
 | Problem matcher | `app/api/match` — holds the API keys server-side, Anthropic and/or OpenAI |
 | Storage | `lib/store.js` — Upstash Redis, with an in-memory fallback for local dev |
 | Spam control | `lib/ratelimit.js` — per-IP sliding window |
@@ -147,6 +149,13 @@ kept but never served by `/api/data`. To approve one, set its `approved` field t
 
 Leave the flag unset and every suggestion is public the moment it is submitted. On a
 public directory that is the first thing spammed, so decide deliberately.
+
+## The subscriber list
+
+`/api/subscribe` appends `{ email, date }` to the `svt:subscribers` key and returns the
+same `{ ok: true }` whether the address was new or already stored, so the endpoint cannot
+be used to test whether someone is on the list. Nothing reads the key back out over HTTP —
+export it from Redis when you actually want to send the mail. Keep it that way.
 
 Rate limits as shipped: 60 votes/min, 5 reviews/10 min, 3 suggestions/hour,
 20 matcher calls/hour, all per IP. Adjust in the route files.

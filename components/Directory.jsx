@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { C, CATEGORIES, TOOLS, catOf, LAST_UPDATED, AUTHOR } from "@/lib/tools";
+import { C, CATEGORIES, TOOLS, RESOURCE_KINDS, catOf, kindOf, LAST_UPDATED, AUTHOR } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 
 /* ================================================================== */
@@ -258,7 +258,7 @@ export default function Directory({ tools: initialTools }) {
   const [detail, setDetail] = useState(null);
   const [picked, setPicked] = useState([]);
   const [compare, setCompare] = useState(false);
-  const [showSuggest, setShowSuggest] = useState(false);
+  const [showSuggest, setShowSuggest] = useState(null);
   const gridRef = useRef(null);
 
   useEffect(() => {
@@ -458,7 +458,7 @@ export default function Directory({ tools: initialTools }) {
             <option value="name">A to Z</option>
             <option value="cat">By category</option>
           </select>
-          <button onClick={() => setShowSuggest(true)}
+          <button onClick={() => setShowSuggest("tool")}
             style={{
               background: "#00E08A", color: "#06110D", border: 0,
               borderRadius: 9, padding: "9px 16px", fontSize: 13.5, fontWeight: 700,
@@ -481,7 +481,7 @@ export default function Directory({ tools: initialTools }) {
               <p className="mt-1" style={{ fontSize: 14, color: C.muted }}>
                 Clear the filters, or add the tool you were expecting to find.
               </p>
-              <button onClick={() => setShowSuggest(true)} style={{
+              <button onClick={() => setShowSuggest("tool")} style={{
                 marginTop: 14, background: "#00E08A", color: "#06110D", border: 0,
                 borderRadius: 9, padding: "10px 18px", fontSize: 14, fontWeight: 700,
                 cursor: "pointer", fontFamily: "inherit",
@@ -490,7 +490,7 @@ export default function Directory({ tools: initialTools }) {
           )}
           {rows.length > 0 && (
             <button
-              onClick={() => setShowSuggest(true)}
+              onClick={() => setShowSuggest("tool")}
               className="card flex flex-col items-start justify-center text-left"
               style={{
                 background: "linear-gradient(155deg, rgba(0,224,138,.10), rgba(76,201,240,.06))",
@@ -520,6 +520,8 @@ export default function Directory({ tools: initialTools }) {
               pickFull={picked.length >= 4 && !picked.includes(t.id)} />
           ))}
         </div>
+
+        <Roadmap onSuggest={setShowSuggest} />
 
         <footer className="pb-16" style={{ borderTop: `1px solid ${C.line}`, paddingTop: 18 }}>
           <p style={{ fontSize: 13, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
@@ -589,7 +591,7 @@ export default function Directory({ tools: initialTools }) {
           onTools={setTools}
         />
       )}
-      {showSuggest && <SuggestModal suggestions={suggestions} onAdd={addSuggestion} onClose={() => setShowSuggest(false)} />}
+      {showSuggest && <SuggestModal suggestions={suggestions} initialKind={showSuggest} onAdd={addSuggestion} onClose={() => setShowSuggest(null)} />}
     </div>
   );
 }
@@ -935,7 +937,132 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
 }
 
 /* ================================================================== */
-function SuggestModal({ suggestions, onAdd, onClose }) {
+/* ================================================================== */
+/*  Roadmap                                                            */
+/*  Every kind that is not live yet, as a card that opens the suggest  */
+/*  modal already pointed at that kind.                                */
+/* ================================================================== */
+function Roadmap({ onSuggest }) {
+  const pending = RESOURCE_KINDS.filter((k) => !k.live);
+  return (
+    <section className="pt-4 pb-14">
+      <h2 style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.12, margin: 0 }}>
+        Tools are the first section, not the whole plan
+      </h2>
+      <p className="mt-3" style={{ fontSize: 15.5, color: C.muted, maxWidth: "64ch", lineHeight: 1.55 }}>
+        Software was the easiest part to catalogue, so it went first. The sections below are
+        what the rest of the job looks like, and they open in the order people ask for them.
+        Nothing in them is written yet. Suggest what belongs and it goes on the list.
+      </p>
+
+      <div className="grid mt-6" style={{ gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(262px, 1fr))" }}>
+        {pending.map((k) => (
+          <button
+            key={k.id}
+            onClick={() => onSuggest(k.id)}
+            className="flex flex-col items-start text-left"
+            style={{
+              background: C.panel, border: `1px solid ${C.line}`, borderRadius: 13,
+              padding: "15px 16px 16px", cursor: "pointer", fontFamily: "inherit",
+              color: C.text, height: "100%",
+            }}
+          >
+            <span style={{ width: 26, height: 4, borderRadius: 2, background: k.color, display: "block" }} />
+            <span style={{ fontSize: 16.5, fontWeight: 700, letterSpacing: "-0.015em", marginTop: 11 }}>
+              {k.label}
+            </span>
+            <span style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5, marginTop: 6, flex: 1 }}>
+              {k.blurb}
+            </span>
+            <span style={{ marginTop: 12 }}><Pill color={k.color}>open for suggestions</Pill></span>
+          </button>
+        ))}
+      </div>
+
+      <Subscribe />
+    </section>
+  );
+}
+
+function Subscribe() {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState("idle"); /* idle | busy | done | error */
+  const [msg, setMsg] = useState("");
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!valid || state === "busy") return;
+    setState("busy"); setMsg("");
+    try {
+      const res = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (!res.ok) { setState("error"); setMsg(await res.text()); return; }
+      setEmail(""); setState("done");
+    } catch {
+      setState("error"); setMsg("Could not reach the server. Try again in a moment.");
+    }
+  }
+
+  return (
+    <div className="mt-8" style={{
+      background: "linear-gradient(160deg, #10281F 0%, #0A1C16 100%)",
+      border: `1px solid ${C.line}`, borderRadius: 14, padding: 22,
+    }}>
+      <h3 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: "-0.015em" }}>
+        Know when a section opens
+      </h3>
+      <p style={{ fontSize: 14.5, color: C.muted, margin: "7px 0 0", maxWidth: "60ch", lineHeight: 1.55 }}>
+        One email when new tools go into the directory or a section opens. That is the whole
+        thing. It is not a newsletter, there is nothing to read weekly, and there is no pitch
+        at the bottom.
+      </p>
+
+      <form onSubmit={submit} className="flex flex-wrap mt-4" style={{ gap: 8 }}>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); if (state !== "idle") setState("idle"); }}
+          placeholder="you@yourapp.com"
+          aria-label="Email address"
+          style={{
+            flex: 1, minWidth: 220, maxWidth: 340,
+            background: "rgba(0,0,0,.32)", border: `1px solid ${C.line}`, borderRadius: 9,
+            padding: "10px 13px", fontSize: 14.5, color: C.text, fontFamily: "inherit",
+          }}
+        />
+        <button type="submit" disabled={!valid || state === "busy"} style={{
+          background: valid ? "#00E08A" : "rgba(255,255,255,.08)",
+          color: valid ? "#06110D" : C.dim, border: 0, borderRadius: 9,
+          padding: "10px 18px", fontSize: 14.5, fontWeight: 700,
+          cursor: valid && state !== "busy" ? "pointer" : "default", fontFamily: "inherit",
+        }}>
+          {state === "busy" ? "Adding…" : "Keep me posted"}
+        </button>
+      </form>
+
+      {state === "done" && (
+        <p className="mt-2" style={{ fontSize: 13, color: "#00E08A" }}>
+          Done. You will hear from me when something actually changes.
+        </p>
+      )}
+      {state === "error" && (
+        <p className="mt-2" style={{ fontSize: 13, color: "#FF6B8A" }}>{msg || "That did not go through."}</p>
+      )}
+
+      <p className="mt-3" style={{ fontSize: 12.5, color: C.dim, maxWidth: "60ch", lineHeight: 1.6 }}>
+        Your address is not shared or sold, and it is not passed to any tool listed here.
+        It is used for that one email and nothing else. Reply to any of them to be removed.
+      </p>
+    </div>
+  );
+}
+
+function SuggestModal({ suggestions, initialKind, onAdd, onClose }) {
+  const [kind, setKind] = useState(kindOf(initialKind).id);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [cat, setCat] = useState(CATEGORIES[0].id);
@@ -948,7 +1075,7 @@ function SuggestModal({ suggestions, onAdd, onClose }) {
   };
   const submit = () => {
     if (!name.trim()) return;
-    onAdd({ name: name.trim(), url: url.trim(), cat, why: why.trim(), by: by.trim() || "Anonymous" });
+    onAdd({ kind, name: name.trim(), url: url.trim(), cat, why: why.trim(), by: by.trim() || "Anonymous" });
     setName(""); setUrl(""); setWhy(""); setDone(true);
     setTimeout(() => setDone(false), 2600);
   };
@@ -956,7 +1083,9 @@ function SuggestModal({ suggestions, onAdd, onClose }) {
     <Shell onClose={onClose} width={880}>
       <div style={{ padding: 24 }}>
         <div className="flex items-center justify-between" style={{ gap: 12 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Suggest a tool</h2>
+          <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>
+            {kind === "tool" ? "Suggest a tool" : `Suggest something for ${kindOf(kind).label.toLowerCase()}`}
+          </h2>
           <button onClick={onClose} style={{
             background: "rgba(255,255,255,.06)", border: `1px solid ${C.line}`, color: C.muted,
             borderRadius: 8, width: 30, height: 30, cursor: "pointer", fontSize: 15, fontFamily: "inherit",
@@ -965,19 +1094,40 @@ function SuggestModal({ suggestions, onAdd, onClose }) {
 
         <div className="flex flex-col md:flex-row mt-4" style={{ gap: 28 }}>
           <div style={{ flex: 1 }}>
+            <div className="flex flex-wrap" style={{ gap: 6, marginBottom: 14 }}>
+              {RESOURCE_KINDS.map((k) => {
+                const on = k.id === kind;
+                return (
+                  <button key={k.id} type="button" onClick={() => setKind(k.id)} aria-pressed={on}
+                    style={{
+                      background: on ? k.color : "rgba(255,255,255,.045)",
+                      color: on ? "#06110D" : C.text,
+                      border: `1px solid ${on ? k.color : C.line}`, borderRadius: 999,
+                      padding: "5px 11px", fontSize: 12.5, fontWeight: on ? 700 : 500,
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}>{k.label}</button>
+                );
+              })}
+            </div>
             <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5, marginBottom: 14 }}>
-              Built something, or use something that belongs here? Add it. Suggestions are public
-              and go into the directory after a check.
+              {kind === "tool"
+                ? "Built something, or use something that belongs here? Add it. Suggestions are public and go into the directory after a check."
+                : "This section is not open yet. What gets suggested decides what is in it when it opens, and how soon that happens. Suggestions are public."}
             </p>
             <div className="flex flex-col" style={{ gap: 9 }}>
-              <input style={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Tool name" />
+              <input style={field} value={name} onChange={(e) => setName(e.target.value)}
+                placeholder={kind === "tool" ? "Tool name" : "Name"} />
               <input style={field} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
-              <select style={field} value={cat} onChange={(e) => setCat(e.target.value)}>
-                {CATEGORIES.map((c) => <option key={c.id} value={c.id} style={{ background: C.panel }}>{c.label}</option>)}
-              </select>
+              {kind === "tool" && (
+                <select style={field} value={cat} onChange={(e) => setCat(e.target.value)}>
+                  {CATEGORIES.map((c) => <option key={c.id} value={c.id} style={{ background: C.panel }}>{c.label}</option>)}
+                </select>
+              )}
               <textarea style={{ ...field, minHeight: 84, resize: "vertical" }} value={why}
                 onChange={(e) => setWhy(e.target.value)}
-                placeholder="What does it do, and what problem does it solve better than the alternatives?" />
+                placeholder={kind === "tool"
+                  ? "What does it do, and what problem does it solve better than the alternatives?"
+                  : "What is it, and why is it worth an app vendor's time?"} />
               <input style={{ ...field, width: 170 }} value={by} onChange={(e) => setBy(e.target.value)} placeholder="Your name" />
               <button onClick={submit} disabled={!name.trim()} style={{
                 alignSelf: "flex-start", background: name.trim() ? "#00E08A" : "rgba(255,255,255,.08)",
@@ -1005,7 +1155,9 @@ function SuggestModal({ suggestions, onAdd, onClose }) {
                   <div key={s.id} style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0" }}>
                     <div className="flex flex-wrap items-baseline" style={{ gap: 8 }}>
                       <span style={{ fontSize: 15, fontWeight: 700 }}>{s.name}</span>
-                      <span style={{ fontSize: 12, color: catOf(s.cat).color }}>{catOf(s.cat).label}</span>
+                      {s.kind && s.kind !== "tool"
+                        ? <span style={{ fontSize: 12, color: kindOf(s.kind).color }}>{kindOf(s.kind).label}</span>
+                        : <span style={{ fontSize: 12, color: catOf(s.cat).color }}>{catOf(s.cat).label}</span>}
                     </div>
                     {s.why && <p className="mt-1" style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5, maxWidth: "50ch" }}>{s.why}</p>}
                     <p className="mt-1" style={{ fontSize: 12, color: C.dim }}>

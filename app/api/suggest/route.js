@@ -1,6 +1,6 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { CATEGORIES } from "@/lib/tools";
+import { CATEGORIES, RESOURCE_KINDS } from "@/lib/tools";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,7 @@ export async function POST(request) {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     name,
     url,
+    kind: RESOURCE_KINDS.some((k) => k.id === body.kind) ? body.kind : "tool",
     cat: CATEGORIES.some((c) => c.id === body.cat) ? body.cat : CATEGORIES[0].id,
     why: clean(body.why, 600),
     by: clean(body.by, 40) || "Anonymous",
