@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { read, KEYS } from "@/lib/store";
 import { getClaims } from "@/lib/listings";
+import { getSubscribers } from "@/lib/subscribers";
 import { C } from "@/lib/tools";
 import AdminPanel from "@/components/Admin";
 
@@ -33,7 +34,7 @@ export default async function AdminPage() {
   const [suggestions, claims, subscribers] = await Promise.all([
     read(KEYS.suggestions, []),
     getClaims(),
-    read(KEYS.subscribers, []),
+    getSubscribers(),
   ]);
 
   return (

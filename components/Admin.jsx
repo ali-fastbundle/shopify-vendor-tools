@@ -126,6 +126,8 @@ export default function AdminPanel({ email, suggestions, claims, subscribers }) 
 
         <Subscribers list={subscribers || []} />
 
+        <Compose count={(subscribers || []).length} />
+
         <div style={{ height: 60 }} />
       </div>
     </main>
@@ -184,6 +186,130 @@ function Btn({ onClick, busy, tone, children }) {
       padding: "5px 12px", fontSize: 12.5, fontWeight: 600,
       cursor: busy ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
     }}>{busy ? "…" : children}</button>
+  );
+}
+
+/*
+ * Compose and send. The count in the confirmation comes from the server render,
+ * so it is what the list held when the page loaded — the send itself reads the
+ * list again, which is why the result reports its own numbers rather than
+ * assuming this one.
+ */
+function Compose({ count }) {
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [result, setResult] = useState(null);
+  const [err, setErr] = useState("");
+
+  const ready = Boolean(subject.trim() && body.trim());
+
+  async function send(test) {
+    setBusy(test ? "test" : "send"); setErr(""); setResult(null);
+    try {
+      const res = await fetch("/api/admin/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, body, test }),
+      });
+      if (!res.ok) { setErr(await res.text()); return; }
+      setResult(await res.json());
+      setConfirming(false);
+    } catch {
+      setErr("Could not reach the server.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <section className="pb-10">
+      <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" }}>Send to the list</h2>
+      <p style={{ fontSize: 13, color: C.muted, margin: "5px 0 0", maxWidth: "72ch", lineHeight: 1.55 }}>
+        Plain text. An unsubscribe link is appended to every copy automatically, and each
+        recipient is sent their own message — nobody sees another subscriber's address.
+        Test it on yourself first.
+      </p>
+
+      <div className="mt-3 flex flex-col" style={{
+        background: C.panel, border: `1px solid ${C.line}`, borderRadius: 13, padding: 16, gap: 10,
+      }}>
+        <input
+          value={subject}
+          onChange={(e) => { setSubject(e.target.value); setConfirming(false); }}
+          placeholder="Subject"
+          style={{
+            background: "rgba(0,0,0,.3)", border: `1px solid ${C.line}`, borderRadius: 9,
+            padding: "10px 12px", fontSize: 14.5, color: C.text, fontFamily: "inherit", width: "100%",
+          }}
+        />
+        <textarea
+          value={body}
+          onChange={(e) => { setBody(e.target.value); setConfirming(false); }}
+          placeholder="Two new tools went into App Store data this week…"
+          style={{
+            background: "rgba(0,0,0,.3)", border: `1px solid ${C.line}`, borderRadius: 9,
+            padding: "10px 12px", fontSize: 14, color: C.text, fontFamily: "inherit",
+            width: "100%", minHeight: 170, resize: "vertical", lineHeight: 1.6,
+          }}
+        />
+
+        {!confirming ? (
+          <div className="flex flex-wrap items-center" style={{ gap: 9 }}>
+            <button onClick={() => send(true)} disabled={!ready || Boolean(busy)} style={{
+              background: "rgba(255,255,255,.06)", border: `1px solid ${C.line}`,
+              color: ready ? C.text : C.dim, borderRadius: 9, padding: "9px 15px",
+              fontSize: 13.5, fontWeight: 600, cursor: ready && !busy ? "pointer" : "default",
+              fontFamily: "inherit",
+            }}>{busy === "test" ? "Sending…" : "Send test to me"}</button>
+
+            <button onClick={() => { setResult(null); setErr(""); setConfirming(true); }}
+              disabled={!ready || Boolean(busy) || count === 0} style={{
+                background: ready && count ? "#00E08A" : "rgba(255,255,255,.08)",
+                color: ready && count ? "#06110D" : C.dim, border: 0, borderRadius: 9,
+                padding: "9px 16px", fontSize: 13.5, fontWeight: 700,
+                cursor: ready && count && !busy ? "pointer" : "default", fontFamily: "inherit",
+              }}>Send to the list</button>
+
+            {count === 0 && <span style={{ fontSize: 12.5, color: C.dim }}>Nobody on the list yet.</span>}
+          </div>
+        ) : (
+          <div style={{
+            border: "1px solid rgba(255,107,138,.45)", background: "rgba(255,107,138,.08)",
+            borderRadius: 10, padding: 14,
+          }}>
+            <p style={{ fontSize: 14, margin: 0, lineHeight: 1.55 }}>
+              Send <b>{subject}</b> to <b>{count}</b> {count === 1 ? "address" : "addresses"}?
+            </p>
+            <p style={{ fontSize: 12.5, color: C.muted, margin: "6px 0 0", lineHeight: 1.55 }}>
+              There is no recall once this goes out.
+            </p>
+            <div className="flex flex-wrap mt-3" style={{ gap: 9 }}>
+              <button onClick={() => send(false)} disabled={Boolean(busy)} style={{
+                background: "#FF6B8A", color: "#06110D", border: 0, borderRadius: 9,
+                padding: "9px 16px", fontSize: 13.5, fontWeight: 700,
+                cursor: busy ? "default" : "pointer", fontFamily: "inherit",
+              }}>{busy === "send" ? "Sending…" : `Yes, send to ${count}`}</button>
+              <button onClick={() => setConfirming(false)} disabled={Boolean(busy)} style={{
+                background: "transparent", border: `1px solid ${C.line}`, color: C.muted,
+                borderRadius: 9, padding: "9px 15px", fontSize: 13.5, fontWeight: 600,
+                cursor: busy ? "default" : "pointer", fontFamily: "inherit",
+              }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {err && <p style={{ fontSize: 13, color: "#FF6B8A", margin: 0, lineHeight: 1.55 }}>{err}</p>}
+        {result && (
+          <p style={{ fontSize: 13, color: result.failed ? "#FF9052" : "#00E08A", margin: 0, lineHeight: 1.55 }}>
+            {result.test
+              ? `Test sent to ${result.to}.`
+              : `Sent ${result.sent} of ${result.total}.${result.failed ? ` ${result.failed} failed — check the server log.` : ""}`}
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 

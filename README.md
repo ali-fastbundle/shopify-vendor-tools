@@ -16,7 +16,8 @@ Next.js 14 (App Router) · Upstash Redis · Anthropic API · deploys to Vercel.
 | Roadmap sections | `RESOURCE_KINDS` in `lib/tools.js` — flip `live: true` when a section opens |
 | UI | `components/Directory.jsx` (single client component) |
 | Community data | `app/api/data` (read), `app/api/vote`, `app/api/review`, `app/api/suggest` |
-| Subscribers | `app/api/subscribe` — write-only, stored in the `svt:subscribers` key |
+| Subscribers | `app/api/subscribe` (join), `app/api/subscribe/remove` (leave), `lib/subscribers.js` |
+| Broadcast | `app/api/admin/broadcast` — admin-only, batched through Resend |
 | Admin console | `app/admin` (gate) + `components/Admin.jsx` (view) + `app/api/admin` (actions) |
 | Admin email | `lib/notify.js` — fire-and-forget, never awaited |
 | Problem matcher | `app/api/match` — holds the API keys server-side, Anthropic and/or OpenAI |
@@ -176,6 +177,29 @@ dead Resend must never fail or delay somebody else's request. Failures go to the
 same `{ ok: true }` whether the address was new or already stored, so the endpoint cannot
 be used to test whether someone is on the list. Nothing reads the key back out over HTTP —
 export it from Redis when you actually want to send the mail. Keep it that way.
+
+Joining sends a confirmation, and only on a genuinely new address — re-posting a known
+one is silently ignored so the endpoint cannot be used to mail-bomb somebody. Every
+message carries an unsubscribe link whose token is an HMAC of the address under
+`AUTH_SECRET`, so it needs nothing stored alongside it and cannot be edited to
+unsubscribe anyone else. Rotating `AUTH_SECRET` invalidates every link already sent.
+
+`/api/subscribe/remove` is a GET, because it is reached by clicking a link in an email.
+That means an aggressive scanner or link-prefetcher in someone's mail client can
+unsubscribe them without a human clicking. The alternative is a confirmation page, which
+costs every real unsubscriber a step; this trades that for the risk.
+
+## Broadcasts
+
+`/admin` has a compose box. **Send test to me** goes to the signed-in admin and never
+touches the list. **Send to the list** asks for confirmation with the recipient count
+before anything goes out. Sending is admin-checked server-side in
+`app/api/admin/broadcast`, never trusted from the page.
+
+Recipients go out in batches of 100 through Resend's batch endpoint, each as its own
+message so that no subscriber ever sees another's address and each gets their own
+unsubscribe link. A batch that fails is counted and the rest still go; the response
+reports `sent` and `failed`.
 
 Rate limits as shipped: 60 votes/min, 5 reviews/10 min, 3 suggestions/hour,
 20 matcher calls/hour, all per IP. Adjust in the route files.
