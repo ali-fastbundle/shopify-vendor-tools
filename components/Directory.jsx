@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { C, CATEGORIES, TOOLS, catOf, LAST_UPDATED } from "@/lib/tools";
+import { C, CATEGORIES, TOOLS, catOf, LAST_UPDATED, AUTHOR } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 
 /* ================================================================== */
@@ -409,6 +409,9 @@ export default function Directory({ tools: initialTools }) {
           <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, margin: "16px 0 0" }}>
             The Shopify app vendor's toolkit
           </h1>
+          <p style={{ fontSize: 15, color: C.muted, margin: "10px 0 0" }}>
+            by {AUTHOR}
+          </p>
           <p className="mt-3" style={{ fontSize: 16.5, color: C.muted, maxWidth: "60ch", lineHeight: 1.55 }}>
             Every tool built specifically for the people who build Shopify apps. Rankings, store data,
             revenue analytics, partner programs. Open directory, community rated.
