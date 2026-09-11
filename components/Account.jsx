@@ -28,6 +28,15 @@ const field = {
   padding: "9px 12px", fontSize: 14, color: C.text, fontFamily: "inherit", width: "100%",
 };
 
+/*
+ * Mirrors rootOf/domainOf in app/api/claim/route.js. Duplicated rather than
+ * imported because lib/auth.js pulls in node crypto and this is a client
+ * component. It only decides which sentence to show — the server decides
+ * whether the shortcut actually applies.
+ */
+const rootOf = (d) => String(d || "").replace(/^www\./, "").toLowerCase();
+const domainOfEmail = (e) => String(e || "").split("@")[1] || "";
+
 const primary = (on) => ({
   background: on ? "#00E08A" : "rgba(255,255,255,.08)",
   color: on ? "#06110D" : C.dim, border: 0, borderRadius: 9,
@@ -150,6 +159,8 @@ export function AccountBar({ session, refresh }) {
 export function OwnerPanel({ tool, session, refresh, onTools }) {
   const col = catOf(tool.cat).color;
   const owns = session.owned?.includes(tool.id) || session.admin;
+  // Signing in from the tool's own domain is itself proof, so that path skips publishing.
+  const shortcut = rootOf(domainOfEmail(session.email)) === rootOf(tool.domain);
   const [claim, setClaim] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -172,7 +183,8 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
     return (
       <p style={{ fontSize: 13, color: C.dim, marginTop: 18, lineHeight: 1.55 }}>
         Is this your tool? Sign in at the top of the page to claim the listing and edit
-        how it is described.
+        how it is described. Any email works — ownership is proved against the site,
+        not the address you sign in with.
       </p>
     );
   }
@@ -207,20 +219,38 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
       <p style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Is this your tool?</p>
       <p style={{ fontSize: 13.5, color: C.muted, margin: "6px 0 0", lineHeight: 1.55 }}>
         Claim the listing to edit how it is described. You prove it by publishing a short
-        string on {tool.domain}, or by signing in with an email at that domain.
+        string on <b style={{ color: C.text }}>{tool.domain}</b> — a file or a meta tag,
+        whichever your stack makes easy. It is the site that proves ownership, so it does
+        not matter which email you signed in with.
       </p>
 
       {!claim && (
-        <button onClick={() => act("start")} disabled={busy}
-          style={{ ...primary(true), marginTop: 12 }}>
-          {busy ? "Checking…" : "Claim this listing"}
-        </button>
+        <>
+          {shortcut ? (
+            <p style={{ fontSize: 13, color: C.muted, margin: "10px 0 0", lineHeight: 1.6 }}>
+              You are signed in as <b style={{ color: C.text }}>{session.email}</b>, which is
+              already on {tool.domain}. That is proof enough on its own, so you can skip
+              publishing anything — this should verify the moment you click.
+            </p>
+          ) : (
+            <p style={{ fontSize: 13, color: C.muted, margin: "10px 0 0", lineHeight: 1.6 }}>
+              You are signed in as <b style={{ color: C.text }}>{session.email}</b>. Since that
+              is not on {tool.domain}, you will verify by publishing a short string on the
+              site. Takes a minute if you can edit the homepage or upload a file.
+            </p>
+          )}
+          <button onClick={() => act("start")} disabled={busy}
+            style={{ ...primary(true), marginTop: 12 }}>
+            {busy ? "Checking…" : "Claim this listing"}
+          </button>
+        </>
       )}
 
       {claim && (
         <div style={{ marginTop: 14 }}>
           <p style={{ fontSize: 13.5, lineHeight: 1.6, margin: 0 }}>
-            Publish this string on <b>{tool.domain}</b>, either way works:
+            Publish this string anywhere on <b>{tool.domain}</b>. Either place below works,
+            and you can take it down once the claim is verified.
           </p>
           <pre style={{
             background: "rgba(0,0,0,.4)", border: `1px solid ${C.line}`, borderRadius: 8,
