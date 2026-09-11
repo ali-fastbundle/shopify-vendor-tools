@@ -72,6 +72,13 @@ export function AccountBar({ session, refresh }) {
           {session.email}
           {session.owned?.length ? ` · ${session.owned.length} claimed` : ""}
         </span>
+        {session.admin && (
+          <a href="/admin" style={{
+            background: "rgba(0,224,138,.12)", border: "1px solid rgba(0,224,138,.45)",
+            color: "#00E08A", borderRadius: 8, padding: "6px 11px", fontSize: 12.5,
+            fontWeight: 600, textDecoration: "none",
+          }}>Admin</a>
+        )}
         <button onClick={signOut} style={{
           background: "transparent", border: `1px solid ${C.line}`, color: C.muted,
           borderRadius: 8, padding: "6px 11px", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit",

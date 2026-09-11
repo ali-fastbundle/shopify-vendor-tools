@@ -1,6 +1,7 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { CATEGORIES, RESOURCE_KINDS } from "@/lib/tools";
+import { CATEGORIES, RESOURCE_KINDS, kindOf } from "@/lib/tools";
+import { notifyAdmin } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -40,5 +41,18 @@ export async function POST(request) {
   };
   const next = [entry, ...suggestions].slice(0, 500);
   await write(KEYS.suggestions, next);
+
+  // Deliberately not awaited. See lib/notify.js.
+  notifyAdmin(`New suggestion: ${entry.name}`, [
+    `Kind: ${kindOf(entry.kind).label}`,
+    entry.kind === "tool" ? `Category: ${CATEGORIES.find((c) => c.id === entry.cat)?.label || entry.cat}` : "",
+    `By: ${entry.by}`,
+    entry.url ? `URL: ${entry.url}` : "No URL given",
+    entry.why ? `\nWhy:\n${entry.why}` : "",
+    entry.approved === false
+      ? "\nAwaiting approval — it is stored but not public. Approve it at /admin."
+      : "\nLive now. Moderation is off, so it is already public.",
+  ]);
+
   return Response.json({ suggestions: next.filter((s) => s.approved !== false) });
 }

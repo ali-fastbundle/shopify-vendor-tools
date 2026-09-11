@@ -17,6 +17,8 @@ Next.js 14 (App Router) · Upstash Redis · Anthropic API · deploys to Vercel.
 | UI | `components/Directory.jsx` (single client component) |
 | Community data | `app/api/data` (read), `app/api/vote`, `app/api/review`, `app/api/suggest` |
 | Subscribers | `app/api/subscribe` — write-only, stored in the `svt:subscribers` key |
+| Admin console | `app/admin` (gate) + `components/Admin.jsx` (view) + `app/api/admin` (actions) |
+| Admin email | `lib/notify.js` — fire-and-forget, never awaited |
 | Problem matcher | `app/api/match` — holds the API keys server-side, Anthropic and/or OpenAI |
 | Storage | `lib/store.js` — Upstash Redis, with an in-memory fallback for local dev |
 | Spam control | `lib/ratelimit.js` — per-IP sliding window |
@@ -135,7 +137,7 @@ line saying the vendor maintains that copy, so readers know whose voice they are
 |---|---|
 | `AUTH_SECRET` | Sign-in is disabled entirely; the site stays read-only |
 | `RESEND_API_KEY` | Production refuses to send links; locally they print to the log |
-| `ADMIN_EMAILS` | Nobody can override a claim |
+| `ADMIN_EMAILS` | Nobody can override a claim, `/admin` is closed to everyone, and no notifications are sent |
 
 Generate the secret with `openssl rand -base64 32`. For Resend, verify a sending domain
 and set `EMAIL_FROM` to an address on it, or leave the default `onboarding@resend.dev`
@@ -144,11 +146,29 @@ which works for testing but will land in spam.
 ## Moderation
 
 `MODERATE_SUGGESTIONS=true` stores new suggestions with `approved: false`, so they are
-kept but never served by `/api/data`. To approve one, set its `approved` field to
-`true` in the `svt:suggestions` key in Redis.
+kept but never served by `/api/data`. Approve or delete them at `/admin`, or set the
+`approved` field by hand in the `svt:suggestions` key in Redis.
 
 Leave the flag unset and every suggestion is public the moment it is submitted. On a
 public directory that is the first thing spammed, so decide deliberately.
+
+## Admin
+
+`/admin` lists pending and approved suggestions, every claim, and the subscriber count.
+It is linked from the account bar only when you are signed in as an `ADMIN_EMAILS`
+address, and it renders `Not authorised` and nothing else to everyone else — the check
+returns before any Redis read, so an unauthorised request never pulls data into the page.
+
+`/api/admin` backs the buttons and re-derives the session and re-checks `ADMIN_EMAILS` on
+every request. It answers 404 to anyone who is not an admin, signed out or not, so it does
+not confirm it exists. **The page's own check is a convenience, never the permission.**
+
+## Notifications
+
+`lib/notify.js` emails every `ADMIN_EMAILS` address through Resend on a new suggestion, a
+claim reaching verified, and a listing edit. It no-ops without `RESEND_API_KEY` or
+`ADMIN_EMAILS`, never throws, and is deliberately **not awaited** by its callers: a slow or
+dead Resend must never fail or delay somebody else's request. Failures go to the server log.
 
 ## The subscriber list
 
