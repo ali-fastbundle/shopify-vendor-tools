@@ -351,11 +351,20 @@ export default function Directory({ tools: initialTools }) {
         t.name.toLowerCase().includes(n) || t.one.toLowerCase().includes(n) ||
         t.note.toLowerCase().includes(n) || t.tags.some((g) => g.includes(n)));
     }
-    if (sort === "rating") list = [...list].sort((a, b) => avg(b.id) - avg(a.id) || net(b.id) - net(a.id));
-    if (sort === "votes") list = [...list].sort((a, b) => net(b.id) - net(a.id));
-    if (sort === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    if (sort === "cat") list = [...list].sort((a, b) => a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name));
-    return list;
+    const alive = (t) => (t.dying ? 1 : 0);
+    const by = {
+      // Nothing is rated on day one, so fall back to claimed listings, then
+      // free plans, then name. Anything but arbitrary order.
+      rating: (a, b) =>
+        avg(b.id) - avg(a.id) || net(b.id) - net(a.id) ||
+        Number(Boolean(b.claimed)) - Number(Boolean(a.claimed)) ||
+        Number(Boolean(b.free)) - Number(Boolean(a.free)) ||
+        a.name.localeCompare(b.name),
+      votes: (a, b) => net(b.id) - net(a.id) || a.name.localeCompare(b.name),
+      name: (a, b) => a.name.localeCompare(b.name),
+      cat: (a, b) => a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name),
+    };
+    return [...list].sort((a, b) => alive(a) - alive(b) || (by[sort] || by.name)(a, b));
   }, [cat, q, sort, freeOnly, votes, reviews]);
 
   const toggle = (id) =>
@@ -623,11 +632,24 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
             </div>
             <p style={{ fontSize: 12.5, color: col, marginTop: 2 }}>{catOf(tool.cat).label}</p>
           </div>
-          <label title={pickFull ? "Four maximum" : "Select to compare"}
-            style={{ cursor: pickFull ? "not-allowed" : "pointer", flexShrink: 0, padding: 2 }}>
-            <input type="checkbox" checked={picked} disabled={pickFull} onChange={onPick}
-              style={{ accentColor: col, width: 16, height: 16, cursor: "inherit" }} />
-          </label>
+          <button
+            onClick={onPick}
+            disabled={pickFull}
+            aria-pressed={picked}
+            title={pickFull ? "Four tools maximum" : picked ? "Remove from comparison" : "Add to comparison"}
+            style={{
+              flexShrink: 0, width: 22, height: 22, borderRadius: 6, padding: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: picked ? col : "transparent",
+              border: `1px solid ${picked ? col : C.line}`,
+              color: picked ? "#06110D" : C.dim,
+              cursor: pickFull ? "not-allowed" : "pointer",
+              opacity: pickFull ? 0.4 : 1,
+              fontSize: 12, fontWeight: 800, lineHeight: 1, fontFamily: "inherit",
+            }}
+          >
+            {picked ? "✓" : "+"}
+          </button>
         </div>
 
         <p className="mt-3" style={{ fontSize: 14, color: C.muted, lineHeight: 1.5, flex: 1 }}>{tool.one}</p>
