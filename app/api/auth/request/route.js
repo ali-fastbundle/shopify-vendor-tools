@@ -1,5 +1,5 @@
 import { configured, isEmail, mintLoginToken, normaliseEmail } from "@/lib/auth";
-import { sendLoginLink } from "@/lib/email";
+import { sendLoginLink, isSendingRestricted } from "@/lib/email";
 import { allow, ipOf } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,13 @@ export async function POST(request) {
     const r = await sendLoginLink(addr, link);
     return Response.json({ ok: true, dev: Boolean(r.dev) });
   } catch (e) {
+    // Full error to the log either way; only the wording to the visitor changes.
     console.error("login email", e.message);
-    return new Response("Could not send the email", { status: 502 });
+    return new Response(
+      isSendingRestricted(e.message)
+        ? "Email sending is restricted to the account owner until a sending domain is verified in Resend."
+        : "Could not send the email",
+      { status: 502 },
+    );
   }
 }
