@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { C, CATEGORIES, TOOLS, catOf } from "@/lib/tools";
+import { C, CATEGORIES, TOOLS, catOf, LAST_UPDATED } from "@/lib/tools";
+import { AccountBar, OwnerPanel, useSession } from "./Account";
 
 /* ================================================================== */
 /*  Bits                                                               */
@@ -103,9 +104,9 @@ const EXAMPLES = [
   "I need App Store data my AI agent can query",
 ];
 
-function localMatch(problem) {
+function localMatch(problem, tools = TOOLS) {
   const words = problem.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
-  return TOOLS.map((t) => {
+  return tools.map((t) => {
     const hay = (t.tags.join(" ") + " " + t.one + " " + t.note + " " + catOf(t.cat).label).toLowerCase();
     let score = 0;
     words.forEach((w) => {
@@ -118,7 +119,7 @@ function localMatch(problem) {
     .map((r) => ({ id: r.id, why: "Matched on what you described." }));
 }
 
-function Matcher({ onOpen }) {
+function Matcher({ tools, onOpen }) {
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
   const [picks, setPicks] = useState(null);
@@ -136,11 +137,11 @@ function Matcher({ onOpen }) {
       });
       if (!res.ok) throw new Error("match failed");
       const parsed = await res.json();
-      const valid = (parsed.picks || []).filter((p) => TOOLS.some((t) => t.id === p.id));
-      setPicks(valid.length ? valid : localMatch(q));
+      const valid = (parsed.picks || []).filter((p) => tools.some((t) => t.id === p.id));
+      setPicks(valid.length ? valid : localMatch(q, tools));
       setNote(parsed.note || "");
     } catch {
-      setPicks(localMatch(q));
+      setPicks(localMatch(q, tools));
       setNote("");
     }
     setBusy(false);
@@ -207,7 +208,7 @@ function Matcher({ onOpen }) {
           )}
           <div className="flex flex-col" style={{ gap: 10 }}>
             {picks.map((p) => {
-              const t = TOOLS.find((x) => x.id === p.id);
+              const t = tools.find((x) => x.id === p.id);
               const col = catOf(t.cat).color;
               return (
                 <button key={p.id} onClick={() => onOpen(t.id)}
@@ -240,7 +241,9 @@ function Matcher({ onOpen }) {
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory() {
+export default function Directory({ tools: initialTools }) {
+  const [tools, setTools] = useState(initialTools || TOOLS);
+  const [session, refreshSession] = useSession();
   const [votes, setVotes] = useState({});
   const [reviews, setReviews] = useState({});
   const [mine, setMine] = useState({});
@@ -340,7 +343,7 @@ export default function Directory() {
   };
 
   const rows = useMemo(() => {
-    let list = TOOLS.filter((t) => cat === "all" || t.cat === cat);
+    let list = tools.filter((t) => cat === "all" || t.cat === cat);
     if (freeOnly) list = list.filter((t) => t.free);
     if (q.trim()) {
       const n = q.toLowerCase();
@@ -385,7 +388,10 @@ export default function Directory() {
       <div className="mx-auto" style={{ maxWidth: 1140, padding: "0 20px", position: "relative" }}>
 
         {/* Masthead */}
-        <header className="pt-12 pb-7">
+        <header className="pt-8 pb-7">
+          <div className="flex items-center justify-end pb-6">
+            <AccountBar session={session} refresh={refreshSession} />
+          </div>
           <div className="flex flex-wrap items-center" style={{ gap: 10 }}>
             {CATEGORIES.map((c) => (
               <span key={c.id} style={{ width: 26, height: 4, borderRadius: 2, background: c.color, display: "inline-block" }} />
@@ -399,22 +405,22 @@ export default function Directory() {
             revenue analytics, partner programs. Open directory, community rated.
           </p>
           <div className="flex flex-wrap items-center mt-5" style={{ gap: 18, fontSize: 13.5, color: C.muted }}>
-            <span><b style={{ color: C.text }}>{TOOLS.length}</b> tools</span>
+            <span><b style={{ color: C.text }}>{tools.length}</b> tools</span>
             <span><b style={{ color: C.text }}>{CATEGORIES.length}</b> categories</span>
             <span><b style={{ color: C.text }}>{loading ? "…" : totalReviews}</b> community reviews</span>
-            <span style={{ color: C.dim }}>Shopify-exclusive only · researched 11 Sep 2026</span>
+            <span style={{ color: C.dim }}>Shopify-exclusive only · last updated {LAST_UPDATED}</span>
           </div>
         </header>
 
-        <Matcher onOpen={openTool} />
+        <Matcher tools={tools} onOpen={openTool} />
 
         {/* Filters */}
         <div className="mt-10 flex flex-wrap items-center" style={{ gap: 8 }}>
           <FilterChip active={cat === "all"} color="#FFFFFF" onClick={() => setCat("all")}
-            label="All" count={TOOLS.length} />
+            label="All" count={tools.length} />
           {CATEGORIES.map((c) => (
             <FilterChip key={c.id} active={cat === c.id} color={c.color} onClick={() => setCat(c.id)}
-              label={c.label} count={TOOLS.filter((t) => t.cat === c.id).length} />
+              label={c.label} count={tools.filter((t) => t.cat === c.id).length} />
           ))}
         </div>
 
@@ -442,10 +448,10 @@ export default function Directory() {
           </select>
           <button onClick={() => setShowSuggest(true)}
             style={{
-              background: "transparent", color: C.text, border: `1px dashed ${C.line}`,
-              borderRadius: 9, padding: "9px 14px", fontSize: 13.5, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit",
-            }}>Suggest a tool {suggestions.length ? `(${suggestions.length})` : ""}</button>
+              background: "#00E08A", color: "#06110D", border: 0,
+              borderRadius: 9, padding: "9px 16px", fontSize: 13.5, fontWeight: 700,
+              cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+            }}>Add a tool {suggestions.length ? `· ${suggestions.length}` : ""}</button>
         </div>
 
         {cat !== "all" && (
@@ -461,9 +467,38 @@ export default function Directory() {
             <div style={{ gridColumn: "1 / -1", padding: "40px 0" }}>
               <p style={{ fontSize: 16 }}>Nothing matches that.</p>
               <p className="mt-1" style={{ fontSize: 14, color: C.muted }}>
-                Clear the filters, or suggest the tool you were expecting to find.
+                Clear the filters, or add the tool you were expecting to find.
               </p>
+              <button onClick={() => setShowSuggest(true)} style={{
+                marginTop: 14, background: "#00E08A", color: "#06110D", border: 0,
+                borderRadius: 9, padding: "10px 18px", fontSize: 14, fontWeight: 700,
+                cursor: "pointer", fontFamily: "inherit",
+              }}>Add a tool</button>
             </div>
+          )}
+          {rows.length > 0 && (
+            <button
+              onClick={() => setShowSuggest(true)}
+              className="card flex flex-col items-start justify-center text-left"
+              style={{
+                background: "linear-gradient(155deg, rgba(0,224,138,.10), rgba(76,201,240,.06))",
+                border: "1px dashed rgba(0,224,138,.45)", borderRadius: 14, padding: 20,
+                minHeight: 190, cursor: "pointer", fontFamily: "inherit", color: C.text,
+                order: 999,
+              }}
+            >
+              <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.015em" }}>
+                Not finding it?
+              </span>
+              <span style={{ fontSize: 14, color: C.muted, lineHeight: 1.5, marginTop: 7 }}>
+                This list is missing things by definition. Built a tool, or use one that
+                belongs here? Add it and it joins the directory after a check.
+              </span>
+              <span style={{
+                marginTop: 14, background: "#00E08A", color: "#06110D", borderRadius: 8,
+                padding: "8px 14px", fontSize: 13.5, fontWeight: 700,
+              }}>Add a tool</span>
+            </button>
           )}
           {rows.map((t) => (
             <Card key={t.id} tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
@@ -477,7 +512,7 @@ export default function Directory() {
         <footer className="pb-16" style={{ borderTop: `1px solid ${C.line}`, paddingTop: 18 }}>
           <p style={{ fontSize: 13, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
             Independent directory. No tool here paid to be listed and none of the links are affiliate links.
-            Notes are a single research pass, not an endorsement, and pricing moves. Tools marked unverified
+            Notes were last updated {LAST_UPDATED}. They are an editorial view, not an endorsement, and pricing moves. Tools marked unverified
             were sourced from search results or third parties rather than the vendor's own site. Social
             profiles are linked only where the vendor publishes them. Ratings, reviews and suggestions are
             contributed by visitors and shared with everyone.
@@ -498,7 +533,7 @@ export default function Directory() {
             </span>
             <div className="flex flex-wrap" style={{ gap: 6, flex: 1 }}>
               {picked.map((id) => {
-                const t = TOOLS.find((x) => x.id === id);
+                const t = tools.find((x) => x.id === id);
                 return (
                   <button key={id} onClick={() => toggle(id)}
                     style={{
@@ -526,10 +561,10 @@ export default function Directory() {
         </div>
       )}
 
-      {compare && <CompareModal ids={picked} onClose={() => setCompare(false)} avg={avg} votes={votes} reviews={reviews} />}
+      {compare && <CompareModal tools={tools} ids={picked} onClose={() => setCompare(false)} avg={avg} votes={votes} reviews={reviews} />}
       {detail && (
         <DetailModal
-          tool={TOOLS.find((t) => t.id === detail)}
+          tool={tools.find((t) => t.id === detail)}
           onClose={() => setDetail(null)}
           reviews={reviews[detail] || []}
           onReview={(a, r, x) => addReview(detail, a, r, x)}
@@ -537,6 +572,9 @@ export default function Directory() {
           votes={votes[detail] || { up: 0, down: 0 }}
           myVote={mine[detail] || 0}
           onVote={(d) => vote(detail, d)}
+          session={session}
+          refreshSession={refreshSession}
+          onTools={setTools}
         />
       )}
       {showSuggest && <SuggestModal suggestions={suggestions} onAdd={addSuggestion} onClose={() => setShowSuggest(false)} />}
@@ -581,6 +619,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
                 fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: "-0.015em", textAlign: "left",
               }}>{tool.name}</button>
               {tool.dying && <Pill color="#FF6B8A" solid>winding down</Pill>}
+              {tool.claimed && <Pill color="#4CC9F0">claimed</Pill>}
             </div>
             <p style={{ fontSize: 12.5, color: col, marginTop: 2 }}>{catOf(tool.cat).label}</p>
           </div>
@@ -598,6 +637,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
           {tool.free && <Pill color="#00E08A">free plan</Pill>}
           {tool.suite && <Pill color="#FF9052">{tool.suite}</Pill>}
           {tool.linked && <Pill color="#B08CFF">owner of {tool.linked}</Pill>}
+          {tool.owner && <Pill color="#B08CFF">by {tool.owner}</Pill>}
           {!tool.verified && <Pill color="#7C8F86">unverified</Pill>}
         </div>
 
@@ -662,7 +702,7 @@ function Shell({ children, onClose, width = 860 }) {
   );
 }
 
-function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onVote }) {
+function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onVote, session, refreshSession, onTools }) {
   const col = catOf(tool.cat).color;
   return (
     <Shell onClose={onClose} width={760}>
@@ -685,6 +725,7 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
           {tool.free && <Pill color="#00E08A">free plan</Pill>}
           {tool.suite && <Pill color="#FF9052">part of {tool.suite}</Pill>}
           {tool.linked && <Pill color="#B08CFF">same owner as {tool.linked}</Pill>}
+          {tool.owner && <Pill color="#B08CFF">by {tool.owner}</Pill>}
           {tool.dying && <Pill color="#FF6B8A" solid>winding down</Pill>}
           {!tool.verified && <Pill color="#7C8F86">unverified</Pill>}
         </div>
@@ -693,6 +734,13 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
         <p className="mt-3" style={{ fontSize: 14.5, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
           <span style={{ color: "#FF9052", fontWeight: 700 }}>Watch for. </span>{tool.watch}
         </p>
+        {tool.claimed && (
+          <p className="mt-2" style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.55, maxWidth: "68ch" }}>
+            The summary, description and pricing above are maintained by the vendor
+            {tool.editedAt ? `, last updated ${tool.editedAt}` : ""}. The "watch for" note and the
+            ratings are not theirs to edit.
+          </p>
+        )}
 
         <div className="flex flex-wrap items-center mt-5" style={{ gap: 14 }}>
           <a href={tool.url} target="_blank" rel="noopener noreferrer" style={{
@@ -705,6 +753,8 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
             <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
           </div>
         </div>
+
+        <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools} />
 
         <div className="mt-6" style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: 12, padding: 16 }}>
           <ReviewForm name={tool.name} onSubmit={onReview} color={col} />
@@ -773,8 +823,8 @@ function ReviewForm({ name, onSubmit, color }) {
 }
 
 /* ================================================================== */
-function CompareModal({ ids, onClose, avg, votes, reviews }) {
-  const list = ids.map((id) => TOOLS.find((t) => t.id === id));
+function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
+  const list = ids.map((id) => tools.find((t) => t.id === id));
   const rowsSpec = [
     ["Category", (t) => catOf(t.cat).label],
     ["What it does", (t) => t.one],
@@ -789,7 +839,8 @@ function CompareModal({ ids, onClose, avg, votes, reviews }) {
       return `${v.up} up · ${v.down} down`;
     }],
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
-    ["Ownership", (t) => t.suite ? `Part of ${t.suite}` : t.linked ? `Same owner as ${t.linked}` : "Independent"],
+    ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
+    ["Ownership", (t) => t.suite ? `Part of ${t.suite}` : t.linked ? `Same owner as ${t.linked}` : t.owner ? `Built by ${t.owner}` : "Independent"],
     ["Research source", (t) => (t.verified ? "Vendor site read directly" : "Third party, unverified")],
     ["Site", (t) => t.domain],
   ];

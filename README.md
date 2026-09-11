@@ -97,6 +97,48 @@ With neither key the matcher returns 503 and the UI silently falls back to local
 keyword matching. The box still works, it is just blunter. Nothing visibly breaks,
 which is exactly why it is worth checking rather than assuming.
 
+## Accounts and claiming a listing
+
+Anyone can sign in with an email address: no password, no OAuth app to register.
+They receive a one-time link that expires in 15 minutes and exchanges for a 30-day
+signed cookie. The cookie holds the email address and nothing else.
+
+**Signing in proves nothing about owning a tool.** Claiming is a separate step, proved
+by control of the tool's domain, in one of two ways:
+
+1. Sign in with an email at that domain (`evan@applora.ai` claiming Applora). Verified
+   instantly.
+2. Publish the string `svt-verify=TOKEN` on the tool's site, either at
+   `/.well-known/svt-verify.txt` or as `<meta name="svt-verify" content="...">` on the
+   homepage. The server fetches and checks it.
+
+Once verified, the vendor can edit the one-line summary, the description, pricing, the
+free-plan flag, the site URL and their LinkedIn / X / GitHub links.
+
+**They cannot edit the "watch for" note, the category, the verified flag, ratings or
+reviews.** That is the whole point of the directory, and it is enforced in
+`lib/listings.js` server-side, not just hidden in the UI — an owner POSTing `watch`
+directly gets a 200 and their caveat unchanged.
+
+Edits never mutate `lib/tools.js`. They are stored as overrides in Redis and merged on
+read, so the editorial original is always recoverable: delete the tool's key from
+`svt:overrides` and the listing reverts. Claimed listings carry a "claimed" badge and a
+line saying the vendor maintains that copy, so readers know whose voice they are reading.
+
+`ADMIN_EMAILS` can edit any listing and override a claim.
+
+### Setting it up
+
+| Variable | Effect if missing |
+|---|---|
+| `AUTH_SECRET` | Sign-in is disabled entirely; the site stays read-only |
+| `RESEND_API_KEY` | Production refuses to send links; locally they print to the log |
+| `ADMIN_EMAILS` | Nobody can override a claim |
+
+Generate the secret with `openssl rand -base64 32`. For Resend, verify a sending domain
+and set `EMAIL_FROM` to an address on it, or leave the default `onboarding@resend.dev`
+which works for testing but will land in spam.
+
 ## Moderation
 
 `MODERATE_SUGGESTIONS=true` stores new suggestions with `approved: false`, so they are
