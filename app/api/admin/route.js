@@ -33,6 +33,13 @@ export async function POST(request) {
   const { action, id } = body;
   if (!id || typeof id !== "string") return new Response("Missing id", { status: 400 });
 
+  /*
+   * Only a literal `true` reverts content. A missing or malformed flag leaves
+   * the vendor's published edits alone, so the destructive reading is never the
+   * one a garbled request falls back to.
+   */
+  const revertContent = body.revertContent === true;
+
   if (action === "approve-suggestion" || action === "delete-suggestion") {
     const suggestions = await read(KEYS.suggestions, []);
     if (!suggestions.some((s) => s.id === id)) {
@@ -48,7 +55,8 @@ export async function POST(request) {
   if (action === "revoke-claim") {
     const claims = await getClaims();
     if (!claims[id]) return new Response("Unknown claim", { status: 400 });
-    return Response.json({ claims: await revokeClaim(id) });
+    const { claims: next, reverted } = await revokeClaim(id, { revertContent });
+    return Response.json({ claims: next, reverted });
   }
 
   return new Response("Unknown action", { status: 400 });

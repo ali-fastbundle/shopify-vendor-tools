@@ -17,13 +17,15 @@ export default function AdminPanel({ email, suggestions, claims, subscribers }) 
   const pending = rows.filter((s) => s.approved === false);
   const approved = rows.filter((s) => s.approved !== false);
 
-  async function act(action, id) {
-    setBusy(action + id); setErr("");
+  // `tag` separates two buttons that post the same action for the same row,
+  // so only the one actually clicked shows as busy.
+  async function act(action, id, extra = {}, tag = "") {
+    setBusy(action + tag + id); setErr("");
     try {
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, id }),
+        body: JSON.stringify({ action, id, ...extra }),
       });
       if (!res.ok) { setErr(await res.text()); return; }
       const d = await res.json();
@@ -78,7 +80,7 @@ export default function AdminPanel({ email, suggestions, claims, subscribers }) 
         </Section>
 
         <Section title="Claims" count={Object.keys(claimRows).length}
-          hint="A verified claim lets that address edit the listing. Revoking drops the claim; vendor edits already saved stay.">
+          hint="A verified claim lets that address edit the listing. Revoke access drops the claim and leaves the published copy as the vendor left it; revoke and revert content also restores the editorial original.">
           {Object.keys(claimRows).length === 0 ? <Empty>No claims yet.</Empty> : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 640 }}>
@@ -112,8 +114,12 @@ export default function AdminPanel({ email, suggestions, claims, subscribers }) 
                         <td style={{ ...cell, color: C.muted }}>{c.method || "—"}</td>
                         <td style={{ ...cell, color: C.dim }}>{c.verifiedAt || c.startedAt || "—"}</td>
                         <td style={{ ...cell, textAlign: "right" }}>
-                          <Btn onClick={() => act("revoke-claim", toolId)}
-                            busy={busy === "revoke-claim" + toolId} tone="stop">Revoke</Btn>
+                          <div className="flex flex-wrap justify-end" style={{ gap: 6 }}>
+                            <Btn onClick={() => act("revoke-claim", toolId, { revertContent: false }, "access")}
+                              busy={busy === "revoke-claimaccess" + toolId} tone="stop">Revoke access</Btn>
+                            <Btn onClick={() => act("revoke-claim", toolId, { revertContent: true }, "revert")}
+                              busy={busy === "revoke-claimrevert" + toolId} tone="stop">Revoke and revert content</Btn>
+                          </div>
                         </td>
                       </tr>
                     );

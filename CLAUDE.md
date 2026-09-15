@@ -40,6 +40,13 @@ community data. Change `name` freely; never change `id`.
 merged on read. This means any bad edit is reverted by deleting one key from
 `svt:overrides`. Do not write vendor input back into `lib/tools.js`.
 
+Revoking a claim does not by itself revert published content. The claim lives in
+`svt:claims` and the edits in `svt:overrides`; dropping the first takes away the
+vendor's access but leaves whatever they already published live on the listing. That is
+why `revokeClaim` takes an explicit `revertContent`, surfaced in the admin console as
+two separate buttons. Revoking for a change of ownership should keep the copy; revoking
+for abuse should not, and the person clicking is the one who knows which it is.
+
 **5. Tool cards must render server-side.**
 The grid renders from props passed by the server component in `app/page.js`, not after
 a client fetch. It was broken this way once: crawlers saw an empty page. Do not gate
