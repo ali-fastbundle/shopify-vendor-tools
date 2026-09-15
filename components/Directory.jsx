@@ -7,6 +7,27 @@ import { AccountBar, OwnerPanel, useSession } from "./Account";
 /* ================================================================== */
 /*  Bits                                                               */
 /* ================================================================== */
+/*
+ * The mark is the seven CATEGORIES colours in catalogue order. Category colour
+ * is information everywhere else on the page, so the logo doubles as the legend
+ * and the palette stays closed — the green in "Tools" is the `aso` colour, not a
+ * new accent. app/icon.svg and the share card draw the same mark.
+ */
+function Wordmark() {
+  return (
+    <div className="flex items-center" style={{ gap: 9 }}>
+      <span className="flex" style={{ gap: 2 }} aria-hidden="true">
+        {CATEGORIES.map((c) => (
+          <span key={c.id} style={{ width: 3, height: 16, borderRadius: 1.5, background: c.color, display: "inline-block" }} />
+        ))}
+      </span>
+      <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1, whiteSpace: "nowrap" }}>
+        Watch For <span style={{ color: "#00E08A" }}>Tools</span>
+      </span>
+    </div>
+  );
+}
+
 function Logo({ tool, size = 34 }) {
   const [failed, setFailed] = useState(false);
   const color = catOf(tool.cat).color;
@@ -398,7 +419,8 @@ export default function Directory({ tools: initialTools }) {
 
         {/* Masthead */}
         <header className="pt-8 pb-7">
-          <div className="flex items-center justify-end pb-6">
+          <div className="flex flex-wrap items-center justify-between pb-6" style={{ gap: 14 }}>
+            <Wordmark />
             <AccountBar session={session} refresh={refreshSession} />
           </div>
           <div className="flex flex-wrap items-center" style={{ gap: 10 }}>

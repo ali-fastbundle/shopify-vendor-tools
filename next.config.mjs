@@ -1,5 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  /*
+   * The share card reads its .ttf files at request time. Nothing imports them as
+   * modules, so tracing would not find them on its own and the card would quietly
+   * fall back to a default face once deployed.
+   */
+  outputFileTracingIncludes: {
+    "/opengraph-image": ["./app/_fonts/**"],
+    "/twitter-image": ["./app/_fonts/**"],
+  },
   async headers() {
     return [{
       source: "/(.*)",

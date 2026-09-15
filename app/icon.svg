@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Watch For Tools">
+  <rect width="32" height="32" rx="7" fill="#06110D"/>
+  <!-- The seven CATEGORIES colours from lib/tools.js, in catalogue order. A static
+       file cannot import them, so keep these in step if the palette changes. -->
+  <g>
+    <rect x="2.5"  y="8" width="3" height="16" rx="1.5" fill="#00E08A"/>
+    <rect x="6.5"  y="8" width="3" height="16" rx="1.5" fill="#4CC9F0"/>
+    <rect x="10.5" y="8" width="3" height="16" rx="1.5" fill="#FFB020"/>
+    <rect x="14.5" y="8" width="3" height="16" rx="1.5" fill="#FF6B8A"/>
+    <rect x="18.5" y="8" width="3" height="16" rx="1.5" fill="#B08CFF"/>
+    <rect x="22.5" y="8" width="3" height="16" rx="1.5" fill="#48E5C2"/>
+    <rect x="26.5" y="8" width="3" height="16" rx="1.5" fill="#FF9052"/>
+  </g>
+</svg>
