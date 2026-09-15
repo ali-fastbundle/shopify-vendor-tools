@@ -3,13 +3,14 @@
   <!-- The CATEGORIES colours from lib/tools.js, in catalogue order. A static file
        cannot import them, so regenerate this mark whenever the palette changes. -->
   <g>
-    <rect x="2.5" y="8" width="2.5" height="16" rx="1.25" fill="#00E08A"/>
-    <rect x="6" y="8" width="2.5" height="16" rx="1.25" fill="#4CC9F0"/>
-    <rect x="9.5" y="8" width="2.5" height="16" rx="1.25" fill="#FFB020"/>
-    <rect x="13" y="8" width="2.5" height="16" rx="1.25" fill="#FF6B8A"/>
-    <rect x="16.5" y="8" width="2.5" height="16" rx="1.25" fill="#B08CFF"/>
-    <rect x="20" y="8" width="2.5" height="16" rx="1.25" fill="#48E5C2"/>
-    <rect x="23.5" y="8" width="2.5" height="16" rx="1.25" fill="#FF9052"/>
-    <rect x="27" y="8" width="2.5" height="16" rx="1.25" fill="#FFD166"/>
+    <rect x="2.5" y="8" width="2.111" height="16" rx="1.056" fill="#00E08A"/>
+    <rect x="5.611" y="8" width="2.111" height="16" rx="1.056" fill="#4CC9F0"/>
+    <rect x="8.722" y="8" width="2.111" height="16" rx="1.056" fill="#FFB020"/>
+    <rect x="11.833" y="8" width="2.111" height="16" rx="1.056" fill="#FF6B8A"/>
+    <rect x="14.944" y="8" width="2.111" height="16" rx="1.056" fill="#B08CFF"/>
+    <rect x="18.056" y="8" width="2.111" height="16" rx="1.056" fill="#48E5C2"/>
+    <rect x="21.167" y="8" width="2.111" height="16" rx="1.056" fill="#FF9052"/>
+    <rect x="24.278" y="8" width="2.111" height="16" rx="1.056" fill="#FFD166"/>
+    <rect x="27.389" y="8" width="2.111" height="16" rx="1.056" fill="#7FD1F0"/>
   </g>
 </svg>
