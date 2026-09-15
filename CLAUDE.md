@@ -15,16 +15,17 @@ protect that, not for technical reasons.
 **1. `watch` is never editable by a vendor.**
 Every tool has a `watch` field: the honest caveat. Vendors who claim a listing can edit
 the summary, description, pricing and links. They cannot touch `watch`, `cat`,
-`verified`, ratings or reviews. This is enforced server-side in `lib/listings.js` via
+`verified`, `ratings` (the external scores), community ratings or reviews. This is
+enforced server-side in `lib/listings.js` via
 the `EDITABLE` whitelist, and restated explicitly in `mergedTools()`. If you refactor
 that file, verify with:
 
 ```
 curl -H "Cookie: <owner session>" -X POST localhost:3000/api/listing \
-  -d '{"toolId":"applora","edit":{"watch":"No downsides!","cat":"suite"}}'
+  -d '{"toolId":"applora","edit":{"watch":"No downsides!","cat":"suite","ratings":[]}}'
 ```
 
-It must return 200 with the original `watch` and `cat` intact.
+It must return 200 with the original `watch`, `cat` and `ratings` intact.
 
 **2. API keys stay server-side.**
 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` are used only in `app/api/match/route.js`. Never
@@ -140,6 +141,28 @@ caveat, look harder before writing "none".
 State what is verified and what is not. `verified: true` means the vendor's own site was
 read directly. Anything sourced from search results or a third party is `verified:
 false` and renders an "unverified" badge.
+
+## External ratings
+
+Tools may carry an optional `ratings` array. Each entry is
+`{ source, score, outOf, count, url, captured }` — `captured` being the date the figure
+was read, so a stale number is visible as stale rather than passing for current.
+
+- **Only the score, count, source name and link.** Never review text, never a quoted
+  excerpt, not even a short one. These are third-party copyrighted reviews. We reference
+  the aggregate and send people to read them at source.
+- **Entered by hand from the public listing page.** Do not scrape these platforms; their
+  terms prohibit it. No crawler, no API client, no "just this once" fetch.
+- **Record `captured` on every entry.** An external score with no date is the one most
+  likely to be quietly years out of date.
+- **Vendors cannot edit `ratings`.** It sits in the protected set alongside `watch`,
+  `cat` and `verified` — absent from `EDITABLE` and restated in `mergedTools()`.
+
+Never blend an external score into the community rating, or show a single combined
+number. They measure different populations, and averaging them would report a figure
+neither source ever published. The card and detail view show them separately and at
+different weights on purpose: the community rating is the directory's own signal, the
+external scores are reference.
 
 ## Before committing
 

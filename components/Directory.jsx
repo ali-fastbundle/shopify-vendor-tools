@@ -79,6 +79,41 @@ function Stars({ value, onPick, size = 14 }) {
   );
 }
 
+/*
+ * Third-party scores, shown beside the directory's own rating and never folded
+ * into it. G2 and the directory measure different populations, so averaging the
+ * two would invent a figure neither source reported.
+ *
+ * Score, count, source and link only — the reviews themselves are the platform's
+ * copyright, so we cite the aggregate and send people there to read them. The
+ * capture date rides along because an external score with no date on it is the
+ * one most likely to be quietly years old.
+ */
+function ExternalRatings({ ratings, detail = false }) {
+  if (!ratings || !ratings.length) return null;
+  return (
+    <div className="flex flex-wrap items-center" style={{ gap: detail ? 14 : 10 }}>
+      {ratings.map((r) => (
+        <a key={`${r.source}${r.url}`} href={r.url} target="_blank" rel="noopener noreferrer"
+          title={`${r.source}: ${r.score} out of ${r.outOf ?? 5}${r.count ? `, ${r.count} reviews` : ""}${r.captured ? `, captured ${r.captured}` : ""}`}
+          style={{
+            fontSize: detail ? 13 : 11.5, color: C.dim, textDecoration: "none",
+            display: "inline-flex", alignItems: "baseline", gap: 4, whiteSpace: "nowrap",
+          }}>
+          {/* out of 5 is the common case and stays implicit; anything else is spelled out
+              so a 9.2 from a ten-point scale cannot read as a five-point score */}
+          <span style={{ fontWeight: 700, color: C.muted }}>
+            {r.score}{r.outOf && r.outOf !== 5 ? `/${r.outOf}` : ""}
+          </span>
+          <span>{r.source}</span>
+          {Boolean(r.count) && <span>({r.count})</span>}
+          {detail && r.captured && <span style={{ opacity: 0.75 }}>· {r.captured}</span>}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function Pill({ color, children, solid }) {
   return (
     <span style={{
@@ -706,6 +741,12 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
           </div>
         </div>
 
+        {tool.ratings?.length > 0 && (
+          <div className="mt-2">
+            <ExternalRatings ratings={tool.ratings} />
+          </div>
+        )}
+
         <div className="flex items-center justify-between mt-3" style={{ gap: 8 }}>
           <Social social={tool.social} />
           <a href={tool.url} target="_blank" rel="noopener noreferrer"
@@ -792,6 +833,19 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
             {tool.editedAt ? `, last updated ${tool.editedAt}` : ""}. The "watch for" note and the
             ratings are not theirs to edit.
           </p>
+        )}
+
+        {tool.ratings?.length > 0 && (
+          <div className="mt-5">
+            <p style={{ fontSize: 12.5, color: C.dim, margin: 0, fontWeight: 600 }}>External ratings</p>
+            <div className="mt-2">
+              <ExternalRatings ratings={tool.ratings} detail />
+            </div>
+            <p style={{ fontSize: 12, color: C.dim, margin: "9px 0 0", maxWidth: "68ch", lineHeight: 1.5 }}>
+              Collected on other platforms, from a different set of people than the reviews below, and
+              deliberately not averaged with them. Follow a link to read them at source.
+            </p>
+          </div>
         )}
 
         <div className="flex flex-wrap items-center mt-5" style={{ gap: 14 }}>
@@ -886,6 +940,9 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
       const a = avg(t.id), n = (reviews[t.id] || []).length;
       return n ? `${a.toFixed(1)} from ${n}` : "Not rated yet";
     }],
+    ["External ratings", (t) => (t.ratings?.length
+      ? t.ratings.map((r) => `${r.source} ${r.score}${r.outOf && r.outOf !== 5 ? `/${r.outOf}` : ""}`).join(" · ")
+      : "None found")],
     ["Likes", (t) => {
       const v = votes[t.id] || { up: 0, down: 0 };
       return `${v.up} up · ${v.down} down`;
