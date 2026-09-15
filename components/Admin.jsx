@@ -8,7 +8,7 @@ import { C, TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
  * ADMIN_EMAILS — this is the view, not the gate, and every button posts to
  * /api/admin which re-checks on its own.
  */
-export default function AdminPanel({ email, suggestions, claims, subscribers, reports }) {
+export default function AdminPanel({ email, suggestions, claims, subscribers, reports, accounts, stats }) {
   const [rows, setRows] = useState(suggestions || []);
   const [claimRows, setClaimRows] = useState(claims || {});
   const [reportRows, setReportRows] = useState(reports || []);
@@ -81,56 +81,25 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
             : approved.map((s) => <SuggestionRow key={s.id} s={s} />)}
         </Section>
 
-        <Section title="Claims" count={Object.keys(claimRows).length}
-          hint="A verified claim lets that address edit the listing. Revoke access drops the claim and leaves the published copy as the vendor left it; revoke and revert content also restores the editorial original.">
-          {Object.keys(claimRows).length === 0 ? <Empty>No claims yet.</Empty> : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 640 }}>
-                <thead>
-                  <tr style={{ textAlign: "left", color: C.dim }}>
-                    {["Tool", "Email", "Status", "Method", "Date", ""].map((h) => (
-                      <th key={h} style={{ fontWeight: 600, padding: "8px 10px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(claimRows).map(([toolId, c]) => {
-                    const tool = TOOLS.find((t) => t.id === toolId);
-                    const verified = c.status === "verified";
-                    return (
-                      <tr key={toolId}>
-                        <td style={cell}>
-                          <span style={{ fontWeight: 600 }}>{tool ? tool.name : toolId}</span>
-                          {tool && <span style={{ color: catOf(tool.cat).color, marginLeft: 7, fontSize: 12 }}>{catOf(tool.cat).label}</span>}
-                        </td>
-                        <td style={{ ...cell, color: C.muted }}>{c.email}</td>
-                        <td style={cell}>
-                          <span style={{
-                            fontSize: 11, padding: "1px 7px", borderRadius: 999,
-                            color: verified ? "#06110D" : "#FFB020",
-                            background: verified ? "#00E08A" : "#FFB0201E",
-                            border: `1px solid ${verified ? "#00E08A" : "#FFB02044"}`,
-                            fontWeight: verified ? 700 : 500,
-                          }}>{c.status}</span>
-                        </td>
-                        <td style={{ ...cell, color: C.muted }}>{c.method || "—"}</td>
-                        <td style={{ ...cell, color: C.dim }}>{c.verifiedAt || c.startedAt || "—"}</td>
-                        <td style={{ ...cell, textAlign: "right" }}>
-                          <div className="flex flex-wrap justify-end" style={{ gap: 6 }}>
-                            <Btn onClick={() => act("revoke-claim", toolId, { revertContent: false }, "access")}
-                              busy={busy === "revoke-claimaccess" + toolId} tone="stop">Revoke access</Btn>
-                            <Btn onClick={() => act("revoke-claim", toolId, { revertContent: true }, "revert")}
-                              busy={busy === "revoke-claimrevert" + toolId} tone="stop">Revoke and revert content</Btn>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Section>
+        <ClaimsTable
+          title="Verified claims"
+          hint="These addresses can edit their listing. Revoke access drops the claim and leaves the published copy as the vendor left it; revoke and revert content also restores the editorial original."
+          rows={Object.entries(claimRows).filter(([, c]) => c.status === "verified")}
+          act={act} busy={busy} verified
+          empty="No verified claims yet."
+        />
+
+        <ClaimsTable
+          title="Pending claims"
+          hint="Started but not proved. They have a token to publish on their own domain; nothing is editable until they do."
+          rows={Object.entries(claimRows).filter(([, c]) => c.status !== "verified")}
+          act={act} busy={busy}
+          empty="Nothing pending."
+        />
+
+        <Accounts accounts={accounts || {}} claims={claimRows} />
+
+        <Stats stats={stats || { fields: {}, queries: [] }} />
 
         <NotificationTest />
 
@@ -336,6 +305,179 @@ function Compose({ count }) {
  * than act(), because the useful answer here is a diagnostic string, not a
  * refreshed list of rows.
  */
+/*
+ * One table, two states. Verified claims are the ones that grant edit rights,
+ * so they get their own heading rather than a status pill buried in a mixed
+ * list; pending ones are a different question (has this vendor published the
+ * token yet) and read better apart.
+ */
+function ClaimsTable({ title, hint, rows, act, busy, verified, empty }) {
+  return (
+    <Section title={title} count={rows.length} hint={hint}>
+      {rows.length === 0 ? <Empty>{empty}</Empty> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 640 }}>
+            <thead>
+              <tr style={{ textAlign: "left", color: C.dim }}>
+                {["Tool", "Email", "Method", verified ? "Verified" : "Started", ""].map((h) => (
+                  <th key={h} style={{ fontWeight: 600, padding: "8px 10px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(([toolId, c]) => {
+                const tool = TOOLS.find((t) => t.id === toolId);
+                return (
+                  <tr key={toolId}>
+                    <td style={cell}>
+                      <span style={{ fontWeight: 600 }}>{tool ? tool.name : toolId}</span>
+                      {tool && <span style={{ color: catOf(tool.cat).color, marginLeft: 7, fontSize: 12 }}>{catOf(tool.cat).label}</span>}
+                    </td>
+                    <td style={{ ...cell, color: C.muted }}>{c.email}</td>
+                    <td style={{ ...cell, color: C.muted }}>
+                      {c.method === "email-domain" ? "email domain" : c.method === "domain" ? "published token" : "—"}
+                    </td>
+                    <td style={{ ...cell, color: C.dim }}>{(verified ? c.verifiedAt : c.startedAt) || "—"}</td>
+                    <td style={{ ...cell, textAlign: "right" }}>
+                      <div className="flex flex-wrap justify-end" style={{ gap: 6 }}>
+                        <Btn onClick={() => act("revoke-claim", toolId, { revertContent: false }, "access")}
+                          busy={busy === "revoke-claimaccess" + toolId} tone="stop">Revoke access</Btn>
+                        <Btn onClick={() => act("revoke-claim", toolId, { revertContent: true }, "revert")}
+                          busy={busy === "revoke-claimrevert" + toolId} tone="stop">Revoke and revert content</Btn>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+const when = (iso) => {
+  if (!iso) return "—";
+  // Stored as a full ISO timestamp; the minute is enough to read at a glance.
+  return String(iso).slice(0, 16).replace("T", " ");
+};
+
+/*
+ * Who has ever signed in. Three fields, because that is all that is stored —
+ * see lib/accounts.js. The claimed column is joined here from svt:claims rather
+ * than duplicated onto the account record, so there is one source of truth for
+ * who owns what.
+ */
+function Accounts({ accounts, claims }) {
+  const rows = Object.values(accounts).sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
+  const claimedBy = (email) => Object.entries(claims)
+    .filter(([, c]) => c.email === email && c.status === "verified")
+    .map(([toolId]) => (TOOLS.find((t) => t.id === toolId)?.name) || toolId);
+
+  return (
+    <Section title="Accounts" count={rows.length}
+      hint="Created on first sign-in. Email, first seen and last seen — no IP, no user agent, no page history. The sign-in copy promises exactly this, so adding a field here means changing that copy too.">
+      {rows.length === 0 ? <Empty>Nobody has signed in yet.</Empty> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 620 }}>
+            <thead>
+              <tr style={{ textAlign: "left", color: C.dim }}>
+                {["Email", "First seen", "Last seen", "Claimed"].map((h) => (
+                  <th key={h} style={{ fontWeight: 600, padding: "8px 10px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((a) => {
+                const owns = claimedBy(a.email);
+                return (
+                  <tr key={a.email}>
+                    <td style={cell}><a href={`mailto:${a.email}`} style={{ color: C.text }}>{a.email}</a></td>
+                    <td style={{ ...cell, color: C.dim }}>{when(a.firstSeen)}</td>
+                    <td style={{ ...cell, color: C.muted }}>{when(a.lastSeen)}</td>
+                    <td style={{ ...cell, color: owns.length ? C.text : C.dim }}>
+                      {owns.length ? owns.join(", ") : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+/*
+ * Directory counters. Deliberately narrow: page traffic is Vercel Analytics'
+ * job, and this holds only the two things it cannot see.
+ */
+function Stats({ stats }) {
+  const fields = stats.fields || {};
+  const queries = stats.queries || [];
+  const opens = Object.entries(fields)
+    .filter(([k]) => k.startsWith("tool:"))
+    .map(([k, n]) => [k.slice(5), n])
+    .sort((a, b) => b[1] - a[1]);
+  const matcherUses = fields["matcher:uses"] || 0;
+  const totalOpens = opens.reduce((n, [, v]) => n + v, 0);
+  const top = Math.max(1, opens.length ? opens[0][1] : 1);
+
+  return (
+    <Section title="Directory stats" count={totalOpens}
+      hint="Tool opens and matcher use only. Page views, referrers and paths are in Vercel Analytics and deliberately not duplicated here. Nothing is tied to a person.">
+      <div className="flex flex-wrap" style={{ gap: 28, padding: "12px 0 4px" }}>
+        <div>
+          <p style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>{totalOpens}</p>
+          <p style={{ fontSize: 12.5, color: C.dim, margin: 0 }}>tool detail opens</p>
+        </div>
+        <div>
+          <p style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>{matcherUses}</p>
+          <p style={{ fontSize: 12.5, color: C.dim, margin: 0 }}>matcher uses</p>
+        </div>
+      </div>
+
+      {opens.length === 0 ? <Empty>Nothing counted yet.</Empty> : (
+        <div className="flex flex-col" style={{ gap: 6, padding: "10px 0 6px" }}>
+          {opens.slice(0, 15).map(([id, n]) => {
+            const tool = TOOLS.find((t) => t.id === id);
+            return (
+              <div key={id} className="flex items-center" style={{ gap: 10 }}>
+                <span style={{ fontSize: 13.5, width: 170, flexShrink: 0 }}>{tool ? tool.name : id}</span>
+                <span style={{
+                  height: 7, borderRadius: 4, flexShrink: 0,
+                  width: `${Math.max(4, Math.round((n / top) * 100))}%`, maxWidth: 380,
+                  background: tool ? catOf(tool.cat).color : C.muted,
+                }} />
+                <span style={{ fontSize: 12.5, color: C.dim }}>{n}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ borderTop: `1px solid ${C.line}`, marginTop: 12, paddingTop: 12 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>
+          Last {Math.min(queries.length, 50)} matcher queries
+        </p>
+        {queries.length === 0
+          ? <Empty>Nothing asked yet.</Empty>
+          : (
+            <div className="flex flex-col" style={{ gap: 4, marginTop: 8 }}>
+              {queries.slice(0, 50).map((q, i) => (
+                <p key={`${i}-${q.slice(0, 12)}`} style={{ fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.5 }}>
+                  <span style={{ color: C.dim }}>{i + 1}.</span> {q}
+                </p>
+              ))}
+            </div>
+          )}
+      </div>
+    </Section>
+  );
+}
+
 function NotificationTest() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);

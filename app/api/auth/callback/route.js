@@ -1,5 +1,6 @@
 import { readLoginToken, mintSession, sessionCookie } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
+import { recordSignIn } from "@/lib/accounts";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,19 @@ export async function GET(request) {
    */
   if (!(await allow("callback", ipOf(request), 30, 60 * 60_000))) {
     return Response.redirect(`${origin}/?signin=throttled`, 302);
+  }
+
+  /*
+   * Awaited, unlike the mail sends: it is one read and one write against the
+   * store we are already talking to, and the record is the thing that makes the
+   * account list true. Wrapped so a store outage costs someone their record but
+   * never their sign-in — being unable to log the visit is not a reason to
+   * refuse entry.
+   */
+  try {
+    await recordSignIn(email);
+  } catch (e) {
+    console.error("[accounts] recordSignIn failed —", e.message);
   }
 
   return new Response(null, {

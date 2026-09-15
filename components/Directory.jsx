@@ -14,6 +14,68 @@ import { AccountBar, OwnerPanel, useSession } from "./Account";
  * and the palette stays closed — the green in "Tools" is the `aso` colour, not a
  * new accent. app/icon.svg and the share card draw the same mark.
  */
+/*
+ * Directory counters, buffered in the browser.
+ *
+ * One request per tool opened would be a write per page view, which is exactly
+ * what we are not doing — page traffic belongs to Vercel Analytics. Events
+ * accumulate here and go out together: on a short timer, and on the way out of
+ * the tab, where sendBeacon survives the page being closed and fetch does not.
+ *
+ * Nothing identifying is collected. A matcher query is kept as text because
+ * what people ask for is the useful signal; it is never paired with a session
+ * or an address.
+ */
+const statQueue = { tools: [], matcher: 0, queries: [] };
+let statTimer = null;
+
+function flushStats() {
+  if (typeof window === "undefined") return;
+  if (statTimer) { clearTimeout(statTimer); statTimer = null; }
+  if (!statQueue.tools.length && !statQueue.matcher && !statQueue.queries.length) return;
+
+  const payload = JSON.stringify(statQueue);
+  statQueue.tools = []; statQueue.matcher = 0; statQueue.queries = [];
+
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon("/api/stat", new Blob([payload], { type: "application/json" }));
+      return;
+    }
+  } catch { /* fall through to fetch */ }
+  // keepalive so a flush started during unload is still allowed to finish.
+  fetch("/api/stat", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: payload, keepalive: true,
+  }).catch(() => {});
+}
+
+function scheduleFlush() {
+  if (typeof window === "undefined" || statTimer) return;
+  statTimer = setTimeout(flushStats, 8000);
+}
+
+function trackToolOpen(id) {
+  if (!id) return;
+  statQueue.tools.push(id);
+  scheduleFlush();
+}
+
+function trackMatcher(query) {
+  statQueue.matcher += 1;
+  const q = String(query || "").trim();
+  if (q) statQueue.queries.push(q.slice(0, 160));
+  scheduleFlush();
+}
+
+if (typeof window !== "undefined") {
+  // visibilitychange fires on tab switch and on close; pagehide covers Safari.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushStats();
+  });
+  window.addEventListener("pagehide", flushStats);
+}
+
 function Wordmark() {
   return (
     <div className="flex items-center" style={{ gap: 9 }}>
@@ -189,6 +251,7 @@ function Matcher({ tools, onOpen }) {
   async function run(text) {
     const q = (text ?? problem).trim();
     if (!q) return;
+    trackMatcher(q);
     setBusy(true); setPicks(null); setNote("");
     try {
       const res = await fetch("/api/match", {
@@ -432,7 +495,7 @@ export default function Directory({ tools: initialTools }) {
     setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : p.length >= 4 ? p : [...p, id]);
 
   const totalReviews = Object.values(reviews).reduce((a, b) => a + b.length, 0);
-  const openTool = (id) => { setDetail(id); setCompare(false); };
+  const openTool = (id) => { trackToolOpen(id); setDetail(id); setCompare(false); };
 
   return (
     <div style={{ background: C.bg, color: C.text, minHeight: "100vh", fontFamily: "Archivo, Inter, system-ui, sans-serif" }}>

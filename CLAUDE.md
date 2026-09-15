@@ -143,11 +143,12 @@ day it goes in and the site-wide date moves on its own.
 | `lib/subscribers.js` | List add/remove, unsubscribe token mint and verify |
 | `lib/notify.js` | Admin notification email. Fire-and-forget via `background()` |
 | `lib/background.js` | `waitUntil` wrapper: work that must outlive the response |
+| `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
 | `lib/email.js` | The shared HTML/text email shell, `reply_to`, and the Resend senders |
 | `components/Directory.jsx` | The whole UI, one client component |
 | `components/Account.jsx` | Sign-in, claiming, vendor edit form |
 | `components/Admin.jsx` | Admin console view. The gate is `app/admin/page.js` |
-| `app/api/*` | data, vote, review, suggest, report, match, claim, listing, auth, subscribe, admin |
+| `app/api/*` | data, vote, review, suggest, report, stat, match, claim, listing, auth, subscribe, admin |
 | `app/admin` | Admin page. Auth gate first, data read only after it |
 
 ## Conventions
@@ -242,6 +243,41 @@ fires a real send through the real sender and reports what came back, including 
 Resend error verbatim and which env vars are set. It is the one place `notifyAdmin` is
 awaited, because the result is the entire point; that does not breach the rule above,
 which is about not making a *visitor* wait on the mail provider.
+
+## Analytics and stats
+
+**Page-level traffic lives in Vercel Analytics, not Redis.** Views, paths, referrers,
+devices, countries — all of it is already collected by `<Analytics />` in
+`app/layout.js`, and none of it is reimplemented here. Do not add a page-view counter,
+a visit log, or a session table. If the question is "how many people came", the answer
+is in the Vercel dashboard.
+
+`svt:stats` holds only what Vercel cannot see, because it happens inside one client
+component without a navigation:
+
+- `tool:<id>` — a tool's detail view was opened
+- `matcher:uses` — the matcher was run
+
+with `svt:stats:queries` keeping the last 50 matcher queries as text, capped and never
+joined to a person. No email is attached even when one is known, and no session id.
+
+Counters are incremented with `HINCRBY` against one hash rather than read-modify-
+written, so two instances counting at once cannot lose each other's increments. The
+browser buffers events and posts them together — on an 8-second timer and on the way
+out of the tab via `sendBeacon` — so this is a write per batch, never a write per view.
+`/api/stat` drops any tool id not in the catalogue, so the hash cannot be seeded with
+junk fields.
+
+## Accounts
+
+`svt:accounts` holds `{ email, firstSeen, lastSeen }` and nothing else — no IP, no user
+agent, no page history, no referrer. It is upserted in the sign-in callback, awaited
+(it is one read and one write on a store we are already using) but wrapped, so a store
+outage costs someone their record and never their sign-in.
+
+The sign-in copy in `components/Account.jsx` states exactly what is kept. It is a
+promise, so **if you add a field to an account record, change that sentence in the same
+commit.**
 
 ## Before committing
 

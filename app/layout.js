@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const title = "The app vendor's toolkit — watchfor.tools";
@@ -24,7 +25,16 @@ export const viewport = { themeColor: "#06110D" };
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        {/*
+          * Page traffic lives here, not in Redis. Views, referrers and paths are
+          * what Vercel Analytics already does well and what this app has no
+          * business reimplementing; svt:stats holds only the two things Vercel
+          * cannot see — which tool was opened, and what the matcher was asked.
+          */}
+        <Analytics />
+      </body>
     </html>
   );
 }

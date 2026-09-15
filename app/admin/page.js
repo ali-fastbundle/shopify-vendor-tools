@@ -1,10 +1,11 @@
 import { cookies, headers } from "next/headers";
 import { sessionFrom, isAdmin } from "@/lib/auth";
-import { read, KEYS } from "@/lib/store";
+import { read, readStats, KEYS } from "@/lib/store";
 import { getClaims } from "@/lib/listings";
 import { getSubscribers } from "@/lib/subscribers";
 import { C } from "@/lib/tools";
 import AdminPanel from "@/components/Admin";
+import { getAccounts } from "@/lib/accounts";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -31,11 +32,13 @@ export default async function AdminPage() {
   }
 
   // Past the gate, and only now.
-  const [suggestions, claims, subscribers, reports] = await Promise.all([
+  const [suggestions, claims, subscribers, reports, accounts, stats] = await Promise.all([
     read(KEYS.suggestions, []),
     getClaims(),
     getSubscribers(),
     read(KEYS.reports, []),
+    getAccounts(),
+    readStats(),
   ]);
 
   return (
@@ -45,6 +48,8 @@ export default async function AdminPage() {
       claims={claims}
       subscribers={subscribers}
       reports={reports}
+      accounts={accounts}
+      stats={stats}
     />
   );
 }

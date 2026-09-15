@@ -143,7 +143,7 @@ export function AccountBar({ session, refresh }) {
                 <p style={{ fontSize: 12.5, color: "#FF6B8A", marginTop: 8 }}>{state.message}</p>
               )}
               <p style={{ fontSize: 11.5, color: C.dim, marginTop: 10, lineHeight: 1.5 }}>
-                No password. We store your email address and nothing else.
+                No password. We store your email address and when you signed in, and nothing else.
               </p>
             </>
           )}
