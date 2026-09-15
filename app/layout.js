@@ -1,4 +1,5 @@
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const title = "The app vendor's toolkit — watchfor.tools";
@@ -34,6 +35,9 @@ export default function RootLayout({ children }) {
           * cannot see — which tool was opened, and what the matcher was asked.
           */}
         <Analytics />
+        {/* Core Web Vitals from real visits. Like Analytics, it injects nothing
+          * during SSR and reports only on Vercel. */}
+        <SpeedInsights />
       </body>
     </html>
   );
