@@ -2,7 +2,7 @@ import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { TOOLS, reportKindOf } from "@/lib/tools";
 import { isEmail, normaliseEmail } from "@/lib/auth";
-import { notifyAdmin } from "@/lib/notify";
+import { sendEvent } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -65,15 +65,11 @@ export async function POST(request) {
   const reports = await read(KEYS.reports, []);
   await write(KEYS.reports, [entry, ...reports].slice(0, 500));
 
-  const origin = new URL(request.url).origin;
-  // Deliberately not awaited. See lib/notify.js.
-  notifyAdmin(`Report on ${tool.name}: ${kind.label}`, [
-    `Tool: ${tool.name} (${tool.domain})`,
-    `Problem: ${kind.label}`,
-    value ? `They say: ${value}` : "No detail given.",
-    entry.email ? `From: ${entry.email}` : "No email given.",
-    "\nNothing has changed on the listing. Reports are a queue, not an edit.",
-  ], { origin, event: "report" });
+  await sendEvent("report", {
+    origin: new URL(request.url).origin,
+    toolName: tool.name, domain: tool.domain,
+    kindLabel: kind.label, value: entry.value, email: entry.email,
+  });
 
   return Response.json({ ok: true });
 }

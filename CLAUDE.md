@@ -86,21 +86,25 @@ No per-address state is stored and a token cannot be edited to unsubscribe someb
 else. Rotating `AUTH_SECRET` invalidates every link already sent, and also every session
 cookie. Say so before rotating it.
 
-**10. Admin notification email is never awaited, but it is never merely dropped either.**
-`lib/notify.js` catches everything and no caller awaits it. A slow or dead Resend must
-never fail or delay the request that triggered it. If you make a caller `await` it, you
-have made someone else's suggestion depend on our mail provider.
+**10. All email goes through `sendEvent()`, and every send is awaited.**
+`lib/mail.js` is the only place that talks to Resend, and the matrix of who hears about
+what lives there — not in the routes. A route calls `sendEvent(event, data)` once and
+never composes or sends a message itself.
 
-Dropping the promise outright is the other way to get this wrong, and it is the one that
-actually happened. A serverless function is frozen when it returns, so an unawaited
-promise is not slow, it is unfinished — and it rejects nothing, so it leaves no trace.
-The symptom was an admin test button that worked, because it awaited, while the same
-call behind a real request vanished. Everything asynchronous that outlives a response
-now goes through `background()` in `lib/background.js`, which registers it with
-`waitUntil` so the instance stays alive without the visitor waiting. Off Vercel that is
-a no-op and the process is long-lived anyway.
+Sends used to be bare promises nobody waited on, which is not the same as fast: a
+serverless function is frozen when it returns, so those sends were unfinished, and
+because nothing rejected they left no trace. The symptom was an admin test button that
+worked and real events that silently did not. So sends are now awaited. A few hundred
+milliseconds on a request is the price of delivery that happens, and the transport's 8s
+timeout bounds the worst case.
 
-Pass a label; it prefixes the failure line.
+`sendEvent` never throws. A mail failure must never turn a stored suggestion into a 500
+someone sees — `/api/auth/request` is the single exception, because there the mail *is*
+the request, and it reads the failure off the returned result rather than a throw.
+
+Every attempt is written to `svt:maillog` and logged as `[mail]`, success or failure.
+Silence was the bug; the log is how it stays fixed. `/admin` shows the last 100 and the
+failure count for 24 hours, and can fire any event in the matrix at the admin address.
 
 **11. A report is a message, not an edit.**
 `/api/report` is open to anyone, with no sign-in, because the person who spots a dead
@@ -141,10 +145,9 @@ day it goes in and the site-wide date moves on its own.
 | `lib/auth.js` | HMAC session cookies, magic-link tokens, admin check |
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
 | `lib/subscribers.js` | List add/remove, unsubscribe token mint and verify |
-| `lib/notify.js` | Admin notification email. Fire-and-forget via `background()` |
-| `lib/background.js` | `waitUntil` wrapper: work that must outlive the response |
+| `lib/mail.js` | The event matrix and `sendEvent()`. The only caller of Resend |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
-| `lib/email.js` | The shared HTML/text email shell, `reply_to`, and the Resend senders |
+| `lib/email.js` | The HTML/text shell, `reply_to`, and the Resend transport |
 | `components/Directory.jsx` | The whole UI, one client component |
 | `components/Account.jsx` | Sign-in, claiming, vendor edit form |
 | `components/Admin.jsx` | Admin console view. The gate is `app/admin/page.js` |
@@ -216,33 +219,31 @@ neither source ever published. The card and detail view show them separately and
 different weights on purpose: the community rating is the directory's own signal, the
 external scores are reference.
 
-## Notifications
+## The mail matrix
 
-One email per event, never batched into a digest — a notification that arrives late
-bundled with four others is one nobody acts on. `notifyAdmin` fires on a newsletter
-signup, a suggestion, a verified claim, a listing edit, a review or rating, and a
-report. Pass `{ origin }` so the mail carries a link to `/admin`.
+Who hears about what, all of it declared in `lib/mail.js`:
 
-Senders thank the person too, where there is an address to thank: the subscribe
-confirmation, a suggestion when an email was given, and a review by a signed-in
-visitor. The review form never asks for an address, so an anonymous review gets no
-email by construction rather than by a check somebody has to remember.
+| event | admin | user |
+|---|---|---|
+| `signin_new` | yes | welcome |
+| `signin_return` | no | nothing |
+| `signin_link` | no | the magic link |
+| `subscribe` | yes | confirmation + unsubscribe link |
+| `review` | yes | thank you, names the tool — only if signed in |
+| `claim_verified` | yes | what they can and cannot edit |
+| `suggestion` | yes | thank you, only if they gave an address |
+| `report` | yes | thank you, only if they gave an address |
+| `listing_edited` | yes | nothing (they just made the edit) |
 
-Every one of these is fire-and-forget. A dead mail provider must never turn a stored
-suggestion into a 500 the visitor sees.
+Votes send nothing, either side.
 
-Fire-and-forget is not the same as silent. Every path in `notifyAdmin` logs a line
-prefixed `[notify]`, including the one where it does nothing because the environment is
-unset — that state is what a misconfigured deployment sits in, so it is the one that
-most needs to say so. `lib/notify.js` also warns once per instance, at import, when
-`RESEND_API_KEY` and `ADMIN_EMAILS` are half-configured. Grep a Vercel log for
-`[notify]`.
+Suggestions and reports are open to signed-out visitors, so a missing address is normal,
+not an error: the matrix's `user` function returns null and the request carries on. The
+review form never asks for an address at all, so an anonymous review gets no thank-you
+by construction rather than by a check somebody has to remember.
 
-`/admin` has a **Send a test notification** button behind the usual admin check. It
-fires a real send through the real sender and reports what came back, including the
-Resend error verbatim and which env vars are set. It is the one place `notifyAdmin` is
-awaited, because the result is the entire point; that does not breach the rule above,
-which is about not making a *visitor* wait on the mail provider.
+Adding an event means adding a row to `MATRIX` and nothing else. If you find yourself
+importing the Resend transport into a route, stop — that is the pattern this replaced.
 
 ## Analytics and stats
 

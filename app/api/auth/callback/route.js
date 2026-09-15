@@ -1,6 +1,7 @@
 import { readLoginToken, mintSession, sessionCookie } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { recordSignIn } from "@/lib/accounts";
+import { sendEvent } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +33,19 @@ export async function GET(request) {
    * never their sign-in — being unable to log the visit is not a reason to
    * refuse entry.
    */
+  let isNew = false;
   try {
-    await recordSignIn(email);
+    ({ isNew } = await recordSignIn(email));
   } catch (e) {
     console.error("[accounts] recordSignIn failed —", e.message);
   }
+
+  /*
+   * A first sign-in is news; a returning one is not. Both go through the same
+   * dispatcher so the matrix stays in one file — signin_return simply sends
+   * nothing, which is easier to verify than a branch that skips the call.
+   */
+  await sendEvent(isNew ? "signin_new" : "signin_return", { email, origin });
 
   return new Response(null, {
     status: 302,

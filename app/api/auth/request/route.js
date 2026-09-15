@@ -1,5 +1,6 @@
 import { configured, isEmail, mintLoginToken, normaliseEmail } from "@/lib/auth";
-import { sendLoginLink, isSendingRestricted } from "@/lib/email";
+import { isSendingRestricted } from "@/lib/email";
+import { sendEvent } from "@/lib/mail";
 import { allow, ipOf } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
@@ -20,17 +21,19 @@ export async function POST(request) {
 
   const origin = new URL(request.url).origin;
   const link = `${origin}/api/auth/callback?token=${encodeURIComponent(mintLoginToken(addr))}`;
-  try {
-    const r = await sendLoginLink(addr, link);
-    return Response.json({ ok: true, dev: Boolean(r.dev) });
-  } catch (e) {
-    // Full error to the log either way; only the wording to the visitor changes.
-    console.error("login email", e.message);
-    return new Response(
-      isSendingRestricted(e.message)
-        ? "Email sending is restricted to the account owner until a sending domain is verified in Resend."
-        : "Could not send the email",
-      { status: 502 },
-    );
-  }
+  /*
+   * sendEvent never throws, so the failure arrives as a result rather than an
+   * exception — but this is the one caller that must act on it. Everywhere else
+   * a mail failure is logged and swallowed; here it is the whole request.
+   */
+  const r = await sendEvent("signin_link", { email: addr, link });
+  if (r.ok) return Response.json({ ok: true, dev: !process.env.RESEND_API_KEY });
+
+  const error = r.sends.find((x) => !x.ok)?.error || "unknown";
+  return new Response(
+    isSendingRestricted(error)
+      ? "Email sending is restricted to the account owner until a sending domain is verified in Resend."
+      : "Could not send the email",
+    { status: 502 },
+  );
 }

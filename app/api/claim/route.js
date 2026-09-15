@@ -2,7 +2,7 @@ import { sessionFrom, domainOf, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { TOOLS } from "@/lib/tools";
 import { startClaim, checkDomain, markVerified, getClaims, VERIFY_PREFIX } from "@/lib/listings";
-import { notifyAdmin } from "@/lib/notify";
+import { sendEvent } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 20;
@@ -38,12 +38,10 @@ export async function POST(request) {
     // An email at the tool's own domain is itself proof of control.
     if (rootOf(domainOf(session.email)) === rootOf(tool.domain)) {
       const done = await markVerified(toolId, session.email, "email-domain");
-      notifyAdmin(`Listing claimed: ${tool.name}`, [
-        `Tool: ${tool.name} (${tool.domain})`,
-        `Claimed by: ${session.email}`,
-        "Method: email-domain — their address is already on the tool's own domain.",
-        "\nThey can now edit the listing. Revoke it at /admin if that is wrong.",
-      ], { origin, event: "claim-verified-email-domain" });
+      await sendEvent("claim_verified", {
+        origin, toolName: tool.name, domain: tool.domain,
+        email: session.email, method: "email-domain",
+      });
       return Response.json({ status: "verified", via: "email domain", claim: done });
     }
     return Response.json({
@@ -71,12 +69,10 @@ export async function POST(request) {
       }, { status: 200 });
     }
     const done = await markVerified(toolId, session.email, "domain");
-    notifyAdmin(`Listing claimed: ${tool.name}`, [
-      `Tool: ${tool.name} (${tool.domain})`,
-      `Claimed by: ${session.email}`,
-      `Method: domain — verification token found at ${result.via}`,
-      "\nThey can now edit the listing. Revoke it at /admin if that is wrong.",
-    ], { origin, event: "claim-verified-domain" });
+    await sendEvent("claim_verified", {
+      origin, toolName: tool.name, domain: tool.domain,
+      email: session.email, method: "domain", via: result.via,
+    });
     return Response.json({ status: "verified", via: result.via, claim: done });
   }
 

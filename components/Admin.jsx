@@ -8,7 +8,7 @@ import { C, TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
  * ADMIN_EMAILS — this is the view, not the gate, and every button posts to
  * /api/admin which re-checks on its own.
  */
-export default function AdminPanel({ email, suggestions, claims, subscribers, reports, accounts, stats }) {
+export default function AdminPanel({ email, suggestions, claims, subscribers, reports, accounts, stats, maillog }) {
   const [rows, setRows] = useState(suggestions || []);
   const [claimRows, setClaimRows] = useState(claims || {});
   const [reportRows, setReportRows] = useState(reports || []);
@@ -100,6 +100,8 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
         <Accounts accounts={accounts || {}} claims={claimRows} />
 
         <Stats stats={stats || { fields: {}, queries: [] }} />
+
+        <MailLog rows={maillog || []} />
 
         <NotificationTest />
 
@@ -300,185 +302,80 @@ function Compose({ count }) {
  * made the change by hand", not "apply this". Dismissed rows stay, because a
  * dismissal is evidence somebody read it.
  */
-/*
- * Sends a real notification and reports what came back. Its own fetch rather
- * than act(), because the useful answer here is a diagnostic string, not a
- * refreshed list of rows.
- */
-/*
- * One table, two states. Verified claims are the ones that grant edit rights,
- * so they get their own heading rather than a status pill buried in a mixed
- * list; pending ones are a different question (has this vendor published the
- * token yet) and read better apart.
- */
-function ClaimsTable({ title, hint, rows, act, busy, verified, empty }) {
-  return (
-    <Section title={title} count={rows.length} hint={hint}>
-      {rows.length === 0 ? <Empty>{empty}</Empty> : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 640 }}>
-            <thead>
-              <tr style={{ textAlign: "left", color: C.dim }}>
-                {["Tool", "Email", "Method", verified ? "Verified" : "Started", ""].map((h) => (
-                  <th key={h} style={{ fontWeight: 600, padding: "8px 10px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(([toolId, c]) => {
-                const tool = TOOLS.find((t) => t.id === toolId);
-                return (
-                  <tr key={toolId}>
-                    <td style={cell}>
-                      <span style={{ fontWeight: 600 }}>{tool ? tool.name : toolId}</span>
-                      {tool && <span style={{ color: catOf(tool.cat).color, marginLeft: 7, fontSize: 12 }}>{catOf(tool.cat).label}</span>}
-                    </td>
-                    <td style={{ ...cell, color: C.muted }}>{c.email}</td>
-                    <td style={{ ...cell, color: C.muted }}>
-                      {c.method === "email-domain" ? "email domain" : c.method === "domain" ? "published token" : "—"}
-                    </td>
-                    <td style={{ ...cell, color: C.dim }}>{(verified ? c.verifiedAt : c.startedAt) || "—"}</td>
-                    <td style={{ ...cell, textAlign: "right" }}>
-                      <div className="flex flex-wrap justify-end" style={{ gap: 6 }}>
-                        <Btn onClick={() => act("revoke-claim", toolId, { revertContent: false }, "access")}
-                          busy={busy === "revoke-claimaccess" + toolId} tone="stop">Revoke access</Btn>
-                        <Btn onClick={() => act("revoke-claim", toolId, { revertContent: true }, "revert")}
-                          busy={busy === "revoke-claimrevert" + toolId} tone="stop">Revoke and revert content</Btn>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Section>
-  );
-}
-
-const when = (iso) => {
-  if (!iso) return "—";
-  // Stored as a full ISO timestamp; the minute is enough to read at a glance.
-  return String(iso).slice(0, 16).replace("T", " ");
-};
+const MAIL_EVENTS = [
+  ["signin_new", "Sign-in (new)"],
+  ["signin_return", "Sign-in (returning)"],
+  ["signin_link", "Sign-in link"],
+  ["subscribe", "Subscribe"],
+  ["review", "Review / rating"],
+  ["claim_verified", "Claim verified"],
+  ["suggestion", "Suggestion"],
+  ["report", "Report"],
+  ["listing_edited", "Listing edited"],
+];
 
 /*
- * Who has ever signed in. Three fields, because that is all that is stored —
- * see lib/accounts.js. The claimed column is joined here from svt:claims rather
- * than duplicated onto the account record, so there is one source of truth for
- * who owns what.
+ * The audit trail. Every attempt lands here, so an empty panel after a real
+ * event is itself the finding — it means nothing was even tried.
  */
-function Accounts({ accounts, claims }) {
-  const rows = Object.values(accounts).sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
-  const claimedBy = (email) => Object.entries(claims)
-    .filter(([, c]) => c.email === email && c.status === "verified")
-    .map(([toolId]) => (TOOLS.find((t) => t.id === toolId)?.name) || toolId);
+function MailLog({ rows }) {
+  const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const failed24 = rows.filter((r) => !r.ok && Date.parse(r.at || "") >= dayAgo).length;
+  const failedAll = rows.filter((r) => !r.ok).length;
 
   return (
-    <Section title="Accounts" count={rows.length}
-      hint="Created on first sign-in. Email, first seen and last seen — no IP, no user agent, no page history. The sign-in copy promises exactly this, so adding a field here means changing that copy too.">
-      {rows.length === 0 ? <Empty>Nobody has signed in yet.</Empty> : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 620 }}>
-            <thead>
-              <tr style={{ textAlign: "left", color: C.dim }}>
-                {["Email", "First seen", "Last seen", "Claimed"].map((h) => (
-                  <th key={h} style={{ fontWeight: 600, padding: "8px 10px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a) => {
-                const owns = claimedBy(a.email);
-                return (
-                  <tr key={a.email}>
-                    <td style={cell}><a href={`mailto:${a.email}`} style={{ color: C.text }}>{a.email}</a></td>
-                    <td style={{ ...cell, color: C.dim }}>{when(a.firstSeen)}</td>
-                    <td style={{ ...cell, color: C.muted }}>{when(a.lastSeen)}</td>
-                    <td style={{ ...cell, color: owns.length ? C.text : C.dim }}>
-                      {owns.length ? owns.join(", ") : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Section>
-  );
-}
-
-/*
- * Directory counters. Deliberately narrow: page traffic is Vercel Analytics'
- * job, and this holds only the two things it cannot see.
- */
-function Stats({ stats }) {
-  const fields = stats.fields || {};
-  const queries = stats.queries || [];
-  const opens = Object.entries(fields)
-    .filter(([k]) => k.startsWith("tool:"))
-    .map(([k, n]) => [k.slice(5), n])
-    .sort((a, b) => b[1] - a[1]);
-  const matcherUses = fields["matcher:uses"] || 0;
-  const totalOpens = opens.reduce((n, [, v]) => n + v, 0);
-  const top = Math.max(1, opens.length ? opens[0][1] : 1);
-
-  return (
-    <Section title="Directory stats" count={totalOpens}
-      hint="Tool opens and matcher use only. Page views, referrers and paths are in Vercel Analytics and deliberately not duplicated here. Nothing is tied to a person.">
-      <div className="flex flex-wrap" style={{ gap: 28, padding: "12px 0 4px" }}>
+    <Section title="Mail log" count={rows.length}
+      hint="Last 100 sends, newest first, from svt:maillog. Every attempt is recorded whether it worked or not — a send that leaves no row here never happened.">
+      <div className="flex flex-wrap" style={{ gap: 26, padding: "12px 0 6px" }}>
         <div>
-          <p style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>{totalOpens}</p>
-          <p style={{ fontSize: 12.5, color: C.dim, margin: 0 }}>tool detail opens</p>
+          <p style={{ fontSize: 24, fontWeight: 800, margin: 0, color: failed24 ? "#FF6B8A" : C.text }}>{failed24}</p>
+          <p style={{ fontSize: 12.5, color: C.dim, margin: 0 }}>failures in 24h</p>
         </div>
         <div>
-          <p style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>{matcherUses}</p>
-          <p style={{ fontSize: 12.5, color: C.dim, margin: 0 }}>matcher uses</p>
+          <p style={{ fontSize: 24, fontWeight: 800, margin: 0, color: failedAll ? "#FFB020" : C.text }}>{failedAll}</p>
+          <p style={{ fontSize: 12.5, color: C.dim, margin: 0 }}>failures shown</p>
         </div>
       </div>
 
-      {opens.length === 0 ? <Empty>Nothing counted yet.</Empty> : (
-        <div className="flex flex-col" style={{ gap: 6, padding: "10px 0 6px" }}>
-          {opens.slice(0, 15).map(([id, n]) => {
-            const tool = TOOLS.find((t) => t.id === id);
-            return (
-              <div key={id} className="flex items-center" style={{ gap: 10 }}>
-                <span style={{ fontSize: 13.5, width: 170, flexShrink: 0 }}>{tool ? tool.name : id}</span>
-                <span style={{
-                  height: 7, borderRadius: 4, flexShrink: 0,
-                  width: `${Math.max(4, Math.round((n / top) * 100))}%`, maxWidth: 380,
-                  background: tool ? catOf(tool.cat).color : C.muted,
-                }} />
-                <span style={{ fontSize: 12.5, color: C.dim }}>{n}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <div style={{ borderTop: `1px solid ${C.line}`, marginTop: 12, paddingTop: 12 }}>
-        <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>
-          Last {Math.min(queries.length, 50)} matcher queries
-        </p>
-        {queries.length === 0
-          ? <Empty>Nothing asked yet.</Empty>
-          : (
-            <div className="flex flex-col" style={{ gap: 4, marginTop: 8 }}>
-              {queries.slice(0, 50).map((q, i) => (
-                <p key={`${i}-${q.slice(0, 12)}`} style={{ fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.5 }}>
-                  <span style={{ color: C.dim }}>{i + 1}.</span> {q}
-                </p>
+      {rows.length === 0 ? <Empty>Nothing sent yet.</Empty> : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 680 }}>
+            <thead>
+              <tr style={{ textAlign: "left", color: C.dim }}>
+                {["When", "Event", "To", "Result"].map((h) => (
+                  <th key={h} style={{ fontWeight: 600, padding: "8px 10px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={`${r.at}-${i}`}>
+                  <td style={{ ...cell, color: C.dim, whiteSpace: "nowrap" }}>{String(r.at || "").slice(0, 16).replace("T", " ")}</td>
+                  <td style={cell}>{r.event}</td>
+                  <td style={{ ...cell, color: C.muted }}>
+                    <span style={{ color: r.cls === "admin" ? "#4CC9F0" : "#B08CFF" }}>{r.cls}</span>
+                    <span style={{ color: C.dim, marginLeft: 6 }}>{r.to}</span>
+                  </td>
+                  <td style={{ ...cell, color: r.ok ? "#00E08A" : "#FF6B8A", wordBreak: "break-word" }}>
+                    {r.ok ? "ok" : `failed — ${r.error || "unknown"}`}
+                  </td>
+                </tr>
               ))}
-            </div>
-          )}
-      </div>
+            </tbody>
+          </table>
+        </div>
+      )}
     </Section>
   );
 }
 
+/*
+ * Fires any event in the matrix with dummy data, addressed to the admin only —
+ * testing "what a vendor gets when their claim verifies" must never reach a
+ * vendor. Its own fetch rather than act(), because the answer is a diagnostic.
+ */
 function NotificationTest() {
+  const [event, setEvent] = useState(MAIL_EVENTS[0][0]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -488,39 +385,55 @@ function NotificationTest() {
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "test-notification" }),
+        body: JSON.stringify({ action: "test-notification", event }),
       });
-      if (!res.ok) { setResult({ failed: true, error: `${res.status} ${await res.text()}` }); return; }
-      const d = await res.json();
-      setResult(d.test);
+      if (!res.ok) { setResult({ ok: false, sends: [], error: `${res.status} ${await res.text()}` }); return; }
+      setResult((await res.json()).test);
     } catch {
-      setResult({ failed: true, error: "Could not reach the server." });
+      setResult({ ok: false, sends: [], error: "Could not reach the server." });
     } finally {
       setBusy(false);
     }
   }
 
-  const tone = result?.sent ? "#00E08A" : result?.skipped ? "#FFB020" : "#FF6B8A";
+  const field = {
+    background: "rgba(0,0,0,.3)", border: `1px solid ${C.line}`, borderRadius: 8,
+    padding: "8px 11px", fontSize: 13.5, color: C.text, fontFamily: "inherit",
+  };
 
   return (
-    <Section title="Notifications" count=""
-      hint="Every event — signup, suggestion, verified claim, listing edit, review, report — goes through one sender. This fires a real one to ADMIN_EMAILS and reports what happened, so a broken setup shows up here rather than as silence.">
+    <Section title="Test an event" count=""
+      hint="Fires a real send through the same dispatcher the routes use, with dummy data, to your address only — including the copy a user would get, so nothing reaches a real vendor.">
       <div className="flex flex-wrap items-center" style={{ gap: 10, padding: "12px 0 4px" }}>
-        <Btn onClick={send} busy={busy} tone="go">Send a test notification</Btn>
-        {result && (
-          <span style={{ fontSize: 13, color: tone }}>
-            {result.sent ? `Sent to ${result.to} admin address${result.to === 1 ? "" : "es"}.`
-              : result.skipped ? `Not sent: ${result.reason}.`
-              : `Failed: ${result.error}`}
-          </span>
-        )}
+        <select value={event} onChange={(e) => { setEvent(e.target.value); setResult(null); }} style={{ ...field, width: 210 }}>
+          {MAIL_EVENTS.map(([id, label]) => (
+            <option key={id} value={id} style={{ background: C.panel }}>{label}</option>
+          ))}
+        </select>
+        <Btn onClick={send} busy={busy} tone="go">Send test</Btn>
       </div>
-      {result?.config && (
-        <p style={{ fontSize: 12.5, color: C.dim, margin: "2px 0 10px", lineHeight: 1.6 }}>
-          RESEND_API_KEY {result.config.resendKey ? "set" : "missing"} · ADMIN_EMAILS{" "}
-          {result.config.adminEmails || "none"} · from {result.config.from}
-          {!result.sent && " — check the Vercel logs for lines beginning [notify]."}
-        </p>
+
+      {result && (
+        <div style={{ padding: "4px 0 10px" }}>
+          {result.nothingToSend ? (
+            <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>
+              Nothing sent — this event mails nobody by design.
+            </p>
+          ) : (
+            (result.sends || []).map((sd, i) => (
+              <p key={i} style={{ fontSize: 13, margin: "2px 0", color: sd.ok ? "#00E08A" : "#FF6B8A" }}>
+                {sd.cls} → {sd.to}: {sd.ok ? "ok" : `failed — ${sd.error}`}
+              </p>
+            ))
+          )}
+          {result.error && <p style={{ fontSize: 13, color: "#FF6B8A", margin: "2px 0" }}>{result.error}</p>}
+          {result.config && (
+            <p style={{ fontSize: 12.5, color: C.dim, margin: "6px 0 0", lineHeight: 1.6 }}>
+              RESEND_API_KEY {result.config.resendKey ? "set" : "missing"} · ADMIN_EMAILS{" "}
+              {result.config.adminEmails || "none"} · from {result.config.from}
+            </p>
+          )}
+        </div>
       )}
     </Section>
   );

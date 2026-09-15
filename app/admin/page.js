@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { sessionFrom, isAdmin } from "@/lib/auth";
-import { read, readStats, KEYS } from "@/lib/store";
+import { read, readStats, readMailLog, KEYS } from "@/lib/store";
 import { getClaims } from "@/lib/listings";
 import { getSubscribers } from "@/lib/subscribers";
 import { C } from "@/lib/tools";
@@ -32,13 +32,14 @@ export default async function AdminPage() {
   }
 
   // Past the gate, and only now.
-  const [suggestions, claims, subscribers, reports, accounts, stats] = await Promise.all([
+  const [suggestions, claims, subscribers, reports, accounts, stats, maillog] = await Promise.all([
     read(KEYS.suggestions, []),
     getClaims(),
     getSubscribers(),
     read(KEYS.reports, []),
     getAccounts(),
     readStats(),
+    readMailLog(100),
   ]);
 
   return (
@@ -50,6 +51,7 @@ export default async function AdminPage() {
       reports={reports}
       accounts={accounts}
       stats={stats}
+      maillog={maillog}
     />
   );
 }

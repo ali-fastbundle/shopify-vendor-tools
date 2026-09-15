@@ -2,7 +2,7 @@ import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { read, write, KEYS } from "@/lib/store";
 import { getClaims, revokeClaim } from "@/lib/listings";
-import { notifyAdmin } from "@/lib/notify";
+import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
 
@@ -38,28 +38,44 @@ export async function POST(request) {
    * happened, so a misconfigured deployment can be diagnosed without waiting for
    * somebody to submit a suggestion and then guessing at the silence.
    *
-   * Awaited, unlike every other call to notifyAdmin — the whole point here is
-   * the result. That does not contradict the fire-and-forget rule, which is
-   * about not making a visitor's request wait on the mail provider; this
-   * request is an admin asking the mail provider a question.
-   *
    * Placed above the id check because a test has nothing to act on.
+   */
+  /*
+   * Fire any event in the matrix with dummy data, to the admin address only.
+   *
+   * `adminOverride` forces the user-side copy to the admin too, so a test of
+   * "what does a vendor get when their claim verifies" never reaches a vendor.
+   * Awaited, because the result is the entire point of the button.
+   *
+   * Above the id check, because a test has nothing to act on.
    */
   if (action === "test-notification") {
     const origin = new URL(request.url).origin;
-    const result = await notifyAdmin("Test notification", [
-      "This is a test, fired from the admin console.",
-      `Requested by ${session.email} at ${new Date().toISOString()}.`,
-      "If this arrived, admin notifications work: signups, suggestions, verified claims, listing edits, reviews and reports all use the same sender.",
-    ], { origin, event: "admin-test" });
+    const event = EVENTS.includes(body.event) ? body.event : "signin_new";
+    const me = session.email;
 
-    const admins = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim()).filter(Boolean);
+    const dummy = {
+      signin_new:     { email: me },
+      signin_return:  { email: me },
+      signin_link:    { email: me, link: `${origin}/api/auth/callback?token=TEST` },
+      subscribe:      { email: me },
+      review:         { email: me, toolName: "Applora", toolId: "applora", rating: 5, author: "Test", text: "A test review." },
+      claim_verified: { email: me, toolName: "Applora", domain: "applora.ai", method: "email-domain" },
+      suggestion:     { email: me, name: "Test Tool", url: "https://example.com", why: "A test suggestion.", by: "Test", approved: true, kindLabel: "Tools", catLabel: "App Store ASO" },
+      report:         { email: me, toolName: "Applora", domain: "applora.ai", kindLabel: "Broken link", value: "A test report." },
+      listing_edited: { email: me, toolName: "Applora", changed: ["price"], values: ["price: $0 (test)"], byAdmin: true },
+    }[event] || { email: me };
+
+    const result = await sendEvent(event, { ...dummy, origin, adminOverride: me });
     return Response.json({
       test: {
-        ...result,
+        event,
+        ok: result.ok,
+        sends: result.sends,
+        nothingToSend: result.sends.length === 0,
         config: {
           resendKey: Boolean(process.env.RESEND_API_KEY),
-          adminEmails: admins.length,
+          adminEmails: adminList().length,
           from: process.env.EMAIL_FROM || "(default onboarding@resend.dev)",
         },
       },
