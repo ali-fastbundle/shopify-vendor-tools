@@ -407,7 +407,7 @@ export default function Directory({ tools: initialTools }) {
             ))}
           </div>
           <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, margin: "16px 0 0" }}>
-            The Shopify app vendor's toolkit
+            The app vendor's toolkit
           </h1>
           <p style={{ fontSize: 15, color: C.muted, margin: "10px 0 0" }}>
             by {AUTHOR}
@@ -525,7 +525,9 @@ export default function Directory({ tools: initialTools }) {
 
         <footer className="pb-16" style={{ borderTop: `1px solid ${C.line}`, paddingTop: 18 }}>
           <p style={{ fontSize: 13, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
-            Independent directory. No tool here paid to be listed and none of the links are affiliate links.
+            watchfor.tools is an independent directory. Not affiliated with, endorsed by, or sponsored by
+            Shopify. Shopify is a trademark of Shopify Inc.
+            No tool here paid to be listed and none of the links are affiliate links.
             Notes were last updated {LAST_UPDATED}. They are an editorial view, not an endorsement, and pricing moves. Tools marked unverified
             were sourced from search results or third parties rather than the vendor's own site. Social
             profiles are linked only where the vendor publishes them. Ratings, reviews and suggestions are

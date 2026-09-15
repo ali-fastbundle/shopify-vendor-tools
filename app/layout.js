@@ -5,9 +5,17 @@ const description =
   "Every tool built specifically for the people who build Shopify apps. Rankings, store data, revenue analytics, partner programs. Open directory, community rated.";
 
 export const metadata = {
+  metadataBase: new URL("https://watchfor.tools"),
   title,
   description,
-  openGraph: { title, description, type: "website" },
+  alternates: { canonical: "/" },
+  openGraph: {
+    title,
+    description,
+    type: "website",
+    url: "https://watchfor.tools",
+    siteName: "watchfor.tools",
+  },
   twitter: { card: "summary_large_image", title, description },
 };
 
