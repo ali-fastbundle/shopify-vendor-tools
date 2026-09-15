@@ -142,6 +142,11 @@ npm run build      # must compile
 
 Then check the homepage HTML actually contains tool names, not just a loading state.
 
+Next renames its process to `next-server` once running, so `pkill -f "next start"`
+reports success without killing anything. Before verifying a build against a running
+server, confirm the port is actually free — `lsof -ti:3000 | xargs kill -9` — or the
+check will silently run against a stale build.
+
 ## What not to do without asking
 
 - Add a tool that is not Shopify-exclusive. That boundary is deliberate; general tools
