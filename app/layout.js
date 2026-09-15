@@ -1,6 +1,6 @@
 import "./globals.css";
 
-const title = "The Shopify app vendor's toolkit";
+const title = "The app vendor's toolkit — watchfor.tools";
 const description =
   "Every tool built specifically for the people who build Shopify apps. Rankings, store data, revenue analytics, partner programs. Open directory, community rated.";
 
