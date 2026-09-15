@@ -687,7 +687,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
           <Pill color={col}>{tool.price}</Pill>
           {tool.free && <Pill color="#00E08A">free plan</Pill>}
           {tool.suite && <Pill color="#FF9052">{tool.suite}</Pill>}
-          {tool.linked && <Pill color="#B08CFF">owner of {tool.linked}</Pill>}
+          {tool.linked && <Pill color="#B08CFF">same owner as {tool.linked}</Pill>}
           {tool.owner && <Pill color="#B08CFF">by {tool.owner}</Pill>}
           {!tool.verified && <Pill color="#7C8F86">unverified</Pill>}
         </div>
