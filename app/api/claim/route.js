@@ -43,7 +43,7 @@ export async function POST(request) {
         `Claimed by: ${session.email}`,
         "Method: email-domain — their address is already on the tool's own domain.",
         "\nThey can now edit the listing. Revoke it at /admin if that is wrong.",
-      ], { origin });
+      ], { origin, event: "claim-verified-email-domain" });
       return Response.json({ status: "verified", via: "email domain", claim: done });
     }
     return Response.json({
@@ -76,7 +76,7 @@ export async function POST(request) {
       `Claimed by: ${session.email}`,
       `Method: domain — verification token found at ${result.via}`,
       "\nThey can now edit the listing. Revoke it at /admin if that is wrong.",
-    ], { origin });
+    ], { origin, event: "claim-verified-domain" });
     return Response.json({ status: "verified", via: result.via, claim: done });
   }
 

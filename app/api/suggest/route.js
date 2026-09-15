@@ -59,7 +59,7 @@ export async function POST(request) {
       ? "\nAwaiting approval — it is stored but not public. Approve it at /admin."
       : "\nLive now. Moderation is off, so it is already public.",
     entry.email ? `Reply-to: ${entry.email}` : "No email given, so they cannot be thanked or chased.",
-  ], { origin });
+  ], { origin, event: "suggestion" });
 
   if (entry.email) {
     const { html, text } = renderEmail({
@@ -73,7 +73,7 @@ export async function POST(request) {
       button: { label: "Browse the directory", url: origin },
     });
     sendMail({ to: entry.email, subject: `Thanks for suggesting ${entry.name}`, text, html })
-      .catch((e) => console.error("suggestion thank-you:", e.message));
+      .catch((e) => console.error("[notify] suggestion-thank-you: FAILED —", e.message));
   }
 
   // The email is for the editor only, never served back to the page.

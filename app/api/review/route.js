@@ -41,7 +41,7 @@ export async function POST(request) {
     `Rating: ${entry.rating} out of 5`,
     `By: ${entry.author}`,
     entry.text ? `\nWrote:\n${entry.text}` : "No text, rating only.",
-  ], { origin });
+  ], { origin, event: "review" });
 
   /*
    * Thanking someone needs an address, and the review form never asks for one —
@@ -60,7 +60,7 @@ export async function POST(request) {
       button: { label: `See the ${tool.name} listing`, url: `${origin}/?tool=${encodeURIComponent(tool.id)}` },
     });
     sendMail({ to: session.email, subject: `Thanks for reviewing ${tool.name}`, text, html })
-      .catch((e) => console.error("review thank-you:", e.message));
+      .catch((e) => console.error("[notify] review-thank-you: FAILED —", e.message));
   }
 
   return Response.json({ reviews });

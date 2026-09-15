@@ -2,6 +2,7 @@ import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { read, write, KEYS } from "@/lib/store";
 import { getClaims, revokeClaim } from "@/lib/listings";
+import { notifyAdmin } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,40 @@ export async function POST(request) {
   let body;
   try { body = await request.json(); } catch { body = {}; }
   const { action, id } = body;
+
+  /*
+   * Fires a real notification through the real sender and reports what actually
+   * happened, so a misconfigured deployment can be diagnosed without waiting for
+   * somebody to submit a suggestion and then guessing at the silence.
+   *
+   * Awaited, unlike every other call to notifyAdmin — the whole point here is
+   * the result. That does not contradict the fire-and-forget rule, which is
+   * about not making a visitor's request wait on the mail provider; this
+   * request is an admin asking the mail provider a question.
+   *
+   * Placed above the id check because a test has nothing to act on.
+   */
+  if (action === "test-notification") {
+    const origin = new URL(request.url).origin;
+    const result = await notifyAdmin("Test notification", [
+      "This is a test, fired from the admin console.",
+      `Requested by ${session.email} at ${new Date().toISOString()}.`,
+      "If this arrived, admin notifications work: signups, suggestions, verified claims, listing edits, reviews and reports all use the same sender.",
+    ], { origin, event: "admin-test" });
+
+    const admins = (process.env.ADMIN_EMAILS || "").split(",").map((e) => e.trim()).filter(Boolean);
+    return Response.json({
+      test: {
+        ...result,
+        config: {
+          resendKey: Boolean(process.env.RESEND_API_KEY),
+          adminEmails: admins.length,
+          from: process.env.EMAIL_FROM || "(default onboarding@resend.dev)",
+        },
+      },
+    });
+  }
+
   if (!id || typeof id !== "string") return new Response("Missing id", { status: 400 });
 
   /*

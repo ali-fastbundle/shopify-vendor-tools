@@ -132,6 +132,8 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
           )}
         </Section>
 
+        <NotificationTest />
+
         <Reports rows={reportRows} act={act} busy={busy} />
 
         <Subscribers list={subscribers || []} />
@@ -329,6 +331,59 @@ function Compose({ count }) {
  * made the change by hand", not "apply this". Dismissed rows stay, because a
  * dismissal is evidence somebody read it.
  */
+/*
+ * Sends a real notification and reports what came back. Its own fetch rather
+ * than act(), because the useful answer here is a diagnostic string, not a
+ * refreshed list of rows.
+ */
+function NotificationTest() {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+
+  async function send() {
+    setBusy(true); setResult(null);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test-notification" }),
+      });
+      if (!res.ok) { setResult({ failed: true, error: `${res.status} ${await res.text()}` }); return; }
+      const d = await res.json();
+      setResult(d.test);
+    } catch {
+      setResult({ failed: true, error: "Could not reach the server." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const tone = result?.sent ? "#00E08A" : result?.skipped ? "#FFB020" : "#FF6B8A";
+
+  return (
+    <Section title="Notifications" count=""
+      hint="Every event — signup, suggestion, verified claim, listing edit, review, report — goes through one sender. This fires a real one to ADMIN_EMAILS and reports what happened, so a broken setup shows up here rather than as silence.">
+      <div className="flex flex-wrap items-center" style={{ gap: 10, padding: "12px 0 4px" }}>
+        <Btn onClick={send} busy={busy} tone="go">Send a test notification</Btn>
+        {result && (
+          <span style={{ fontSize: 13, color: tone }}>
+            {result.sent ? `Sent to ${result.to} admin address${result.to === 1 ? "" : "es"}.`
+              : result.skipped ? `Not sent: ${result.reason}.`
+              : `Failed: ${result.error}`}
+          </span>
+        )}
+      </div>
+      {result?.config && (
+        <p style={{ fontSize: 12.5, color: C.dim, margin: "2px 0 10px", lineHeight: 1.6 }}>
+          RESEND_API_KEY {result.config.resendKey ? "set" : "missing"} · ADMIN_EMAILS{" "}
+          {result.config.adminEmails || "none"} · from {result.config.from}
+          {!result.sent && " — check the Vercel logs for lines beginning [notify]."}
+        </p>
+      )}
+    </Section>
+  );
+}
+
 function Reports({ rows, act, busy }) {
   const open = rows.filter((r) => r.status === "open");
   const closed = rows.filter((r) => r.status !== "open");

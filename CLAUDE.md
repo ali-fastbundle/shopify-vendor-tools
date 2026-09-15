@@ -218,6 +218,19 @@ email by construction rather than by a check somebody has to remember.
 Every one of these is fire-and-forget. A dead mail provider must never turn a stored
 suggestion into a 500 the visitor sees.
 
+Fire-and-forget is not the same as silent. Every path in `notifyAdmin` logs a line
+prefixed `[notify]`, including the one where it does nothing because the environment is
+unset — that state is what a misconfigured deployment sits in, so it is the one that
+most needs to say so. `lib/notify.js` also warns once per instance, at import, when
+`RESEND_API_KEY` and `ADMIN_EMAILS` are half-configured. Grep a Vercel log for
+`[notify]`.
+
+`/admin` has a **Send a test notification** button behind the usual admin check. It
+fires a real send through the real sender and reports what came back, including the
+Resend error verbatim and which env vars are set. It is the one place `notifyAdmin` is
+awaited, because the result is the entire point; that does not breach the rule above,
+which is about not making a *visitor* wait on the mail provider.
+
 ## Before committing
 
 ```

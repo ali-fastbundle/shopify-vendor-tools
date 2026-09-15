@@ -73,7 +73,7 @@ export async function POST(request) {
     value ? `They say: ${value}` : "No detail given.",
     entry.email ? `From: ${entry.email}` : "No email given.",
     "\nNothing has changed on the listing. Reports are a queue, not an edit.",
-  ], { origin });
+  ], { origin, event: "report" });
 
   return Response.json({ ok: true });
 }

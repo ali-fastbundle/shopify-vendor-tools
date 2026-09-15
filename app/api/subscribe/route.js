@@ -47,13 +47,13 @@ export async function POST(request) {
       unsubscribe,
     });
     sendMail({ to: email, subject: "You're on the list", text, html })
-      .catch((e) => console.error("subscribe confirmation:", e.message));
+      .catch((e) => console.error("[notify] subscribe-confirmation: FAILED —", e.message));
 
     // Deliberately not awaited. See lib/notify.js.
     notifyAdmin("New newsletter signup", [
       `Address: ${email}`,
       "They have been sent the confirmation and can unsubscribe from it.",
-    ], { origin });
+    ], { origin, event: "newsletter-signup" });
   }
 
   return Response.json({ ok: true });
