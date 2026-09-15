@@ -158,6 +158,15 @@ was read, so a stale number is visible as stale rather than passing for current.
 - **Vendors cannot edit `ratings`.** It sits in the protected set alongside `watch`,
   `cat` and `verified` — absent from `EDITABLE` and restated in `mergedTools()`.
 
+A tool with no external ratings renders nothing at all — no row, no placeholder, no
+"None found". Most of this catalogue is too niche for G2 or Trustpilot to have a page
+at all, so an empty slot says something about the size of the category, not about the
+tool. "None found" reads as a failed search and, next to a competitor showing 4.9, as a
+verdict. The compare table drops the whole row when nothing being compared has one.
+
+A source can also be recorded without a score: keep `count` and `url`, omit `score`
+rather than guessing, and the UI shows the source and count alone.
+
 Never blend an external score into the community rating, or show a single combined
 number. They measure different populations, and averaging them would report a figure
 neither source ever published. The card and detail view show them separately and at

@@ -95,16 +95,20 @@ function ExternalRatings({ ratings, detail = false }) {
     <div className="flex flex-wrap items-center" style={{ gap: detail ? 14 : 10 }}>
       {ratings.map((r) => (
         <a key={`${r.source}${r.url}`} href={r.url} target="_blank" rel="noopener noreferrer"
-          title={`${r.source}: ${r.score} out of ${r.outOf ?? 5}${r.count ? `, ${r.count} reviews` : ""}${r.captured ? `, captured ${r.captured}` : ""}`}
+          title={`${r.source}: ${r.score == null ? "score not captured" : `${r.score} out of ${r.outOf ?? 5}`}${r.count ? `, ${r.count} reviews` : ""}${r.captured ? `, captured ${r.captured}` : ""}`}
           style={{
             fontSize: detail ? 13 : 11.5, color: C.dim, textDecoration: "none",
             display: "inline-flex", alignItems: "baseline", gap: 4, whiteSpace: "nowrap",
           }}>
           {/* out of 5 is the common case and stays implicit; anything else is spelled out
-              so a 9.2 from a ten-point scale cannot read as a five-point score */}
-          <span style={{ fontWeight: 700, color: C.muted }}>
-            {r.score}{r.outOf && r.outOf !== 5 ? `/${r.outOf}` : ""}
-          </span>
+              so a 9.2 from a ten-point scale cannot read as a five-point score. A source
+              with a review count but no score captured shows the count alone rather than
+              an empty slot where a number should be. */}
+          {r.score != null && (
+            <span style={{ fontWeight: 700, color: C.muted }}>
+              {r.score}{r.outOf && r.outOf !== 5 ? `/${r.outOf}` : ""}
+            </span>
+          )}
           <span>{r.source}</span>
           {Boolean(r.count) && <span>({r.count})</span>}
           {detail && r.captured && <span style={{ opacity: 0.75 }}>· {r.captured}</span>}
@@ -931,6 +935,12 @@ function ReviewForm({ name, onSubmit, color }) {
 /* ================================================================== */
 function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
   const list = ids.map((id) => tools.find((t) => t.id === id));
+  /*
+   * Only worth a row if something being compared actually has one. A blank column
+   * of "None found" would read as a verdict on the tool, when what it really says
+   * is that this corner of the ecosystem is too small for the review platforms.
+   */
+  const anyRatings = list.some((t) => t.ratings?.length);
   const rowsSpec = [
     ["Category", (t) => catOf(t.cat).label],
     ["What it does", (t) => t.one],
@@ -940,9 +950,11 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
       const a = avg(t.id), n = (reviews[t.id] || []).length;
       return n ? `${a.toFixed(1)} from ${n}` : "Not rated yet";
     }],
-    ["External ratings", (t) => (t.ratings?.length
-      ? t.ratings.map((r) => `${r.source} ${r.score}${r.outOf && r.outOf !== 5 ? `/${r.outOf}` : ""}`).join(" · ")
-      : "None found")],
+    ...(anyRatings ? [["External ratings", (t) => (t.ratings || []).map((r) => (
+      r.score == null
+        ? `${r.source}, score not captured`
+        : `${r.source} ${r.score}${r.outOf && r.outOf !== 5 ? `/${r.outOf}` : ""}`
+    )).join(" · ")]] : []),
     ["Likes", (t) => {
       const v = votes[t.id] || { up: 0, down: 0 };
       return `${v.up} up · ${v.down} down`;
