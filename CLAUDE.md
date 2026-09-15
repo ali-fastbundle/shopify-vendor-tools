@@ -15,8 +15,8 @@ protect that, not for technical reasons.
 **1. `watch` is never editable by a vendor.**
 Every tool has a `watch` field: the honest caveat. Vendors who claim a listing can edit
 the summary, description, pricing and links. They cannot touch `watch`, `cat`,
-`verified`, `ratings` (the external scores), community ratings or reviews. This is
-enforced server-side in `lib/listings.js` via
+`verified`, `ratings` (the external scores), `updated`, community ratings or reviews.
+This is enforced server-side in `lib/listings.js` via
 the `EDITABLE` whitelist, and restated explicitly in `mergedTools()`. If you refactor
 that file, verify with:
 
@@ -105,11 +105,27 @@ one without the other, and every Resend call sets `reply_to` to the first
 `ADMIN_EMAILS` address. The subscribe copy tells people they can reply to get off the
 list; the from-address has no inbox, so without `reply_to` that is a lie.
 
+**13. Every tool carries an `updated` date, and the site date is derived from it.**
+Adding a tool or editing one means setting its `updated` to that day's date, in
+`YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
+`lib/tools.js` — never a constant to bump by hand. A hand-maintained date only tells
+the truth until the first time somebody forgets it, and it fails silently in the worst
+direction: the footer claims the directory is stale while it is not.
+
+It is computed from `TOOLS`, the editorial source, and never from `mergedTools()`. A
+vendor editing their own listing must not move the site-wide date — that is their
+change, not an editorial one, and it shows as "last updated {editedAt}" on that listing
+alone. `updated` is in the protected set with `watch`, `cat`, `verified` and `ratings`.
+
+Approving a suggestion in `/admin` publishes the suggestion, not a listing. Turning it
+into a tool is still a hand edit to `lib/tools.js`; give that entry an `updated` of the
+day it goes in and the site-wide date moves on its own.
+
 ## Layout
 
 | Path | Role |
 |---|---|
-| `lib/tools.js` | Catalogue, categories, palette, `LAST_UPDATED`. Edit tools here only. |
+| `lib/tools.js` | Catalogue, categories, palette, and `LAST_UPDATED` derived from it. Edit tools here only. |
 | `lib/listings.js` | Claims, the editable whitelist, domain verification, merge logic |
 | `lib/auth.js` | HMAC session cookies, magic-link tokens, admin check |
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |

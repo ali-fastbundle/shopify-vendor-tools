@@ -61,7 +61,7 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
         <Section
           title="Pending suggestions"
           count={pending.length}
-          hint="Stored but not served by /api/data. Approving publishes it immediately."
+          hint="Stored but not served by /api/data. Approving publishes it immediately. Turning one into a listing is a separate, manual edit to lib/tools.js — give the new entry an `updated` of the day it goes in, and the site-wide date follows on its own."
         >
           {pending.length === 0
             ? <Empty>Nothing waiting. With MODERATE_SUGGESTIONS unset, suggestions go live on submit and never land here.</Empty>
