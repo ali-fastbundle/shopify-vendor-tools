@@ -469,11 +469,8 @@ export default function Directory({ tools: initialTools }) {
             ))}
           </div>
           <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, margin: "16px 0 0" }}>
-            The app vendor's toolkit
-          </h1>
-          <p style={{ fontSize: 18.5, color: C.muted, margin: "9px 0 0", letterSpacing: "-0.015em" }}>
             The Shopify app vendor's toolkit
-          </p>
+          </h1>
           <p style={{ fontSize: 15, color: C.muted, margin: "8px 0 0" }}>
             by{" "}
             {AUTHOR_URL

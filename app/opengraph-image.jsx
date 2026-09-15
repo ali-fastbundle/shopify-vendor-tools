@@ -80,7 +80,7 @@ export default async function Image() {
           display: "flex", fontSize: 96, fontWeight: 800,
           letterSpacing: "-0.045em", lineHeight: 1.03, maxWidth: 900,
         }}>
-          {"The app vendor's toolkit"}
+          {"The Shopify app vendor's toolkit"}
         </div>
 
         {/* Counts over the full palette */}
