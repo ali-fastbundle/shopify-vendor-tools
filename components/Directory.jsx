@@ -8,7 +8,8 @@ import { AccountBar, OwnerPanel, useSession } from "./Account";
 /*  Bits                                                               */
 /* ================================================================== */
 /*
- * The mark is the seven CATEGORIES colours in catalogue order. Category colour
+ * The mark is the CATEGORIES colours in catalogue order — every one of them, so
+ * adding a category widens the mark rather than breaking it. Category colour
  * is information everywhere else on the page, so the logo doubles as the legend
  * and the palette stays closed — the green in "Tools" is the `aso` colour, not a
  * new accent. app/icon.svg and the share card draw the same mark.
