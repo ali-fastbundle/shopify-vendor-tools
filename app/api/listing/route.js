@@ -39,7 +39,7 @@ export async function POST(request) {
     `Edited by: ${session.email}${owns ? "" : " (admin, not the owner)"}`,
     `Fields changed: ${changed.join(", ")}\n`,
     ...changed.map((f) => `${f}: ${typeof clean[f] === "object" ? JSON.stringify(clean[f]) : clean[f]}`),
-  ]);
+  ], { origin: new URL(request.url).origin });
 
   return Response.json({ tools: await mergedTools() });
 }

@@ -2,6 +2,8 @@ import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { CATEGORIES, RESOURCE_KINDS, kindOf } from "@/lib/tools";
 import { notifyAdmin } from "@/lib/notify";
+import { renderEmail, sendMail } from "@/lib/email";
+import { isEmail, normaliseEmail } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -36,11 +38,15 @@ export async function POST(request) {
     cat: CATEGORIES.some((c) => c.id === body.cat) ? body.cat : CATEGORIES[0].id,
     why: clean(body.why, 600),
     by: clean(body.by, 40) || "Anonymous",
+    // Optional. Only used to thank them and to ask a follow-up if the entry is thin.
+    email: isEmail(normaliseEmail(body.email)) ? normaliseEmail(body.email) : "",
     date: new Date().toISOString().slice(0, 10),
     approved: moderate ? false : true,
   };
   const next = [entry, ...suggestions].slice(0, 500);
   await write(KEYS.suggestions, next);
+
+  const origin = new URL(request.url).origin;
 
   // Deliberately not awaited. See lib/notify.js.
   notifyAdmin(`New suggestion: ${entry.name}`, [
@@ -52,7 +58,25 @@ export async function POST(request) {
     entry.approved === false
       ? "\nAwaiting approval — it is stored but not public. Approve it at /admin."
       : "\nLive now. Moderation is off, so it is already public.",
-  ]);
+    entry.email ? `Reply-to: ${entry.email}` : "No email given, so they cannot be thanked or chased.",
+  ], { origin });
 
-  return Response.json({ suggestions: next.filter((s) => s.approved !== false) });
+  if (entry.email) {
+    const { html, text } = renderEmail({
+      heading: "Thanks for the suggestion",
+      paragraphs: [
+        `You suggested ${entry.name}${entry.url ? ` (${entry.url})` : ""} for ${kindOf(entry.kind).label.toLowerCase()}.`,
+        entry.why ? `You said: \u201c${entry.why}\u201d` : "",
+        "It goes in after a check \u2014 we read the vendor's own site before writing an entry, and anything we cannot confirm there is marked unverified rather than published as fact. That takes a little time, so it will not appear immediately.",
+        "Nothing else happens with your address. It is not added to the mailing list.",
+      ],
+      button: { label: "Browse the directory", url: origin },
+    });
+    sendMail({ to: entry.email, subject: `Thanks for suggesting ${entry.name}`, text, html })
+      .catch((e) => console.error("suggestion thank-you:", e.message));
+  }
+
+  // The email is for the editor only, never served back to the page.
+  const publicOf = ({ email, ...rest }) => rest;
+  return Response.json({ suggestions: next.filter((s) => s.approved !== false).map(publicOf) });
 }

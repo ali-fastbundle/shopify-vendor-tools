@@ -1,7 +1,8 @@
 import { allow, ipOf } from "@/lib/ratelimit";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 import { addSubscriber, unsubLink } from "@/lib/subscribers";
-import { sendMail } from "@/lib/email";
+import { renderEmail, sendMail } from "@/lib/email";
+import { notifyAdmin } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -34,23 +35,25 @@ export async function POST(request) {
    */
   if (added) {
     const origin = new URL(request.url).origin;
-    sendMail({
-      to: email,
-      subject: "You're on the list",
-      text: [
-        "You're on the list.",
-        "",
-        "You will get one email when new tools go into the directory or a new",
-        "section opens. That is the whole thing — no newsletter, no weekly digest,",
-        "no pitch at the bottom. If neither happens, you hear nothing.",
-        "",
-        "Your address is not shared or sold, and it is not passed to any tool",
-        "listed in the directory.",
-        "",
-        "Unsubscribe at any time:",
-        unsubLink(origin, email),
-      ].join("\n"),
-    }).catch((e) => console.error("subscribe confirmation:", e.message));
+    const unsubscribe = unsubLink(origin, email);
+    const { html, text } = renderEmail({
+      heading: "You're on the list",
+      paragraphs: [
+        "You will get one email when new tools go into the directory or a new section opens. That is the whole thing \u2014 no newsletter, no weekly digest, no pitch at the bottom. If neither happens, you hear nothing.",
+        "Your address is not shared or sold, and it is not passed to any tool listed in the directory.",
+        "You can unsubscribe with the link below, or just reply to this email and ask.",
+      ],
+      button: { label: "Browse the directory", url: origin },
+      unsubscribe,
+    });
+    sendMail({ to: email, subject: "You're on the list", text, html })
+      .catch((e) => console.error("subscribe confirmation:", e.message));
+
+    // Deliberately not awaited. See lib/notify.js.
+    notifyAdmin("New newsletter signup", [
+      `Address: ${email}`,
+      "They have been sent the confirmation and can unsubscribe from it.",
+    ], { origin });
   }
 
   return Response.json({ ok: true });

@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { C, TOOLS, catOf, kindOf } from "@/lib/tools";
+import { C, TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 
 /*
  * Admin console. The server component above this has already checked
  * ADMIN_EMAILS — this is the view, not the gate, and every button posts to
  * /api/admin which re-checks on its own.
  */
-export default function AdminPanel({ email, suggestions, claims, subscribers }) {
+export default function AdminPanel({ email, suggestions, claims, subscribers, reports }) {
   const [rows, setRows] = useState(suggestions || []);
   const [claimRows, setClaimRows] = useState(claims || {});
+  const [reportRows, setReportRows] = useState(reports || []);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
 
@@ -31,6 +32,7 @@ export default function AdminPanel({ email, suggestions, claims, subscribers }) 
       const d = await res.json();
       if (d.suggestions) setRows(d.suggestions);
       if (d.claims) setClaimRows(d.claims);
+      if (d.reports) setReportRows(d.reports);
     } catch {
       setErr("Could not reach the server.");
     } finally {
@@ -129,6 +131,8 @@ export default function AdminPanel({ email, suggestions, claims, subscribers }) 
             </div>
           )}
         </Section>
+
+        <Reports rows={reportRows} act={act} busy={busy} />
 
         <Subscribers list={subscribers || []} />
 
@@ -316,6 +320,62 @@ function Compose({ count }) {
         )}
       </div>
     </section>
+  );
+}
+
+/*
+ * Corrections sent in from the site. Nothing here has touched the catalogue —
+ * /api/report only ever writes to svt:reports — so resolving one means "I have
+ * made the change by hand", not "apply this". Dismissed rows stay, because a
+ * dismissal is evidence somebody read it.
+ */
+function Reports({ rows, act, busy }) {
+  const open = rows.filter((r) => r.status === "open");
+  const closed = rows.filter((r) => r.status !== "open");
+  return (
+    <Section title="Reported problems" count={open.length}
+      hint="Sent by visitors without signing in. Nothing is applied automatically — edit lib/tools.js yourself, then resolve. A submitted social profile only goes in once it is published on the company's own site.">
+      {rows.length === 0 ? <Empty>Nothing reported.</Empty> : (
+        <div className="flex flex-col" style={{ gap: 2 }}>
+          {[...open, ...closed].map((r) => {
+            const tool = TOOLS.find((t) => t.id === r.toolId);
+            const kind = reportKindOf(r.kind);
+            const isOpen = r.status === "open";
+            return (
+              <div key={r.id} style={{
+                borderTop: `1px solid ${C.line}`, padding: "12px 0",
+                opacity: isOpen ? 1 : 0.55,
+              }}>
+                <div className="flex flex-wrap items-baseline" style={{ gap: 8 }}>
+                  <span style={{ fontWeight: 600 }}>{tool ? tool.name : r.toolName || r.toolId}</span>
+                  <span style={{ fontSize: 12, color: "#FFB020" }}>{kind ? kind.label : r.kind}</span>
+                  <span style={{ fontSize: 12, color: C.dim }}>{r.date}</span>
+                  {!isOpen && (
+                    <span style={{ fontSize: 11, color: C.dim, border: `1px solid ${C.line}`, borderRadius: 999, padding: "1px 7px" }}>
+                      {r.status}{r.closedAt ? ` ${r.closedAt}` : ""}
+                    </span>
+                  )}
+                </div>
+                {r.value && (
+                  <p style={{ fontSize: 13.5, color: C.muted, margin: "5px 0 0", lineHeight: 1.5, wordBreak: "break-word" }}>{r.value}</p>
+                )}
+                <p style={{ fontSize: 12, color: C.dim, margin: "5px 0 0" }}>
+                  {r.email ? <a href={`mailto:${r.email}`} style={{ color: C.muted }}>{r.email}</a> : "No email given"}
+                </p>
+                {isOpen && (
+                  <div className="flex flex-wrap mt-2" style={{ gap: 6 }}>
+                    <Btn onClick={() => act("resolve-report", r.id, {}, "res")}
+                      busy={busy === "resolve-reportres" + r.id} tone="go">Resolve</Btn>
+                    <Btn onClick={() => act("dismiss-report", r.id, {}, "dis")}
+                      busy={busy === "dismiss-reportdis" + r.id} tone="stop">Dismiss</Btn>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Section>
   );
 }
 

@@ -31,10 +31,11 @@ export default async function AdminPage() {
   }
 
   // Past the gate, and only now.
-  const [suggestions, claims, subscribers] = await Promise.all([
+  const [suggestions, claims, subscribers, reports] = await Promise.all([
     read(KEYS.suggestions, []),
     getClaims(),
     getSubscribers(),
+    read(KEYS.reports, []),
   ]);
 
   return (
@@ -43,6 +44,7 @@ export default async function AdminPage() {
       suggestions={suggestions}
       claims={claims}
       subscribers={subscribers}
+      reports={reports}
     />
   );
 }

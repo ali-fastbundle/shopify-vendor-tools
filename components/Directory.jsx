@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { C, CATEGORIES, TOOLS, RESOURCE_KINDS, catOf, kindOf, LAST_UPDATED, AUTHOR } from "@/lib/tools";
+import { C, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 
 /* ================================================================== */
@@ -471,8 +471,15 @@ export default function Directory({ tools: initialTools }) {
           <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, margin: "16px 0 0" }}>
             The app vendor's toolkit
           </h1>
-          <p style={{ fontSize: 15, color: C.muted, margin: "10px 0 0" }}>
-            by {AUTHOR}
+          <p style={{ fontSize: 18.5, color: C.muted, margin: "9px 0 0", letterSpacing: "-0.015em" }}>
+            The Shopify app vendor's toolkit
+          </p>
+          <p style={{ fontSize: 15, color: C.muted, margin: "8px 0 0" }}>
+            by{" "}
+            {AUTHOR_URL
+              ? <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
+                  style={{ color: C.text, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
+              : AUTHOR}
           </p>
           <p className="mt-3" style={{ fontSize: 16.5, color: C.muted, maxWidth: "60ch", lineHeight: 1.55 }}>
             Every tool built specifically for the people who build Shopify apps. Rankings, store data,
@@ -888,8 +895,111 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
             </p>
           )}
         </div>
+
+        <ReportProblem tool={tool} />
       </div>
     </Shell>
+  );
+}
+
+/*
+ * Corrections from anyone, signed in or not — the person who notices a dead
+ * link is rarely the person who owns the listing.
+ *
+ * This posts to /api/report, which writes to a queue and never to the catalogue
+ * or to svt:overrides. Nothing a visitor types here reaches the site until an
+ * editor has read it and made the change by hand, which is why it can be open
+ * to the public at all.
+ */
+function ReportProblem({ tool }) {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState(REPORT_KINDS[0].id);
+  const [value, setValue] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState(false);
+
+  const spec = reportKindOf(kind) || REPORT_KINDS[0];
+  const field = {
+    background: "rgba(0,0,0,.3)", border: `1px solid ${C.line}`, borderRadius: 8,
+    padding: "8px 11px", fontSize: 14, color: C.text, fontFamily: "inherit", width: "100%",
+  };
+
+  async function submit() {
+    setBusy(true); setErr("");
+    try {
+      const res = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId: tool.id, kind, value, email }),
+      });
+      if (!res.ok) { setErr(await res.text()); return; }
+      setDone(true); setValue(""); setEmail("");
+    } catch {
+      setErr("Could not reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <p className="mt-5" style={{ fontSize: 13, color: C.muted, lineHeight: 1.55 }}>
+        Thanks — that is with the editor. Nothing changes on the listing until someone has checked it.
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{
+        background: "none", border: 0, padding: 0, marginTop: 20, cursor: "pointer",
+        fontFamily: "inherit", fontSize: 12.5, color: C.dim, textDecoration: "underline",
+      }}>Report a problem with this listing</button>
+    );
+  }
+
+  return (
+    <div className="mt-5" style={{ border: `1px dashed ${C.line}`, borderRadius: 12, padding: 16 }}>
+      <div className="flex items-baseline justify-between" style={{ gap: 10 }}>
+        <p style={{ fontSize: 13.5, fontWeight: 700, margin: 0 }}>Report a problem with {tool.name}</p>
+        <button onClick={() => setOpen(false)} style={{
+          background: "none", border: 0, padding: 0, cursor: "pointer",
+          fontFamily: "inherit", fontSize: 12.5, color: C.dim,
+        }}>Cancel</button>
+      </div>
+
+      <div className="flex flex-wrap mt-3" style={{ gap: 9 }}>
+        <select value={kind} onChange={(e) => { setKind(e.target.value); setErr(""); }}
+          style={{ ...field, width: 210 }}>
+          {REPORT_KINDS.map((k) => (
+            <option key={k.id} value={k.id} style={{ background: C.panel }}>{k.label}</option>
+          ))}
+        </select>
+        <input value={value} onChange={(e) => setValue(e.target.value)}
+          placeholder={spec.hint} style={{ ...field, flex: 1, minWidth: 220 }} />
+      </div>
+
+      <div className="flex flex-wrap items-center mt-2" style={{ gap: 9 }}>
+        <input value={email} onChange={(e) => setEmail(e.target.value)}
+          placeholder="Your email (optional)" style={{ ...field, width: 240 }} />
+        <button onClick={submit} disabled={busy} style={{
+          background: busy ? "rgba(255,255,255,.08)" : "#00E08A", color: busy ? C.dim : "#06110D",
+          border: 0, borderRadius: 8, padding: "9px 16px", fontSize: 13.5, fontWeight: 700,
+          cursor: busy ? "default" : "pointer", fontFamily: "inherit",
+        }}>{busy ? "Sending…" : "Send report"}</button>
+      </div>
+
+      {err && <p style={{ fontSize: 12.5, color: "#FF6B8A", margin: "9px 0 0" }}>{err}</p>}
+
+      <p style={{ fontSize: 12, color: C.dim, margin: "10px 0 0", lineHeight: 1.55, maxWidth: "62ch" }}>
+        This goes to the editor, not to the vendor, and nothing is applied automatically. A social
+        profile you send is only added once it can be confirmed on the company's own site — we do not
+        link a profile the vendor has not published themselves. Your email is optional and only used
+        to follow up on this report.
+      </p>
+    </div>
   );
 }
 
@@ -1162,6 +1272,7 @@ function SuggestModal({ suggestions, initialKind, onAdd, onClose }) {
   const [cat, setCat] = useState(CATEGORIES[0].id);
   const [why, setWhy] = useState("");
   const [by, setBy] = useState("");
+  const [byEmail, setByEmail] = useState("");
   const [done, setDone] = useState(false);
   const field = {
     background: "rgba(0,0,0,.3)", border: `1px solid ${C.line}`, borderRadius: 9,
@@ -1169,7 +1280,10 @@ function SuggestModal({ suggestions, initialKind, onAdd, onClose }) {
   };
   const submit = () => {
     if (!name.trim()) return;
-    onAdd({ kind, name: name.trim(), url: url.trim(), cat, why: why.trim(), by: by.trim() || "Anonymous" });
+    onAdd({
+      kind, name: name.trim(), url: url.trim(), cat, why: why.trim(),
+      by: by.trim() || "Anonymous", email: byEmail.trim(),
+    });
     setName(""); setUrl(""); setWhy(""); setDone(true);
     setTimeout(() => setDone(false), 2600);
   };
@@ -1222,7 +1336,14 @@ function SuggestModal({ suggestions, initialKind, onAdd, onClose }) {
                 placeholder={kind === "tool"
                   ? "What does it do, and what problem does it solve better than the alternatives?"
                   : "What is it, and why is it worth an app vendor's time?"} />
-              <input style={{ ...field, width: 170 }} value={by} onChange={(e) => setBy(e.target.value)} placeholder="Your name" />
+              <div className="flex flex-wrap" style={{ gap: 9 }}>
+                <input style={{ ...field, width: 170 }} value={by} onChange={(e) => setBy(e.target.value)} placeholder="Your name" />
+                <input style={{ ...field, width: 220 }} value={byEmail} onChange={(e) => setByEmail(e.target.value)}
+                  placeholder="Your email (optional)" />
+              </div>
+              <p style={{ fontSize: 11.5, color: C.dim, margin: "-2px 0 0", lineHeight: 1.5 }}>
+                An email only gets you a note when this is looked at. It is not added to the mailing list.
+              </p>
               <button onClick={submit} disabled={!name.trim()} style={{
                 alignSelf: "flex-start", background: name.trim() ? "#00E08A" : "rgba(255,255,255,.08)",
                 color: name.trim() ? "#06110D" : C.dim, border: 0, borderRadius: 9,

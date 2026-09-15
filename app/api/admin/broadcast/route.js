@@ -1,7 +1,7 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { getSubscribers, unsubLink, canUnsubscribe } from "@/lib/subscribers";
-import { sendBatch, BATCH_MAX } from "@/lib/email";
+import { renderEmail, sendBatch, BATCH_MAX } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -46,11 +46,25 @@ export async function POST(request) {
   if (!text) return new Response("Body required", { status: 400 });
 
   const origin = new URL(request.url).origin;
-  const compose = (to) => ({
-    to,
-    subject,
-    text: `${text}\n\n—\nYou are getting this because you asked to hear when the directory changes.\nUnsubscribe: ${unsubLink(origin, to)}`,
-  });
+  /*
+   * Each recipient gets their own message so each gets their own unsubscribe
+   * link. The body is typed as plain text and split into paragraphs on blank
+   * lines for the HTML half — the compose box is a textarea, not an editor, and
+   * pretending otherwise would mean accepting markup from a form.
+   */
+  const compose = (to) => {
+    const unsubscribe = unsubLink(origin, to);
+    const { html, text: plain } = renderEmail({
+      heading: subject,
+      paragraphs: [
+        ...text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
+        "You are getting this because you asked to hear when the directory changes.",
+      ],
+      button: { label: "Open the directory", url: origin },
+      unsubscribe,
+    });
+    return { to, subject, text: plain, html };
+  };
 
   /*
    * Separate buckets, because the two actions cost wildly different things.

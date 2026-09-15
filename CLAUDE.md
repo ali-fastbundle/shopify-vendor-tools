@@ -91,6 +91,20 @@ cookie. Say so before rotating it.
 dead Resend must never fail or delay the request that triggered it. If you make a caller
 `await` it, you have made someone else's suggestion depend on our mail provider.
 
+**11. A report is a message, not an edit.**
+`/api/report` is open to anyone, with no sign-in, because the person who spots a dead
+link is rarely the person who owns the listing. It is only safe that way because it
+writes to `svt:reports` and nowhere else — never to the catalogue, never to
+`svt:overrides`. An editor reads the queue and makes the change by hand. If you ever
+make a report apply itself, it stops being safe to leave open and needs auth in front
+of it.
+
+**12. Every email goes out as HTML and plain text, with a working reply address.**
+`renderEmail()` in `lib/email.js` returns both halves together so a caller cannot send
+one without the other, and every Resend call sets `reply_to` to the first
+`ADMIN_EMAILS` address. The subscribe copy tells people they can reply to get off the
+list; the from-address has no inbox, so without `reply_to` that is a lie.
+
 ## Layout
 
 | Path | Role |
@@ -101,11 +115,11 @@ dead Resend must never fail or delay the request that triggered it. If you make 
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
 | `lib/subscribers.js` | List add/remove, unsubscribe token mint and verify |
 | `lib/notify.js` | Admin notification email. Fire-and-forget, never awaited |
-| `lib/email.js` | Resend senders: login link, generic, and batch |
+| `lib/email.js` | The shared HTML/text email shell, `reply_to`, and the Resend senders |
 | `components/Directory.jsx` | The whole UI, one client component |
 | `components/Account.jsx` | Sign-in, claiming, vendor edit form |
 | `components/Admin.jsx` | Admin console view. The gate is `app/admin/page.js` |
-| `app/api/*` | data, vote, review, suggest, match, claim, listing, auth, subscribe, admin |
+| `app/api/*` | data, vote, review, suggest, report, match, claim, listing, auth, subscribe, admin |
 | `app/admin` | Admin page. Auth gate first, data read only after it |
 
 ## Conventions
@@ -172,6 +186,21 @@ number. They measure different populations, and averaging them would report a fi
 neither source ever published. The card and detail view show them separately and at
 different weights on purpose: the community rating is the directory's own signal, the
 external scores are reference.
+
+## Notifications
+
+One email per event, never batched into a digest — a notification that arrives late
+bundled with four others is one nobody acts on. `notifyAdmin` fires on a newsletter
+signup, a suggestion, a verified claim, a listing edit, a review or rating, and a
+report. Pass `{ origin }` so the mail carries a link to `/admin`.
+
+Senders thank the person too, where there is an address to thank: the subscribe
+confirmation, a suggestion when an email was given, and a review by a signed-in
+visitor. The review form never asks for an address, so an anonymous review gets no
+email by construction rather than by a check somebody has to remember.
+
+Every one of these is fire-and-forget. A dead mail provider must never turn a stored
+suggestion into a 500 the visitor sees.
 
 ## Before committing
 

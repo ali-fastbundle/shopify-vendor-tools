@@ -1,6 +1,9 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { TOOLS } from "@/lib/tools";
+import { sessionFrom } from "@/lib/auth";
+import { notifyAdmin } from "@/lib/notify";
+import { renderEmail, sendMail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -28,5 +31,37 @@ export async function POST(request) {
   };
   reviews[body.id] = [entry, ...(reviews[body.id] || [])].slice(0, 200);
   await write(KEYS.reviews, reviews);
+
+  const tool = TOOLS.find((t) => t.id === body.id);
+  const origin = new URL(request.url).origin;
+
+  // Deliberately not awaited. See lib/notify.js.
+  notifyAdmin(`${entry.rating}\u2605 review of ${tool.name}`, [
+    `Tool: ${tool.name}`,
+    `Rating: ${entry.rating} out of 5`,
+    `By: ${entry.author}`,
+    entry.text ? `\nWrote:\n${entry.text}` : "No text, rating only.",
+  ], { origin });
+
+  /*
+   * Thanking someone needs an address, and the review form never asks for one —
+   * so this only fires for a signed-in visitor, whose address we already hold
+   * from the magic link. An anonymous review gets no email, by construction.
+   */
+  const session = sessionFrom(request);
+  if (session?.email) {
+    const { html, text } = renderEmail({
+      heading: `Thanks for reviewing ${tool.name}`,
+      paragraphs: [
+        `Your ${entry.rating}-star review is live on the ${tool.name} listing.`,
+        "Reviews from people who have actually used a tool are the part of this directory we cannot write ourselves, so thank you.",
+        "They are shown separately from any external scores on the listing, and the two are never averaged together.",
+      ],
+      button: { label: `See the ${tool.name} listing`, url: `${origin}/?tool=${encodeURIComponent(tool.id)}` },
+    });
+    sendMail({ to: session.email, subject: `Thanks for reviewing ${tool.name}`, text, html })
+      .catch((e) => console.error("review thank-you:", e.message));
+  }
+
   return Response.json({ reviews });
 }

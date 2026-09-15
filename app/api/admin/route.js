@@ -52,6 +52,22 @@ export async function POST(request) {
     return Response.json({ suggestions: next });
   }
 
+  if (action === "resolve-report" || action === "dismiss-report") {
+    const reports = await read(KEYS.reports, []);
+    if (!reports.some((r) => r.id === id)) {
+      return new Response("Unknown report", { status: 400 });
+    }
+    /*
+     * Both outcomes keep the row and stamp it. A dismissed report is evidence
+     * that somebody looked, which a deleted one is not — and the queue is small
+     * enough that keeping them costs nothing.
+     */
+    const status = action === "resolve-report" ? "resolved" : "dismissed";
+    const next = reports.map((r) => (r.id === id ? { ...r, status, closedAt: new Date().toISOString().slice(0, 10) } : r));
+    await write(KEYS.reports, next);
+    return Response.json({ reports: next });
+  }
+
   if (action === "revoke-claim") {
     const claims = await getClaims();
     if (!claims[id]) return new Response("Unknown claim", { status: 400 });

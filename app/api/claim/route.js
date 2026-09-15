@@ -28,6 +28,8 @@ export async function POST(request) {
     return new Response("This listing has already been claimed.", { status: 409 });
   }
 
+  const origin = new URL(request.url).origin;
+
   /* ---- start: mint a token and tell them what to publish ---- */
   if (action === "start") {
     const { claim, error } = await startClaim(toolId, session.email);
@@ -41,7 +43,7 @@ export async function POST(request) {
         `Claimed by: ${session.email}`,
         "Method: email-domain — their address is already on the tool's own domain.",
         "\nThey can now edit the listing. Revoke it at /admin if that is wrong.",
-      ]);
+      ], { origin });
       return Response.json({ status: "verified", via: "email domain", claim: done });
     }
     return Response.json({
@@ -74,7 +76,7 @@ export async function POST(request) {
       `Claimed by: ${session.email}`,
       `Method: domain — verification token found at ${result.via}`,
       "\nThey can now edit the listing. Revoke it at /admin if that is wrong.",
-    ]);
+    ], { origin });
     return Response.json({ status: "verified", via: result.via, claim: done });
   }
 
