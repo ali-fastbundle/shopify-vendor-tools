@@ -86,10 +86,21 @@ No per-address state is stored and a token cannot be edited to unsubscribe someb
 else. Rotating `AUTH_SECRET` invalidates every link already sent, and also every session
 cookie. Say so before rotating it.
 
-**10. Admin notification email is never awaited.**
-`lib/notify.js` catches everything and callers deliberately drop the promise. A slow or
-dead Resend must never fail or delay the request that triggered it. If you make a caller
-`await` it, you have made someone else's suggestion depend on our mail provider.
+**10. Admin notification email is never awaited, but it is never merely dropped either.**
+`lib/notify.js` catches everything and no caller awaits it. A slow or dead Resend must
+never fail or delay the request that triggered it. If you make a caller `await` it, you
+have made someone else's suggestion depend on our mail provider.
+
+Dropping the promise outright is the other way to get this wrong, and it is the one that
+actually happened. A serverless function is frozen when it returns, so an unawaited
+promise is not slow, it is unfinished — and it rejects nothing, so it leaves no trace.
+The symptom was an admin test button that worked, because it awaited, while the same
+call behind a real request vanished. Everything asynchronous that outlives a response
+now goes through `background()` in `lib/background.js`, which registers it with
+`waitUntil` so the instance stays alive without the visitor waiting. Off Vercel that is
+a no-op and the process is long-lived anyway.
+
+Pass a label; it prefixes the failure line.
 
 **11. A report is a message, not an edit.**
 `/api/report` is open to anyone, with no sign-in, because the person who spots a dead
@@ -130,7 +141,8 @@ day it goes in and the site-wide date moves on its own.
 | `lib/auth.js` | HMAC session cookies, magic-link tokens, admin check |
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
 | `lib/subscribers.js` | List add/remove, unsubscribe token mint and verify |
-| `lib/notify.js` | Admin notification email. Fire-and-forget, never awaited |
+| `lib/notify.js` | Admin notification email. Fire-and-forget via `background()` |
+| `lib/background.js` | `waitUntil` wrapper: work that must outlive the response |
 | `lib/email.js` | The shared HTML/text email shell, `reply_to`, and the Resend senders |
 | `components/Directory.jsx` | The whole UI, one client component |
 | `components/Account.jsx` | Sign-in, claiming, vendor edit form |

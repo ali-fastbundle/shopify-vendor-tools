@@ -2,6 +2,7 @@ import { allow, ipOf } from "@/lib/ratelimit";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 import { addSubscriber, unsubLink } from "@/lib/subscribers";
 import { renderEmail, sendMail } from "@/lib/email";
+import { background } from "@/lib/background";
 import { notifyAdmin } from "@/lib/notify";
 
 export const dynamic = "force-dynamic";
@@ -46,8 +47,7 @@ export async function POST(request) {
       button: { label: "Browse the directory", url: origin },
       unsubscribe,
     });
-    sendMail({ to: email, subject: "You're on the list", text, html })
-      .catch((e) => console.error("[notify] subscribe-confirmation: FAILED —", e.message));
+    background(sendMail({ to: email, subject: "You're on the list", text, html }), "subscribe-confirmation");
 
     // Deliberately not awaited. See lib/notify.js.
     notifyAdmin("New newsletter signup", [

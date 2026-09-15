@@ -3,6 +3,7 @@ import { allow, ipOf } from "@/lib/ratelimit";
 import { CATEGORIES, RESOURCE_KINDS, kindOf } from "@/lib/tools";
 import { notifyAdmin } from "@/lib/notify";
 import { renderEmail, sendMail } from "@/lib/email";
+import { background } from "@/lib/background";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -72,8 +73,7 @@ export async function POST(request) {
       ],
       button: { label: "Browse the directory", url: origin },
     });
-    sendMail({ to: entry.email, subject: `Thanks for suggesting ${entry.name}`, text, html })
-      .catch((e) => console.error("[notify] suggestion-thank-you: FAILED —", e.message));
+    background(sendMail({ to: entry.email, subject: `Thanks for suggesting ${entry.name}`, text, html }), "suggestion-thank-you");
   }
 
   // The email is for the editor only, never served back to the page.

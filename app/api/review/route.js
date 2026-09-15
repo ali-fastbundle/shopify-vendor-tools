@@ -4,6 +4,7 @@ import { TOOLS } from "@/lib/tools";
 import { sessionFrom } from "@/lib/auth";
 import { notifyAdmin } from "@/lib/notify";
 import { renderEmail, sendMail } from "@/lib/email";
+import { background } from "@/lib/background";
 
 export const dynamic = "force-dynamic";
 
@@ -59,8 +60,7 @@ export async function POST(request) {
       ],
       button: { label: `See the ${tool.name} listing`, url: `${origin}/?tool=${encodeURIComponent(tool.id)}` },
     });
-    sendMail({ to: session.email, subject: `Thanks for reviewing ${tool.name}`, text, html })
-      .catch((e) => console.error("[notify] review-thank-you: FAILED —", e.message));
+    background(sendMail({ to: session.email, subject: `Thanks for reviewing ${tool.name}`, text, html }), "review-thank-you");
   }
 
   return Response.json({ reviews });
