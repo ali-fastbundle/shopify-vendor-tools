@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { C, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL } from "@/lib/tools";
+import { C, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 
 /* ================================================================== */
@@ -532,15 +532,8 @@ export default function Directory({ tools: initialTools }) {
             ))}
           </div>
           <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, margin: "16px 0 0" }}>
-            The Shopify app vendor's toolkit
+            {HEADLINE}
           </h1>
-          <p style={{ fontSize: 15, color: C.muted, margin: "8px 0 0" }}>
-            by{" "}
-            {AUTHOR_URL
-              ? <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
-                  style={{ color: C.text, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
-              : AUTHOR}
-          </p>
           <p className="mt-3" style={{ fontSize: 16.5, color: C.muted, maxWidth: "60ch", lineHeight: 1.55 }}>
             Every tool built specifically for the people who build Shopify apps. Rankings, store data,
             revenue analytics, partner programs. Open directory, community rated.
@@ -654,6 +647,12 @@ export default function Directory({ tools: initialTools }) {
 
         <footer className="pb-16" style={{ borderTop: `1px solid ${C.line}`, paddingTop: 18 }}>
           <p style={{ fontSize: 13, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
+            By{" "}
+            {AUTHOR_URL
+              ? <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
+                  style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
+              : AUTHOR}
+            {" · "}
             watchfor.tools is an independent directory. Not affiliated with, endorsed by, or sponsored by
             Shopify. Shopify is a trademark of Shopify Inc.
             No tool here paid to be listed and none of the links are affiliate links.

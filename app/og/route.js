@@ -1,18 +1,20 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { ImageResponse } from "next/og";
-import { C, CATEGORIES, TOOLS } from "@/lib/tools";
+import { C, CATEGORIES, TOOLS, HEADLINE } from "@/lib/tools";
 
 /*
- * The share card. Same mark, same palette and the same counts as the masthead,
- * read from lib/tools.js so the card cannot drift from the catalogue.
+ * The share card, served from a route we name ourselves.
  *
- * Next wires this into og:image on its own; app/twitter-image.jsx re-exports it
- * so twitter:image resolves too.
+ * It was an opengraph-image.jsx file convention, which Next wires up
+ * automatically — and that is the problem: the convention also owns the URL,
+ * appending a hash of its own build output and overriding any og:image set in
+ * metadata. The image is generated from the catalogue rather than from this
+ * file, so that hash does not move when a tool is added, and messengers cache
+ * hard against the URL. Owning the route means owning the query string, so
+ * app/layout.js can version it on the catalogue instead.
  */
-export const alt = "Watch For Tools — the app vendor's toolkit";
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
+const size = { width: 1200, height: 630 };
 
 /*
  * Archivo, vendored under app/_fonts (OFL-1.1, see OFL.txt alongside it).
@@ -52,7 +54,7 @@ async function archivo() {
   }
 }
 
-export default async function Image() {
+export async function GET() {
   const fonts = await archivo();
 
   return new ImageResponse(
@@ -75,12 +77,12 @@ export default async function Image() {
           </div>
         </div>
 
-        {/* The h1, verbatim */}
+        {/* The h1 itself, read from the same constant the page uses */}
         <div style={{
           display: "flex", fontSize: 96, fontWeight: 800,
           letterSpacing: "-0.045em", lineHeight: 1.03, maxWidth: 900,
         }}>
-          {"The Shopify app vendor's toolkit"}
+          {HEADLINE}
         </div>
 
         {/* Counts over the full palette */}

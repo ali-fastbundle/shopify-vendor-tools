@@ -6,8 +6,7 @@ const nextConfig = {
    * fall back to a default face once deployed.
    */
   outputFileTracingIncludes: {
-    "/opengraph-image": ["./app/_fonts/**"],
-    "/twitter-image": ["./app/_fonts/**"],
+    "/og": ["./app/_fonts/**"],
   },
   async headers() {
     return [{
