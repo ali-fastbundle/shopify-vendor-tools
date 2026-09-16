@@ -188,6 +188,23 @@ State what is verified and what is not. `verified: true` means the vendor's own 
 read directly. Anything sourced from search results or a third party is `verified:
 false` and renders an "unverified" badge.
 
+## Logos
+
+A tool entry may carry an optional `logo`: a path to a real mark under
+`public/logos/`, e.g. `logo: "/logos/welookup.jpeg"`. Use one wherever we have it —
+the favicon service tops out at 128px and most vendors' favicons are smaller than
+that, so a mark the vendor publishes is the better image every time.
+
+`Logo` in `components/Directory.jsx` tries the three in order: the `logo` path, then
+the favicon service for the entry's `domain`, then the coloured lettermark. Each step
+is the fallback for the one before it, so a wrong path or a deleted file degrades to
+what the card showed before rather than to a hole. That is also why the field stays
+optional: most entries will never have one.
+
+Take the file from the vendor's own site, the same standard as `social` — a logo lifted
+from somewhere else is a guess about what their mark is. Name it after the tool `id`
+and keep the extension the vendor's file actually is.
+
 ## External ratings
 
 Tools may carry an optional `ratings` array. Each entry is

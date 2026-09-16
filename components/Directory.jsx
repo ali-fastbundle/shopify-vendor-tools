@@ -91,10 +91,16 @@ function Wordmark() {
   );
 }
 
+/*
+ * A tool's mark, best available first: the logo we host under /public/logos/
+ * if the entry has one, then the favicon service, then a coloured lettermark.
+ * Each step is a fallback for the one before it, so a missing file or a domain
+ * with no favicon degrades rather than leaving a hole.
+ */
 function Logo({ tool, size = 34 }) {
-  const [failed, setFailed] = useState(false);
+  const [step, setStep] = useState(tool.logo ? "logo" : "favicon");
   const color = catOf(tool.cat).color;
-  if (failed) {
+  if (step === "letter") {
     return (
       <div
         style={{
@@ -110,9 +116,9 @@ function Logo({ tool, size = 34 }) {
   }
   return (
     <img
-      src={`https://www.google.com/s2/favicons?domain=${tool.domain}&sz=128`}
+      src={step === "logo" ? tool.logo : `https://www.google.com/s2/favicons?domain=${tool.domain}&sz=128`}
       alt=""
-      onError={() => setFailed(true)}
+      onError={() => setStep(step === "logo" ? "favicon" : "letter")}
       style={{
         width: size, height: size, borderRadius: 8, flexShrink: 0,
         background: "#FFFFFF", objectFit: "contain", padding: 4,
@@ -242,17 +248,29 @@ function localMatch(problem, tools = TOOLS) {
     .map((r) => ({ id: r.id, why: "Matched on what you described." }));
 }
 
-function Matcher({ tools, onOpen }) {
+/*
+ * Four outcomes, and the person can tell which one they got.
+ *
+ *   ok        the matcher answered with tools that fit
+ *   none      the matcher answered and nothing fits — a real answer, not a failure
+ *   fallback  the request failed and these are keyword matches, said out loud
+ *   failed    the request failed and keyword matching found nothing either
+ *
+ * The fallback used to be silent, which meant the lesser answer was indis-
+ * tinguishable from the real one. Nothing-fits is worth saying plainly too:
+ * it is the gap in the directory, and the button turns it into a suggestion.
+ */
+function Matcher({ tools, onOpen, onSuggest }) {
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
-  const [picks, setPicks] = useState(null);
-  const [note, setNote] = useState("");
+  const [result, setResult] = useState(null);
+  const [editing, setEditing] = useState(true);
 
   async function run(text) {
     const q = (text ?? problem).trim();
     if (!q) return;
     trackMatcher(q);
-    setBusy(true); setPicks(null); setNote("");
+    setBusy(true); setResult(null);
     try {
       const res = await fetch("/api/match", {
         method: "POST",
@@ -261,101 +279,170 @@ function Matcher({ tools, onOpen }) {
       });
       if (!res.ok) throw new Error("match failed");
       const parsed = await res.json();
-      const valid = (parsed.picks || []).filter((p) => tools.some((t) => t.id === p.id));
-      setPicks(valid.length ? valid : localMatch(q, tools));
-      setNote(parsed.note || "");
+      const picks = (parsed.picks || []).filter((p) => tools.some((t) => t.id === p.id));
+      setResult({ status: picks.length ? "ok" : "none", picks, note: parsed.note || "", query: q });
     } catch {
-      setPicks(localMatch(q, tools));
-      setNote("");
+      const picks = localMatch(q, tools);
+      setResult({ status: picks.length ? "fallback" : "failed", picks, note: "", query: q });
     }
     setBusy(false);
+    setEditing(false);
   }
 
+  const heading = result && (
+    result.status === "none" ? "Nothing fits that well"
+      : result.status === "failed" ? "No match"
+        : result.status === "fallback"
+          ? `${result.picks.length} closest match${result.picks.length === 1 ? "" : "es"} by keyword`
+          : `${result.picks.length} tool${result.picks.length === 1 ? "" : "s"} that fit${result.picks.length === 1 ? "s" : ""}`
+  );
+
   return (
-    <div style={{
-      background: "linear-gradient(160deg, #10281F 0%, #0A1C16 100%)",
-      border: `1px solid ${C.line}`, borderRadius: 14, padding: 22,
-      boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
-    }}>
-      <h2 style={{ fontSize: 19, fontWeight: 600, margin: 0, letterSpacing: "-0.015em" }}>
-        What are you trying to solve?
-      </h2>
-      <p style={{ fontSize: 14, color: C.muted, margin: "6px 0 14px", lineHeight: 1.5, maxWidth: "58ch" }}>
-        Describe the problem in your own words. You get back the tools that fit, with the reason.
-      </p>
+    <div>
+      <div style={{
+        background: "linear-gradient(160deg, #10281F 0%, #0A1C16 100%)",
+        border: `1px solid ${C.line}`, borderRadius: 14, padding: editing ? 22 : "14px 18px",
+        boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
+      }}>
+        {!editing && result ? (
+          /* Asked and answered: the question shrinks to one line so the answer leads. */
+          <div className="flex flex-wrap items-baseline" style={{ gap: 10 }}>
+            <span style={{ fontSize: 12.5, color: C.dim, flexShrink: 0 }}>You asked</span>
+            <span style={{ fontSize: 14, color: C.text, flex: 1, minWidth: 180, lineHeight: 1.45 }}>
+              {result.query}
+            </span>
+            <button
+              onClick={() => { setProblem(result.query); setEditing(true); }}
+              style={{
+                background: "none", border: 0, padding: 0, color: "#00E08A", fontSize: 13.5,
+                fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline",
+              }}
+            >Change</button>
+          </div>
+        ) : (
+          <>
+            <h2 style={{ fontSize: 19, fontWeight: 600, margin: 0, letterSpacing: "-0.015em" }}>
+              What are you trying to solve?
+            </h2>
+            <p style={{ fontSize: 14, color: C.muted, margin: "6px 0 14px", lineHeight: 1.5, maxWidth: "58ch" }}>
+              Describe the problem in your own words. You get back the tools that fit, with the reason.
+            </p>
 
-      <div className="flex flex-wrap" style={{ gap: 8 }}>
-        <textarea
-          value={problem}
-          onChange={(e) => setProblem(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }}
-          placeholder="We bill through Mantle and need somewhere to go before 30 September…"
-          style={{
-            flex: 1, minWidth: 240, minHeight: 68, resize: "vertical",
-            background: "rgba(0,0,0,0.32)", border: `1px solid ${C.line}`, borderRadius: 10,
-            padding: "11px 13px", fontSize: 14.5, color: C.text, fontFamily: "inherit", lineHeight: 1.5,
-          }}
-        />
-        <button
-          onClick={() => run()}
-          disabled={busy || !problem.trim()}
-          style={{
-            alignSelf: "stretch", minWidth: 122, border: 0, borderRadius: 10,
-            background: problem.trim() ? "#00E08A" : "rgba(255,255,255,0.08)",
-            color: problem.trim() ? "#06110D" : C.dim,
-            fontSize: 14.5, fontWeight: 700, cursor: problem.trim() && !busy ? "pointer" : "default",
-            fontFamily: "inherit", padding: "0 18px",
-          }}
-        >
-          {busy ? "Matching…" : "Find tools"}
-        </button>
+            <div className="flex flex-wrap" style={{ gap: 8 }}>
+              <textarea
+                value={problem}
+                onChange={(e) => setProblem(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }}
+                placeholder="We bill through Mantle and need somewhere to go before 30 September…"
+                style={{
+                  flex: 1, minWidth: 240, minHeight: 68, resize: "vertical",
+                  background: "rgba(0,0,0,0.32)", border: `1px solid ${C.line}`, borderRadius: 10,
+                  padding: "11px 13px", fontSize: 14.5, color: C.text, fontFamily: "inherit", lineHeight: 1.5,
+                }}
+              />
+              <button
+                onClick={() => run()}
+                disabled={busy || !problem.trim()}
+                style={{
+                  alignSelf: "stretch", minWidth: 122, border: 0, borderRadius: 10,
+                  background: problem.trim() ? "#00E08A" : "rgba(255,255,255,0.08)",
+                  color: problem.trim() ? "#06110D" : C.dim,
+                  fontSize: 14.5, fontWeight: 700, cursor: problem.trim() && !busy ? "pointer" : "default",
+                  fontFamily: "inherit", padding: "0 18px",
+                }}
+              >
+                {busy ? "Matching…" : "Find tools"}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap mt-3" style={{ gap: 6 }}>
+              {EXAMPLES.map((e) => (
+                <button key={e} onClick={() => { setProblem(e); run(e); }}
+                  style={{
+                    fontSize: 12, color: C.muted, background: "rgba(255,255,255,0.04)",
+                    border: `1px solid ${C.line}`, borderRadius: 999, padding: "4px 10px",
+                    cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                  }}>{e}</button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="flex flex-wrap mt-3" style={{ gap: 6 }}>
-        {EXAMPLES.map((e) => (
-          <button key={e} onClick={() => { setProblem(e); run(e); }}
-            style={{
-              fontSize: 12, color: C.muted, background: "rgba(255,255,255,0.04)",
-              border: `1px solid ${C.line}`, borderRadius: 999, padding: "4px 10px",
-              cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-            }}>{e}</button>
-        ))}
-      </div>
+      {result && (
+        <div className="mt-4" style={{
+          background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 20,
+        }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: "-0.015em" }}>{heading}</h3>
 
-      {picks && (
-        <div className="mt-5">
-          {note && <p style={{ fontSize: 14, color: C.text, marginBottom: 12, lineHeight: 1.5 }}>{note}</p>}
-          {picks.length === 0 && (
-            <p style={{ fontSize: 14, color: C.muted }}>
-              Nothing here fits that well. Add what you are looking for in the Suggest tab and it goes on the list.
+          {result.status === "fallback" && (
+            <p style={{
+              fontSize: 13.5, color: C.muted, lineHeight: 1.5, margin: "10px 0 0",
+              background: "rgba(255,255,255,0.04)", border: `1px solid ${C.line}`,
+              borderRadius: 9, padding: "9px 12px",
+            }}>
+              The matcher is having a moment. These are the closest matches by keyword.
             </p>
           )}
-          <div className="flex flex-col" style={{ gap: 10 }}>
-            {picks.map((p) => {
-              const t = tools.find((x) => x.id === p.id);
-              const col = catOf(t.cat).color;
-              return (
-                <button key={p.id} onClick={() => onOpen(t.id)}
-                  className="flex items-start text-left cursor-pointer"
-                  style={{
-                    gap: 12, background: "rgba(255,255,255,0.04)", border: `1px solid ${col}44`,
-                    borderLeft: `3px solid ${col}`, borderRadius: 10, padding: 12, width: "100%",
-                    fontFamily: "inherit", color: C.text,
-                  }}>
-                  <Logo tool={t} size={30} />
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span className="flex flex-wrap items-baseline" style={{ gap: 8 }}>
-                      <span style={{ fontSize: 15.5, fontWeight: 600 }}>{t.name}</span>
-                      <span style={{ fontSize: 12, color: col }}>{t.price}</span>
+
+          {result.status === "failed" && (
+            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.55, margin: "10px 0 0", maxWidth: "58ch" }}>
+              Could not match that right now. Try rephrasing, or browse the categories below.
+            </p>
+          )}
+
+          {result.status === "none" && (
+            <>
+              <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.55, margin: "10px 0 0", maxWidth: "58ch" }}>
+                Nothing here fits that well. That is useful to know — tell me what you were looking for
+                and it goes on the list.
+              </p>
+              <button
+                onClick={() => onSuggest({ kind: "tool", why: result.query })}
+                className="mt-3"
+                style={{
+                  background: "#00E08A", color: "#06110D", border: 0, borderRadius: 9,
+                  padding: "9px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >Tell me what you needed</button>
+            </>
+          )}
+
+          {result.note && result.picks.length > 0 && (
+            <p style={{ fontSize: 14, color: C.text, margin: "10px 0 0", lineHeight: 1.5, maxWidth: "58ch" }}>
+              {result.note}
+            </p>
+          )}
+
+          {result.picks.length > 0 && (
+            <div className="flex flex-col mt-3" style={{ gap: 10 }}>
+              {result.picks.map((p) => {
+                const t = tools.find((x) => x.id === p.id);
+                const col = catOf(t.cat).color;
+                return (
+                  <button key={p.id} onClick={() => onOpen(t.id)}
+                    className="flex items-start text-left cursor-pointer"
+                    style={{
+                      gap: 12, background: "rgba(255,255,255,0.04)", border: `1px solid ${col}44`,
+                      borderLeft: `3px solid ${col}`, borderRadius: 10, padding: 12, width: "100%",
+                      fontFamily: "inherit", color: C.text,
+                    }}>
+                    <Logo tool={t} size={30} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span className="flex flex-wrap items-baseline" style={{ gap: 8 }}>
+                        <span style={{ fontSize: 15.5, fontWeight: 600 }}>{t.name}</span>
+                        <span style={{ fontSize: 12, color: col }}>{t.price}</span>
+                      </span>
+                      <span className="block mt-1" style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>
+                        {p.why}
+                      </span>
                     </span>
-                    <span className="block mt-1" style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>
-                      {p.why}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -382,6 +469,11 @@ export default function Directory({ tools: initialTools }) {
   const [detail, setDetail] = useState(null);
   const [picked, setPicked] = useState([]);
   const [compare, setCompare] = useState(false);
+  /*
+   * Either a kind id, or { kind, why } when something wants to prefill the
+   * form — the matcher hands over the query that found nothing so the person
+   * does not retype it.
+   */
   const [showSuggest, setShowSuggest] = useState(null);
   const gridRef = useRef(null);
 
@@ -546,7 +638,7 @@ export default function Directory({ tools: initialTools }) {
           </div>
         </header>
 
-        <Matcher tools={tools} onOpen={openTool} />
+        <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest} />
 
         {/* Filters */}
         <div className="mt-10 flex flex-wrap items-center" style={{ gap: 8 }}>
@@ -721,7 +813,15 @@ export default function Directory({ tools: initialTools }) {
           onTools={setTools}
         />
       )}
-      {showSuggest && <SuggestModal suggestions={suggestions} initialKind={showSuggest} onAdd={addSuggestion} onClose={() => setShowSuggest(null)} />}
+      {showSuggest && (
+        <SuggestModal
+          suggestions={suggestions}
+          initialKind={typeof showSuggest === "string" ? showSuggest : showSuggest.kind}
+          initialWhy={typeof showSuggest === "string" ? "" : showSuggest.why}
+          onAdd={addSuggestion}
+          onClose={() => setShowSuggest(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1324,12 +1424,12 @@ function Subscribe() {
   );
 }
 
-function SuggestModal({ suggestions, initialKind, onAdd, onClose }) {
+function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClose }) {
   const [kind, setKind] = useState(kindOf(initialKind).id);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [cat, setCat] = useState(CATEGORIES[0].id);
-  const [why, setWhy] = useState("");
+  const [why, setWhy] = useState(initialWhy);
   const [by, setBy] = useState("");
   const [byEmail, setByEmail] = useState("");
   const [done, setDone] = useState(false);
