@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { C, S, R, F, TRACK, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
+import {
+  Star, ThumbsUp, ThumbsDown, Check, Plus, X, CaretUp, CaretDown,
+  LinkedinLogo, XLogo, GithubLogo, ArrowUpRight, MagnifyingGlass,
+} from "@phosphor-icons/react";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
 
@@ -118,6 +122,12 @@ function Logo({ tool, size = 34 }) {
     <img
       src={step === "logo" ? tool.logo : `https://www.google.com/s2/favicons?domain=${tool.domain}&sz=128`}
       alt=""
+      /* Intrinsic size and lazy decoding: 24 marks arriving at their own pace
+         used to nudge the card they landed in. The box is reserved now. */
+      width={size}
+      height={size}
+      loading="lazy"
+      decoding="async"
       onError={() => setStep(step === "logo" ? "favicon" : "letter")}
       style={{
         width: size, height: size, borderRadius: R.card, flexShrink: 0,
@@ -141,14 +151,17 @@ function Stars({ value, onPick, size = 14, title }) {
     <span className="inline-flex items-center" style={{ gap: 1 }}>
       {[1, 2, 3, 4, 5].map((n) => {
         const on = n <= shown;
-        const s = { fontSize: size, lineHeight: 1, color: on ? C.star : C.starOff };
-        if (!onPick) return <span key={n} style={s}>★</span>;
+        const star = (
+          <Star size={size} weight={on ? "fill" : "regular"} color={on ? C.star : C.starOff} />
+        );
+        if (!onPick) return <span key={n} style={{ display: "inline-flex" }}>{star}</span>;
         return (
           <button key={n} type="button" aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
             title={title}
             onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)}
             onClick={(e) => { e.stopPropagation(); onPick(n); }}
-            className="cursor-pointer border-0 bg-transparent p-0" style={s}>★</button>
+            className="press cursor-pointer border-0 bg-transparent p-0"
+            style={{ display: "inline-flex", lineHeight: 0 }}>{star}</button>
         );
       })}
     </span>
@@ -230,11 +243,12 @@ function VisitSite({ url, children = "Visit site", size = F.xs }) {
   return (
     <a href={url} target="_blank" rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
+      className="press inline-flex items-center"
       style={{
-        background: C.text, color: C.bg, borderRadius: R.control,
+        gap: S.xs, background: C.text, color: C.bg, borderRadius: R.control,
         padding: "5px 12px", fontSize: size, fontWeight: 700, textDecoration: "none",
         whiteSpace: "nowrap",
-      }}>{children}</a>
+      }}>{children}<ArrowUpRight size={size} weight="bold" /></a>
   );
 }
 
@@ -251,25 +265,25 @@ const ownershipOf = (t) =>
 
 function Social({ social, size = 15 }) {
   const items = [
-    ["li", "in", social.li],
-    ["x", "𝕏", social.x],
-    ["gh", "GH", social.gh],
+    ["li", LinkedinLogo, social.li],
+    ["x", XLogo, social.x],
+    ["gh", GithubLogo, social.gh],
   ].filter((i) => i[2]);
   /* Nothing published, nothing rendered. A label announcing the absence is
      louder than the absence, and it is not news about the vendor. */
   if (!items.length) return null;
   return (
     <span className="inline-flex items-center" style={{ gap: S.sm }}>
-      {items.map(([k, label, href]) => (
+      {items.map(([k, Icon, href]) => (
         <a key={k} href={href} target="_blank" rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           title={k === "li" ? "LinkedIn" : k === "x" ? "X" : "GitHub"}
+          aria-label={k === "li" ? "LinkedIn" : k === "x" ? "X" : "GitHub"}
           style={{
             width: 22, height: 22, borderRadius: R.control, display: "inline-flex",
             alignItems: "center", justifyContent: "center",
-            border: `1px solid ${C.line}`, color: C.muted, fontSize: F.xs, fontWeight: 600,
-            textDecoration: "none",
-          }}>{label}</a>
+            border: `1px solid ${C.line}`, color: C.muted, textDecoration: "none",
+          }}><Icon size={size - 2} weight="regular" /></a>
       ))}
     </span>
   );
@@ -313,11 +327,14 @@ function localMatch(problem, tools = TOOLS) {
  * tinguishable from the real one. Nothing-fits is worth saying plainly too:
  * it is the gap in the directory, and the button turns it into a suggestion.
  */
-function Matcher({ tools, onOpen, onSuggest }) {
+function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [editing, setEditing] = useState(true);
+
+  /* The masthead drops to one column once there is an answer to show. */
+  useEffect(() => { onAnswered?.(Boolean(result)); }, [result, onAnswered]);
 
   async function run(text) {
     const q = (text ?? problem).trim();
@@ -354,8 +371,7 @@ function Matcher({ tools, onOpen, onSuggest }) {
     <div>
       <div style={{
         background: C.hero,
-        border: `1px solid ${C.line}`, borderRadius: R.card, padding: editing ? S["2xl"] : "16px 20px",
-        boxShadow: C.shadowMd,
+        border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg,
       }}>
         {!editing && result ? (
           /* Asked and answered: the question shrinks to one line so the answer leads. */
@@ -374,50 +390,60 @@ function Matcher({ tools, onOpen, onSuggest }) {
           </div>
         ) : (
           <>
-            <h2 style={{ fontSize: F.xl, fontWeight: 600, margin: 0, letterSpacing: TRACK.tight }}>
+            <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
               What are you trying to solve?
             </h2>
-            <p style={{ fontSize: F.md, color: C.muted, margin: "8px 0 16px", lineHeight: 1.5, maxWidth: "58ch" }}>
-              Describe the problem in your own words. You get back the tools that fit, with the reason.
-            </p>
-
-            <div className="flex flex-wrap" style={{ gap: S.sm }}>
+            <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.md }}>
               <textarea
                 value={problem}
                 onChange={(e) => setProblem(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }}
-                placeholder="We bill through Mantle and need somewhere to go before 30 September…"
+                /* The placeholder is the explainer the heading and the two-line
+                   paragraph used to be. It says the same thing in the place the
+                   person is already looking. */
+                placeholder="Describe it in your own words. We bill through Mantle and need somewhere to go before 30 September…"
+                rows={2}
                 style={{
-                  flex: 1, minWidth: 240, minHeight: 68, resize: "vertical",
+                  flex: 1, minWidth: 200, minHeight: 60, resize: "vertical",
                   background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
-                  padding: S.md, fontSize: F.md, color: C.text, fontFamily: "inherit", lineHeight: 1.5,
+                  padding: "8px 12px", fontSize: F.sm, color: C.text, fontFamily: "inherit", lineHeight: 1.5,
                 }}
               />
               <button
                 onClick={() => run()}
                 disabled={busy || !problem.trim()}
+                className="press"
                 style={{
-                  alignSelf: "stretch", minWidth: 122, border: 0, borderRadius: R.control,
+                  alignSelf: "stretch", minWidth: 104, border: 0, borderRadius: R.control,
                   background: problem.trim() ? C.accent : C.subtle,
                   color: problem.trim() ? C.onAccent : C.dim,
-                  fontSize: F.md, fontWeight: 700, cursor: problem.trim() && !busy ? "pointer" : "default",
-                  fontFamily: "inherit", padding: "0 20px",
+                  fontSize: F.sm, fontWeight: 700, cursor: problem.trim() && !busy ? "pointer" : "default",
+                  fontFamily: "inherit", padding: "0 16px",
                 }}
               >
                 {busy ? "Matching…" : "Find tools"}
               </button>
             </div>
 
-            <div className="flex flex-wrap mt-3" style={{ gap: S.sm }}>
-              {EXAMPLES.map((e) => (
-                <button key={e} onClick={() => { setProblem(e); run(e); }}
-                  style={{
-                    fontSize: F.xs, color: C.muted, background: C.subtle,
-                    border: `1px solid ${C.line}`, borderRadius: R.pill, padding: "4px 12px",
-                    cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-                  }}>{e}</button>
-              ))}
-            </div>
+            {/* Five example queries were five buttons wide enough to wrap to
+                three rows. They are worth having and not worth that space, so
+                they open on ask. */}
+            <details style={{ marginTop: S.sm }}>
+              <summary style={{
+                fontSize: F.xs, color: C.dim, cursor: "pointer", listStyle: "none",
+                display: "inline-block",
+              }}>Show examples</summary>
+              <div className="flex flex-col" style={{ gap: S.xs, marginTop: S.sm }}>
+                {EXAMPLES.map((e) => (
+                  <button key={e} onClick={() => { setProblem(e); run(e); }}
+                    style={{
+                      fontSize: F.xs, color: C.muted, background: "none",
+                      border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+                      textAlign: "left", textDecoration: "underline", textUnderlineOffset: 3,
+                    }}>{e}</button>
+                ))}
+              </div>
+            </details>
           </>
         )}
       </div>
@@ -447,12 +473,12 @@ function Matcher({ tools, onOpen, onSuggest }) {
           {result.status === "none" && (
             <>
               <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: "12px 0 0", maxWidth: "58ch" }}>
-                Nothing here fits that well. That is useful to know — tell me what you were looking for
-                and it goes on the list.
+                Nothing here fits that well. That is useful to know, so tell me what you were
+                looking for and it goes on the list.
               </p>
               <button
                 onClick={() => onSuggest({ kind: "tool", why: result.query })}
-                className="mt-3"
+                className="press mt-3"
                 style={{
                   background: C.accent, color: C.onAccent, border: 0, borderRadius: R.control,
                   padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer",
@@ -571,6 +597,8 @@ export default function Directory({ tools: initialTools }) {
   const [sort, setSort] = useState("rating");
   const [dir, setDir] = useState(SORTS.rating.dir);
   const [view, setView] = useState("grid");
+  /* True once the matcher has an answer on screen. Widens the masthead. */
+  const [answered, setAnswered] = useState(false);
   const [detail, setDetail] = useState(null);
   /* The star that was clicked to get here, carried into the review form. */
   const [detailRating, setDetailRating] = useState(0);
@@ -730,41 +758,53 @@ export default function Directory({ tools: initialTools }) {
         background: C.glow,
       }} />
 
-      <div className="mx-auto" style={{ maxWidth: 1140, padding: "0 20px", position: "relative" }}>
+      <div className="mx-auto" style={{ maxWidth: 1280, padding: "0 20px", position: "relative" }}>
 
-        {/* Masthead */}
-        <header className="pt-8 pb-7">
-          <div className="flex flex-wrap items-center justify-between pb-6" style={{ gap: S.lg }}>
+        {/*
+          * Masthead.
+          *
+          * The headline and the matcher used to be stacked, and between them
+          * they put the first tool card 709px down the page: on a 1366x768
+          * laptop the directory itself was below the fold. They sit side by
+          * side now, the matcher is a control rather than a hero panel, and
+          * the row of category swatches that sat here is gone. The wordmark
+          * already states that legend, and the filter chips below state it
+          * again where it is also a control.
+          *
+          * Two columns above 900px, stacked below.
+          */}
+        <header style={{ paddingTop: S["3xl"], paddingBottom: S["2xl"] }}>
+          <div className="flex flex-wrap items-center justify-between" style={{ gap: S.lg, marginBottom: S["2xl"] }}>
             <Wordmark />
             <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
               <AccountBar session={session} refresh={refreshSession} />
               <ThemeToggle />
             </div>
           </div>
-          <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
-            {CATEGORIES.map((c) => (
-              <span key={c.id} style={{ width: 26, height: 4, borderRadius: 2, background: c.color, display: "inline-block" }} />
-            ))}
-          </div>
-          <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.02, margin: "16px 0 0" }}>
-            {HEADLINE}
-          </h1>
-          <p className="mt-3" style={{ fontSize: F.lg, color: C.muted, maxWidth: "60ch", lineHeight: 1.55 }}>
-            Every tool built specifically for the people who build Shopify apps. Rankings, store data,
-            revenue analytics, partner programs. Open directory, community rated.
-          </p>
-          <div className="flex flex-wrap items-center mt-5" style={{ gap: S.lg, fontSize: F.sm, color: C.muted }}>
-            <span><b style={{ color: C.text }}>{tools.length}</b> tools</span>
-            <span><b style={{ color: C.text }}>{CATEGORIES.length}</b> categories</span>
-            <span><b style={{ color: C.text }}>{loading ? "…" : totalReviews}</b> community reviews</span>
-            <span style={{ color: C.dim }}>Shopify-exclusive only · last updated {LAST_UPDATED}</span>
+
+          <div className={answered ? "masthead masthead-answered" : "masthead"}>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
+                {HEADLINE}
+              </h1>
+              <p style={{ fontSize: F.lg, color: C.muted, maxWidth: "48ch", lineHeight: 1.5, margin: `${S.md}px 0 0` }}>
+                Every tool built specifically for the people who build Shopify apps.
+                Open directory, community rated.
+              </p>
+              <div className="flex flex-wrap items-center tnum" style={{ gap: S.lg, fontSize: F.sm, color: C.muted, marginTop: S.lg }}>
+                <span><b style={{ color: C.text }}>{tools.length}</b> tools</span>
+                <span><b style={{ color: C.text }}>{CATEGORIES.length}</b> categories</span>
+                <span><b style={{ color: C.text }}>{loading ? "\u2026" : totalReviews}</b> community reviews</span>
+                <span style={{ color: C.dim }}>Updated {LAST_UPDATED}</span>
+              </div>
+            </div>
+            <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest}
+              onAnswered={setAnswered} />
           </div>
         </header>
 
-        <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest} />
-
         {/* Filters */}
-        <div className="mt-10 flex flex-wrap items-center" style={{ gap: S.sm }}>
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
           {/* No category behind it, so no category colour to borrow: All fills
               with the text colour and inks with the background, which is the
               one pair that inverts correctly in both themes. */}
@@ -776,12 +816,18 @@ export default function Directory({ tools: initialTools }) {
           ))}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center" style={{ gap: S.md }}>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tools, tags, notes"
-            style={{
-              flex: 1, minWidth: 200, background: C.panel, border: `1px solid ${C.line}`,
-              borderRadius: R.control, padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit",
-            }} />
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+          <span style={{ position: "relative", flex: 1, minWidth: 200, display: "inline-flex", alignItems: "center" }}>
+            <MagnifyingGlass size={15} color={C.dim} weight="bold"
+              style={{ position: "absolute", left: 10, pointerEvents: "none" }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tools, tags, notes"
+              aria-label="Search tools, tags and notes"
+              style={{
+                width: "100%", background: C.panel, border: `1px solid ${C.line}`,
+                borderRadius: R.control, padding: "8px 12px 8px 32px", fontSize: F.sm,
+                color: C.text, fontFamily: "inherit",
+              }} />
+          </span>
           {/* A filter that is on is a state, not an action, so it takes the
               neutral inversion rather than the action green. */}
           <button onClick={() => setFreeOnly((f) => !f)} aria-pressed={freeOnly}
@@ -789,12 +835,12 @@ export default function Directory({ tools: initialTools }) {
               background: freeOnly ? C.text : C.panel, color: freeOnly ? C.bg : C.muted,
               border: `1px solid ${freeOnly ? C.text : C.line}`, borderRadius: R.control,
               padding: "8px 16px", fontSize: F.sm, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-            }}>Free plan</button>
+            }} className="press">Free plan</button>
           <select value={sort}
             onChange={(e) => { setSort(e.target.value); setDir(SORTS[e.target.value].dir); }}
             style={{
               background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
-              padding: "8px 12px", fontSize: F.sm, color: C.text, fontFamily: "inherit",
+              padding: "8px 10px", fontSize: F.sm, color: C.text, fontFamily: "inherit",
             }}>
             {SELECT_SORTS.map((k) => (
               <option key={k} value={k} style={{ background: C.panel }}>{SORTS[k].label}</option>
@@ -807,23 +853,29 @@ export default function Directory({ tools: initialTools }) {
           </select>
           <ViewToggle view={view} onView={setView} />
           <button onClick={() => setShowSuggest("tool")}
+            className="press tnum"
             style={{
               background: C.accent, color: C.onAccent, border: 0,
               borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
               cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-            }}>Add a tool {suggestions.length ? `· ${suggestions.length}` : ""}</button>
+            }}>Add a tool {suggestions.length ? `(${suggestions.length})` : ""}</button>
         </div>
 
         {cat !== "all" && (
-          <p className="mt-4" style={{ fontSize: F.md, color: C.muted, maxWidth: "62ch", lineHeight: 1.5 }}>
+          <p style={{ fontSize: F.sm, color: C.muted, maxWidth: "70ch", lineHeight: 1.5, marginTop: S.md }}>
             {catOf(cat).blurb}
           </p>
         )}
-        {err && <p className="mt-3" style={{ fontSize: F.sm, color: C.warnInk }}>{err}</p>}
+        {err && (
+          <p style={{
+            fontSize: F.sm, color: C.warnInk, marginTop: S.md, lineHeight: 1.5,
+            border: `1px solid ${C.edge}`, borderRadius: R.control, padding: "8px 12px",
+          }}>{err}</p>
+        )}
 
         {/* Cards or rows. Same tools, same order — one is for browsing and
             the other for comparing, and the person says which they are doing. */}
-        <div ref={gridRef} className="mt-6" style={{ paddingBottom: picked.length ? 96 : 40 }}>
+        <div ref={gridRef} style={{ marginTop: S.lg, paddingBottom: picked.length ? 96 : BAND.desktop }}>
           {rows.length === 0 && (
             <div style={{ padding: "48px 0" }}>
               <p style={{ fontSize: F.lg }}>Nothing matches that.</p>
@@ -839,7 +891,7 @@ export default function Directory({ tools: initialTools }) {
           )}
 
           {rows.length > 0 && view === "grid" && (
-            <div className="grid" style={{ gap: S.lg, gridTemplateColumns: "repeat(auto-fill, minmax(292px, 1fr))" }}>
+            <div className="grid" style={{ gap: S.md, gridTemplateColumns: "repeat(auto-fill, minmax(272px, 1fr))" }}>
               <button
                 onClick={() => setShowSuggest("tool")}
                 className="card flex flex-col items-start justify-center text-left"
@@ -884,14 +936,14 @@ export default function Directory({ tools: initialTools }) {
 
         <Roadmap onSuggest={setShowSuggest} />
 
-        <footer className="pb-16" style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
+        <footer style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.lg, paddingBottom: BAND.desktop }}>
           <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
             By{" "}
             {AUTHOR_URL
               ? <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
                   style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
               : AUTHOR}
-            {" · "}
+            {". "}
             watchfor.tools is an independent directory. Not affiliated with, endorsed by, or sponsored by
             Shopify. Shopify is a trademark of Shopify Inc.
             No tool here paid to be listed and none of the links are affiliate links.
@@ -923,7 +975,7 @@ export default function Directory({ tools: initialTools }) {
                       display: "inline-flex", alignItems: "center", gap: S.sm, fontSize: F.xs,
                       background: C.subtle, border: `1px solid ${C.edge}`,
                       color: C.text, borderRadius: R.pill, padding: "4px 12px", cursor: "pointer", fontFamily: "inherit",
-                    }}>{t.name} <span style={{ color: C.dim }}>×</span></button>
+                    }}>{t.name} <X size={11} weight="bold" color={C.dim} /></button>
                 );
               })}
             </div>
@@ -931,7 +983,7 @@ export default function Directory({ tools: initialTools }) {
               style={{ background: "transparent", border: `1px solid ${C.line}`, color: C.muted, borderRadius: R.control, padding: "8px 12px", fontSize: F.sm, cursor: "pointer", fontFamily: "inherit" }}>
               Clear
             </button>
-            <button onClick={() => setCompare(true)} disabled={picked.length < 2}
+            <button onClick={() => setCompare(true)} disabled={picked.length < 2} className="press"
               style={{
                 background: picked.length > 1 ? C.accent : C.subtle,
                 color: picked.length > 1 ? C.onAccent : C.dim,
@@ -983,18 +1035,22 @@ export default function Directory({ tools: initialTools }) {
  */
 function FilterChip({ active, color, ink: onFill = C.onAccent, onClick, label, count }) {
   return (
-    <button onClick={onClick}
+    <button onClick={onClick} aria-pressed={active}
+      className="press tnum"
       style={{
         display: "inline-flex", alignItems: "center", gap: S.sm,
         background: active ? color : C.subtle,
         color: active ? onFill : C.text,
         border: `1px solid ${active ? color : C.line}`,
-        borderRadius: R.pill, padding: "8px 12px", fontSize: F.sm,
+        /* 2px underscore of the category hue when the chip is off, the hue as
+           the fill when it is on. Same information the dot carried, without a
+           row of coloured dots reading as decoration. */
+        borderBottom: `2px solid ${color}`,
+        borderRadius: R.control, padding: "6px 10px", fontSize: F.sm,
         fontWeight: active ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
       }}>
-      {!active && <span style={{ width: S.sm, height: S.sm, borderRadius: R.pill, background: color }} />}
       {label}
-      <span style={{ fontSize: F.xs, opacity: active ? 0.7 : 0.45 }}>{count}</span>
+      <span style={{ fontSize: F.xs, opacity: active ? 0.7 : 0.5 }}>{count}</span>
     </button>
   );
 }
@@ -1065,8 +1121,8 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
                         color: on ? C.text : C.dim, whiteSpace: "nowrap",
                       }}>
                       {c.label}
-                      <span aria-hidden="true" style={{ opacity: on ? 1 : 0.3, fontSize: 9 }}>
-                        {on && dir === "asc" ? "\u25B2" : "\u25BC"}
+                      <span aria-hidden="true" style={{ opacity: on ? 1 : 0.3, display: "inline-flex" }}>
+                        {on && dir === "asc" ? <CaretUp size={9} weight="fill" /> : <CaretDown size={9} weight="fill" />}
                       </span>
                     </button>
                   </th>
@@ -1097,7 +1153,7 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
                           color: isPicked ? C.onAccent : C.dim,
                           cursor: full ? "not-allowed" : "pointer", opacity: full ? 0.4 : 1,
                           fontSize: F.xs, fontWeight: 800, lineHeight: 1, fontFamily: "inherit",
-                        }}>{isPicked ? "\u2713" : "+"}</button>
+                        }}>{isPicked ? <Check size={12} weight="bold" /> : <Plus size={12} weight="bold" />}</button>
                       {/* The spine, turned on its side. Same job as on a card. */}
                       <span aria-hidden="true" style={{ width: 3, height: 20, borderRadius: 2, background: col, flexShrink: 0 }} />
                       <Logo tool={t} size={20} />
@@ -1140,6 +1196,38 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
 }
 
 /*
+ * Everything true about a tool that is not its price, as one line.
+ *
+ * Neutral on purpose and restated here rather than in `Pill`: these are
+ * attributes, and category colour is the only colour on this page that means
+ * anything. Nothing is dropped for tidiness - an unverified listing says so on
+ * the card, not only in the detail view.
+ */
+function Facts({ tool }) {
+  const facts = [
+    tool.free && "free plan",
+    tool.suite && `part of ${tool.suite}`,
+    tool.linked && `same owner as ${tool.linked}`,
+    tool.owner && `by ${tool.owner}`,
+    tool.claimed && "claimed",
+    !tool.verified && "unverified",
+  ].filter(Boolean);
+  if (!facts.length) return null;
+  return (
+    <span className="flex flex-wrap items-baseline" style={{ gap: S.sm, fontSize: F.xs, color: C.muted }}>
+      {facts.map((f, i) => (
+        <span key={f} className="inline-flex items-baseline" style={{ gap: S.sm }}>
+          {i > 0 && <span aria-hidden="true" style={{
+            width: 1, height: 9, background: C.edge, display: "inline-block", opacity: 0.7,
+          }} />}
+          {f}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/*
  * `onOpen(rating)` — called with nothing to just open the tool, and with a
  * number when the person clicked a star, which opens the review form with that
  * rating already picked. Liking a tool never needed a second screen; rating
@@ -1165,7 +1253,6 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
                 fontSize: F.lg, fontWeight: 700, color: C.text, letterSpacing: TRACK.tight, textAlign: "left",
               }}>{tool.name}</button>
               {tool.dying && <Pill tone="warn">winding down</Pill>}
-              {tool.claimed && <Pill>claimed</Pill>}
             </div>
             <p style={{ fontSize: F.xs, color: ink(col), marginTop: 2 }}>{catOf(tool.cat).label}</p>
           </div>
@@ -1185,27 +1272,39 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
               fontSize: F.xs, fontWeight: 800, lineHeight: 1, fontFamily: "inherit",
             }}
           >
-            {picked ? "✓" : "+"}
+            {picked ? <Check size={13} weight="bold" /> : <Plus size={13} weight="bold" />}
           </button>
         </div>
 
-        <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, flex: 1 }}>{tool.one}</p>
+        {/* The most useful line on the card, so it is set in the text colour
+            rather than the muted one it used to share with the metadata. */}
+        <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.5, flex: 1, marginTop: S.md }}>{tool.one}</p>
 
-        <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
-          <Pill>{tool.price}</Pill>
-          {tool.free && <Pill>free plan</Pill>}
-          {tool.suite && <Pill>{tool.suite}</Pill>}
-          {tool.linked && <Pill>same owner as {tool.linked}</Pill>}
-          {tool.owner && <Pill>by {tool.owner}</Pill>}
-          {!tool.verified && <Pill>unverified</Pill>}
+        {/*
+          * Price, then the facts.
+          *
+          * These were six outlined pills. Once they all went neutral the row
+          * became six identical grey capsules, which is a lot of chrome to say
+          * "$49, free tier, unverified" - the border was drawing more attention
+          * than the words inside it. Same facts, set as type, with the price
+          * given the weight it earns and the rest reading as one line.
+          */}
+        <div className="flex flex-wrap items-baseline" style={{ gap: S.sm, marginTop: S.md }}>
+          <span className="tnum" style={{ fontSize: F.sm, fontWeight: 700, color: C.text }}>{tool.price}</span>
+          <Facts tool={tool} />
         </div>
 
-        <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}`, gap: S.sm }}>
-          <div className="flex items-center" style={{ gap: S.sm }}>
+        <div className="flex items-center justify-between" style={{
+          borderTop: `1px solid ${C.line}`, gap: S.sm, marginTop: S.md, paddingTop: S.md,
+        }}>
+          {/* min-height reserves the row before the vote and review tallies
+              arrive from /api/data, so the card does not reflow under the
+              pointer a beat after it paints. */}
+          <div className="flex items-center" style={{ gap: S.sm, minHeight: 26 }}>
             <Stars value={Math.round(avg)} onPick={(n) => onOpen(n)}
               title={`Rate ${tool.name}`} />
             {reviewCount > 0 && (
-              <button onClick={() => onOpen()} style={{
+              <button onClick={() => onOpen()} className="tnum" style={{
                 background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
                 fontSize: F.xs, color: C.dim,
               }}>{reviewCount} {reviewCount === 1 ? "review" : "reviews"}</button>
@@ -1217,13 +1316,10 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
           </div>
         </div>
 
-        {tool.ratings?.length > 0 && (
-          <div className="mt-2">
-            <ExternalRatings ratings={tool.ratings} />
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mt-3" style={{ gap: S.sm }}>
+        {/* One trailing row, not three. External scores sit beside the links
+            because they are both "somewhere else you can read about this". */}
+        <div className="flex flex-wrap items-center" style={{ gap: S.md, marginTop: S.md }}>
+          <ExternalRatings ratings={tool.ratings} />
           <Social social={tool.social} />
           <span style={{ marginLeft: "auto" }}><VisitSite url={tool.url} /></span>
         </div>
@@ -1233,21 +1329,37 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
 }
 
 function Vote({ dir, active, n, onClick }) {
-  const color = dir === 1 ? "#00E08A" : "#FF6B8A";
+  /* Liking is an action, so the active state is the action colour. Disliking
+     is the same action pointed the other way, not a warning, so it is neutral. */
+  const on = dir === 1
+    ? { background: C.accent, color: C.onAccent, border: C.accent }
+    : { background: C.text, color: C.bg, border: C.text };
+  const Icon = dir === 1 ? ThumbsUp : ThumbsDown;
   return (
     <button onClick={onClick} aria-pressed={active} aria-label={dir === 1 ? "Like" : "Dislike"}
-      className="flex items-center" style={{
-        gap: S.xs, background: active ? color : C.subtle,
-        color: active ? C.onAccent : C.muted,
-        border: `1px solid ${active ? color : C.line}`, borderRadius: R.control,
+      className="press flex items-center tnum" style={{
+        gap: S.xs, background: active ? on.background : C.subtle,
+        color: active ? on.color : C.muted,
+        border: `1px solid ${active ? on.border : C.line}`, borderRadius: R.control,
         padding: "4px 8px", fontSize: F.xs, cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
       }}>
-      <span>{dir === 1 ? "▲" : "▼"}</span><span>{n}</span>
+      <Icon size={13} weight={active ? "fill" : "regular"} /><span>{n}</span>
     </button>
   );
 }
 
 /* ================================================================== */
+function CloseButton({ onClose }) {
+  return (
+    <button onClick={onClose} aria-label="Close" className="press" style={{
+      background: C.subtle, border: `1px solid ${C.line}`, color: C.muted,
+      borderRadius: R.control, width: 30, height: 30, cursor: "pointer",
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, fontFamily: "inherit",
+    }}><X size={15} weight="bold" /></button>
+  );
+}
+
 function Shell({ children, onClose, width = 860 }) {
   useEffect(() => {
     const h = (e) => { if (e.key === "Escape") onClose(); };
@@ -1280,20 +1392,13 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
             <h2 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>{tool.name}</h2>
             <p style={{ fontSize: F.sm, color: ink(col), marginTop: S.xs }}>{catOf(tool.cat).label}</p>
           </div>
-          <button onClick={onClose} style={{
-            background: C.subtle, border: `1px solid ${C.line}`, color: C.muted,
-            borderRadius: R.control, width: 30, height: 30, cursor: "pointer", fontSize: F.lg, fontFamily: "inherit",
-          }}>×</button>
+          <CloseButton onClose={onClose} />
         </div>
 
-        <div className="flex flex-wrap items-center mt-4" style={{ gap: S.sm }}>
-          <Pill>{tool.price}</Pill>
-          {tool.free && <Pill>free plan</Pill>}
-          {tool.suite && <Pill>part of {tool.suite}</Pill>}
-          {tool.linked && <Pill>same owner as {tool.linked}</Pill>}
-          {tool.owner && <Pill>by {tool.owner}</Pill>}
+        <div className="flex flex-wrap items-baseline" style={{ gap: S.md, marginTop: S.lg }}>
+          <span className="tnum" style={{ fontSize: F.md, fontWeight: 700, color: C.text }}>{tool.price}</span>
+          <Facts tool={tool} />
           {tool.dying && <Pill tone="warn">winding down</Pill>}
-          {!tool.verified && <Pill>unverified</Pill>}
         </div>
 
         <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
@@ -1400,7 +1505,7 @@ function ReportProblem({ tool }) {
   if (done) {
     return (
       <p className="mt-5" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55 }}>
-        Thanks — that is with the editor. Nothing changes on the listing until someone has checked it.
+        Thanks. That is with the editor, and nothing changes on the listing until someone has checked it.
       </p>
     );
   }
@@ -1438,7 +1543,7 @@ function ReportProblem({ tool }) {
       <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
         <input value={email} onChange={(e) => setEmail(e.target.value)}
           placeholder="Your email (optional)" style={{ ...field, width: 240 }} />
-        <button onClick={submit} disabled={busy} style={{
+        <button onClick={submit} disabled={busy} className="press" style={{
           background: busy ? C.subtle : C.accent, color: busy ? C.dim : C.onAccent,
           border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
           cursor: busy ? "default" : "pointer", fontFamily: "inherit",
@@ -1449,7 +1554,7 @@ function ReportProblem({ tool }) {
 
       <p style={{ fontSize: F.xs, color: C.dim, margin: "12px 0 0", lineHeight: 1.55, maxWidth: "62ch" }}>
         This goes to the editor, not to the vendor, and nothing is applied automatically. A social
-        profile you send is only added once it can be confirmed on the company's own site — we do not
+        profile you send is only added once it can be confirmed on the company's own site. We do not
         link a profile the vendor has not published themselves. Your email is optional and only used
         to follow up on this report.
       </p>
@@ -1494,7 +1599,7 @@ function ReviewForm({ name, onSubmit, initialRating = 0 }) {
         <input ref={textRef} value={text} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           placeholder="What did you actually find using it?" style={{ ...field, flex: 1, minWidth: 200 }} />
-        <button onClick={submit} disabled={!rating} style={{
+        <button onClick={submit} disabled={!rating} className="press" style={{
           background: rating ? C.accent : C.subtle, color: rating ? C.onAccent : C.dim,
           border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.md, fontWeight: 700,
           cursor: rating ? "pointer" : "default", fontFamily: "inherit",
@@ -1532,7 +1637,7 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
     )).join(" · ")]] : []),
     ["Likes", (t) => {
       const v = votes[t.id] || { up: 0, down: 0 };
-      return `${v.up} up · ${v.down} down`;
+      return `${v.up} up, ${v.down} down`;
     }],
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
     ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
@@ -1548,10 +1653,7 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
           <h2 style={{ fontSize: F.xl, fontWeight: 800, margin: 0, letterSpacing: TRACK.tight }}>
             Comparing {list.length} tools
           </h2>
-          <button onClick={onClose} style={{
-            background: C.subtle, border: `1px solid ${C.line}`, color: C.muted,
-            borderRadius: R.control, width: 30, height: 30, cursor: "pointer", fontSize: F.lg, fontFamily: "inherit",
-          }}>×</button>
+          <CloseButton onClose={onClose} />
         </div>
 
         <div style={{ overflowX: "auto", marginTop: S.lg }}>
@@ -1613,39 +1715,55 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
 /*  Every kind that is not live yet, as a card that opens the suggest  */
 /*  modal already pointed at that kind.                                */
 /* ================================================================== */
+/*
+ * The sections that are not open yet.
+ *
+ * These were eight cards in a uniform grid, each ending in the same "open for
+ * suggestions" pill. Eight identical cards is the shape of a feature wall, and
+ * a label that is identical on all eight carries no information: it says
+ * something about the section, so it is said once, at the top.
+ *
+ * The blurbs all survive. They are what tells someone whether they have
+ * something to contribute, and they are the reason to read this at all.
+ */
 function Roadmap({ onSuggest }) {
   const pending = RESOURCE_KINDS.filter((k) => !k.live);
   return (
-    <section className="pt-4 pb-14">
-      <h2 style={{ fontSize: F.display, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.12, margin: 0 }}>
+    <section style={{ paddingBottom: BAND.desktop }}>
+      <h2 style={{ fontSize: F["2xl"], fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.15, margin: 0 }}>
         Tools are the first section, not the whole plan
       </h2>
-      <p className="mt-3" style={{ fontSize: F.lg, color: C.muted, maxWidth: "64ch", lineHeight: 1.55 }}>
+      <p style={{ fontSize: F.md, color: C.muted, maxWidth: "68ch", lineHeight: 1.55, marginTop: S.md }}>
         Software was the easiest part to catalogue, so it went first. The sections below are
         what the rest of the job looks like, and they open in the order people ask for them.
-        Nothing in them is written yet. Suggest what belongs and it goes on the list.
+        Nothing in them is written yet. All of them are open for suggestions, and what gets
+        suggested decides what is in them when they open.
       </p>
 
-      <div className="grid mt-6" style={{ gap: S.md, gridTemplateColumns: "repeat(auto-fill, minmax(262px, 1fr))" }}>
+      <div className="roadmap" style={{ marginTop: S.xl }}>
         {pending.map((k) => (
           <button
             key={k.id}
             onClick={() => onSuggest(k.id)}
-            className="flex flex-col items-start text-left"
+            className="press flex items-start text-left"
             style={{
-              background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
-              padding: S.lg, cursor: "pointer", fontFamily: "inherit",
-              color: C.text, height: "100%",
+              gap: S.md, background: "none", border: 0, borderTop: `1px solid ${C.line}`,
+              padding: `${S.md}px 0`, cursor: "pointer", fontFamily: "inherit", color: C.text,
+              width: "100%",
             }}
           >
-            <span style={{ width: 26, height: 4, borderRadius: 2, background: k.color, display: "block" }} />
-            <span style={{ fontSize: F.lg, fontWeight: 700, letterSpacing: TRACK.tight, marginTop: S.md }}>
-              {k.label}
+            <span aria-hidden="true" style={{
+              width: 3, alignSelf: "stretch", borderRadius: 2, background: k.color, flexShrink: 0,
+            }} />
+            <span style={{ minWidth: 0 }}>
+              <span className="flex items-center" style={{ gap: S.xs }}>
+                <span style={{ fontSize: F.md, fontWeight: 700, letterSpacing: TRACK.tight }}>{k.label}</span>
+                <Plus size={11} weight="bold" color={C.dim} />
+              </span>
+              <span className="block" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, marginTop: 2 }}>
+                {k.blurb}
+              </span>
             </span>
-            <span style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, marginTop: S.sm, flex: 1 }}>
-              {k.blurb}
-            </span>
-            <span style={{ marginTop: S.md }}><Pill>open for suggestions</Pill></span>
           </button>
         ))}
       </div>
@@ -1705,7 +1823,7 @@ function Subscribe() {
             padding: S.md, fontSize: F.md, color: C.text, fontFamily: "inherit",
           }}
         />
-        <button type="submit" disabled={!valid || state === "busy"} style={{
+        <button type="submit" disabled={!valid || state === "busy"} className="press" style={{
           background: valid ? C.accent : C.subtle,
           color: valid ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
           padding: "12px 20px", fontSize: F.md, fontWeight: 700,
@@ -1761,10 +1879,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
           <h2 style={{ fontSize: F.xl, fontWeight: 800, margin: 0, letterSpacing: TRACK.tight }}>
             {kind === "tool" ? "Suggest a tool" : `Suggest something for ${kindOf(kind).label.toLowerCase()}`}
           </h2>
-          <button onClick={onClose} style={{
-            background: C.subtle, border: `1px solid ${C.line}`, color: C.muted,
-            borderRadius: R.control, width: 30, height: 30, cursor: "pointer", fontSize: F.lg, fontFamily: "inherit",
-          }}>×</button>
+          <CloseButton onClose={onClose} />
         </div>
 
         <div className="flex flex-col md:flex-row mt-4" style={{ gap: S["2xl"] }}>
@@ -1811,7 +1926,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
               <p style={{ fontSize: F.xs, color: C.dim, margin: "0px 0 0", lineHeight: 1.5 }}>
                 An email only gets you a note when this is looked at. It is not added to the mailing list.
               </p>
-              <button onClick={submit} disabled={!name.trim()} style={{
+              <button onClick={submit} disabled={!name.trim()} className="press" style={{
                 alignSelf: "flex-start", background: name.trim() ? C.accent : C.subtle,
                 color: name.trim() ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
                 padding: "12px 20px", fontSize: F.md, fontWeight: 700,
@@ -1844,7 +1959,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
                     {s.why && <p className="mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, maxWidth: "50ch" }}>{s.why}</p>}
                     <p className="mt-1" style={{ fontSize: F.xs, color: C.dim }}>
                       {s.by} · {s.date}
-                      {s.url && <> · <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
+                      {s.url && <>{" "}<a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
                     </p>
                   </div>
                 ))}

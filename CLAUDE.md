@@ -152,6 +152,7 @@ day it goes in and the site-wide date moves on its own.
 | `components/Account.jsx` | Sign-in, claiming, vendor edit form |
 | `components/Admin.jsx` | Admin console view. The gate is `app/admin/page.js` |
 | `components/Theme.jsx` | The pre-paint theme script and the Auto/Light/Dark toggle |
+| `app/globals.css` | Also holds `.masthead` and `.roadmap`, the two layouts that need a real breakpoint rather than an inline style |
 | `app/globals.css` | The two themes, as CSS variables, plus the handful of global base rules |
 | `app/api/*` | data, vote, review, suggest, report, stat, match, claim, listing, auth, subscribe, admin |
 | `app/admin` | Admin page. Auth gate first, data read only after it |
@@ -169,22 +170,34 @@ admin argues the opposite of the disclaimer directly under it. Do not adopt Pola
 its component library, or its tokens. Borrow the conventions, keep our own identity:
 the category palette, the dark theme, and the card structure are ours and stay.
 
-**Typeface: Inter**, loaded by `next/font` in `app/layout.js` and handed to
+**Typeface: Inter**, and it stays. Frontend design advice reliably lists Inter as the
+default to avoid, and that advice is about landing pages competing on distinctiveness.
+This one competes on being legible at 13px in a table, and it is aimed at people who
+spend their day in an admin set in Inter. Familiarity is the whole point. Hierarchy
+comes from weight and colour, not from a more interesting face.
+
+Loaded by `next/font` in `app/layout.js` and handed to
 `globals.css` as `--font-sans`, which sets it once on `<body>`. It is the face the
 Shopify admin is set in, and on its own it does most of the familiarity work. No
 component names a family; everything says `fontFamily: "inherit"`. The share card in
 `app/og` reads the same face as a vendored TTF, because satori needs a file, not a
 stylesheet.
 
-**Four design-token objects, all in `lib/tools.js`, all used by name:**
+**Five design-token objects, all in `lib/tools.js`, all used by name:**
 
 | Token | What it is |
 |---|---|
 | `C` | Colour. Every value is a CSS variable declared per theme in `globals.css` |
-| `S` | Spacing on a 4px grid: `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 20, `2xl` 24, `3xl` 32, `4xl` 48 |
+| `S` | Spacing on a 4px grid: `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 20, `2xl` 24, `3xl` 32, `4xl` 48, `5xl` 64 |
+| `BAND` | The gap between major bands of the page. `desktop` 64, `mobile` 32, and nothing else does that job |
 | `R` | Radius: `control` 6, `card` 8, `modal` 12, `pill` 999 |
-| `F` | Type: `xs` 12, `sm` 13, `md` 14, `lg` 16, `xl` 20, `2xl` 24, `display` 28, `hero` 40 |
+| `F` | Type: `xs` 12, `sm` 13, `md` 14, `lg` 16, `xl` 20, `2xl` 24, `display` 28, `hero` 36 |
 | `TRACK` | Negative tracking, two steps. `tighter` from 24px up, `tight` below |
+
+`BAND` exists because vertical rhythm used to arrive through the Tailwind door as
+`mt-10`, `pb-7`, `pb-14` and `pb-16`: four numbers nobody chose together and none of
+them named. Tailwind spacing utilities are still fine *inside* a component. Between
+bands of the page, use `BAND`.
 
 Spacing is `S.*` for any single number. A two- or three-value `padding` shorthand stays
 a string for legibility, and every number in it is still a step on the same grid —
@@ -268,7 +281,70 @@ as a verdict on the tool rather than on the size of the category. `Social` retur
 with no profiles; a review count renders only above zero; the compare table drops a
 whole row when nothing being compared has one.
 
+### Layout invariants
+
+**F. The directory is above the fold.** The first row of tool cards must be visible on a
+1366x768 laptop, which means the page above the grid stays under about 400px. It was
+709px once: headline, then a two-line subhead, then a stats row, then the matcher as a
+full-width hero panel with its own heading, explainer, tall textarea and five example
+chips. Every one of those was defensible on its own.
+
+The masthead is therefore a two-column grid (`.masthead` in `globals.css`): headline,
+one-line subhead and stats on the left, the matcher on the right, stacked below 1024px.
+The matcher is a control, not a hero: no heading paragraph, a two-row textarea, and the
+examples behind a disclosure. Once it has an answer the grid drops to one column, since
+the answer is a list of tools and wants the width.
+
+Anything added to the masthead comes out of the fold budget. Measure before and after.
+
+**G. Attributes are type, not pills.** Price, free plan, suite, ownership, claimed and
+unverified read as one line of 12px muted text with hairline separators, built by
+`Facts` in `components/Directory.jsx`. They were six outlined pills; once rule B made
+them all neutral the row became six identical grey capsules, and the borders drew more
+attention than the words inside them. `Pill` survives for exactly one thing: the
+`tone="warn"` status badge.
+
+**H. Every text token clears 4.5:1 in both themes.** `C.dim` was 3.25:1 on raised in
+dark and carried review counts, capture dates and the whole footer disclaimer. The
+light-theme star was 2.76:1, which made the directory's own primary signal the least
+legible thing on the page. Both are fixed. If you change a colour token, re-measure
+rather than eyeball it: the ratios are arithmetic, and a value that looks fine on your
+monitor is not evidence.
+
+**I. No atmosphere.** No glows, no mesh gradients, no tinted haze behind the masthead.
+`--c-glow` is `none` and `--c-hero` and `--c-invite` are flat surfaces. A reference tool
+does not need a mood, and two full-width radial gradients repainting behind a scrolling
+grid is a cost paid on every frame for nothing.
+
 ## Interaction
+
+**Motion answers a pointer, it never asks for one.** Nothing on this page moves on load,
+on scroll, or on a timer. What exists: a hover lift on cards, and `.press` for the
+`scale(0.975)` a button gives under the finger.
+
+Every transition lives inside `@media (prefers-reduced-motion: no-preference)` in
+`globals.css`, so reduced motion is the *absence* of those rules rather than a list of
+overrides somebody has to remember to keep in step. The reduce block is deliberately
+empty. Adding a transition outside the no-preference block is the bug this shape
+prevents.
+
+**Icons are Phosphor, one family, no exceptions.** `@phosphor-icons/react`, sized in
+px, `weight="fill"` for on-states and `regular` otherwise. Before this there were text
+glyphs: `▲ ▼ ★ ✓ ×`, and `𝕏` for the X logo, which is U+1D54F MATHEMATICAL BOLD CAPITAL
+X and renders as tofu on a lot of Android. Glyph metrics also differ per platform, so
+the vote buttons were subtly different heights depending on the machine. Do not
+hand-roll an SVG and do not add a second icon set.
+
+**Figures are tabular.** `.tnum` for numbers inside prose, and every `table` gets it
+wholesale, so a column of ratings and counts lines up. This is why there is no second
+webfont for numbers: alignment was the only reason to want one.
+
+**Dashes and dots.** No em-dash in anything a visitor reads: not headlines, labels,
+buttons, helper text, alt text or the page title. Use a comma, a period, or two
+sentences. This applies to UI copy, and to the `one` / `note` / `watch` / `blurb`
+editorial strings in `lib/tools.js`, which have never had one. Code comments are not
+visitor-facing and are exempt. The middle dot is a separator, capped at one per line.
+`components/Admin.jsx` is behind auth and is not held to this.
 
 **Rating is one click, like voting.** Like and dislike write straight from the card.
 Clicking a star on a card or a list row does the same thing as far as the person is

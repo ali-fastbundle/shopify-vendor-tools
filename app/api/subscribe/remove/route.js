@@ -60,7 +60,7 @@ export async function GET(request) {
   if (!(await allow("unsubscribe", ip, 20, 60 * 60_000))) {
     return page(
       "Try that again shortly",
-      "Too many requests from this address in the last hour. The link is still good — " +
+      "Too many requests from this address in the last hour. The link is still good, " +
       "open it again in a few minutes.",
       429,
     );
@@ -70,6 +70,6 @@ export async function GET(request) {
   return page(
     "Removed",
     "That address is off the list and will not get another email. Nothing else was " +
-    "changed — any listing claims or reviews are untouched.",
+    "changed, and any listing claims or reviews are untouched.",
   );
 }

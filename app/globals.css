@@ -31,7 +31,9 @@
   --c-line: rgba(255, 255, 255, 0.09);
   --c-text: #E8F2EC;
   --c-muted: #8CA79B;
-  --c-dim: #5E7A6E;
+  /* 5.35:1 on panel, 4.75 on raised. The old #5E7A6E was 3.65 and 3.25, and it
+     carried review counts, capture dates and the whole footer disclaimer. */
+  --c-dim: #7B9689;
 
   --c-subtle: rgba(255, 255, 255, 0.045);
   --c-stripe: rgba(255, 255, 255, 0.025);
@@ -43,11 +45,13 @@
   --c-tray: rgba(8, 22, 18, 0.93);
   --c-thumb: #1D3B31;
 
-  --c-glow:
-    radial-gradient(900px 380px at 18% -8%, rgba(0, 224, 138, 0.16), transparent 62%),
-    radial-gradient(700px 320px at 84% -12%, rgba(76, 201, 240, 0.13), transparent 60%);
-  --c-hero: linear-gradient(160deg, #10281F 0%, #0A1C16 100%);
-  --c-invite: linear-gradient(155deg, rgba(0, 224, 138, 0.10), rgba(76, 201, 240, 0.06));
+  /* Was two radial glows behind the masthead. A tinted haze at the top of a
+     dark page is the stock look of every generated landing page, it cost two
+     full-width repaints, and a reference tool does not need atmosphere. Kept
+     as a token so the surfaces below still have one name to read. */
+  --c-glow: none;
+  --c-hero: #0D1F19;
+  --c-invite: #0F241D;
 
   --c-shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.5);
   --c-shadow-md: 0 16px 48px rgba(0, 0, 0, 0.45);
@@ -84,13 +88,15 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --c-bg: #F3F6F4;
-  --c-panel: #FFFFFF;
-  --c-raised: #F6F8F7;
+  --c-bg: #F0F4F1;
+  /* Not #FFFFFF. Pure white flattens the card against the page and leaves the
+     border doing all the separation on its own. */
+  --c-panel: #FCFDFC;
+  --c-raised: #F4F7F5;
   --c-line: rgba(6, 17, 13, 0.12);
   --c-text: #0F1A15;
   --c-muted: #55665E;
-  --c-dim: #67786F;
+  --c-dim: #5A6B62;
 
   --c-subtle: rgba(6, 17, 13, 0.045);
   --c-stripe: rgba(6, 17, 13, 0.028);
@@ -100,11 +106,9 @@
   --c-tray: rgba(255, 255, 255, 0.93);
   --c-thumb: #C3CEC8;
 
-  --c-glow:
-    radial-gradient(900px 380px at 18% -8%, rgba(0, 224, 138, 0.16), transparent 62%),
-    radial-gradient(700px 320px at 84% -12%, rgba(76, 201, 240, 0.12), transparent 60%);
-  --c-hero: linear-gradient(160deg, #FFFFFF 0%, #EDF4F0 100%);
-  --c-invite: linear-gradient(155deg, rgba(0, 224, 138, 0.14), rgba(76, 201, 240, 0.09));
+  --c-glow: none;
+  --c-hero: #FFFFFF;
+  --c-invite: #F3F9F6;
 
   --c-shadow-sm: 0 8px 20px rgba(6, 17, 13, 0.08);
   --c-shadow-md: 0 12px 32px rgba(6, 17, 13, 0.09);
@@ -118,8 +122,10 @@
   --c-bad-soft: rgba(184, 23, 66, 0.07);
   --c-bad-edge: rgba(184, 23, 66, 0.35);
 
-  --c-star: #C48A00;
-  --c-star-off: rgba(6, 17, 13, 0.16);
+  /* #C48A00 was 2.95:1 on the panel: the directory's own primary signal was
+     the least legible thing on the light theme. */
+  --c-star: #946400;
+  --c-star-off: rgba(6, 17, 13, 0.26);
 
   --ink-00e08a: #04794E;
   --ink-4cc9f0: #0B6E8C;
@@ -130,6 +136,55 @@
   --ink-ff9052: #9A4300;
   --ink-ffd166: #7A5A00;
   --ink-7fd1f0: #18657E;
+}
+
+/* ==================================================================
+   Masthead.
+
+   Headline left, matcher right, above lg. Stacked below it. The two
+   were vertically stacked once and between them they pushed the first
+   tool card 709px down the page, which on a 1366x768 laptop put the
+   directory itself below the fold.
+
+   Once the matcher has answered, the grid drops to a single column:
+   the answer is a list of tools and it wants the full width, and the
+   question it came from has already shrunk to one line by then.
+   ================================================================== */
+
+.masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .masthead {
+    grid-template-columns: minmax(0, 1.2fr) minmax(340px, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+
+  .masthead-answered {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+/*
+ * The roadmap list. Two columns of rows above md, one below. Rows rather
+ * than cards: nothing in these sections exists yet, so there is no content
+ * for a card to hold and no hierarchy for its elevation to express.
+ */
+.roadmap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 32px;
+}
+
+@media (min-width: 768px) {
+  .roadmap {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ==================================================================
@@ -155,6 +210,21 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/*
+ * Figures line up in a column.
+ *
+ * Inter's proportional figures set a 1 narrower than a 7, so a column of
+ * ratings and counts in the list view arrives visibly ragged. Tabular figures
+ * fix it for the price of one font-feature setting, which is why there is no
+ * second webfont here for numbers: the alignment was the reason to want one.
+ *
+ * .tnum is for numbers sitting inside prose. Table cells get it wholesale.
+ */
+.tnum,
+table {
+  font-variant-numeric: tabular-nums;
+}
+
 *::selection {
   background: #00E08A;
   color: #06110D;
@@ -164,6 +234,16 @@ input,
 textarea,
 select {
   outline: none;
+}
+
+/* The examples disclosure carries its own affordance, so the native triangle
+   is removed in both engines rather than one. */
+summary {
+  list-style: none;
+}
+
+summary::-webkit-details-marker {
+  display: none;
 }
 
 input:focus,
@@ -179,13 +259,41 @@ a:focus-visible,
   outline-offset: 2px;
 }
 
-.card {
-  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+/*
+ * Motion here is feedback and nothing else: it answers a pointer, it never
+ * asks for one. Nothing on this page moves on load, on scroll, or on a timer.
+ *
+ * Every transform lives inside the no-preference block, so reduced motion is
+ * the absence of these rules rather than a list of overrides that has to be
+ * kept in step with them.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--c-shadow-sm);
+  }
+
+  .press {
+    transition: transform 0.1s ease;
+  }
+
+  /* The button gives under the finger. */
+  .press:active {
+    transform: scale(0.975);
+  }
+
+  .card:active {
+    transform: translateY(1px);
+  }
 }
 
+/* Hover lift is the only thing reduced motion loses; the border still answers. */
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--c-shadow-sm);
+  border-color: var(--c-edge);
 }
 
 ::-webkit-scrollbar {
@@ -198,13 +306,7 @@ a:focus-visible,
   border-radius: 6px;
 }
 
-/* Motion is never used to draw attention here, so there is nothing to keep. */
-@media (prefers-reduced-motion: reduce) {
-  .card {
-    transition: none;
-  }
-
-  .card:hover {
-    transform: none;
-  }
-}
+/*
+ * Nothing to disable under reduced motion: every transition is declared under
+ * no-preference above. This block is deliberately empty of transform rules.
+ */

@@ -182,8 +182,8 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
     return (
       <p style={{ fontSize: F.sm, color: C.dim, marginTop: S.lg, lineHeight: 1.55 }}>
         Is this your tool? Sign in at the top of the page to claim the listing and edit
-        how it is described. Any email works — ownership is proved against the site,
-        not the address you sign in with.
+        how it is described. Any email works, because ownership is proved against the site
+        rather than the address you sign in with.
       </p>
     );
   }
@@ -218,7 +218,7 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
       <p style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>Is this your tool?</p>
       <p style={{ fontSize: F.sm, color: C.muted, margin: "8px 0 0", lineHeight: 1.55 }}>
         Claim the listing to edit how it is described. You prove it by publishing a short
-        string on <b style={{ color: C.text }}>{tool.domain}</b> — a file or a meta tag,
+        string on <b style={{ color: C.text }}>{tool.domain}</b>, either a file or a meta tag,
         whichever your stack makes easy. It is the site that proves ownership, so it does
         not matter which email you signed in with.
       </p>
@@ -229,7 +229,7 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
             <p style={{ fontSize: F.sm, color: C.muted, margin: "12px 0 0", lineHeight: 1.6 }}>
               You are signed in as <b style={{ color: C.text }}>{session.email}</b>, which is
               already on {tool.domain}. That is proof enough on its own, so you can skip
-              publishing anything — this should verify the moment you click.
+              publishing anything, so this should verify the moment you click.
             </p>
           ) : (
             <p style={{ fontSize: F.sm, color: C.muted, margin: "12px 0 0", lineHeight: 1.6 }}>
