@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { C, S, R, F, ink, catOf } from "@/lib/tools";
+import { C, S, R, F } from "@/lib/tools";
 
 /* ------------------------------------------------------------------ */
 /*  Session hook                                                       */
@@ -157,7 +157,6 @@ export function AccountBar({ session, refresh }) {
 /*  Claim + edit, inside the tool detail view                          */
 /* ------------------------------------------------------------------ */
 export function OwnerPanel({ tool, session, refresh, onTools }) {
-  const col = catOf(tool.cat).color;
   const owns = session.owned?.includes(tool.id) || session.admin;
   // Signing in from the tool's own domain is itself proof, so that path skips publishing.
   const shortcut = rootOf(domainOfEmail(session.email)) === rootOf(tool.domain);
@@ -191,13 +190,13 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
 
   if (owns) {
     return (
-      <div style={{ marginTop: S.lg, border: `1px solid ${col}55`, borderRadius: R.card, padding: S.lg }}>
+      <div style={{ marginTop: S.lg, border: `1px solid ${C.accentEdge}`, borderRadius: R.card, padding: S.lg }}>
         <div className="flex flex-wrap items-center justify-between" style={{ gap: S.md }}>
-          <span style={{ fontSize: F.md, fontWeight: 600, color: ink(col) }}>
+          <span style={{ fontSize: F.md, fontWeight: 600, color: C.accentInk }}>
             {session.admin && !session.owned?.includes(tool.id) ? "Editing as admin" : "You own this listing"}
           </span>
           <button onClick={() => setEditing((e) => !e)} style={{
-            background: editing ? C.subtle : col,
+            background: editing ? C.subtle : C.accent,
             color: editing ? C.text : C.onAccent,
             border: editing ? `1px solid ${C.line}` : 0, borderRadius: R.control,
             padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",

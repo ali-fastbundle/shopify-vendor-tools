@@ -100,13 +100,12 @@ function Wordmark() {
  */
 function Logo({ tool, size = 34 }) {
   const [step, setStep] = useState(tool.logo ? "logo" : "favicon");
-  const color = catOf(tool.cat).color;
   if (step === "letter") {
     return (
       <div
         style={{
           width: size, height: size, borderRadius: R.card, flexShrink: 0,
-          background: color + "22", color: ink(color),
+          background: C.subtle, color: C.muted, border: `1px solid ${C.line}`,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontWeight: 700, fontSize: size * 0.42, letterSpacing: TRACK.tight,
         }}
@@ -130,7 +129,12 @@ function Logo({ tool, size = 34 }) {
   );
 }
 
-function Stars({ value, onPick, size = 14 }) {
+/*
+ * Picking a star is the review, not a step towards one. Wherever these are
+ * clickable, `onPick` gets the number and the caller is expected to carry it
+ * straight into the form — clicking three stars means three stars.
+ */
+function Stars({ value, onPick, size = 14, title }) {
   const [hover, setHover] = useState(0);
   const shown = hover || value;
   return (
@@ -140,9 +144,10 @@ function Stars({ value, onPick, size = 14 }) {
         const s = { fontSize: size, lineHeight: 1, color: on ? C.star : C.starOff };
         if (!onPick) return <span key={n} style={s}>★</span>;
         return (
-          <button key={n} type="button" aria-label={`${n} star`}
+          <button key={n} type="button" aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
+            title={title}
             onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)}
-            onClick={() => onPick(n)}
+            onClick={(e) => { e.stopPropagation(); onPick(n); }}
             className="cursor-pointer border-0 bg-transparent p-0" style={s}>★</button>
         );
       })}
@@ -189,17 +194,60 @@ function ExternalRatings({ ratings, detail = false }) {
   );
 }
 
-function Pill({ color, children, solid }) {
+/*
+ * An attribute badge, and deliberately colourless.
+ *
+ * Price, free plan, suite membership, ownership, claimed and unverified are
+ * attributes of a tool, not categories of one. Giving each its own hue put
+ * five unrelated colours next to a spine whose colour means something, and
+ * the meaning drains out of all of them. They are all one neutral outline now.
+ *
+ * `tone="warn"` is the single exception: "winding down" is a status warning
+ * about the product, not a label on it, and it is allowed to be seen.
+ */
+function Pill({ children, tone = "neutral" }) {
+  const warn = tone === "warn";
   return (
     <span style={{
       fontSize: F.xs, lineHeight: 1.6, padding: "2px 8px", borderRadius: R.pill,
-      color: solid ? C.onAccent : ink(color),
-      background: solid ? color : color + "1E",
-      border: `1px solid ${color}${solid ? "" : "44"}`,
-      whiteSpace: "nowrap", fontWeight: solid ? 700 : 500,
+      color: warn ? C.badInk : C.muted,
+      background: warn ? C.badSoft : "transparent",
+      border: `1px solid ${warn ? C.badEdge : C.edge}`,
+      whiteSpace: "nowrap", fontWeight: warn ? 700 : 500,
     }}>{children}</span>
   );
 }
+
+/*
+ * The one treatment a "go to the tool" link gets, on every card and every row
+ * regardless of category: solid, high contrast, bold. It used to take the
+ * category colour, which made the most important link on the card a different
+ * weight and a different colour nine times over.
+ *
+ * Text on background is the one pair that inverts correctly in both themes.
+ */
+function VisitSite({ url, children = "Visit site", size = F.xs }) {
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        background: C.text, color: C.bg, borderRadius: R.control,
+        padding: "5px 12px", fontSize: size, fontWeight: 700, textDecoration: "none",
+        whiteSpace: "nowrap",
+      }}>{children}</a>
+  );
+}
+
+/*
+ * How a tool relates to whoever else built it. One sentence, used by the list
+ * view and the compare table so the two cannot describe the same tool
+ * differently.
+ */
+const ownershipOf = (t) =>
+  t.suite ? `Part of ${t.suite}`
+    : t.linked ? `Same owner as ${t.linked}`
+      : t.owner ? `Built by ${t.owner}`
+        : "Independent";
 
 function Social({ social, size = 15 }) {
   const items = [
@@ -207,7 +255,9 @@ function Social({ social, size = 15 }) {
     ["x", "𝕏", social.x],
     ["gh", "GH", social.gh],
   ].filter((i) => i[2]);
-  if (!items.length) return <span style={{ fontSize: F.xs, color: C.dim }}>no public profile</span>;
+  /* Nothing published, nothing rendered. A label announcing the absence is
+     louder than the absence, and it is not news about the vendor. */
+  if (!items.length) return null;
   return (
     <span className="inline-flex items-center" style={{ gap: S.sm }}>
       {items.map(([k, label, href]) => (
@@ -427,7 +477,7 @@ function Matcher({ tools, onOpen, onSuggest }) {
                   <button key={p.id} onClick={() => onOpen(t.id)}
                     className="flex items-start text-left cursor-pointer"
                     style={{
-                      gap: S.md, background: C.subtle, border: `1px solid ${col}44`,
+                      gap: S.md, background: C.subtle, border: `1px solid ${C.line}`,
                       borderLeft: `3px solid ${col}`, borderRadius: R.control, padding: S.md, width: "100%",
                       fontFamily: "inherit", color: C.text,
                     }}>
@@ -435,7 +485,8 @@ function Matcher({ tools, onOpen, onSuggest }) {
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
                         <span style={{ fontSize: F.lg, fontWeight: 600 }}>{t.name}</span>
-                        <span style={{ fontSize: F.xs, color: ink(col) }}>{t.price}</span>
+                        <span style={{ fontSize: F.xs, color: ink(col) }}>{catOf(t.cat).label}</span>
+                        <span style={{ fontSize: F.xs, color: C.dim }}>{t.price}</span>
                       </span>
                       <span className="block mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5 }}>
                         {p.why}
@@ -451,6 +502,55 @@ function Matcher({ tools, onOpen, onSuggest }) {
     </div>
   );
 }
+
+/* ================================================================== */
+/*  Ordering                                                           */
+/* ================================================================== */
+/*
+ * Pricing is prose — "From $49/mo", "Free tier, then paid", "Not published" —
+ * so this reads the first number out of it, and treats anything that says free
+ * without naming a number as zero. A price nobody publishes sorts last rather
+ * than free, which is the honest place to put an unknown.
+ */
+const priceOf = (t) => {
+  const m = String(t.price).match(/[\d,]+(\.\d+)?/);
+  if (m) return parseFloat(m[0].replace(/,/g, ""));
+  return /free/i.test(t.price) ? 0 : Infinity;
+};
+
+/*
+ * The best external score a tool carries, as a fraction, so a 9.2 out of 10
+ * and a 4.6 out of 5 can sit in the same column. No external rating sorts
+ * below the worst one — it is an absence, not a zero, and it is never blended
+ * into the community rating.
+ */
+const externalOf = (t) =>
+  (t.ratings || []).reduce(
+    (best, r) => (r.score == null ? best : Math.max(best, r.score / (r.outOf || 5))), -1);
+
+/*
+ * Every order the directory can be put in, declared once. The sort control and
+ * the list view's column headers both write to it, so they cannot drift into
+ * meaning different things by the same name.
+ *
+ * `dir` is the direction a column starts in when you first click it: a name
+ * wants A to Z, a rating wants the best first. `value` is handed the live vote
+ * and review tallies, because two of these orders are not properties of the
+ * tool at all.
+ */
+const SORTS = {
+  rating: { label: "Top rated", dir: "desc", value: (t, x) => x.avg(t.id) },
+  votes: { label: "Most liked", dir: "desc", value: (t, x) => x.net(t.id) },
+  name: { label: "A to Z", dir: "asc", value: (t) => t.name.toLowerCase() },
+  cat: { label: "By category", dir: "asc", value: (t) => catOf(t.cat).label.toLowerCase() },
+  price: { label: "By price", dir: "asc", value: (t) => priceOf(t) },
+  free: { label: "Free plan first", dir: "desc", value: (t) => (t.free ? 1 : 0) },
+  external: { label: "By external rating", dir: "desc", value: (t) => externalOf(t) },
+  ownership: { label: "By ownership", dir: "asc", value: (t) => ownershipOf(t).toLowerCase() },
+};
+
+/* The four worth browsing by. The rest are reachable from a column header. */
+const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 
 /* ================================================================== */
 /*  App                                                                */
@@ -469,7 +569,11 @@ export default function Directory({ tools: initialTools }) {
   const [q, setQ] = useState("");
   const [freeOnly, setFreeOnly] = useState(false);
   const [sort, setSort] = useState("rating");
+  const [dir, setDir] = useState(SORTS.rating.dir);
+  const [view, setView] = useState("grid");
   const [detail, setDetail] = useState(null);
+  /* The star that was clicked to get here, carried into the review form. */
+  const [detailRating, setDetailRating] = useState(0);
   const [picked, setPicked] = useState([]);
   const [compare, setCompare] = useState(false);
   /*
@@ -571,26 +675,45 @@ export default function Directory({ tools: initialTools }) {
         t.note.toLowerCase().includes(n) || t.tags.some((g) => g.includes(n)));
     }
     const alive = (t) => (t.dying ? 1 : 0);
-    const by = {
-      // Nothing is rated on day one, so fall back to claimed listings, then
+    const spec = SORTS[sort] || SORTS.name;
+    const sign = dir === "asc" ? 1 : -1;
+    const ctx = { avg, net };
+    const cmp = (a, b) => {
+      const va = spec.value(a, ctx), vb = spec.value(b, ctx);
+      const d = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+      // NaN from two unknowns compared, 0 from a real tie: both fall through.
+      if (d) return d * sign;
+      // Nothing is rated on day one, so ties fall to claimed listings, then
       // free plans, then name. Anything but arbitrary order.
-      rating: (a, b) =>
-        avg(b.id) - avg(a.id) || net(b.id) - net(a.id) ||
+      return net(b.id) - net(a.id) ||
         Number(Boolean(b.claimed)) - Number(Boolean(a.claimed)) ||
         Number(Boolean(b.free)) - Number(Boolean(a.free)) ||
-        a.name.localeCompare(b.name),
-      votes: (a, b) => net(b.id) - net(a.id) || a.name.localeCompare(b.name),
-      name: (a, b) => a.name.localeCompare(b.name),
-      cat: (a, b) => a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name),
+        a.name.localeCompare(b.name);
     };
-    return [...list].sort((a, b) => alive(a) - alive(b) || (by[sort] || by.name)(a, b));
-  }, [cat, q, sort, freeOnly, votes, reviews]);
+    /* A shut-down product never leads, whatever the column says. */
+    return [...list].sort((a, b) => alive(a) - alive(b) || cmp(a, b));
+  }, [cat, q, sort, dir, freeOnly, votes, reviews]);
+
+  /*
+   * Clicking the column you are already sorted by reverses it; clicking a new
+   * one starts it in the direction that column is usually wanted in.
+   */
+  const orderBy = (key) => {
+    if (!SORTS[key]) return;
+    if (key === sort) setDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSort(key); setDir(SORTS[key].dir); }
+  };
 
   const toggle = (id) =>
     setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : p.length >= 4 ? p : [...p, id]);
 
   const totalReviews = Object.values(reviews).reduce((a, b) => a + b.length, 0);
-  const openTool = (id) => { trackToolOpen(id); setDetail(id); setCompare(false); };
+  /* `rating` is set when the person got here by clicking a star. */
+  const openTool = (id, rating = 0) => {
+    trackToolOpen(id); setDetail(id);
+    setDetailRating(Number.isInteger(rating) ? rating : 0);
+    setCompare(false);
+  };
 
   return (
     /*
@@ -659,22 +782,30 @@ export default function Directory({ tools: initialTools }) {
               flex: 1, minWidth: 200, background: C.panel, border: `1px solid ${C.line}`,
               borderRadius: R.control, padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit",
             }} />
-          <button onClick={() => setFreeOnly((f) => !f)}
+          {/* A filter that is on is a state, not an action, so it takes the
+              neutral inversion rather than the action green. */}
+          <button onClick={() => setFreeOnly((f) => !f)} aria-pressed={freeOnly}
             style={{
-              background: freeOnly ? C.accent : C.panel, color: freeOnly ? C.onAccent : C.muted,
-              border: `1px solid ${freeOnly ? C.accent : C.line}`, borderRadius: R.control,
+              background: freeOnly ? C.text : C.panel, color: freeOnly ? C.bg : C.muted,
+              border: `1px solid ${freeOnly ? C.text : C.line}`, borderRadius: R.control,
               padding: "8px 16px", fontSize: F.sm, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
             }}>Free plan</button>
-          <select value={sort} onChange={(e) => setSort(e.target.value)}
+          <select value={sort}
+            onChange={(e) => { setSort(e.target.value); setDir(SORTS[e.target.value].dir); }}
             style={{
               background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
               padding: "8px 12px", fontSize: F.sm, color: C.text, fontFamily: "inherit",
             }}>
-            <option value="rating">Top rated</option>
-            <option value="votes">Most liked</option>
-            <option value="name">A to Z</option>
-            <option value="cat">By category</option>
+            {SELECT_SORTS.map((k) => (
+              <option key={k} value={k} style={{ background: C.panel }}>{SORTS[k].label}</option>
+            ))}
+            {/* A column header can set an order this list does not offer. Say
+                so rather than showing the wrong option as selected. */}
+            {!SELECT_SORTS.includes(sort) && (
+              <option value={sort} style={{ background: C.panel }}>{SORTS[sort].label}</option>
+            )}
           </select>
+          <ViewToggle view={view} onView={setView} />
           <button onClick={() => setShowSuggest("tool")}
             style={{
               background: C.accent, color: C.onAccent, border: 0,
@@ -690,10 +821,11 @@ export default function Directory({ tools: initialTools }) {
         )}
         {err && <p className="mt-3" style={{ fontSize: F.sm, color: C.warnInk }}>{err}</p>}
 
-        {/* Grid */}
-        <div ref={gridRef} className="mt-6 grid" style={{ gap: S.lg, gridTemplateColumns: "repeat(auto-fill, minmax(292px, 1fr))", paddingBottom: picked.length ? 96 : 40 }}>
+        {/* Cards or rows. Same tools, same order — one is for browsing and
+            the other for comparing, and the person says which they are doing. */}
+        <div ref={gridRef} className="mt-6" style={{ paddingBottom: picked.length ? 96 : 40 }}>
           {rows.length === 0 && (
-            <div style={{ gridColumn: "1 / -1", padding: "48px 0" }}>
+            <div style={{ padding: "48px 0" }}>
               <p style={{ fontSize: F.lg }}>Nothing matches that.</p>
               <p className="mt-1" style={{ fontSize: F.md, color: C.muted }}>
                 Clear the filters, or add the tool you were expecting to find.
@@ -705,37 +837,49 @@ export default function Directory({ tools: initialTools }) {
               }}>Add a tool</button>
             </div>
           )}
-          {rows.length > 0 && (
-            <button
-              onClick={() => setShowSuggest("tool")}
-              className="card flex flex-col items-start justify-center text-left"
-              style={{
-                background: C.invite,
-                border: `1px dashed ${C.accentEdge}`, borderRadius: R.card, padding: S.xl,
-                minHeight: 190, cursor: "pointer", fontFamily: "inherit", color: C.text,
-                order: 999,
-              }}
-            >
-              <span style={{ fontSize: F.lg, fontWeight: 700, letterSpacing: TRACK.tight }}>
-                Not finding it?
-              </span>
-              <span style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, marginTop: S.sm }}>
-                This list is missing things by definition. Built a tool, or use one that
-                belongs here? Add it and it joins the directory after a check.
-              </span>
-              <span style={{
-                marginTop: S.lg, background: C.accent, color: C.onAccent, borderRadius: R.control,
-                padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
-              }}>Add a tool</span>
-            </button>
+
+          {rows.length > 0 && view === "grid" && (
+            <div className="grid" style={{ gap: S.lg, gridTemplateColumns: "repeat(auto-fill, minmax(292px, 1fr))" }}>
+              <button
+                onClick={() => setShowSuggest("tool")}
+                className="card flex flex-col items-start justify-center text-left"
+                style={{
+                  background: C.invite,
+                  border: `1px dashed ${C.accentEdge}`, borderRadius: R.card, padding: S.xl,
+                  minHeight: 190, cursor: "pointer", fontFamily: "inherit", color: C.text,
+                  order: 999,
+                }}
+              >
+                <span style={{ fontSize: F.lg, fontWeight: 700, letterSpacing: TRACK.tight }}>
+                  Not finding it?
+                </span>
+                <span style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, marginTop: S.sm }}>
+                  This list is missing things by definition. Built a tool, or use one that
+                  belongs here? Add it and it joins the directory after a check.
+                </span>
+                <span style={{
+                  marginTop: S.lg, background: C.accent, color: C.onAccent, borderRadius: R.control,
+                  padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
+                }}>Add a tool</span>
+              </button>
+              {rows.map((t) => (
+                <Card key={t.id} tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
+                  votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
+                  onVote={(d) => vote(t.id, d)} onOpen={(r) => openTool(t.id, r)}
+                  picked={picked.includes(t.id)} onPick={() => toggle(t.id)}
+                  pickFull={picked.length >= 4 && !picked.includes(t.id)} />
+              ))}
+            </div>
           )}
-          {rows.map((t) => (
-            <Card key={t.id} tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
-              votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
-              onVote={(d) => vote(t.id, d)} onOpen={() => openTool(t.id)}
-              picked={picked.includes(t.id)} onPick={() => toggle(t.id)}
-              pickFull={picked.length >= 4 && !picked.includes(t.id)} />
-          ))}
+
+          {rows.length > 0 && view === "list" && (
+            <ListView
+              rows={rows} avg={avg} reviews={reviews} sort={sort} dir={dir} onSort={orderBy}
+              onOpen={openTool} picked={picked} onPick={toggle}
+              pickFull={(id) => picked.length >= 4 && !picked.includes(id)}
+              onAdd={() => setShowSuggest("tool")}
+            />
+          )}
         </div>
 
         <Roadmap onSuggest={setShowSuggest} />
@@ -777,7 +921,7 @@ export default function Directory({ tools: initialTools }) {
                   <button key={id} onClick={() => toggle(id)}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: S.sm, fontSize: F.xs,
-                      background: C.subtle, border: `1px solid ${catOf(t.cat).color}55`,
+                      background: C.subtle, border: `1px solid ${C.edge}`,
                       color: C.text, borderRadius: R.pill, padding: "4px 12px", cursor: "pointer", fontFamily: "inherit",
                     }}>{t.name} <span style={{ color: C.dim }}>×</span></button>
                 );
@@ -803,7 +947,9 @@ export default function Directory({ tools: initialTools }) {
       {compare && <CompareModal tools={tools} ids={picked} onClose={() => setCompare(false)} avg={avg} votes={votes} reviews={reviews} />}
       {detail && (
         <DetailModal
+          key={detail}
           tool={tools.find((t) => t.id === detail)}
+          initialRating={detailRating}
           onClose={() => setDetail(null)}
           reviews={reviews[detail] || []}
           onReview={(a, r, x) => addReview(detail, a, r, x)}
@@ -853,11 +999,157 @@ function FilterChip({ active, color, ink: onFill = C.onAccent, onClick, label, c
   );
 }
 
+/*
+ * Cards or rows. Two ways of reading the same list: a card gives a tool room to
+ * describe itself, which is exactly what makes four of them hard to hold side
+ * by side, and a row gives up the description to line the facts up in columns.
+ */
+function ViewToggle({ view, onView }) {
+  return (
+    <div role="group" aria-label="Layout" className="flex" style={{
+      border: `1px solid ${C.line}`, borderRadius: R.control, overflow: "hidden",
+    }}>
+      {[["grid", "Grid"], ["list", "List"]].map(([v, label]) => {
+        const on = view === v;
+        return (
+          <button key={v} onClick={() => onView(v)} aria-pressed={on}
+            style={{
+              background: on ? C.text : C.panel, color: on ? C.bg : C.muted,
+              border: 0, padding: "8px 14px", fontSize: F.sm, fontWeight: 600,
+              cursor: "pointer", fontFamily: "inherit",
+            }}>{label}</button>
+        );
+      })}
+    </div>
+  );
+}
+
+/*
+ * The comparison view. Every column sorts, because a column you can see but
+ * cannot order by is a column you have to compare with your finger on the
+ * screen. Clicking a header again reverses it.
+ *
+ * This does not replace the compare modal: that one takes two to four tools and
+ * lays out everything about them, including the "watch for" note. This is the
+ * pass before it, where you work out which two.
+ */
+const LIST_COLS = [
+  { key: "name", label: "Tool", w: "27%" },
+  { key: "cat", label: "Category", w: "14%" },
+  { key: "price", label: "Price", w: "14%" },
+  { key: "free", label: "Free plan", w: "9%" },
+  { key: "rating", label: "Rating", w: "12%" },
+  { key: "external", label: "External", w: "12%" },
+  { key: "ownership", label: "Ownership", w: "12%" },
+];
+
+function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPick, pickFull, onAdd }) {
+  const cell = { padding: "10px 12px", fontSize: F.sm, color: C.text, verticalAlign: "middle", lineHeight: 1.4 };
+  return (
+    <div>
+      <div style={{ overflowX: "auto", border: `1px solid ${C.line}`, borderRadius: R.card, background: C.panel }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
+          <thead>
+            <tr style={{ borderBottom: `1px solid ${C.line}` }}>
+              {LIST_COLS.map((c) => {
+                const on = sort === c.key;
+                return (
+                  <th key={c.key} scope="col" style={{ width: c.w, textAlign: "left", padding: "10px 12px" }}
+                    aria-sort={on ? (dir === "asc" ? "ascending" : "descending") : "none"}>
+                    <button onClick={() => onSort(c.key)}
+                      title={`Sort by ${c.label.toLowerCase()}`}
+                      className="inline-flex items-center"
+                      style={{
+                        gap: S.xs, background: "none", border: 0, padding: 0, cursor: "pointer",
+                        fontFamily: "inherit", fontSize: F.xs, fontWeight: 700,
+                        color: on ? C.text : C.dim, whiteSpace: "nowrap",
+                      }}>
+                      {c.label}
+                      <span aria-hidden="true" style={{ opacity: on ? 1 : 0.3, fontSize: 9 }}>
+                        {on && dir === "asc" ? "\u25B2" : "\u25BC"}
+                      </span>
+                    </button>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((t, i) => {
+              const col = catOf(t.cat).color;
+              const n = (reviews[t.id] || []).length;
+              const isPicked = picked.includes(t.id);
+              const full = pickFull(t.id);
+              return (
+                <tr key={t.id} style={{ background: i % 2 ? C.stripe : "transparent" }}>
+                  <td style={cell}>
+                    <div className="flex items-center" style={{ gap: S.sm }}>
+                      <button
+                        onClick={() => onPick(t.id)}
+                        disabled={full}
+                        aria-pressed={isPicked}
+                        title={full ? "Four tools maximum" : isPicked ? "Remove from comparison" : "Add to comparison"}
+                        style={{
+                          flexShrink: 0, width: 20, height: 20, borderRadius: R.control, padding: 0,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          background: isPicked ? C.accent : "transparent",
+                          border: `1px solid ${isPicked ? C.accent : C.line}`,
+                          color: isPicked ? C.onAccent : C.dim,
+                          cursor: full ? "not-allowed" : "pointer", opacity: full ? 0.4 : 1,
+                          fontSize: F.xs, fontWeight: 800, lineHeight: 1, fontFamily: "inherit",
+                        }}>{isPicked ? "\u2713" : "+"}</button>
+                      {/* The spine, turned on its side. Same job as on a card. */}
+                      <span aria-hidden="true" style={{ width: 3, height: 20, borderRadius: 2, background: col, flexShrink: 0 }} />
+                      <Logo tool={t} size={20} />
+                      <button onClick={() => onOpen(t.id)} style={{
+                        background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+                        fontSize: F.md, fontWeight: 700, color: C.text, textAlign: "left",
+                        letterSpacing: TRACK.tight,
+                      }}>{t.name}</button>
+                      {t.dying && <Pill tone="warn">winding down</Pill>}
+                    </div>
+                  </td>
+                  <td style={{ ...cell, fontSize: F.xs, color: ink(col) }}>{catOf(t.cat).label}</td>
+                  <td style={{ ...cell, color: C.muted }}>{t.price}</td>
+                  <td style={cell}>{t.free ? "Yes" : ""}</td>
+                  <td style={cell}>
+                    <span className="inline-flex items-center" style={{ gap: S.xs }}>
+                      <Stars value={Math.round(avg(t.id))} size={12}
+                        onPick={(r) => onOpen(t.id, r)} title={`Rate ${t.name}`} />
+                      {n > 0 && <span style={{ fontSize: F.xs, color: C.dim }}>{n}</span>}
+                    </span>
+                  </td>
+                  <td style={cell}><ExternalRatings ratings={t.ratings} /></td>
+                  <td style={{ ...cell, fontSize: F.xs, color: C.muted }}>{ownershipOf(t)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button onClick={onAdd} style={{
+        width: "100%", marginTop: S.md, background: C.invite, border: `1px dashed ${C.accentEdge}`,
+        borderRadius: R.card, padding: "12px 16px", fontSize: F.sm, color: C.text,
+        cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+      }}>
+        <b>Not finding it?</b>{" "}
+        <span style={{ color: C.muted }}>This list is missing things by definition. Add a tool.</span>
+      </button>
+    </div>
+  );
+}
+
+/*
+ * `onOpen(rating)` — called with nothing to just open the tool, and with a
+ * number when the person clicked a star, which opens the review form with that
+ * rating already picked. Liking a tool never needed a second screen; rating
+ * one should not either.
+ */
 function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, onPick, pickFull }) {
   const col = catOf(tool.cat).color;
   return (
     <div className="card flex flex-col" style={{
-      background: C.panel, border: `1px solid ${picked ? col : C.line}`,
+      background: C.panel, border: `1px solid ${picked ? C.accentEdge : C.line}`,
       borderRadius: R.card, overflow: "hidden", position: "relative",
     }}>
       <div style={{ height: 3, background: col }} />
@@ -866,12 +1158,14 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
           <Logo tool={tool} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="flex items-baseline flex-wrap" style={{ gap: S.sm }}>
-              <button onClick={onOpen} style={{
+              {/* Called with no argument on purpose: onOpen's first argument is
+                  a star rating, and a click event is not one. */}
+              <button onClick={() => onOpen()} style={{
                 background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
                 fontSize: F.lg, fontWeight: 700, color: C.text, letterSpacing: TRACK.tight, textAlign: "left",
               }}>{tool.name}</button>
-              {tool.dying && <Pill color="#FF6B8A" solid>winding down</Pill>}
-              {tool.claimed && <Pill color="#4CC9F0">claimed</Pill>}
+              {tool.dying && <Pill tone="warn">winding down</Pill>}
+              {tool.claimed && <Pill>claimed</Pill>}
             </div>
             <p style={{ fontSize: F.xs, color: ink(col), marginTop: 2 }}>{catOf(tool.cat).label}</p>
           </div>
@@ -883,8 +1177,8 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
             style={{
               flexShrink: 0, width: 22, height: 22, borderRadius: R.control, padding: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: picked ? col : "transparent",
-              border: `1px solid ${picked ? col : C.line}`,
+              background: picked ? C.accent : "transparent",
+              border: `1px solid ${picked ? C.accent : C.line}`,
               color: picked ? C.onAccent : C.dim,
               cursor: pickFull ? "not-allowed" : "pointer",
               opacity: pickFull ? 0.4 : 1,
@@ -898,21 +1192,25 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
         <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, flex: 1 }}>{tool.one}</p>
 
         <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
-          <Pill color={col}>{tool.price}</Pill>
-          {tool.free && <Pill color="#00E08A">free plan</Pill>}
-          {tool.suite && <Pill color="#FF9052">{tool.suite}</Pill>}
-          {tool.linked && <Pill color="#B08CFF">same owner as {tool.linked}</Pill>}
-          {tool.owner && <Pill color="#B08CFF">by {tool.owner}</Pill>}
-          {!tool.verified && <Pill color="#7C8F86">unverified</Pill>}
+          <Pill>{tool.price}</Pill>
+          {tool.free && <Pill>free plan</Pill>}
+          {tool.suite && <Pill>{tool.suite}</Pill>}
+          {tool.linked && <Pill>same owner as {tool.linked}</Pill>}
+          {tool.owner && <Pill>by {tool.owner}</Pill>}
+          {!tool.verified && <Pill>unverified</Pill>}
         </div>
 
         <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}`, gap: S.sm }}>
-          <button onClick={onOpen} className="flex items-center" style={{
-            gap: S.sm, background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
-          }}>
-            <Stars value={Math.round(avg)} />
-            <span style={{ fontSize: F.xs, color: C.dim }}>{reviewCount || "no"} {reviewCount === 1 ? "review" : "reviews"}</span>
-          </button>
+          <div className="flex items-center" style={{ gap: S.sm }}>
+            <Stars value={Math.round(avg)} onPick={(n) => onOpen(n)}
+              title={`Rate ${tool.name}`} />
+            {reviewCount > 0 && (
+              <button onClick={() => onOpen()} style={{
+                background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+                fontSize: F.xs, color: C.dim,
+              }}>{reviewCount} {reviewCount === 1 ? "review" : "reviews"}</button>
+            )}
+          </div>
           <div className="flex items-center" style={{ gap: S.xs }}>
             <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} />
             <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
@@ -927,10 +1225,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
 
         <div className="flex items-center justify-between mt-3" style={{ gap: S.sm }}>
           <Social social={tool.social} />
-          <a href={tool.url} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: F.xs, color: ink(col), textDecoration: "none", fontWeight: 600 }}>
-            Visit site
-          </a>
+          <span style={{ marginLeft: "auto" }}><VisitSite url={tool.url} /></span>
         </div>
       </div>
     </div>
@@ -973,7 +1268,7 @@ function Shell({ children, onClose, width = 860 }) {
   );
 }
 
-function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onVote, session, refreshSession, onTools }) {
+function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
   const col = catOf(tool.cat).color;
   return (
     <Shell onClose={onClose} width={760}>
@@ -992,13 +1287,13 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
         </div>
 
         <div className="flex flex-wrap items-center mt-4" style={{ gap: S.sm }}>
-          <Pill color={col}>{tool.price}</Pill>
-          {tool.free && <Pill color="#00E08A">free plan</Pill>}
-          {tool.suite && <Pill color="#FF9052">part of {tool.suite}</Pill>}
-          {tool.linked && <Pill color="#B08CFF">same owner as {tool.linked}</Pill>}
-          {tool.owner && <Pill color="#B08CFF">by {tool.owner}</Pill>}
-          {tool.dying && <Pill color="#FF6B8A" solid>winding down</Pill>}
-          {!tool.verified && <Pill color="#7C8F86">unverified</Pill>}
+          <Pill>{tool.price}</Pill>
+          {tool.free && <Pill>free plan</Pill>}
+          {tool.suite && <Pill>part of {tool.suite}</Pill>}
+          {tool.linked && <Pill>same owner as {tool.linked}</Pill>}
+          {tool.owner && <Pill>by {tool.owner}</Pill>}
+          {tool.dying && <Pill tone="warn">winding down</Pill>}
+          {!tool.verified && <Pill>unverified</Pill>}
         </div>
 
         <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
@@ -1027,10 +1322,7 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
         )}
 
         <div className="flex flex-wrap items-center mt-5" style={{ gap: S.lg }}>
-          <a href={tool.url} target="_blank" rel="noopener noreferrer" style={{
-            background: col, color: C.onAccent, borderRadius: R.control, padding: "8px 16px",
-            fontSize: F.md, fontWeight: 700, textDecoration: "none",
-          }}>{tool.domain}</a>
+          <VisitSite url={tool.url} size={F.md}>{tool.domain}</VisitSite>
           <Social social={tool.social} />
           <div className="flex items-center" style={{ gap: S.xs, marginLeft: "auto" }}>
             <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} />
@@ -1041,7 +1333,7 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
         <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools} />
 
         <div className="mt-6" style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg }}>
-          <ReviewForm name={tool.name} onSubmit={onReview} color={col} />
+          <ReviewForm name={tool.name} onSubmit={onReview} initialRating={initialRating} />
           {reviews.length > 0 && (
             <div className="mt-5 flex flex-col" style={{ gap: S.md }}>
               {reviews.map((r) => (
@@ -1055,11 +1347,6 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
                 </div>
               ))}
             </div>
-          )}
-          {reviews.length === 0 && (
-            <p className="mt-4" style={{ fontSize: F.sm, color: C.dim }}>
-              No reviews yet. If you have used it, you are the most useful person in the room.
-            </p>
           )}
         </div>
 
@@ -1170,11 +1457,21 @@ function ReportProblem({ tool }) {
   );
 }
 
-function ReviewForm({ name, onSubmit, color }) {
+/*
+ * `initialRating` arrives when the person clicked a star out on the card or in
+ * a row. That click was the rating, so the form opens with it picked and the
+ * cursor already in the text field: they carry on writing rather than starting
+ * the same decision over.
+ */
+function ReviewForm({ name, onSubmit, initialRating = 0 }) {
   const [author, setAuthor] = useState("");
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
+  const textRef = useRef(null);
+  useEffect(() => {
+    if (initialRating) textRef.current?.focus();
+  }, [initialRating]);
   const field = {
     background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
     padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit", width: "100%",
@@ -1189,16 +1486,16 @@ function ReviewForm({ name, onSubmit, color }) {
     <div>
       <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
         <span style={{ fontSize: F.md, fontWeight: 600 }}>Rate {name}</span>
-        <Stars value={rating} onPick={setRating} size={F.xl} />
+        <Stars value={rating} onPick={setRating} size={F.xl} title={`Rate ${name}`} />
       </div>
       <div className="flex flex-wrap mt-3" style={{ gap: S.sm }}>
         <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Your name"
           style={{ ...field, width: 150, flexShrink: 0 }} />
-        <input value={text} onChange={(e) => setText(e.target.value)}
+        <input ref={textRef} value={text} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           placeholder="What did you actually find using it?" style={{ ...field, flex: 1, minWidth: 200 }} />
         <button onClick={submit} disabled={!rating} style={{
-          background: rating ? color : C.subtle, color: rating ? C.onAccent : C.dim,
+          background: rating ? C.accent : C.subtle, color: rating ? C.onAccent : C.dim,
           border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.md, fontWeight: 700,
           cursor: rating ? "pointer" : "default", fontFamily: "inherit",
         }}>Post</button>
@@ -1218,6 +1515,7 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
    * is that this corner of the ecosystem is too small for the review platforms.
    */
   const anyRatings = list.some((t) => t.ratings?.length);
+  const anySocial = list.some((t) => Object.values(t.social || {}).some(Boolean));
   const rowsSpec = [
     ["Category", (t) => catOf(t.cat).label],
     ["What it does", (t) => t.one],
@@ -1238,7 +1536,7 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
     }],
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
     ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
-    ["Ownership", (t) => t.suite ? `Part of ${t.suite}` : t.linked ? `Same owner as ${t.linked}` : t.owner ? `Built by ${t.owner}` : "Independent"],
+    ["Ownership", ownershipOf],
     ["Research source", (t) => (t.verified ? "Vendor site read directly" : "Third party, unverified")],
     ["Site", (t) => t.domain],
   ];
@@ -1285,12 +1583,14 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
                   ))}
                 </tr>
               ))}
-              <tr>
-                <td style={{ padding: S.md, fontSize: F.sm, color: C.dim, fontWeight: 600, verticalAlign: "top" }}>Profiles</td>
-                {list.map((t) => (
-                  <td key={t.id} style={{ padding: S.md }}><Social social={t.social} /></td>
-                ))}
-              </tr>
+              {anySocial && (
+                <tr>
+                  <td style={{ padding: S.md, fontSize: F.sm, color: C.dim, fontWeight: 600, verticalAlign: "top" }}>Profiles</td>
+                  {list.map((t) => (
+                    <td key={t.id} style={{ padding: S.md }}><Social social={t.social} /></td>
+                  ))}
+                </tr>
+              )}
               <tr>
                 <td style={{ padding: S.md, fontSize: F.sm, color: C.dim, fontWeight: 600, verticalAlign: "top" }}>Watch for</td>
                 {list.map((t) => (
@@ -1345,7 +1645,7 @@ function Roadmap({ onSuggest }) {
             <span style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, marginTop: S.sm, flex: 1 }}>
               {k.blurb}
             </span>
-            <span style={{ marginTop: S.md }}><Pill color={k.color}>open for suggestions</Pill></span>
+            <span style={{ marginTop: S.md }}><Pill>open for suggestions</Pill></span>
           </button>
         ))}
       </div>

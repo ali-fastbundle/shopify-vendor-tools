@@ -223,6 +223,72 @@ today's behaviour rather than to nothing. The same split applies to the brand gr
 the warning hues: `C.accent` is the fill, `C.accentInk` is the type, and `C.onAccent` is
 the dark ink that sits on any accent or category fill in both themes.
 
+### Colour invariants
+
+These are the rules that erode one commit at a time — each individual coloured badge
+looks like an improvement, and the twelfth one is why nothing means anything. Treat
+them as invariants, not preferences.
+
+**A. Category colour appears in exactly three places.** The spine, the category label,
+and the filter chips.
+
+- the spine — 3px across the top of a card, 4px across the top of the detail modal, and
+  the same 3px turned on its side at the head of a list row or a matcher result
+- the category label set in `ink(colour)` directly under the tool name
+- the category filter chips, and the kind chips in the suggest modal, which are the
+  same device
+
+Nowhere else. Not the lettermark, not a badge, not a border, not a button, not a link,
+not the panel a vendor edits their listing in. The wordmark and the masthead bars are
+the palette shown as a legend, which is the same job.
+
+**B. Every other badge is a neutral outline.** `C.edge` border, `C.muted` text, no
+fill. Free plan, unverified, suite membership, same-owner, by-owner, claimed and price
+are *attributes* of a tool, not categories of one — giving each its own hue put five
+unrelated colours beside a spine whose colour means something and drained the meaning
+out of all of them. `Pill` takes no colour any more; it only takes `tone`.
+
+The single exception is `tone="warn"` on "winding down". That is a status warning about
+the product, not a label on it, and it is allowed to be seen.
+
+**C. Green is the action colour and nothing else.** Buttons that do something, the
+selected-for-comparison state, an owned listing. It is not the free-plan colour: green
+meaning both "do this" and "costs nothing" is two ideas wearing one coat. A filter that
+is *on* is a state rather than an action, so it takes the neutral inversion —
+`C.text` on `C.bg` — which is also what the "All" chip and the view toggle use.
+
+**D. "Visit site" gets one treatment on every tool.** Solid `C.text`, ink `C.bg`, bold,
+via the `VisitSite` component. It is the same link doing the same job on every card and
+every row, and it was the category colour, which made the most important link on the
+card look like nine different links.
+
+**E. When there is nothing, render nothing.** No "no public profile", no "no reviews",
+no "None found" — an empty state announcing itself is louder than the absence and reads
+as a verdict on the tool rather than on the size of the category. `Social` returns null
+with no profiles; a review count renders only above zero; the compare table drops a
+whole row when nothing being compared has one.
+
+## Interaction
+
+**Rating is one click, like voting.** Like and dislike write straight from the card.
+Clicking a star on a card or a list row does the same thing as far as the person is
+concerned: `onOpen(rating)` carries that number into the review form, which opens with
+the rating already picked and the cursor in the text field. Three stars clicked means
+three stars — never a form that opens empty and asks again.
+
+**Cards browse, rows compare.** The grid/list toggle sits next to the sort control. A
+card gives a tool room to describe itself, which is exactly what makes four of them
+hard to hold side by side; a list row gives up the description to line the facts up in
+columns — name, category, price, free plan, rating, external rating, ownership — and
+every column header sorts, reversing when clicked again.
+
+Both orders come from one `SORTS` object in `components/Directory.jsx`, because the
+sort control and the column headers both write to it and must not drift into meaning
+different things by the same name. A column header can select an order the control does
+not offer, and the control renders an extra option for it rather than showing the wrong
+one as selected. `dying` still sorts last in every order, in both views. The 2-to-4
+tool compare modal is untouched: the list is the pass where you work out which two.
+
 ## Conventions
 
 - Plain JS, no TypeScript. Keep it that way unless asked.

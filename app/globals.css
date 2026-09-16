@@ -35,6 +35,9 @@
 
   --c-subtle: rgba(255, 255, 255, 0.045);
   --c-stripe: rgba(255, 255, 255, 0.025);
+  /* The neutral badge border. --c-line is a hairline between surfaces and is
+     too faint to draw a pill on its own; this is the same idea one step up. */
+  --c-edge: rgba(255, 255, 255, 0.2);
   --c-field: rgba(0, 0, 0, 0.3);
   --c-scrim: rgba(2, 8, 6, 0.78);
   --c-tray: rgba(8, 22, 18, 0.93);
@@ -71,8 +74,6 @@
   --ink-ff9052: #FF9052;
   --ink-ffd166: #FFD166;
   --ink-7fd1f0: #7FD1F0;
-  /* Not a category: the grey the "unverified" pill is set in. */
-  --ink-7c8f86: #7C8F86;
 }
 
 /*
@@ -93,6 +94,7 @@
 
   --c-subtle: rgba(6, 17, 13, 0.045);
   --c-stripe: rgba(6, 17, 13, 0.028);
+  --c-edge: rgba(6, 17, 13, 0.22);
   --c-field: #FFFFFF;
   --c-scrim: rgba(20, 32, 27, 0.42);
   --c-tray: rgba(255, 255, 255, 0.93);
@@ -128,7 +130,6 @@
   --ink-ff9052: #9A4300;
   --ink-ffd166: #7A5A00;
   --ink-7fd1f0: #18657E;
-  --ink-7c8f86: #5B6B63;
 }
 
 /* ==================================================================
