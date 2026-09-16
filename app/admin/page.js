@@ -3,7 +3,7 @@ import { sessionFrom, isAdmin } from "@/lib/auth";
 import { read, readStats, readMailLog, KEYS } from "@/lib/store";
 import { getClaims } from "@/lib/listings";
 import { getSubscribers } from "@/lib/subscribers";
-import { C } from "@/lib/tools";
+import { C, S, F } from "@/lib/tools";
 import AdminPanel from "@/components/Admin";
 import { getAccounts } from "@/lib/accounts";
 
@@ -23,10 +23,9 @@ export default async function AdminPage() {
     return (
       <main style={{
         background: C.bg, color: C.text, minHeight: "100vh",
-        fontFamily: "Archivo, Inter, system-ui, sans-serif",
-        display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: S["2xl"],
       }}>
-        <p style={{ fontSize: 17, color: C.muted, margin: 0 }}>Not authorised</p>
+        <p style={{ fontSize: F.lg, color: C.muted, margin: 0 }}>Not authorised</p>
       </main>
     );
   }

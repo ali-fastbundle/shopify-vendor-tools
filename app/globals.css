@@ -2,7 +2,208 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap');
+/* ==================================================================
+   Themes.
 
-html, body { background: #06110D; }
-body { margin: 0; -webkit-font-smoothing: antialiased; }
+   Dark is :root. Light is one block on [data-theme="light"], and it is
+   the only place light values are written — the theme script in
+   components/Theme.jsx resolves "system" to a concrete dark or light
+   before first paint and re-resolves when the system preference
+   changes, so the stylesheet never needs a prefers-color-scheme copy
+   of either palette. A second copy is how a token ends up defined in
+   one theme and missing from the other.
+
+   With scripting off the page renders dark, which is the designed
+   default and what the site was before there was a choice at all.
+
+   No value below is referenced by a component directly. Components
+   read the C object in lib/tools.js, which is these names and nothing
+   else, so a token that exists in one theme and not the other is a
+   missing line here rather than a colour hard-coded somewhere.
+   ================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  --c-bg: #06110D;
+  --c-panel: #0D1F19;
+  --c-raised: #132A22;
+  --c-line: rgba(255, 255, 255, 0.09);
+  --c-text: #E8F2EC;
+  --c-muted: #8CA79B;
+  --c-dim: #5E7A6E;
+
+  --c-subtle: rgba(255, 255, 255, 0.045);
+  --c-stripe: rgba(255, 255, 255, 0.025);
+  --c-field: rgba(0, 0, 0, 0.3);
+  --c-scrim: rgba(2, 8, 6, 0.78);
+  --c-tray: rgba(8, 22, 18, 0.93);
+  --c-thumb: #1D3B31;
+
+  --c-glow:
+    radial-gradient(900px 380px at 18% -8%, rgba(0, 224, 138, 0.16), transparent 62%),
+    radial-gradient(700px 320px at 84% -12%, rgba(76, 201, 240, 0.13), transparent 60%);
+  --c-hero: linear-gradient(160deg, #10281F 0%, #0A1C16 100%);
+  --c-invite: linear-gradient(155deg, rgba(0, 224, 138, 0.10), rgba(76, 201, 240, 0.06));
+
+  --c-shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.5);
+  --c-shadow-md: 0 16px 48px rgba(0, 0, 0, 0.45);
+  --c-shadow-lg: 0 32px 80px rgba(0, 0, 0, 0.6);
+
+  --c-accent-ink: #00E08A;
+  --c-accent-soft: rgba(0, 224, 138, 0.12);
+  --c-accent-edge: rgba(0, 224, 138, 0.45);
+  --c-warn-ink: #FF9052;
+  --c-bad-ink: #FF6B8A;
+  --c-bad-soft: rgba(255, 107, 138, 0.08);
+  --c-bad-edge: rgba(255, 107, 138, 0.45);
+
+  --c-star: #FFC93C;
+  --c-star-off: rgba(255, 255, 255, 0.18);
+
+  /* Category colours as text. On dark they are already the hue itself. */
+  --ink-00e08a: #00E08A;
+  --ink-4cc9f0: #4CC9F0;
+  --ink-ffb020: #FFB020;
+  --ink-ff6b8a: #FF6B8A;
+  --ink-b08cff: #B08CFF;
+  --ink-48e5c2: #48E5C2;
+  --ink-ff9052: #FF9052;
+  --ink-ffd166: #FFD166;
+  --ink-7fd1f0: #7FD1F0;
+  /* Not a category: the grey the "unverified" pill is set in. */
+  --ink-7c8f86: #7C8F86;
+}
+
+/*
+ * The light theme. Reached by an explicit data-theme, which the theme script
+ * sets on every load — including when the choice is "system" and it has read
+ * the system preference on the visitor's behalf.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --c-bg: #F3F6F4;
+  --c-panel: #FFFFFF;
+  --c-raised: #F6F8F7;
+  --c-line: rgba(6, 17, 13, 0.12);
+  --c-text: #0F1A15;
+  --c-muted: #55665E;
+  --c-dim: #67786F;
+
+  --c-subtle: rgba(6, 17, 13, 0.045);
+  --c-stripe: rgba(6, 17, 13, 0.028);
+  --c-field: #FFFFFF;
+  --c-scrim: rgba(20, 32, 27, 0.42);
+  --c-tray: rgba(255, 255, 255, 0.93);
+  --c-thumb: #C3CEC8;
+
+  --c-glow:
+    radial-gradient(900px 380px at 18% -8%, rgba(0, 224, 138, 0.16), transparent 62%),
+    radial-gradient(700px 320px at 84% -12%, rgba(76, 201, 240, 0.12), transparent 60%);
+  --c-hero: linear-gradient(160deg, #FFFFFF 0%, #EDF4F0 100%);
+  --c-invite: linear-gradient(155deg, rgba(0, 224, 138, 0.14), rgba(76, 201, 240, 0.09));
+
+  --c-shadow-sm: 0 8px 20px rgba(6, 17, 13, 0.08);
+  --c-shadow-md: 0 12px 32px rgba(6, 17, 13, 0.09);
+  --c-shadow-lg: 0 24px 60px rgba(6, 17, 13, 0.16);
+
+  --c-accent-ink: #04794E;
+  --c-accent-soft: rgba(4, 121, 78, 0.10);
+  --c-accent-edge: rgba(4, 121, 78, 0.35);
+  --c-warn-ink: #9A4300;
+  --c-bad-ink: #B81742;
+  --c-bad-soft: rgba(184, 23, 66, 0.07);
+  --c-bad-edge: rgba(184, 23, 66, 0.35);
+
+  --c-star: #C48A00;
+  --c-star-off: rgba(6, 17, 13, 0.16);
+
+  --ink-00e08a: #04794E;
+  --ink-4cc9f0: #0B6E8C;
+  --ink-ffb020: #8A5200;
+  --ink-ff6b8a: #B81742;
+  --ink-b08cff: #6A3FD1;
+  --ink-48e5c2: #076F5D;
+  --ink-ff9052: #9A4300;
+  --ink-ffd166: #7A5A00;
+  --ink-7fd1f0: #18657E;
+  --ink-7c8f86: #5B6B63;
+}
+
+/* ==================================================================
+   Base.
+
+   The typeface is Inter, loaded by next/font in app/layout.js and
+   handed over as --font-sans. It is set once, here, and every
+   component says fontFamily: "inherit" rather than naming a family —
+   so the site cannot end up half in one face.
+   ================================================================== */
+
+html,
+body {
+  background: var(--c-bg);
+}
+
+body {
+  margin: 0;
+  color: var(--c-text);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*::selection {
+  background: #00E08A;
+  color: #06110D;
+}
+
+input,
+textarea,
+select {
+  outline: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--c-accent-ink) !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--c-accent-ink);
+  outline-offset: 2px;
+}
+
+.card {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--c-shadow-sm);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--c-thumb);
+  border-radius: 6px;
+}
+
+/* Motion is never used to draw attention here, so there is nothing to keep. */
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+}

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { C, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
+import { C, S, R, F, TRACK, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
+import { ThemeToggle } from "./Theme";
 
 /* ================================================================== */
 /*  Bits                                                               */
@@ -78,14 +79,14 @@ if (typeof window !== "undefined") {
 
 function Wordmark() {
   return (
-    <div className="flex items-center" style={{ gap: 9 }}>
+    <div className="flex items-center" style={{ gap: S.sm }}>
       <span className="flex" style={{ gap: 2 }} aria-hidden="true">
         {CATEGORIES.map((c) => (
           <span key={c.id} style={{ width: 3, height: 16, borderRadius: 1.5, background: c.color, display: "inline-block" }} />
         ))}
       </span>
-      <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1, whiteSpace: "nowrap" }}>
-        Watch For <span style={{ color: "#00E08A" }}>Tools</span>
+      <span style={{ fontSize: F.xl, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1, whiteSpace: "nowrap" }}>
+        Watch For <span style={{ color: C.accentInk }}>Tools</span>
       </span>
     </div>
   );
@@ -104,10 +105,10 @@ function Logo({ tool, size = 34 }) {
     return (
       <div
         style={{
-          width: size, height: size, borderRadius: 8, flexShrink: 0,
-          background: color + "22", color,
+          width: size, height: size, borderRadius: R.card, flexShrink: 0,
+          background: color + "22", color: ink(color),
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontWeight: 700, fontSize: size * 0.42, letterSpacing: "-0.02em",
+          fontWeight: 700, fontSize: size * 0.42, letterSpacing: TRACK.tight,
         }}
       >
         {tool.name.slice(0, 2)}
@@ -120,8 +121,10 @@ function Logo({ tool, size = 34 }) {
       alt=""
       onError={() => setStep(step === "logo" ? "favicon" : "letter")}
       style={{
-        width: size, height: size, borderRadius: 8, flexShrink: 0,
-        background: "#FFFFFF", objectFit: "contain", padding: 4,
+        width: size, height: size, borderRadius: R.card, flexShrink: 0,
+        /* White under the mark in both themes: a vendor's logo is drawn for a
+           light background and plenty of them are dark-on-transparent. */
+        background: "#FFFFFF", objectFit: "contain", padding: S.xs,
       }}
     />
   );
@@ -134,7 +137,7 @@ function Stars({ value, onPick, size = 14 }) {
     <span className="inline-flex items-center" style={{ gap: 1 }}>
       {[1, 2, 3, 4, 5].map((n) => {
         const on = n <= shown;
-        const s = { fontSize: size, lineHeight: 1, color: on ? "#FFC93C" : "rgba(255,255,255,0.18)" };
+        const s = { fontSize: size, lineHeight: 1, color: on ? C.star : C.starOff };
         if (!onPick) return <span key={n} style={s}>★</span>;
         return (
           <button key={n} type="button" aria-label={`${n} star`}
@@ -160,13 +163,13 @@ function Stars({ value, onPick, size = 14 }) {
 function ExternalRatings({ ratings, detail = false }) {
   if (!ratings || !ratings.length) return null;
   return (
-    <div className="flex flex-wrap items-center" style={{ gap: detail ? 14 : 10 }}>
+    <div className="flex flex-wrap items-center" style={{ gap: detail ? S.lg : S.md }}>
       {ratings.map((r) => (
         <a key={`${r.source}${r.url}`} href={r.url} target="_blank" rel="noopener noreferrer"
           title={`${r.source}: ${r.score == null ? "score not captured" : `${r.score} out of ${r.outOf ?? 5}`}${r.count ? `, ${r.count} reviews` : ""}${r.captured ? `, captured ${r.captured}` : ""}`}
           style={{
-            fontSize: detail ? 13 : 11.5, color: C.dim, textDecoration: "none",
-            display: "inline-flex", alignItems: "baseline", gap: 4, whiteSpace: "nowrap",
+            fontSize: detail ? F.sm : F.xs, color: C.dim, textDecoration: "none",
+            display: "inline-flex", alignItems: "baseline", gap: S.xs, whiteSpace: "nowrap",
           }}>
           {/* out of 5 is the common case and stays implicit; anything else is spelled out
               so a 9.2 from a ten-point scale cannot read as a five-point score. A source
@@ -189,8 +192,8 @@ function ExternalRatings({ ratings, detail = false }) {
 function Pill({ color, children, solid }) {
   return (
     <span style={{
-      fontSize: 11, lineHeight: 1.6, padding: "1px 7px", borderRadius: 999,
-      color: solid ? "#06110D" : color,
+      fontSize: F.xs, lineHeight: 1.6, padding: "2px 8px", borderRadius: R.pill,
+      color: solid ? C.onAccent : ink(color),
       background: solid ? color : color + "1E",
       border: `1px solid ${color}${solid ? "" : "44"}`,
       whiteSpace: "nowrap", fontWeight: solid ? 700 : 500,
@@ -204,17 +207,17 @@ function Social({ social, size = 15 }) {
     ["x", "𝕏", social.x],
     ["gh", "GH", social.gh],
   ].filter((i) => i[2]);
-  if (!items.length) return <span style={{ fontSize: 11, color: C.dim }}>no public profile</span>;
+  if (!items.length) return <span style={{ fontSize: F.xs, color: C.dim }}>no public profile</span>;
   return (
-    <span className="inline-flex items-center" style={{ gap: 6 }}>
+    <span className="inline-flex items-center" style={{ gap: S.sm }}>
       {items.map(([k, label, href]) => (
         <a key={k} href={href} target="_blank" rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           title={k === "li" ? "LinkedIn" : k === "x" ? "X" : "GitHub"}
           style={{
-            width: 22, height: 22, borderRadius: 5, display: "inline-flex",
+            width: 22, height: 22, borderRadius: R.control, display: "inline-flex",
             alignItems: "center", justifyContent: "center",
-            border: `1px solid ${C.line}`, color: C.muted, fontSize: 11, fontWeight: 600,
+            border: `1px solid ${C.line}`, color: C.muted, fontSize: F.xs, fontWeight: 600,
             textDecoration: "none",
           }}>{label}</a>
       ))}
@@ -300,35 +303,35 @@ function Matcher({ tools, onOpen, onSuggest }) {
   return (
     <div>
       <div style={{
-        background: "linear-gradient(160deg, #10281F 0%, #0A1C16 100%)",
-        border: `1px solid ${C.line}`, borderRadius: 14, padding: editing ? 22 : "14px 18px",
-        boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
+        background: C.hero,
+        border: `1px solid ${C.line}`, borderRadius: R.card, padding: editing ? S["2xl"] : "16px 20px",
+        boxShadow: C.shadowMd,
       }}>
         {!editing && result ? (
           /* Asked and answered: the question shrinks to one line so the answer leads. */
-          <div className="flex flex-wrap items-baseline" style={{ gap: 10 }}>
-            <span style={{ fontSize: 12.5, color: C.dim, flexShrink: 0 }}>You asked</span>
-            <span style={{ fontSize: 14, color: C.text, flex: 1, minWidth: 180, lineHeight: 1.45 }}>
+          <div className="flex flex-wrap items-baseline" style={{ gap: S.md }}>
+            <span style={{ fontSize: F.xs, color: C.dim, flexShrink: 0 }}>You asked</span>
+            <span style={{ fontSize: F.md, color: C.text, flex: 1, minWidth: 180, lineHeight: 1.45 }}>
               {result.query}
             </span>
             <button
               onClick={() => { setProblem(result.query); setEditing(true); }}
               style={{
-                background: "none", border: 0, padding: 0, color: "#00E08A", fontSize: 13.5,
+                background: "none", border: 0, padding: 0, color: C.accentInk, fontSize: F.sm,
                 fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline",
               }}
             >Change</button>
           </div>
         ) : (
           <>
-            <h2 style={{ fontSize: 19, fontWeight: 600, margin: 0, letterSpacing: "-0.015em" }}>
+            <h2 style={{ fontSize: F.xl, fontWeight: 600, margin: 0, letterSpacing: TRACK.tight }}>
               What are you trying to solve?
             </h2>
-            <p style={{ fontSize: 14, color: C.muted, margin: "6px 0 14px", lineHeight: 1.5, maxWidth: "58ch" }}>
+            <p style={{ fontSize: F.md, color: C.muted, margin: "8px 0 16px", lineHeight: 1.5, maxWidth: "58ch" }}>
               Describe the problem in your own words. You get back the tools that fit, with the reason.
             </p>
 
-            <div className="flex flex-wrap" style={{ gap: 8 }}>
+            <div className="flex flex-wrap" style={{ gap: S.sm }}>
               <textarea
                 value={problem}
                 onChange={(e) => setProblem(e.target.value)}
@@ -336,31 +339,31 @@ function Matcher({ tools, onOpen, onSuggest }) {
                 placeholder="We bill through Mantle and need somewhere to go before 30 September…"
                 style={{
                   flex: 1, minWidth: 240, minHeight: 68, resize: "vertical",
-                  background: "rgba(0,0,0,0.32)", border: `1px solid ${C.line}`, borderRadius: 10,
-                  padding: "11px 13px", fontSize: 14.5, color: C.text, fontFamily: "inherit", lineHeight: 1.5,
+                  background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
+                  padding: S.md, fontSize: F.md, color: C.text, fontFamily: "inherit", lineHeight: 1.5,
                 }}
               />
               <button
                 onClick={() => run()}
                 disabled={busy || !problem.trim()}
                 style={{
-                  alignSelf: "stretch", minWidth: 122, border: 0, borderRadius: 10,
-                  background: problem.trim() ? "#00E08A" : "rgba(255,255,255,0.08)",
-                  color: problem.trim() ? "#06110D" : C.dim,
-                  fontSize: 14.5, fontWeight: 700, cursor: problem.trim() && !busy ? "pointer" : "default",
-                  fontFamily: "inherit", padding: "0 18px",
+                  alignSelf: "stretch", minWidth: 122, border: 0, borderRadius: R.control,
+                  background: problem.trim() ? C.accent : C.subtle,
+                  color: problem.trim() ? C.onAccent : C.dim,
+                  fontSize: F.md, fontWeight: 700, cursor: problem.trim() && !busy ? "pointer" : "default",
+                  fontFamily: "inherit", padding: "0 20px",
                 }}
               >
                 {busy ? "Matching…" : "Find tools"}
               </button>
             </div>
 
-            <div className="flex flex-wrap mt-3" style={{ gap: 6 }}>
+            <div className="flex flex-wrap mt-3" style={{ gap: S.sm }}>
               {EXAMPLES.map((e) => (
                 <button key={e} onClick={() => { setProblem(e); run(e); }}
                   style={{
-                    fontSize: 12, color: C.muted, background: "rgba(255,255,255,0.04)",
-                    border: `1px solid ${C.line}`, borderRadius: 999, padding: "4px 10px",
+                    fontSize: F.xs, color: C.muted, background: C.subtle,
+                    border: `1px solid ${C.line}`, borderRadius: R.pill, padding: "4px 12px",
                     cursor: "pointer", fontFamily: "inherit", textAlign: "left",
                   }}>{e}</button>
               ))}
@@ -371,29 +374,29 @@ function Matcher({ tools, onOpen, onSuggest }) {
 
       {result && (
         <div className="mt-4" style={{
-          background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 20,
+          background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl,
         }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, letterSpacing: "-0.015em" }}>{heading}</h3>
+          <h3 style={{ fontSize: F.lg, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{heading}</h3>
 
           {result.status === "fallback" && (
             <p style={{
-              fontSize: 13.5, color: C.muted, lineHeight: 1.5, margin: "10px 0 0",
-              background: "rgba(255,255,255,0.04)", border: `1px solid ${C.line}`,
-              borderRadius: 9, padding: "9px 12px",
+              fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: "12px 0 0",
+              background: C.subtle, border: `1px solid ${C.line}`,
+              borderRadius: R.control, padding: "8px 12px",
             }}>
               The matcher is having a moment. These are the closest matches by keyword.
             </p>
           )}
 
           {result.status === "failed" && (
-            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.55, margin: "10px 0 0", maxWidth: "58ch" }}>
+            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: "12px 0 0", maxWidth: "58ch" }}>
               Could not match that right now. Try rephrasing, or browse the categories below.
             </p>
           )}
 
           {result.status === "none" && (
             <>
-              <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.55, margin: "10px 0 0", maxWidth: "58ch" }}>
+              <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: "12px 0 0", maxWidth: "58ch" }}>
                 Nothing here fits that well. That is useful to know — tell me what you were looking for
                 and it goes on the list.
               </p>
@@ -401,8 +404,8 @@ function Matcher({ tools, onOpen, onSuggest }) {
                 onClick={() => onSuggest({ kind: "tool", why: result.query })}
                 className="mt-3"
                 style={{
-                  background: "#00E08A", color: "#06110D", border: 0, borderRadius: 9,
-                  padding: "9px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer",
+                  background: C.accent, color: C.onAccent, border: 0, borderRadius: R.control,
+                  padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer",
                   fontFamily: "inherit",
                 }}
               >Tell me what you needed</button>
@@ -410,13 +413,13 @@ function Matcher({ tools, onOpen, onSuggest }) {
           )}
 
           {result.note && result.picks.length > 0 && (
-            <p style={{ fontSize: 14, color: C.text, margin: "10px 0 0", lineHeight: 1.5, maxWidth: "58ch" }}>
+            <p style={{ fontSize: F.md, color: C.text, margin: "12px 0 0", lineHeight: 1.5, maxWidth: "58ch" }}>
               {result.note}
             </p>
           )}
 
           {result.picks.length > 0 && (
-            <div className="flex flex-col mt-3" style={{ gap: 10 }}>
+            <div className="flex flex-col mt-3" style={{ gap: S.md }}>
               {result.picks.map((p) => {
                 const t = tools.find((x) => x.id === p.id);
                 const col = catOf(t.cat).color;
@@ -424,17 +427,17 @@ function Matcher({ tools, onOpen, onSuggest }) {
                   <button key={p.id} onClick={() => onOpen(t.id)}
                     className="flex items-start text-left cursor-pointer"
                     style={{
-                      gap: 12, background: "rgba(255,255,255,0.04)", border: `1px solid ${col}44`,
-                      borderLeft: `3px solid ${col}`, borderRadius: 10, padding: 12, width: "100%",
+                      gap: S.md, background: C.subtle, border: `1px solid ${col}44`,
+                      borderLeft: `3px solid ${col}`, borderRadius: R.control, padding: S.md, width: "100%",
                       fontFamily: "inherit", color: C.text,
                     }}>
                     <Logo tool={t} size={30} />
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span className="flex flex-wrap items-baseline" style={{ gap: 8 }}>
-                        <span style={{ fontSize: 15.5, fontWeight: 600 }}>{t.name}</span>
-                        <span style={{ fontSize: 12, color: col }}>{t.price}</span>
+                      <span className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+                        <span style={{ fontSize: F.lg, fontWeight: 600 }}>{t.name}</span>
+                        <span style={{ fontSize: F.xs, color: ink(col) }}>{t.price}</span>
                       </span>
-                      <span className="block mt-1" style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>
+                      <span className="block mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5 }}>
                         {p.why}
                       </span>
                     </span>
@@ -590,47 +593,44 @@ export default function Directory({ tools: initialTools }) {
   const openTool = (id) => { trackToolOpen(id); setDetail(id); setCompare(false); };
 
   return (
-    <div style={{ background: C.bg, color: C.text, minHeight: "100vh", fontFamily: "Archivo, Inter, system-ui, sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap');
-        *::selection { background: #00E08A; color: #06110D; }
-        .card { transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
-        .card:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(0,0,0,.5); }
-        input, textarea, select { outline: none; }
-        input:focus, textarea:focus, select:focus { border-color: #00E08A !important; }
-        button:focus-visible, a:focus-visible { outline: 2px solid #00E08A; outline-offset: 2px; }
-        ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-thumb { background: #1D3B31; border-radius: 6px; }
-        @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
-      `}</style>
-
+    /*
+     * No <style> block and no font-family. The selection colour, the focus
+     * ring, the card hover and the scrollbar live in globals.css now, where
+     * they can read the theme's variables; the typeface is set once on <body>
+     * by next/font. A stylesheet injected from here could only describe one
+     * theme, and would have to be rewritten to describe the other.
+     */
+    <div style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
       {/* glow */}
       <div style={{
         position: "absolute", inset: "0 0 auto 0", height: 460, pointerEvents: "none",
-        background: "radial-gradient(900px 380px at 18% -8%, rgba(0,224,138,.16), transparent 62%), radial-gradient(700px 320px at 84% -12%, rgba(76,201,240,.13), transparent 60%)",
+        background: C.glow,
       }} />
 
       <div className="mx-auto" style={{ maxWidth: 1140, padding: "0 20px", position: "relative" }}>
 
         {/* Masthead */}
         <header className="pt-8 pb-7">
-          <div className="flex flex-wrap items-center justify-between pb-6" style={{ gap: 14 }}>
+          <div className="flex flex-wrap items-center justify-between pb-6" style={{ gap: S.lg }}>
             <Wordmark />
-            <AccountBar session={session} refresh={refreshSession} />
+            <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
+              <AccountBar session={session} refresh={refreshSession} />
+              <ThemeToggle />
+            </div>
           </div>
-          <div className="flex flex-wrap items-center" style={{ gap: 10 }}>
+          <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
             {CATEGORIES.map((c) => (
               <span key={c.id} style={{ width: 26, height: 4, borderRadius: 2, background: c.color, display: "inline-block" }} />
             ))}
           </div>
-          <h1 style={{ fontSize: 44, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.02, margin: "16px 0 0" }}>
+          <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.02, margin: "16px 0 0" }}>
             {HEADLINE}
           </h1>
-          <p className="mt-3" style={{ fontSize: 16.5, color: C.muted, maxWidth: "60ch", lineHeight: 1.55 }}>
+          <p className="mt-3" style={{ fontSize: F.lg, color: C.muted, maxWidth: "60ch", lineHeight: 1.55 }}>
             Every tool built specifically for the people who build Shopify apps. Rankings, store data,
             revenue analytics, partner programs. Open directory, community rated.
           </p>
-          <div className="flex flex-wrap items-center mt-5" style={{ gap: 18, fontSize: 13.5, color: C.muted }}>
+          <div className="flex flex-wrap items-center mt-5" style={{ gap: S.lg, fontSize: F.sm, color: C.muted }}>
             <span><b style={{ color: C.text }}>{tools.length}</b> tools</span>
             <span><b style={{ color: C.text }}>{CATEGORIES.length}</b> categories</span>
             <span><b style={{ color: C.text }}>{loading ? "…" : totalReviews}</b> community reviews</span>
@@ -641,31 +641,34 @@ export default function Directory({ tools: initialTools }) {
         <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest} />
 
         {/* Filters */}
-        <div className="mt-10 flex flex-wrap items-center" style={{ gap: 8 }}>
-          <FilterChip active={cat === "all"} color="#FFFFFF" onClick={() => setCat("all")}
-            label="All" count={tools.length} />
+        <div className="mt-10 flex flex-wrap items-center" style={{ gap: S.sm }}>
+          {/* No category behind it, so no category colour to borrow: All fills
+              with the text colour and inks with the background, which is the
+              one pair that inverts correctly in both themes. */}
+          <FilterChip active={cat === "all"} color={C.text} ink={C.bg}
+            onClick={() => setCat("all")} label="All" count={tools.length} />
           {CATEGORIES.map((c) => (
             <FilterChip key={c.id} active={cat === c.id} color={c.color} onClick={() => setCat(c.id)}
               label={c.label} count={tools.filter((t) => t.cat === c.id).length} />
           ))}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center" style={{ gap: 10 }}>
+        <div className="mt-4 flex flex-wrap items-center" style={{ gap: S.md }}>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tools, tags, notes"
             style={{
               flex: 1, minWidth: 200, background: C.panel, border: `1px solid ${C.line}`,
-              borderRadius: 9, padding: "9px 12px", fontSize: 14, color: C.text, fontFamily: "inherit",
+              borderRadius: R.control, padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit",
             }} />
           <button onClick={() => setFreeOnly((f) => !f)}
             style={{
-              background: freeOnly ? "#00E08A" : C.panel, color: freeOnly ? "#06110D" : C.muted,
-              border: `1px solid ${freeOnly ? "#00E08A" : C.line}`, borderRadius: 9,
-              padding: "9px 14px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              background: freeOnly ? C.accent : C.panel, color: freeOnly ? C.onAccent : C.muted,
+              border: `1px solid ${freeOnly ? C.accent : C.line}`, borderRadius: R.control,
+              padding: "8px 16px", fontSize: F.sm, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
             }}>Free plan</button>
           <select value={sort} onChange={(e) => setSort(e.target.value)}
             style={{
-              background: C.panel, border: `1px solid ${C.line}`, borderRadius: 9,
-              padding: "9px 10px", fontSize: 13.5, color: C.text, fontFamily: "inherit",
+              background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
+              padding: "8px 12px", fontSize: F.sm, color: C.text, fontFamily: "inherit",
             }}>
             <option value="rating">Top rated</option>
             <option value="votes">Most liked</option>
@@ -674,30 +677,30 @@ export default function Directory({ tools: initialTools }) {
           </select>
           <button onClick={() => setShowSuggest("tool")}
             style={{
-              background: "#00E08A", color: "#06110D", border: 0,
-              borderRadius: 9, padding: "9px 16px", fontSize: 13.5, fontWeight: 700,
+              background: C.accent, color: C.onAccent, border: 0,
+              borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
               cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
             }}>Add a tool {suggestions.length ? `· ${suggestions.length}` : ""}</button>
         </div>
 
         {cat !== "all" && (
-          <p className="mt-4" style={{ fontSize: 14.5, color: C.muted, maxWidth: "62ch", lineHeight: 1.5 }}>
+          <p className="mt-4" style={{ fontSize: F.md, color: C.muted, maxWidth: "62ch", lineHeight: 1.5 }}>
             {catOf(cat).blurb}
           </p>
         )}
-        {err && <p className="mt-3" style={{ fontSize: 13, color: "#FF9052" }}>{err}</p>}
+        {err && <p className="mt-3" style={{ fontSize: F.sm, color: C.warnInk }}>{err}</p>}
 
         {/* Grid */}
-        <div ref={gridRef} className="mt-6 grid" style={{ gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(292px, 1fr))", paddingBottom: picked.length ? 96 : 40 }}>
+        <div ref={gridRef} className="mt-6 grid" style={{ gap: S.lg, gridTemplateColumns: "repeat(auto-fill, minmax(292px, 1fr))", paddingBottom: picked.length ? 96 : 40 }}>
           {rows.length === 0 && (
-            <div style={{ gridColumn: "1 / -1", padding: "40px 0" }}>
-              <p style={{ fontSize: 16 }}>Nothing matches that.</p>
-              <p className="mt-1" style={{ fontSize: 14, color: C.muted }}>
+            <div style={{ gridColumn: "1 / -1", padding: "48px 0" }}>
+              <p style={{ fontSize: F.lg }}>Nothing matches that.</p>
+              <p className="mt-1" style={{ fontSize: F.md, color: C.muted }}>
                 Clear the filters, or add the tool you were expecting to find.
               </p>
               <button onClick={() => setShowSuggest("tool")} style={{
-                marginTop: 14, background: "#00E08A", color: "#06110D", border: 0,
-                borderRadius: 9, padding: "10px 18px", fontSize: 14, fontWeight: 700,
+                marginTop: S.lg, background: C.accent, color: C.onAccent, border: 0,
+                borderRadius: R.control, padding: "12px 20px", fontSize: F.md, fontWeight: 700,
                 cursor: "pointer", fontFamily: "inherit",
               }}>Add a tool</button>
             </div>
@@ -707,22 +710,22 @@ export default function Directory({ tools: initialTools }) {
               onClick={() => setShowSuggest("tool")}
               className="card flex flex-col items-start justify-center text-left"
               style={{
-                background: "linear-gradient(155deg, rgba(0,224,138,.10), rgba(76,201,240,.06))",
-                border: "1px dashed rgba(0,224,138,.45)", borderRadius: 14, padding: 20,
+                background: C.invite,
+                border: `1px dashed ${C.accentEdge}`, borderRadius: R.card, padding: S.xl,
                 minHeight: 190, cursor: "pointer", fontFamily: "inherit", color: C.text,
                 order: 999,
               }}
             >
-              <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.015em" }}>
+              <span style={{ fontSize: F.lg, fontWeight: 700, letterSpacing: TRACK.tight }}>
                 Not finding it?
               </span>
-              <span style={{ fontSize: 14, color: C.muted, lineHeight: 1.5, marginTop: 7 }}>
+              <span style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, marginTop: S.sm }}>
                 This list is missing things by definition. Built a tool, or use one that
                 belongs here? Add it and it joins the directory after a check.
               </span>
               <span style={{
-                marginTop: 14, background: "#00E08A", color: "#06110D", borderRadius: 8,
-                padding: "8px 14px", fontSize: 13.5, fontWeight: 700,
+                marginTop: S.lg, background: C.accent, color: C.onAccent, borderRadius: R.control,
+                padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
               }}>Add a tool</span>
             </button>
           )}
@@ -737,8 +740,8 @@ export default function Directory({ tools: initialTools }) {
 
         <Roadmap onSuggest={setShowSuggest} />
 
-        <footer className="pb-16" style={{ borderTop: `1px solid ${C.line}`, paddingTop: 18 }}>
-          <p style={{ fontSize: 13, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
+        <footer className="pb-16" style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
+          <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
             By{" "}
             {AUTHOR_URL
               ? <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
@@ -760,35 +763,35 @@ export default function Directory({ tools: initialTools }) {
       {picked.length > 0 && !compare && (
         <div style={{
           position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 40,
-          background: "rgba(8,22,18,.93)", borderTop: `1px solid ${C.line}`,
+          background: C.tray, borderTop: `1px solid ${C.line}`,
           backdropFilter: "blur(10px)", padding: "12px 20px",
         }}>
-          <div className="mx-auto flex flex-wrap items-center" style={{ maxWidth: 1140, gap: 10 }}>
-            <span style={{ fontSize: 13.5, color: C.muted }}>
+          <div className="mx-auto flex flex-wrap items-center" style={{ maxWidth: 1140, gap: S.md }}>
+            <span style={{ fontSize: F.sm, color: C.muted }}>
               {picked.length} selected{picked.length >= 4 ? " (max)" : ""}
             </span>
-            <div className="flex flex-wrap" style={{ gap: 6, flex: 1 }}>
+            <div className="flex flex-wrap" style={{ gap: S.sm, flex: 1 }}>
               {picked.map((id) => {
                 const t = tools.find((x) => x.id === id);
                 return (
                   <button key={id} onClick={() => toggle(id)}
                     style={{
-                      display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5,
-                      background: "rgba(255,255,255,.06)", border: `1px solid ${catOf(t.cat).color}55`,
-                      color: C.text, borderRadius: 999, padding: "4px 10px", cursor: "pointer", fontFamily: "inherit",
+                      display: "inline-flex", alignItems: "center", gap: S.sm, fontSize: F.xs,
+                      background: C.subtle, border: `1px solid ${catOf(t.cat).color}55`,
+                      color: C.text, borderRadius: R.pill, padding: "4px 12px", cursor: "pointer", fontFamily: "inherit",
                     }}>{t.name} <span style={{ color: C.dim }}>×</span></button>
                 );
               })}
             </div>
             <button onClick={() => setPicked([])}
-              style={{ background: "transparent", border: `1px solid ${C.line}`, color: C.muted, borderRadius: 8, padding: "8px 12px", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ background: "transparent", border: `1px solid ${C.line}`, color: C.muted, borderRadius: R.control, padding: "8px 12px", fontSize: F.sm, cursor: "pointer", fontFamily: "inherit" }}>
               Clear
             </button>
             <button onClick={() => setCompare(true)} disabled={picked.length < 2}
               style={{
-                background: picked.length > 1 ? "#00E08A" : "rgba(255,255,255,.08)",
-                color: picked.length > 1 ? "#06110D" : C.dim,
-                border: 0, borderRadius: 8, padding: "9px 16px", fontSize: 13.5, fontWeight: 700,
+                background: picked.length > 1 ? C.accent : C.subtle,
+                color: picked.length > 1 ? C.onAccent : C.dim,
+                border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
                 cursor: picked.length > 1 ? "pointer" : "default", fontFamily: "inherit",
               }}>
               Compare {picked.length > 1 ? picked.length : ""}
@@ -827,20 +830,25 @@ export default function Directory({ tools: initialTools }) {
 }
 
 /* ================================================================== */
-function FilterChip({ active, color, onClick, label, count }) {
+/*
+ * `ink` is what sits on the fill when the chip is active. It defaults to the
+ * dark ink every category hue is chosen to carry; All passes its own, because
+ * its fill is the text colour and that one flips with the theme.
+ */
+function FilterChip({ active, color, ink: onFill = C.onAccent, onClick, label, count }) {
   return (
     <button onClick={onClick}
       style={{
-        display: "inline-flex", alignItems: "center", gap: 7,
-        background: active ? color : "rgba(255,255,255,0.045)",
-        color: active ? "#06110D" : C.text,
+        display: "inline-flex", alignItems: "center", gap: S.sm,
+        background: active ? color : C.subtle,
+        color: active ? onFill : C.text,
         border: `1px solid ${active ? color : C.line}`,
-        borderRadius: 999, padding: "7px 13px", fontSize: 13.5,
-        fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit",
+        borderRadius: R.pill, padding: "8px 12px", fontSize: F.sm,
+        fontWeight: active ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
       }}>
-      {!active && <span style={{ width: 7, height: 7, borderRadius: 999, background: color }} />}
+      {!active && <span style={{ width: S.sm, height: S.sm, borderRadius: R.pill, background: color }} />}
       {label}
-      <span style={{ fontSize: 11.5, opacity: active ? 0.7 : 0.45 }}>{count}</span>
+      <span style={{ fontSize: F.xs, opacity: active ? 0.7 : 0.45 }}>{count}</span>
     </button>
   );
 }
@@ -850,22 +858,22 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
   return (
     <div className="card flex flex-col" style={{
       background: C.panel, border: `1px solid ${picked ? col : C.line}`,
-      borderRadius: 14, overflow: "hidden", position: "relative",
+      borderRadius: R.card, overflow: "hidden", position: "relative",
     }}>
       <div style={{ height: 3, background: col }} />
       <div className="flex flex-col p-4" style={{ flex: 1 }}>
-        <div className="flex items-start" style={{ gap: 11 }}>
+        <div className="flex items-start" style={{ gap: S.md }}>
           <Logo tool={tool} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="flex items-baseline flex-wrap" style={{ gap: 7 }}>
+            <div className="flex items-baseline flex-wrap" style={{ gap: S.sm }}>
               <button onClick={onOpen} style={{
                 background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
-                fontSize: 17, fontWeight: 700, color: C.text, letterSpacing: "-0.015em", textAlign: "left",
+                fontSize: F.lg, fontWeight: 700, color: C.text, letterSpacing: TRACK.tight, textAlign: "left",
               }}>{tool.name}</button>
               {tool.dying && <Pill color="#FF6B8A" solid>winding down</Pill>}
               {tool.claimed && <Pill color="#4CC9F0">claimed</Pill>}
             </div>
-            <p style={{ fontSize: 12.5, color: col, marginTop: 2 }}>{catOf(tool.cat).label}</p>
+            <p style={{ fontSize: F.xs, color: ink(col), marginTop: 2 }}>{catOf(tool.cat).label}</p>
           </div>
           <button
             onClick={onPick}
@@ -873,23 +881,23 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
             aria-pressed={picked}
             title={pickFull ? "Four tools maximum" : picked ? "Remove from comparison" : "Add to comparison"}
             style={{
-              flexShrink: 0, width: 22, height: 22, borderRadius: 6, padding: 0,
+              flexShrink: 0, width: 22, height: 22, borderRadius: R.control, padding: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
               background: picked ? col : "transparent",
               border: `1px solid ${picked ? col : C.line}`,
-              color: picked ? "#06110D" : C.dim,
+              color: picked ? C.onAccent : C.dim,
               cursor: pickFull ? "not-allowed" : "pointer",
               opacity: pickFull ? 0.4 : 1,
-              fontSize: 12, fontWeight: 800, lineHeight: 1, fontFamily: "inherit",
+              fontSize: F.xs, fontWeight: 800, lineHeight: 1, fontFamily: "inherit",
             }}
           >
             {picked ? "✓" : "+"}
           </button>
         </div>
 
-        <p className="mt-3" style={{ fontSize: 14, color: C.muted, lineHeight: 1.5, flex: 1 }}>{tool.one}</p>
+        <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, flex: 1 }}>{tool.one}</p>
 
-        <div className="flex flex-wrap items-center mt-3" style={{ gap: 6 }}>
+        <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
           <Pill color={col}>{tool.price}</Pill>
           {tool.free && <Pill color="#00E08A">free plan</Pill>}
           {tool.suite && <Pill color="#FF9052">{tool.suite}</Pill>}
@@ -898,14 +906,14 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
           {!tool.verified && <Pill color="#7C8F86">unverified</Pill>}
         </div>
 
-        <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}`, gap: 8 }}>
+        <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: `1px solid ${C.line}`, gap: S.sm }}>
           <button onClick={onOpen} className="flex items-center" style={{
-            gap: 6, background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+            gap: S.sm, background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
           }}>
             <Stars value={Math.round(avg)} />
-            <span style={{ fontSize: 12, color: C.dim }}>{reviewCount || "no"} {reviewCount === 1 ? "review" : "reviews"}</span>
+            <span style={{ fontSize: F.xs, color: C.dim }}>{reviewCount || "no"} {reviewCount === 1 ? "review" : "reviews"}</span>
           </button>
-          <div className="flex items-center" style={{ gap: 5 }}>
+          <div className="flex items-center" style={{ gap: S.xs }}>
             <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} />
             <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
           </div>
@@ -917,10 +925,10 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-3" style={{ gap: 8 }}>
+        <div className="flex items-center justify-between mt-3" style={{ gap: S.sm }}>
           <Social social={tool.social} />
           <a href={tool.url} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: 12.5, color: col, textDecoration: "none", fontWeight: 600 }}>
+            style={{ fontSize: F.xs, color: ink(col), textDecoration: "none", fontWeight: 600 }}>
             Visit site
           </a>
         </div>
@@ -934,10 +942,10 @@ function Vote({ dir, active, n, onClick }) {
   return (
     <button onClick={onClick} aria-pressed={active} aria-label={dir === 1 ? "Like" : "Dislike"}
       className="flex items-center" style={{
-        gap: 4, background: active ? color : "rgba(255,255,255,.05)",
-        color: active ? "#06110D" : C.muted,
-        border: `1px solid ${active ? color : C.line}`, borderRadius: 7,
-        padding: "3px 8px", fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
+        gap: S.xs, background: active ? color : C.subtle,
+        color: active ? C.onAccent : C.muted,
+        border: `1px solid ${active ? color : C.line}`, borderRadius: R.control,
+        padding: "4px 8px", fontSize: F.xs, cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
       }}>
       <span>{dir === 1 ? "▲" : "▼"}</span><span>{n}</span>
     </button>
@@ -953,13 +961,13 @@ function Shell({ children, onClose, width = 860 }) {
   }, [onClose]);
   return (
     <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 60, background: "rgba(2,8,6,.78)",
-      backdropFilter: "blur(6px)", overflowY: "auto", padding: "36px 16px",
+      position: "fixed", inset: 0, zIndex: 60, background: C.scrim,
+      backdropFilter: "blur(6px)", overflowY: "auto", padding: "32px 16px",
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
         maxWidth: width, margin: "0 auto", background: C.panel,
-        border: `1px solid ${C.line}`, borderRadius: 16,
-        boxShadow: "0 30px 80px rgba(0,0,0,.6)", overflow: "hidden",
+        border: `1px solid ${C.line}`, borderRadius: R.modal,
+        boxShadow: C.shadowLg, overflow: "hidden",
       }}>{children}</div>
     </div>
   );
@@ -970,20 +978,20 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
   return (
     <Shell onClose={onClose} width={760}>
       <div style={{ height: 4, background: col }} />
-      <div style={{ padding: 24 }}>
-        <div className="flex items-start" style={{ gap: 14 }}>
+      <div style={{ padding: S["2xl"] }}>
+        <div className="flex items-start" style={{ gap: S.lg }}>
           <Logo tool={tool} size={46} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h2 style={{ fontSize: 25, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>{tool.name}</h2>
-            <p style={{ fontSize: 13.5, color: col, marginTop: 3 }}>{catOf(tool.cat).label}</p>
+            <h2 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>{tool.name}</h2>
+            <p style={{ fontSize: F.sm, color: ink(col), marginTop: S.xs }}>{catOf(tool.cat).label}</p>
           </div>
           <button onClick={onClose} style={{
-            background: "rgba(255,255,255,.06)", border: `1px solid ${C.line}`, color: C.muted,
-            borderRadius: 8, width: 30, height: 30, cursor: "pointer", fontSize: 15, fontFamily: "inherit",
+            background: C.subtle, border: `1px solid ${C.line}`, color: C.muted,
+            borderRadius: R.control, width: 30, height: 30, cursor: "pointer", fontSize: F.lg, fontFamily: "inherit",
           }}>×</button>
         </div>
 
-        <div className="flex flex-wrap items-center mt-4" style={{ gap: 7 }}>
+        <div className="flex flex-wrap items-center mt-4" style={{ gap: S.sm }}>
           <Pill color={col}>{tool.price}</Pill>
           {tool.free && <Pill color="#00E08A">free plan</Pill>}
           {tool.suite && <Pill color="#FF9052">part of {tool.suite}</Pill>}
@@ -993,12 +1001,12 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
           {!tool.verified && <Pill color="#7C8F86">unverified</Pill>}
         </div>
 
-        <p className="mt-4" style={{ fontSize: 15.5, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
-        <p className="mt-3" style={{ fontSize: 14.5, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
-          <span style={{ color: "#FF9052", fontWeight: 700 }}>Watch for. </span>{tool.watch}
+        <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
+        <p className="mt-3" style={{ fontSize: F.md, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
+          <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
         </p>
         {tool.claimed && (
-          <p className="mt-2" style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.55, maxWidth: "68ch" }}>
+          <p className="mt-2" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.55, maxWidth: "68ch" }}>
             The summary, description and pricing above are maintained by the vendor
             {tool.editedAt ? `, last updated ${tool.editedAt}` : ""}. The "watch for" note and the
             ratings are not theirs to edit.
@@ -1007,24 +1015,24 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
 
         {tool.ratings?.length > 0 && (
           <div className="mt-5">
-            <p style={{ fontSize: 12.5, color: C.dim, margin: 0, fontWeight: 600 }}>External ratings</p>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: 0, fontWeight: 600 }}>External ratings</p>
             <div className="mt-2">
               <ExternalRatings ratings={tool.ratings} detail />
             </div>
-            <p style={{ fontSize: 12, color: C.dim, margin: "9px 0 0", maxWidth: "68ch", lineHeight: 1.5 }}>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", maxWidth: "68ch", lineHeight: 1.5 }}>
               Collected on other platforms, from a different set of people than the reviews below, and
               deliberately not averaged with them. Follow a link to read them at source.
             </p>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center mt-5" style={{ gap: 14 }}>
+        <div className="flex flex-wrap items-center mt-5" style={{ gap: S.lg }}>
           <a href={tool.url} target="_blank" rel="noopener noreferrer" style={{
-            background: col, color: "#06110D", borderRadius: 9, padding: "9px 16px",
-            fontSize: 14, fontWeight: 700, textDecoration: "none",
+            background: col, color: C.onAccent, borderRadius: R.control, padding: "8px 16px",
+            fontSize: F.md, fontWeight: 700, textDecoration: "none",
           }}>{tool.domain}</a>
           <Social social={tool.social} />
-          <div className="flex items-center" style={{ gap: 5, marginLeft: "auto" }}>
+          <div className="flex items-center" style={{ gap: S.xs, marginLeft: "auto" }}>
             <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} />
             <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
           </div>
@@ -1032,24 +1040,24 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
 
         <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools} />
 
-        <div className="mt-6" style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: 12, padding: 16 }}>
+        <div className="mt-6" style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg }}>
           <ReviewForm name={tool.name} onSubmit={onReview} color={col} />
           {reviews.length > 0 && (
-            <div className="mt-5 flex flex-col" style={{ gap: 13 }}>
+            <div className="mt-5 flex flex-col" style={{ gap: S.md }}>
               {reviews.map((r) => (
-                <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, paddingTop: 12 }}>
-                  <div className="flex items-baseline flex-wrap" style={{ gap: 8 }}>
-                    <Stars value={r.rating} size={13} />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{r.author}</span>
-                    <span style={{ fontSize: 12, color: C.dim }}>{r.date}</span>
+                <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
+                  <div className="flex items-baseline flex-wrap" style={{ gap: S.sm }}>
+                    <Stars value={r.rating} size={F.sm} />
+                    <span style={{ fontSize: F.sm, fontWeight: 600 }}>{r.author}</span>
+                    <span style={{ fontSize: F.xs, color: C.dim }}>{r.date}</span>
                   </div>
-                  {r.text && <p className="mt-1" style={{ fontSize: 14, lineHeight: 1.55, color: C.muted, maxWidth: "64ch" }}>{r.text}</p>}
+                  {r.text && <p className="mt-1" style={{ fontSize: F.md, lineHeight: 1.55, color: C.muted, maxWidth: "64ch" }}>{r.text}</p>}
                 </div>
               ))}
             </div>
           )}
           {reviews.length === 0 && (
-            <p className="mt-4" style={{ fontSize: 13.5, color: C.dim }}>
+            <p className="mt-4" style={{ fontSize: F.sm, color: C.dim }}>
               No reviews yet. If you have used it, you are the most useful person in the room.
             </p>
           )}
@@ -1081,8 +1089,8 @@ function ReportProblem({ tool }) {
 
   const spec = reportKindOf(kind) || REPORT_KINDS[0];
   const field = {
-    background: "rgba(0,0,0,.3)", border: `1px solid ${C.line}`, borderRadius: 8,
-    padding: "8px 11px", fontSize: 14, color: C.text, fontFamily: "inherit", width: "100%",
+    background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
+    padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit", width: "100%",
   };
 
   async function submit() {
@@ -1104,7 +1112,7 @@ function ReportProblem({ tool }) {
 
   if (done) {
     return (
-      <p className="mt-5" style={{ fontSize: 13, color: C.muted, lineHeight: 1.55 }}>
+      <p className="mt-5" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55 }}>
         Thanks — that is with the editor. Nothing changes on the listing until someone has checked it.
       </p>
     );
@@ -1113,23 +1121,23 @@ function ReportProblem({ tool }) {
   if (!open) {
     return (
       <button onClick={() => setOpen(true)} style={{
-        background: "none", border: 0, padding: 0, marginTop: 20, cursor: "pointer",
-        fontFamily: "inherit", fontSize: 12.5, color: C.dim, textDecoration: "underline",
+        background: "none", border: 0, padding: 0, marginTop: S.xl, cursor: "pointer",
+        fontFamily: "inherit", fontSize: F.xs, color: C.dim, textDecoration: "underline",
       }}>Report a problem with this listing</button>
     );
   }
 
   return (
-    <div className="mt-5" style={{ border: `1px dashed ${C.line}`, borderRadius: 12, padding: 16 }}>
-      <div className="flex items-baseline justify-between" style={{ gap: 10 }}>
-        <p style={{ fontSize: 13.5, fontWeight: 700, margin: 0 }}>Report a problem with {tool.name}</p>
+    <div className="mt-5" style={{ border: `1px dashed ${C.line}`, borderRadius: R.card, padding: S.lg }}>
+      <div className="flex items-baseline justify-between" style={{ gap: S.md }}>
+        <p style={{ fontSize: F.sm, fontWeight: 700, margin: 0 }}>Report a problem with {tool.name}</p>
         <button onClick={() => setOpen(false)} style={{
           background: "none", border: 0, padding: 0, cursor: "pointer",
-          fontFamily: "inherit", fontSize: 12.5, color: C.dim,
+          fontFamily: "inherit", fontSize: F.xs, color: C.dim,
         }}>Cancel</button>
       </div>
 
-      <div className="flex flex-wrap mt-3" style={{ gap: 9 }}>
+      <div className="flex flex-wrap mt-3" style={{ gap: S.sm }}>
         <select value={kind} onChange={(e) => { setKind(e.target.value); setErr(""); }}
           style={{ ...field, width: 210 }}>
           {REPORT_KINDS.map((k) => (
@@ -1140,19 +1148,19 @@ function ReportProblem({ tool }) {
           placeholder={spec.hint} style={{ ...field, flex: 1, minWidth: 220 }} />
       </div>
 
-      <div className="flex flex-wrap items-center mt-2" style={{ gap: 9 }}>
+      <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
         <input value={email} onChange={(e) => setEmail(e.target.value)}
           placeholder="Your email (optional)" style={{ ...field, width: 240 }} />
         <button onClick={submit} disabled={busy} style={{
-          background: busy ? "rgba(255,255,255,.08)" : "#00E08A", color: busy ? C.dim : "#06110D",
-          border: 0, borderRadius: 8, padding: "9px 16px", fontSize: 13.5, fontWeight: 700,
+          background: busy ? C.subtle : C.accent, color: busy ? C.dim : C.onAccent,
+          border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
           cursor: busy ? "default" : "pointer", fontFamily: "inherit",
         }}>{busy ? "Sending…" : "Send report"}</button>
       </div>
 
-      {err && <p style={{ fontSize: 12.5, color: "#FF6B8A", margin: "9px 0 0" }}>{err}</p>}
+      {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0" }}>{err}</p>}
 
-      <p style={{ fontSize: 12, color: C.dim, margin: "10px 0 0", lineHeight: 1.55, maxWidth: "62ch" }}>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "12px 0 0", lineHeight: 1.55, maxWidth: "62ch" }}>
         This goes to the editor, not to the vendor, and nothing is applied automatically. A social
         profile you send is only added once it can be confirmed on the company's own site — we do not
         link a profile the vendor has not published themselves. Your email is optional and only used
@@ -1168,8 +1176,8 @@ function ReviewForm({ name, onSubmit, color }) {
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const field = {
-    background: "rgba(0,0,0,.3)", border: `1px solid ${C.line}`, borderRadius: 8,
-    padding: "8px 11px", fontSize: 14, color: C.text, fontFamily: "inherit", width: "100%",
+    background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
+    padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit", width: "100%",
   };
   const submit = () => {
     if (!rating) return;
@@ -1179,24 +1187,24 @@ function ReviewForm({ name, onSubmit, color }) {
   };
   return (
     <div>
-      <div className="flex flex-wrap items-center" style={{ gap: 12 }}>
-        <span style={{ fontSize: 14.5, fontWeight: 600 }}>Rate {name}</span>
-        <Stars value={rating} onPick={setRating} size={21} />
+      <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
+        <span style={{ fontSize: F.md, fontWeight: 600 }}>Rate {name}</span>
+        <Stars value={rating} onPick={setRating} size={F.xl} />
       </div>
-      <div className="flex flex-wrap mt-3" style={{ gap: 8 }}>
+      <div className="flex flex-wrap mt-3" style={{ gap: S.sm }}>
         <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Your name"
           style={{ ...field, width: 150, flexShrink: 0 }} />
         <input value={text} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           placeholder="What did you actually find using it?" style={{ ...field, flex: 1, minWidth: 200 }} />
         <button onClick={submit} disabled={!rating} style={{
-          background: rating ? color : "rgba(255,255,255,.08)", color: rating ? "#06110D" : C.dim,
-          border: 0, borderRadius: 8, padding: "9px 16px", fontSize: 14, fontWeight: 700,
+          background: rating ? color : C.subtle, color: rating ? C.onAccent : C.dim,
+          border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.md, fontWeight: 700,
           cursor: rating ? "pointer" : "default", fontFamily: "inherit",
         }}>Post</button>
       </div>
-      {!rating && <p className="mt-2" style={{ fontSize: 12.5, color: C.dim }}>Pick a star rating to post.</p>}
-      {done && <p className="mt-2" style={{ fontSize: 12.5, color: "#00E08A" }}>Posted. Everyone can see it.</p>}
+      {!rating && <p className="mt-2" style={{ fontSize: F.xs, color: C.dim }}>Pick a star rating to post.</p>}
+      {done && <p className="mt-2" style={{ fontSize: F.xs, color: C.accentInk }}>Posted. Everyone can see it.</p>}
     </div>
   );
 }
@@ -1237,56 +1245,56 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
   const cellW = `${Math.max(24, Math.floor(66 / list.length))}%`;
   return (
     <Shell onClose={onClose} width={1000}>
-      <div style={{ padding: 22 }}>
-        <div className="flex items-center justify-between" style={{ gap: 12 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>
+      <div style={{ padding: S.xl }}>
+        <div className="flex items-center justify-between" style={{ gap: S.md }}>
+          <h2 style={{ fontSize: F.xl, fontWeight: 800, margin: 0, letterSpacing: TRACK.tight }}>
             Comparing {list.length} tools
           </h2>
           <button onClick={onClose} style={{
-            background: "rgba(255,255,255,.06)", border: `1px solid ${C.line}`, color: C.muted,
-            borderRadius: 8, width: 30, height: 30, cursor: "pointer", fontSize: 15, fontFamily: "inherit",
+            background: C.subtle, border: `1px solid ${C.line}`, color: C.muted,
+            borderRadius: R.control, width: 30, height: 30, cursor: "pointer", fontSize: F.lg, fontFamily: "inherit",
           }}>×</button>
         </div>
 
-        <div style={{ overflowX: "auto", marginTop: 18 }}>
+        <div style={{ overflowX: "auto", marginTop: S.lg }}>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
             <thead>
               <tr>
                 <th style={{ width: "20%" }} />
                 {list.map((t) => (
-                  <th key={t.id} style={{ width: cellW, textAlign: "left", padding: "0 12px 14px", verticalAlign: "bottom" }}>
-                    <div className="flex items-center" style={{ gap: 9 }}>
+                  <th key={t.id} style={{ width: cellW, textAlign: "left", padding: "0 12px 16px", verticalAlign: "bottom" }}>
+                    <div className="flex items-center" style={{ gap: S.sm }}>
                       <Logo tool={t} size={30} />
-                      <span style={{ fontSize: 16, fontWeight: 700 }}>{t.name}</span>
+                      <span style={{ fontSize: F.lg, fontWeight: 700 }}>{t.name}</span>
                     </div>
-                    <div style={{ height: 3, background: catOf(t.cat).color, borderRadius: 2, marginTop: 10 }} />
+                    <div style={{ height: 3, background: catOf(t.cat).color, borderRadius: 2, marginTop: S.md }} />
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rowsSpec.map(([label, fn], i) => (
-                <tr key={label} style={{ background: i % 2 ? "rgba(255,255,255,.025)" : "transparent" }}>
-                  <td style={{ padding: "11px 12px", fontSize: 13, color: C.dim, verticalAlign: "top", fontWeight: 600 }}>
+                <tr key={label} style={{ background: i % 2 ? C.stripe : "transparent" }}>
+                  <td style={{ padding: S.md, fontSize: F.sm, color: C.dim, verticalAlign: "top", fontWeight: 600 }}>
                     {label}
                   </td>
                   {list.map((t) => (
-                    <td key={t.id} style={{ padding: "11px 12px", fontSize: 14, color: C.text, verticalAlign: "top", lineHeight: 1.45 }}>
+                    <td key={t.id} style={{ padding: S.md, fontSize: F.md, color: C.text, verticalAlign: "top", lineHeight: 1.45 }}>
                       {fn(t)}
                     </td>
                   ))}
                 </tr>
               ))}
               <tr>
-                <td style={{ padding: "11px 12px", fontSize: 13, color: C.dim, fontWeight: 600, verticalAlign: "top" }}>Profiles</td>
+                <td style={{ padding: S.md, fontSize: F.sm, color: C.dim, fontWeight: 600, verticalAlign: "top" }}>Profiles</td>
                 {list.map((t) => (
-                  <td key={t.id} style={{ padding: "11px 12px" }}><Social social={t.social} /></td>
+                  <td key={t.id} style={{ padding: S.md }}><Social social={t.social} /></td>
                 ))}
               </tr>
               <tr>
-                <td style={{ padding: "11px 12px", fontSize: 13, color: C.dim, fontWeight: 600, verticalAlign: "top" }}>Watch for</td>
+                <td style={{ padding: S.md, fontSize: F.sm, color: C.dim, fontWeight: 600, verticalAlign: "top" }}>Watch for</td>
                 {list.map((t) => (
-                  <td key={t.id} style={{ padding: "11px 12px", fontSize: 13.5, color: C.muted, verticalAlign: "top", lineHeight: 1.5 }}>
+                  <td key={t.id} style={{ padding: S.md, fontSize: F.sm, color: C.muted, verticalAlign: "top", lineHeight: 1.5 }}>
                     {t.watch}
                   </td>
                 ))}
@@ -1309,35 +1317,35 @@ function Roadmap({ onSuggest }) {
   const pending = RESOURCE_KINDS.filter((k) => !k.live);
   return (
     <section className="pt-4 pb-14">
-      <h2 style={{ fontSize: 30, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.12, margin: 0 }}>
+      <h2 style={{ fontSize: F.display, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.12, margin: 0 }}>
         Tools are the first section, not the whole plan
       </h2>
-      <p className="mt-3" style={{ fontSize: 15.5, color: C.muted, maxWidth: "64ch", lineHeight: 1.55 }}>
+      <p className="mt-3" style={{ fontSize: F.lg, color: C.muted, maxWidth: "64ch", lineHeight: 1.55 }}>
         Software was the easiest part to catalogue, so it went first. The sections below are
         what the rest of the job looks like, and they open in the order people ask for them.
         Nothing in them is written yet. Suggest what belongs and it goes on the list.
       </p>
 
-      <div className="grid mt-6" style={{ gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(262px, 1fr))" }}>
+      <div className="grid mt-6" style={{ gap: S.md, gridTemplateColumns: "repeat(auto-fill, minmax(262px, 1fr))" }}>
         {pending.map((k) => (
           <button
             key={k.id}
             onClick={() => onSuggest(k.id)}
             className="flex flex-col items-start text-left"
             style={{
-              background: C.panel, border: `1px solid ${C.line}`, borderRadius: 13,
-              padding: "15px 16px 16px", cursor: "pointer", fontFamily: "inherit",
+              background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
+              padding: S.lg, cursor: "pointer", fontFamily: "inherit",
               color: C.text, height: "100%",
             }}
           >
             <span style={{ width: 26, height: 4, borderRadius: 2, background: k.color, display: "block" }} />
-            <span style={{ fontSize: 16.5, fontWeight: 700, letterSpacing: "-0.015em", marginTop: 11 }}>
+            <span style={{ fontSize: F.lg, fontWeight: 700, letterSpacing: TRACK.tight, marginTop: S.md }}>
               {k.label}
             </span>
-            <span style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5, marginTop: 6, flex: 1 }}>
+            <span style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, marginTop: S.sm, flex: 1 }}>
               {k.blurb}
             </span>
-            <span style={{ marginTop: 12 }}><Pill color={k.color}>open for suggestions</Pill></span>
+            <span style={{ marginTop: S.md }}><Pill color={k.color}>open for suggestions</Pill></span>
           </button>
         ))}
       </div>
@@ -1372,19 +1380,19 @@ function Subscribe() {
 
   return (
     <div className="mt-8" style={{
-      background: "linear-gradient(160deg, #10281F 0%, #0A1C16 100%)",
-      border: `1px solid ${C.line}`, borderRadius: 14, padding: 22,
+      background: C.hero,
+      border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl,
     }}>
-      <h3 style={{ fontSize: 19, fontWeight: 700, margin: 0, letterSpacing: "-0.015em" }}>
+      <h3 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
         Know when a section opens
       </h3>
-      <p style={{ fontSize: 14.5, color: C.muted, margin: "7px 0 0", maxWidth: "60ch", lineHeight: 1.55 }}>
+      <p style={{ fontSize: F.md, color: C.muted, margin: "8px 0 0", maxWidth: "60ch", lineHeight: 1.55 }}>
         One email when new tools go into the directory or a section opens. That is the whole
         thing. It is not a newsletter, there is nothing to read weekly, and there is no pitch
         at the bottom.
       </p>
 
-      <form onSubmit={submit} className="flex flex-wrap mt-4" style={{ gap: 8 }}>
+      <form onSubmit={submit} className="flex flex-wrap mt-4" style={{ gap: S.sm }}>
         <input
           type="email"
           value={email}
@@ -1393,14 +1401,14 @@ function Subscribe() {
           aria-label="Email address"
           style={{
             flex: 1, minWidth: 220, maxWidth: 340,
-            background: "rgba(0,0,0,.32)", border: `1px solid ${C.line}`, borderRadius: 9,
-            padding: "10px 13px", fontSize: 14.5, color: C.text, fontFamily: "inherit",
+            background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
+            padding: S.md, fontSize: F.md, color: C.text, fontFamily: "inherit",
           }}
         />
         <button type="submit" disabled={!valid || state === "busy"} style={{
-          background: valid ? "#00E08A" : "rgba(255,255,255,.08)",
-          color: valid ? "#06110D" : C.dim, border: 0, borderRadius: 9,
-          padding: "10px 18px", fontSize: 14.5, fontWeight: 700,
+          background: valid ? C.accent : C.subtle,
+          color: valid ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
+          padding: "12px 20px", fontSize: F.md, fontWeight: 700,
           cursor: valid && state !== "busy" ? "pointer" : "default", fontFamily: "inherit",
         }}>
           {state === "busy" ? "Adding…" : "Keep me posted"}
@@ -1408,15 +1416,15 @@ function Subscribe() {
       </form>
 
       {state === "done" && (
-        <p className="mt-2" style={{ fontSize: 13, color: "#00E08A" }}>
+        <p className="mt-2" style={{ fontSize: F.sm, color: C.accentInk }}>
           Done. You will hear from me when something actually changes.
         </p>
       )}
       {state === "error" && (
-        <p className="mt-2" style={{ fontSize: 13, color: "#FF6B8A" }}>{msg || "That did not go through."}</p>
+        <p className="mt-2" style={{ fontSize: F.sm, color: C.badInk }}>{msg || "That did not go through."}</p>
       )}
 
-      <p className="mt-3" style={{ fontSize: 12.5, color: C.dim, maxWidth: "60ch", lineHeight: 1.6 }}>
+      <p className="mt-3" style={{ fontSize: F.xs, color: C.dim, maxWidth: "60ch", lineHeight: 1.6 }}>
         Your address is not shared or sold, and it is not passed to any tool listed here.
         It is used for that one email and nothing else. Reply to any of them to be removed.
       </p>
@@ -1434,8 +1442,8 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
   const [byEmail, setByEmail] = useState("");
   const [done, setDone] = useState(false);
   const field = {
-    background: "rgba(0,0,0,.3)", border: `1px solid ${C.line}`, borderRadius: 9,
-    padding: "9px 12px", fontSize: 14, color: C.text, fontFamily: "inherit", width: "100%",
+    background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
+    padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit", width: "100%",
   };
   const submit = () => {
     if (!name.trim()) return;
@@ -1448,40 +1456,40 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
   };
   return (
     <Shell onClose={onClose} width={880}>
-      <div style={{ padding: 24 }}>
-        <div className="flex items-center justify-between" style={{ gap: 12 }}>
-          <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>
+      <div style={{ padding: S["2xl"] }}>
+        <div className="flex items-center justify-between" style={{ gap: S.md }}>
+          <h2 style={{ fontSize: F.xl, fontWeight: 800, margin: 0, letterSpacing: TRACK.tight }}>
             {kind === "tool" ? "Suggest a tool" : `Suggest something for ${kindOf(kind).label.toLowerCase()}`}
           </h2>
           <button onClick={onClose} style={{
-            background: "rgba(255,255,255,.06)", border: `1px solid ${C.line}`, color: C.muted,
-            borderRadius: 8, width: 30, height: 30, cursor: "pointer", fontSize: 15, fontFamily: "inherit",
+            background: C.subtle, border: `1px solid ${C.line}`, color: C.muted,
+            borderRadius: R.control, width: 30, height: 30, cursor: "pointer", fontSize: F.lg, fontFamily: "inherit",
           }}>×</button>
         </div>
 
-        <div className="flex flex-col md:flex-row mt-4" style={{ gap: 28 }}>
+        <div className="flex flex-col md:flex-row mt-4" style={{ gap: S["2xl"] }}>
           <div style={{ flex: 1 }}>
-            <div className="flex flex-wrap" style={{ gap: 6, marginBottom: 14 }}>
+            <div className="flex flex-wrap" style={{ gap: S.sm, marginBottom: S.lg }}>
               {RESOURCE_KINDS.map((k) => {
                 const on = k.id === kind;
                 return (
                   <button key={k.id} type="button" onClick={() => setKind(k.id)} aria-pressed={on}
                     style={{
-                      background: on ? k.color : "rgba(255,255,255,.045)",
-                      color: on ? "#06110D" : C.text,
-                      border: `1px solid ${on ? k.color : C.line}`, borderRadius: 999,
-                      padding: "5px 11px", fontSize: 12.5, fontWeight: on ? 700 : 500,
+                      background: on ? k.color : C.subtle,
+                      color: on ? C.onAccent : C.text,
+                      border: `1px solid ${on ? k.color : C.line}`, borderRadius: R.pill,
+                      padding: "4px 12px", fontSize: F.xs, fontWeight: on ? 700 : 500,
                       cursor: "pointer", fontFamily: "inherit",
                     }}>{k.label}</button>
                 );
               })}
             </div>
-            <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5, marginBottom: 14 }}>
+            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, marginBottom: S.lg }}>
               {kind === "tool"
                 ? "Built something, or use something that belongs here? Add it. Suggestions are public and go into the directory after a check."
                 : "This section is not open yet. What gets suggested decides what is in it when it opens, and how soon that happens. Suggestions are public."}
             </p>
-            <div className="flex flex-col" style={{ gap: 9 }}>
+            <div className="flex flex-col" style={{ gap: S.sm }}>
               <input style={field} value={name} onChange={(e) => setName(e.target.value)}
                 placeholder={kind === "tool" ? "Tool name" : "Name"} />
               <input style={field} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
@@ -1495,30 +1503,30 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
                 placeholder={kind === "tool"
                   ? "What does it do, and what problem does it solve better than the alternatives?"
                   : "What is it, and why is it worth an app vendor's time?"} />
-              <div className="flex flex-wrap" style={{ gap: 9 }}>
+              <div className="flex flex-wrap" style={{ gap: S.sm }}>
                 <input style={{ ...field, width: 170 }} value={by} onChange={(e) => setBy(e.target.value)} placeholder="Your name" />
                 <input style={{ ...field, width: 220 }} value={byEmail} onChange={(e) => setByEmail(e.target.value)}
                   placeholder="Your email (optional)" />
               </div>
-              <p style={{ fontSize: 11.5, color: C.dim, margin: "-2px 0 0", lineHeight: 1.5 }}>
+              <p style={{ fontSize: F.xs, color: C.dim, margin: "0px 0 0", lineHeight: 1.5 }}>
                 An email only gets you a note when this is looked at. It is not added to the mailing list.
               </p>
               <button onClick={submit} disabled={!name.trim()} style={{
-                alignSelf: "flex-start", background: name.trim() ? "#00E08A" : "rgba(255,255,255,.08)",
-                color: name.trim() ? "#06110D" : C.dim, border: 0, borderRadius: 9,
-                padding: "10px 18px", fontSize: 14, fontWeight: 700,
+                alignSelf: "flex-start", background: name.trim() ? C.accent : C.subtle,
+                color: name.trim() ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
+                padding: "12px 20px", fontSize: F.md, fontWeight: 700,
                 cursor: name.trim() ? "pointer" : "default", fontFamily: "inherit",
               }}>Add suggestion</button>
-              {done && <p style={{ fontSize: 12.5, color: "#00E08A" }}>Added. Thank you.</p>}
+              {done && <p style={{ fontSize: F.xs, color: C.accentInk }}>Added. Thank you.</p>}
             </div>
           </div>
 
           <div style={{ flex: 1 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>
+            <h3 style={{ fontSize: F.lg, fontWeight: 700, margin: 0 }}>
               Suggested so far <span style={{ color: C.dim, fontWeight: 500 }}>{suggestions.length}</span>
             </h3>
             {suggestions.length === 0 ? (
-              <p className="mt-3" style={{ fontSize: 14, color: C.muted, lineHeight: 1.55, maxWidth: "44ch" }}>
+              <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, maxWidth: "44ch" }}>
                 Nothing yet. Known gaps: the email and lifecycle layer Mantle also covered, anything
                 aimed at agencies rather than app vendors, and good general tools that are not
                 Shopify-exclusive, which this first pass deliberately left out.
@@ -1527,14 +1535,14 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
               <div className="mt-3 flex flex-col">
                 {suggestions.map((s) => (
                   <div key={s.id} style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0" }}>
-                    <div className="flex flex-wrap items-baseline" style={{ gap: 8 }}>
-                      <span style={{ fontSize: 15, fontWeight: 700 }}>{s.name}</span>
+                    <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+                      <span style={{ fontSize: F.lg, fontWeight: 700 }}>{s.name}</span>
                       {s.kind && s.kind !== "tool"
-                        ? <span style={{ fontSize: 12, color: kindOf(s.kind).color }}>{kindOf(s.kind).label}</span>
-                        : <span style={{ fontSize: 12, color: catOf(s.cat).color }}>{catOf(s.cat).label}</span>}
+                        ? <span style={{ fontSize: F.xs, color: ink(kindOf(s.kind).color) }}>{kindOf(s.kind).label}</span>
+                        : <span style={{ fontSize: F.xs, color: ink(catOf(s.cat).color) }}>{catOf(s.cat).label}</span>}
                     </div>
-                    {s.why && <p className="mt-1" style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5, maxWidth: "50ch" }}>{s.why}</p>}
-                    <p className="mt-1" style={{ fontSize: 12, color: C.dim }}>
+                    {s.why && <p className="mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, maxWidth: "50ch" }}>{s.why}</p>}
+                    <p className="mt-1" style={{ fontSize: F.xs, color: C.dim }}>
                       {s.by} · {s.date}
                       {s.url && <> · <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
                     </p>

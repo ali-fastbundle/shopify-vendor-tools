@@ -140,7 +140,7 @@ day it goes in and the site-wide date moves on its own.
 
 | Path | Role |
 |---|---|
-| `lib/tools.js` | Catalogue, categories, palette, and `LAST_UPDATED` derived from it. Edit tools here only. |
+| `lib/tools.js` | Catalogue, categories, design tokens (`C`, `S`, `R`, `F`, `TRACK`, `ink`), and `LAST_UPDATED` derived from it. Edit tools here only. |
 | `lib/listings.js` | Claims, the editable whitelist, domain verification, merge logic |
 | `lib/auth.js` | HMAC session cookies, magic-link tokens, admin check |
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
@@ -151,15 +151,81 @@ day it goes in and the site-wide date moves on its own.
 | `components/Directory.jsx` | The whole UI, one client component |
 | `components/Account.jsx` | Sign-in, claiming, vendor edit form |
 | `components/Admin.jsx` | Admin console view. The gate is `app/admin/page.js` |
+| `components/Theme.jsx` | The pre-paint theme script and the Auto/Light/Dark toggle |
+| `app/globals.css` | The two themes, as CSS variables, plus the handful of global base rules |
 | `app/api/*` | data, vote, review, suggest, report, stat, match, claim, listing, auth, subscribe, admin |
 | `app/admin` | Admin page. Auth gate first, data read only after it |
+
+## Design conventions
+
+The site borrows the conventions that make the Shopify admin feel familiar — the
+typeface, the spacing rhythm, the radii — and none of Shopify's own design system.
+
+**Polaris is not an option, and this is not a matter of taste.** Its licence limits use
+to applications that interoperate with Shopify, and a directory *about* Shopify vendors
+is not that. Polaris React is deprecated besides. And the footer promises this is an
+independent directory not affiliated with Shopify — a UI that looks like the Shopify
+admin argues the opposite of the disclaimer directly under it. Do not adopt Polaris,
+its component library, or its tokens. Borrow the conventions, keep our own identity:
+the category palette, the dark theme, and the card structure are ours and stay.
+
+**Typeface: Inter**, loaded by `next/font` in `app/layout.js` and handed to
+`globals.css` as `--font-sans`, which sets it once on `<body>`. It is the face the
+Shopify admin is set in, and on its own it does most of the familiarity work. No
+component names a family; everything says `fontFamily: "inherit"`. The share card in
+`app/og` reads the same face as a vendored TTF, because satori needs a file, not a
+stylesheet.
+
+**Four design-token objects, all in `lib/tools.js`, all used by name:**
+
+| Token | What it is |
+|---|---|
+| `C` | Colour. Every value is a CSS variable declared per theme in `globals.css` |
+| `S` | Spacing on a 4px grid: `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 20, `2xl` 24, `3xl` 32, `4xl` 48 |
+| `R` | Radius: `control` 6, `card` 8, `modal` 12, `pill` 999 |
+| `F` | Type: `xs` 12, `sm` 13, `md` 14, `lg` 16, `xl` 20, `2xl` 24, `display` 28, `hero` 40 |
+| `TRACK` | Negative tracking, two steps. `tighter` from 24px up, `tight` below |
+
+Spacing is `S.*` for any single number. A two- or three-value `padding` shorthand stays
+a string for legibility, and every number in it is still a step on the same grid —
+`"8px 16px"`, never `"9px 14px"`. If a value you want is not on a scale, the answer is
+the nearest step, not a new one. The type scale is eight sizes because it used to be
+twenty: 13.5 sitting next to 14 is not a decision anybody made, it is two people
+rounding differently.
+
+**Two themes, and the visitor picks.** `globals.css` declares dark on `:root` and light
+on `:root[data-theme="light"]`, and nothing else — there is deliberately no
+`prefers-color-scheme` copy of either palette, because a second copy is how a token ends
+up defined in one theme and missing from the other. Resolving "follow the system" to a
+concrete value is `THEME_SCRIPT`'s job: it runs before the body paints, reads the stored
+choice or the system preference, sets `data-theme`, and updates the `theme-color` meta
+tag. The toggle is three-state — Auto, Light, Dark — because a two-way switch can say
+"I want light" but cannot say "follow the machine", and once touched there would be no
+way back. With scripting off the page is dark, which is what it was before there was a
+choice.
+
+Components never read a raw colour. They read `C`, and `C` is exactly the set of names
+declared in `globals.css`, so a colour that works in one theme and not the other is a
+missing line in the stylesheet rather than a hex buried in a style object. The two
+surfaces that render without the stylesheet — the share card in `app/og` and the
+unsubscribe page in `app/api/subscribe/remove` — read the literal `DARK` palette
+instead, and stay dark: an image and a one-line confirmation page have no theme to
+follow.
+
+**Category colour is information, not decoration.** It identifies the category
+everywhere it appears, and the palette is closed — do not introduce an unrelated accent.
+The nine hues are picked against a near-black background and *none* of them clears
+4.5:1 on white, so a category colour set in type goes through `ink(hex)`, which returns
+the hue on dark and a darker twin of the same hue on light. Fills, borders and the bars
+in the wordmark keep the original hex. Adding a colour means adding its `--ink-` pair to
+both blocks in `globals.css`; `ink()` falls back to the hex, so forgetting degrades to
+today's behaviour rather than to nothing. The same split applies to the brand green and
+the warning hues: `C.accent` is the fill, `C.accentInk` is the type, and `C.onAccent` is
+the dark ink that sits on any accent or category fill in both themes.
 
 ## Conventions
 
 - Plain JS, no TypeScript. Keep it that way unless asked.
-- Colours come from the `C` object and per-category `color` in `lib/tools.js`. Category
-  colour is information, not decoration: it identifies the category everywhere it
-  appears. Do not introduce unrelated accent colours.
 - Inline styles, not Tailwind utilities, for anything colour-related. Tailwind is only
   used for layout primitives.
 - No animation for attention. `prefers-reduced-motion` is respected in `globals.css`.
