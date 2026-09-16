@@ -288,6 +288,16 @@ npm run build      # must compile
 
 Then check the homepage HTML actually contains tool names, not just a loading state.
 
+**Check `/admin` returns 200, not just that it returns something.** It is `force-dynamic`,
+so `next build` never renders it and a missing component reference compiles cleanly and
+throws only at request time. That shipped a 500 to production once, and the check that
+missed it read the response body without ever looking at the status code. Assert the
+code:
+
+```
+curl -s -o /dev/null -w '%{http_code}\n' -H "Cookie: <admin session>" localhost:3000/admin
+```
+
 Next renames its process to `next-server` once running, so `pkill -f "next start"`
 reports success without killing anything. Before verifying a build against a running
 server, confirm the port is actually free — `lsof -ti:3000 | xargs kill -9` — or the

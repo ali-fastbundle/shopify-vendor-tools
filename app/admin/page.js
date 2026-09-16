@@ -32,7 +32,16 @@ export default async function AdminPage() {
   }
 
   // Past the gate, and only now.
-  const [suggestions, claims, subscribers, reports, accounts, stats, maillog] = await Promise.all([
+  /*
+   * Every read defaults to empty, and every one is settled rather than raced.
+   *
+   * On a new deployment none of these keys exist yet, which is normal and not an
+   * error: the panels render their empty states. Promise.allSettled means one
+   * store hiccup degrades a single panel instead of turning the whole console
+   * into a 500 — which is precisely the failure that made this page useless
+   * once already.
+   */
+  const settled = await Promise.allSettled([
     read(KEYS.suggestions, []),
     getClaims(),
     getSubscribers(),
@@ -41,6 +50,12 @@ export default async function AdminPage() {
     readStats(),
     readMailLog(100),
   ]);
+  const [suggestions, claims, subscribers, reports, accounts, stats, maillog] =
+    settled.map((r, i) => {
+      if (r.status === "fulfilled" && r.value != null) return r.value;
+      if (r.status === "rejected") console.error("[admin] read failed —", r.reason?.message || r.reason);
+      return [[], {}, [], [], {}, { fields: {}, queries: [] }, []][i];
+    });
 
   return (
     <AdminPanel
