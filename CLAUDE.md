@@ -498,7 +498,15 @@ Those are different kinds of thing:
 Do not add the badge to tools. Every tool in the catalogue is Shopify-specific by the
 boundary rule, so the badge would be on all of them and would mean nothing.
 
-Newsletters are not live. Both entries in the file are drafts.
+**Optional is normal in this shape, and omitting beats estimating.** `author` is absent
+where a team writes it and nobody is credited. `cadence` is absent where it genuinely is
+not published, and `watch` says so rather than a rhythm being guessed from the archive.
+`started` takes `YYYY-MM` where only the month is knowable, because inventing a day to
+satisfy the format is inventing a fact. `started` and `issueCount` are independent: a
+publication can have a countable run with no findable start date, or the reverse. Having
+both is what lets a reader check the run for gaps.
+
+Newsletters are not live. All four entries in the file are drafts.
 
 ## Writing style for tool entries
 
@@ -527,6 +535,24 @@ optional: most entries will never have one.
 Take the file from the vendor's own site, the same standard as `social` — a logo lifted
 from somewhere else is a guess about what their mark is. Name it after the tool `id`
 and keep the extension the vendor's file actually is.
+
+## Social profiles
+
+**The networks are declared once**, as `SOCIALS` in `lib/tools.js`: key, label and
+placeholder. The render in `components/Directory.jsx`, the whitelist in `sanitiseEdit`
+and the fields in the vendor edit form all read that list. The same three networks used
+to be written out in all three places, and three copies of one list is how a network ends
+up editable but never rendered, or rendered but silently dropped on save. Adding one is a
+line in `SOCIALS` plus its mark in `SOCIAL_ICONS`. Currently LinkedIn, X, GitHub and
+YouTube.
+
+`SOCIAL_ICONS` is keyed separately because it holds components and `lib/tools.js` is
+imported by server routes that have no business pulling in an icon set. A key in
+`SOCIALS` with no mark in `SOCIAL_ICONS` renders nothing, so a half-finished addition
+degrades to an absent link rather than a broken one.
+
+The rule for filling them in is unchanged and applies to every kind: only a profile the
+publisher puts on their own site. Never a plausible guess.
 
 ## External ratings
 
@@ -650,5 +676,5 @@ check will silently run against a stale build.
   purpose.
 - Add affiliate links or sponsored placement. The footer promises neither exists.
 - Fabricate a social profile URL. Only link profiles published on the vendor's own site;
-  otherwise leave `social` empty and let it render "no public profile".
+  otherwise leave `social` empty, and it renders nothing at all.
 - Loosen `MODERATE_SUGGESTIONS`. Public unmoderated submission is the first thing spammed.

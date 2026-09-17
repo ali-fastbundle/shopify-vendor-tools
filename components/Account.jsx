@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { C, S, R, F } from "@/lib/tools";
+import { C, S, R, F, SOCIALS } from "@/lib/tools";
 
 /* ------------------------------------------------------------------ */
 /*  Session hook                                                       */
@@ -276,7 +276,9 @@ function EditForm({ tool, onDone, onClose }) {
   const [form, setForm] = useState({
     one: tool.one || "", note: tool.note || "", price: tool.price || "",
     free: Boolean(tool.free), url: tool.url || "",
-    li: tool.social?.li || "", x: tool.social?.x || "", gh: tool.social?.gh || "",
+    /* One field per network in SOCIALS, so a network added there gets an input
+       here without anybody remembering to add one. */
+    ...Object.fromEntries(SOCIALS.map(({ key }) => [key, tool.social?.[key] || ""])),
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -290,7 +292,7 @@ function EditForm({ tool, onDone, onClose }) {
         toolId: tool.id,
         edit: {
           one: form.one, note: form.note, price: form.price, free: form.free, url: form.url,
-          social: { li: form.li, x: form.x, gh: form.gh },
+          social: Object.fromEntries(SOCIALS.map(({ key }) => [key, form[key]])),
         },
       }),
     });
@@ -330,18 +332,12 @@ function EditForm({ tool, onDone, onClose }) {
         Offers a free plan
       </label>
       <div className="flex flex-wrap" style={{ gap: S.md }}>
-        <div style={{ flex: 1, minWidth: 150 }}>
-          <label style={label}>LinkedIn</label>
-          <input style={field} value={form.li} onChange={set("li")} placeholder="https://linkedin.com/company/…" />
-        </div>
-        <div style={{ flex: 1, minWidth: 150 }}>
-          <label style={label}>X</label>
-          <input style={field} value={form.x} onChange={set("x")} placeholder="https://x.com/…" />
-        </div>
-        <div style={{ flex: 1, minWidth: 150 }}>
-          <label style={label}>GitHub</label>
-          <input style={field} value={form.gh} onChange={set("gh")} placeholder="https://github.com/…" />
-        </div>
+        {SOCIALS.map(({ key, label: name, placeholder }) => (
+          <div key={key} style={{ flex: 1, minWidth: 150 }}>
+            <label style={label}>{name}</label>
+            <input style={field} value={form[key]} onChange={set(key)} placeholder={placeholder} />
+          </div>
+        ))}
       </div>
       <div className="flex items-center" style={{ gap: S.md }}>
         <button onClick={save} disabled={busy} style={primary(true)}>

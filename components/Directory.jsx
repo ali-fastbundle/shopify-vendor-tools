@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useMemo, useRef, useImperativeHandle } from "react";
 import {
   Star, ThumbsUp, ThumbsDown, Check, Plus, X, CaretUp, CaretDown,
-  LinkedinLogo, XLogo, GithubLogo, ArrowUpRight, MagnifyingGlass,
+  LinkedinLogo, XLogo, GithubLogo, YoutubeLogo, ArrowUpRight, MagnifyingGlass,
 } from "@phosphor-icons/react";
 import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
 import { Pill } from "./Pill";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
 
@@ -300,22 +300,25 @@ const ownershipOf = (t) =>
       : t.owner ? `Built by ${t.owner}`
         : "Independent";
 
+/* The mark for each network in SOCIALS. A key with no icon here renders
+   nothing, so adding a network to the list without a mark degrades to an
+   absent link rather than to a broken one. */
+const SOCIAL_ICONS = { li: LinkedinLogo, x: XLogo, gh: GithubLogo, yt: YoutubeLogo };
+
 function Social({ social, size = 15 }) {
-  const items = [
-    ["li", LinkedinLogo, social.li],
-    ["x", XLogo, social.x],
-    ["gh", GithubLogo, social.gh],
-  ].filter((i) => i[2]);
+  const items = SOCIALS
+    .map(({ key, label }) => [key, SOCIAL_ICONS[key], label, social?.[key]])
+    .filter(([, Icon, , href]) => Icon && href);
   /* Nothing published, nothing rendered. A label announcing the absence is
      louder than the absence, and it is not news about the vendor. */
   if (!items.length) return null;
   return (
     <span className="inline-flex items-center" style={{ gap: S.sm }}>
-      {items.map(([k, Icon, href]) => (
+      {items.map(([k, Icon, label, href]) => (
         <a key={k} href={outbound(href)} target="_blank" rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          title={k === "li" ? "LinkedIn" : k === "x" ? "X" : "GitHub"}
-          aria-label={k === "li" ? "LinkedIn" : k === "x" ? "X" : "GitHub"}
+          title={label}
+          aria-label={label}
           style={{
             width: 22, height: 22, borderRadius: R.control, display: "inline-flex",
             alignItems: "center", justifyContent: "center",
