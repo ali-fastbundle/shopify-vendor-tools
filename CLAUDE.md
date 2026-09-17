@@ -506,7 +506,7 @@ satisfy the format is inventing a fact. `started` and `issueCount` are independe
 publication can have a countable run with no findable start date, or the reverse. Having
 both is what lets a reader check the run for gaps.
 
-Newsletters are not live. All four entries in the file are drafts.
+Newsletters are not live. All five entries in the file are drafts.
 
 ## Writing style for tool entries
 
