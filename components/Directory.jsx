@@ -7,6 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
+import { Pill } from "./Pill";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
@@ -210,17 +211,6 @@ function ExternalRatings({ ratings, detail = false }) {
 }
 
 /*
- * An attribute badge, and deliberately colourless.
- *
- * Price, free plan, suite membership, ownership, claimed and unverified are
- * attributes of a tool, not categories of one. Giving each its own hue put
- * five unrelated colours next to a spine whose colour means something, and
- * the meaning drains out of all of them. They are all one neutral outline now.
- *
- * `tone="warn"` is the single exception: "winding down" is a status warning
- * about the product, not a label on it, and it is allowed to be seen.
- */
-/*
  * A multi-line field that grows with what is typed into it.
  *
  * Enter makes a new line. It does not submit.
@@ -277,19 +267,6 @@ const GrowText = React.forwardRef(function GrowText(
     />
   );
 });
-
-function Pill({ children, tone = "neutral" }) {
-  const warn = tone === "warn";
-  return (
-    <span style={{
-      fontSize: F.xs, lineHeight: 1.6, padding: "2px 8px", borderRadius: R.pill,
-      color: warn ? C.badInk : C.muted,
-      background: warn ? C.badSoft : "transparent",
-      border: `1px solid ${warn ? C.badEdge : C.edge}`,
-      whiteSpace: "nowrap", fontWeight: warn ? 700 : 500,
-    }}>{children}</span>
-  );
-}
 
 /*
  * The one treatment a "go to the tool" link gets, on every card and every row

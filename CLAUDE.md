@@ -208,6 +208,7 @@ day it goes in and the site-wide date moves on its own.
 | `components/Directory.jsx` | The whole UI, one client component |
 | `components/Account.jsx` | Sign-in, claiming, vendor edit form |
 | `components/Admin.jsx` | Admin console view. The gate is `app/admin/page.js` |
+| `components/Pill.jsx` | The neutral attribute badge, defined once because the rule is that it looks the same everywhere |
 | `components/Theme.jsx` | The pre-paint theme script and the Auto/Light/Dark toggle |
 | `app/globals.css` | Also holds `.masthead` and `.roadmap`, the two layouts that need a real breakpoint rather than an inline style |
 | `app/globals.css` | The two themes, as CSS variables, plus the handful of global base rules |
@@ -313,8 +314,10 @@ not the panel a vendor edits their listing in. The wordmark and the masthead bar
 the palette shown as a legend, which is the same job.
 
 **B. Every other badge is a neutral outline.** `C.edge` border, `C.muted` text, no
-fill. Free plan, unverified, suite membership, same-owner, by-owner, claimed and price
-are *attributes* of a tool, not categories of one — giving each its own hue put five
+fill. It lives in `components/Pill.jsx` and is imported, never re-declared: a second copy
+of those eight lines is how a neutral badge ends up neutral in one place and not in
+another. Free plan, unverified, suite membership, same-owner, by-owner, claimed, price
+and "Shopify-specific" are *attributes*, not categories — giving each its own hue put five
 unrelated colours beside a spine whose colour means something and drained the meaning
 out of all of them. `Pill` takes no colour any more; it only takes `tone`.
 
@@ -472,7 +475,30 @@ anything about software: `id`, `name`, `url`, `one`, `note`, `watch`, `social`, 
 the market they sell into has a conflict worth naming, the same way a tracker built by an
 app vendor does, and it is no more theirs to edit than a tool's is.
 
-Newsletters are not live. The one entry in the file is a draft.
+**`shopifySpecific` is a positive tag, not a warning.** Optional on a newsletter. True
+means the publication is about Shopify itself, and renders a neutral "Shopify-specific"
+badge. Absent or false renders **nothing**: no badge, no "not Shopify-specific" note, no
+disclaimer. A newsletter that is not about Shopify is not thereby worse, and a label
+announcing the absence would read as a mark against it, the same way "None found" reads
+as a verdict on a tool with no external ratings.
+
+**It is not the Shopify-exclusive rule, and it does not extend that rule to newsletters.**
+Those are different kinds of thing:
+
+- For **tools**, Shopify-exclusive is a *boundary*. A general tool is not listed at all,
+  and Wappalyzer, BuiltWith, PartnerStack and the mobile ASO platforms were removed on
+  purpose. That rule is unchanged.
+- For **newsletters**, `shopifySpecific` is a *label on something already listed*. The
+  boundary is usefulness to an app vendor, which is wider. ECDB is ecommerce market data
+  written for retailers, not a word of it about apps, and an app vendor reads it sideways
+  to see which merchant categories are growing, which is the demand signal behind who
+  installs their app. That is worth listing and it is not Shopify-specific, and both of
+  those are true at once.
+
+Do not add the badge to tools. Every tool in the catalogue is Shopify-specific by the
+boundary rule, so the badge would be on all of them and would mean nothing.
+
+Newsletters are not live. Both entries in the file are drafts.
 
 ## Writing style for tool entries
 

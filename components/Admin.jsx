@@ -5,6 +5,7 @@ import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { drafted } from "@/lib/drafts";
+import { Pill } from "./Pill";
 import { ThemeToggle } from "./Theme";
 
 /*
@@ -143,9 +144,12 @@ const SOURCES = [
   { kind: "newsletter", entries: ALL_NEWSLETTERS },
 ];
 
-/* Long-form fields get their own block below; everything else is a fact. */
+/*
+ * Long-form fields get their own block below, and anything with a rendering of
+ * its own is skipped here rather than printed twice.
+ */
 const PROSE = ["one", "note", "watch"];
-const SKIP = ["id", "name", "draft", ...PROSE];
+const SKIP = ["id", "name", "draft", "shopifySpecific", ...PROSE];
 
 function factValue(v) {
   if (Array.isArray(v)) return v.length ? v.join(", ") : "";
@@ -179,6 +183,10 @@ function Drafts() {
                 <span style={{ fontSize: F.lg, fontWeight: 700 }}>{entry.name}</span>
                 <span style={{ fontSize: F.xs, color: ink(k.color) }}>{k.label}</span>
                 <span style={{ fontSize: F.xs, color: C.dim }}>{entry.id}</span>
+                {/* A positive tag. Absent means nothing is rendered: a
+                    publication that is not about Shopify is not thereby worse,
+                    and a "not Shopify-specific" note would read as one. */}
+                {entry.shopifySpecific && <Pill>Shopify-specific</Pill>}
               </div>
 
               {entry.one && (
@@ -746,9 +754,7 @@ function Reports({ rows, act, busy }) {
                   <span style={{ fontSize: F.xs, color: ink("#FFB020") }}>{kind ? kind.label : r.kind}</span>
                   <span style={{ fontSize: F.xs, color: C.dim }}>{r.date}</span>
                   {!isOpen && (
-                    <span style={{ fontSize: F.xs, color: C.dim, border: `1px solid ${C.line}`, borderRadius: R.pill, padding: "2px 8px" }}>
-                      {r.status}{r.closedAt ? ` ${r.closedAt}` : ""}
-                    </span>
+                    <Pill>{r.status}{r.closedAt ? ` ${r.closedAt}` : ""}</Pill>
                   )}
                 </div>
                 {r.value && (
