@@ -187,6 +187,15 @@
   }
 }
 
+/* The drafts panel's fact list: label column, value column. */
+.drafts-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 16px;
+  row-gap: 4px;
+  align-items: baseline;
+}
+
 /* ==================================================================
    Base.
 

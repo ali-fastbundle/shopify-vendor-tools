@@ -2,7 +2,9 @@
 
 import React, { useState } from "react";
 import { outbound } from "@/lib/outbound";
-import { C, S, R, F, TRACK, ink, TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
+import { C, S, R, F, TRACK, ink, ALL_TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
+import { ALL_NEWSLETTERS } from "@/lib/newsletters";
+import { drafted } from "@/lib/drafts";
 import { ThemeToggle } from "./Theme";
 
 /*
@@ -59,6 +61,8 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
             <p className="mt-3" style={{ fontSize: F.sm, color: C.badInk, margin: "12px 0 0" }}>{err}</p>
           )}
         </header>
+
+        <Drafts />
 
         <Section
           title="Pending suggestions"
@@ -120,6 +124,101 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
 }
 
 const cell = { padding: "12px 12px 12px 0", borderBottom: `1px solid ${C.line}`, verticalAlign: "top" };
+
+/* ------------------------------------------------------------------ */
+/*  Drafts                                                             */
+/*                                                                     */
+/*  Written, not published. Every catalogue contributes its own drafts  */
+/*  here, so a new entry kind shows up in this panel by being added to  */
+/*  SOURCES rather than by anyone remembering to render it.             */
+/*                                                                     */
+/*  There is no Publish button. Publishing is deleting `draft: true` in */
+/*  the source file, because the thing that makes an entry ready is the */
+/*  note and the watch being right, and that is a judgement made while  */
+/*  editing the file rather than a state to flip from a web page.       */
+/* ------------------------------------------------------------------ */
+
+const SOURCES = [
+  { kind: "tool", entries: ALL_TOOLS },
+  { kind: "newsletter", entries: ALL_NEWSLETTERS },
+];
+
+/* Long-form fields get their own block below; everything else is a fact. */
+const PROSE = ["one", "note", "watch"];
+const SKIP = ["id", "name", "draft", ...PROSE];
+
+function factValue(v) {
+  if (Array.isArray(v)) return v.length ? v.join(", ") : "";
+  if (v && typeof v === "object") {
+    const pairs = Object.entries(v).filter(([, x]) => x);
+    return pairs.length ? pairs.map(([k, x]) => `${k}: ${x}`).join("  ") : "";
+  }
+  if (typeof v === "boolean") return v ? "yes" : "no";
+  return v === 0 ? "0" : v ? String(v) : "";
+}
+
+function Drafts() {
+  const rows = SOURCES.flatMap(({ kind, entries }) =>
+    drafted(entries).map((entry) => ({ kind, entry })));
+
+  return (
+    <Section
+      title="Drafts"
+      count={rows.length}
+      hint="Written but not published: absent from the grid, the search, the matcher, every count, the share card and every API response. Publish by deleting `draft: true` from the entry in its source file, and give it an `updated` of the day it goes live."
+    >
+      {rows.length === 0
+        ? <Empty>Nothing in progress. An entry becomes a draft by carrying `draft: true`.</Empty>
+        : rows.map(({ kind, entry }) => {
+          const k = kindOf(kind);
+          const facts = Object.entries(entry)
+            .filter(([key, v]) => !SKIP.includes(key) && factValue(v) !== "");
+          return (
+            <div key={`${kind}:${entry.id}`} style={{ borderTop: `1px solid ${C.line}`, padding: "16px 0" }}>
+              <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+                <span style={{ fontSize: F.lg, fontWeight: 700 }}>{entry.name}</span>
+                <span style={{ fontSize: F.xs, color: ink(k.color) }}>{k.label}</span>
+                <span style={{ fontSize: F.xs, color: C.dim }}>{entry.id}</span>
+              </div>
+
+              {entry.one && (
+                <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "72ch" }}>
+                  {entry.one}
+                </p>
+              )}
+
+              <dl className="drafts-facts" style={{ margin: `${S.md}px 0 0` }}>
+                {facts.map(([key, v]) => (
+                  <React.Fragment key={key}>
+                    <dt style={{ fontSize: F.xs, color: C.dim, fontWeight: 600 }}>{key}</dt>
+                    <dd style={{ fontSize: F.xs, color: C.muted, margin: 0, wordBreak: "break-word" }}>
+                      {factValue(v)}
+                    </dd>
+                  </React.Fragment>
+                ))}
+              </dl>
+
+              {entry.note && (
+                <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "76ch" }}>
+                  {entry.note}
+                </p>
+              )}
+              {entry.watch && (
+                <p style={{ fontSize: F.sm, color: C.muted, margin: "8px 0 0", lineHeight: 1.6, maxWidth: "76ch" }}>
+                  <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
+                </p>
+              )}
+              {!entry.watch && (
+                <p style={{ fontSize: F.sm, color: C.badInk, margin: "8px 0 0" }}>
+                  No watch note. Not publishable without one.
+                </p>
+              )}
+            </div>
+          );
+        })}
+    </Section>
+  );
+}
 
 function Section({ title, count, hint, children }) {
   return (
@@ -336,7 +435,7 @@ function ClaimsTable({ title, hint, rows, act, busy, verified, empty }) {
             </thead>
             <tbody>
               {rows.map(([toolId, c]) => {
-                const tool = TOOLS.find((t) => t.id === toolId);
+                const tool = ALL_TOOLS.find((t) => t.id === toolId);
                 return (
                   <tr key={toolId}>
                     <td style={cell}>
@@ -383,7 +482,7 @@ function Accounts({ accounts, claims }) {
   const rows = Object.values(accounts).sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
   const claimedBy = (email) => Object.entries(claims)
     .filter(([, c]) => c.email === email && c.status === "verified")
-    .map(([toolId]) => (TOOLS.find((t) => t.id === toolId)?.name) || toolId);
+    .map(([toolId]) => (ALL_TOOLS.find((t) => t.id === toolId)?.name) || toolId);
 
   return (
     <Section title="Accounts" count={rows.length}
@@ -452,7 +551,7 @@ function Stats({ stats }) {
       {opens.length === 0 ? <Empty>Nothing counted yet.</Empty> : (
         <div className="flex flex-col" style={{ gap: S.sm, padding: "12px 0 8px" }}>
           {opens.slice(0, 15).map(([id, n]) => {
-            const tool = TOOLS.find((t) => t.id === id);
+            const tool = ALL_TOOLS.find((t) => t.id === id);
             return (
               <div key={id} className="flex items-center" style={{ gap: S.md }}>
                 <span style={{ fontSize: F.sm, width: 170, flexShrink: 0 }}>{tool ? tool.name : id}</span>
@@ -634,7 +733,7 @@ function Reports({ rows, act, busy }) {
       {rows.length === 0 ? <Empty>Nothing reported.</Empty> : (
         <div className="flex flex-col" style={{ gap: 2 }}>
           {[...open, ...closed].map((r) => {
-            const tool = TOOLS.find((t) => t.id === r.toolId);
+            const tool = ALL_TOOLS.find((t) => t.id === r.toolId);
             const kind = reportKindOf(r.kind);
             const isOpen = r.status === "open";
             return (

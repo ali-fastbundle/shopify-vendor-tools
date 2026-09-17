@@ -6,6 +6,7 @@ import {
   LinkedinLogo, XLogo, GithubLogo, ArrowUpRight, MagnifyingGlass,
 } from "@phosphor-icons/react";
 import { outbound } from "@/lib/outbound";
+import { pendingKinds } from "@/lib/sections";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
@@ -1787,7 +1788,10 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
  * something to contribute, and they are the reason to read this at all.
  */
 function Roadmap({ onSuggest }) {
-  const pending = RESOURCE_KINDS.filter((k) => !k.live);
+  /* Not `RESOURCE_KINDS.filter(k => !k.live)`: a kind switched on with nothing
+     published in it is still pending, and belongs here rather than as an empty
+     section further up the page. */
+  const pending = pendingKinds();
   return (
     <section style={{ paddingBottom: BAND.desktop }}>
       <h2 style={{ fontSize: F["2xl"], fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.15, margin: 0 }}>

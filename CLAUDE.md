@@ -124,7 +124,42 @@ string rather than re-serialising the URL, so a vendor's existing query string c
 byte for byte: re-serialising would rewrite their encoding, and a link that stops working
 because we tagged it is worse than an untagged link. The fragment stays last.
 
-**12. A report is a message, not an edit.**
+**12. A draft is invisible, and publishing is deleting the flag.**
+Any catalogue entry of any kind may carry `draft: true`. A draft is absent from the
+grid, the search, the matcher, every count, the share card and every API response
+including `/api/listing`. It cannot be voted on, reviewed, reported or claimed: the write
+routes check ids against the published list and answer 400. It appears in exactly one
+place, the Drafts panel on `/admin`.
+
+The mechanism is the naming, not the filter. Each catalogue exports the full source array
+as `ALL_TOOLS` / `ALL_NEWSLETTERS` and the published list under the plain name `TOOLS` /
+`NEWSLETTERS`, derived through `published()` in `lib/drafts.js`. Every route and component
+imports the plain name and is draft-safe without having been changed and without knowing
+drafts exist. Seeing a draft takes a deliberate `ALL_` import, which only `/admin` does. A
+leak has to be written on purpose rather than forgotten into existence, so keep it that
+way: if you add a catalogue, export the published list under the plain name.
+
+**There is no publish button and there should not be one.** Publishing is deleting
+`draft: true` from the entry in its source file. What makes an entry ready is `note` and
+`watch` being right, which is a judgement made while editing the file, not a state to flip
+from a web page. A button would also mean storing published-ness outside the file, and
+then `lib/tools.js` would stop being the truth about what the directory says.
+
+`LAST_UPDATED` is computed from the published list, so writing a draft does not move the
+site-wide date. Nothing a visitor can see has changed, so the date of the last change has
+not either. Give the entry an `updated` of the day you publish it, not the day you drafted
+it.
+
+**A section opens on two conditions.** `isLive(kind)` in `lib/sections.js` is `live: true`
+on the `RESOURCE_KINDS` entry AND at least one published entry in its catalogue. They fail
+in different directions: the flag on an empty catalogue ships a header over nothing, and a
+full catalogue with the flag off is just work in progress. The roadmap renders
+`pendingKinds()` rather than filtering on `live` alone, so a section still being drafted
+keeps its roadmap card and opens by itself when both conditions are true. `lib/sections.js`
+is also the one place that knows which catalogue belongs to which kind; a new section is
+registered there.
+
+**13. A report is a message, not an edit.**
 `/api/report` is open to anyone, with no sign-in, because the person who spots a dead
 link is rarely the person who owns the listing. It is only safe that way because it
 writes to `svt:reports` and nowhere else — never to the catalogue, never to
@@ -132,13 +167,13 @@ writes to `svt:reports` and nowhere else — never to the catalogue, never to
 make a report apply itself, it stops being safe to leave open and needs auth in front
 of it.
 
-**13. Every email goes out as HTML and plain text, with a working reply address.**
+**14. Every email goes out as HTML and plain text, with a working reply address.**
 `renderEmail()` in `lib/email.js` returns both halves together so a caller cannot send
 one without the other, and every Resend call sets `reply_to` to the first
 `ADMIN_EMAILS` address. The subscribe copy tells people they can reply to get off the
 list; the from-address has no inbox, so without `reply_to` that is a lie.
 
-**14. Every tool carries an `updated` date, and the site date is derived from it.**
+**15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
 `lib/tools.js` — never a constant to bump by hand. A hand-maintained date only tells
@@ -158,13 +193,16 @@ day it goes in and the site-wide date moves on its own.
 
 | Path | Role |
 |---|---|
-| `lib/tools.js` | Catalogue, categories, design tokens (`C`, `S`, `R`, `F`, `TRACK`, `ink`), and `LAST_UPDATED` derived from it. Edit tools here only. |
+| `lib/tools.js` | Catalogue (`ALL_TOOLS` as written, `TOOLS` published), categories, design tokens (`C`, `S`, `R`, `F`, `TRACK`, `BAND`, `ink`), and `LAST_UPDATED` derived from it. Edit tools here only. |
 | `lib/listings.js` | Claims, the editable whitelist, domain verification, merge logic |
 | `lib/auth.js` | HMAC session cookies, magic-link tokens, admin check |
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
 | `lib/subscribers.js` | List add/remove, unsubscribe token mint and verify |
 | `lib/mail.js` | The event matrix and `sendEvent()`. The only caller of Resend |
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
+| `lib/drafts.js` | `draft: true`, and the `published()` filter every catalogue passes through |
+| `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
+| `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
 | `lib/email.js` | The HTML/text shell, `reply_to`, and the Resend transport |
 | `components/Directory.jsx` | The whole UI, one client component |
@@ -412,12 +450,29 @@ tool compare modal is untouched: the list is the pass where you work out which t
 
 `RESOURCE_KINDS` in `lib/tools.js` names every section: tools, newsletters, events,
 podcasts, YouTube, books, groups, accounts, influencers. Only `tool` has `live: true`.
-The roadmap renders every other kind as a card that opens the suggest modal preselected
-to it, and `/api/suggest` validates `kind` against that list, defaulting to `tool` so
-suggestions stored before kinds existed still read.
+The roadmap renders every kind that is not open as a card that opens the suggest modal
+preselected to it, and `/api/suggest` validates `kind` against that list, defaulting to
+`tool` so suggestions stored before kinds existed still read.
 
-Opening a section means giving it a catalogue and flipping `live`. Colours are reused
-from `CATEGORIES` so the palette stays closed — do not add a new accent for a new kind.
+Opening a section means: write its entries, drop their `draft` flags, and set
+`live: true` on its kind. `lib/sections.js` requires both, and the roadmap card
+disappears on its own. Colours are reused from `CATEGORIES` so the palette stays closed —
+do not add a new accent for a new kind.
+
+**A section gets its own file and its own shape.** `lib/newsletters.js` is the first one,
+and it is deliberately not the tool shape with different words in it. A tool is judged on
+what it does, what it costs and who owns it; a newsletter is judged on whether it is still
+going, how often, how long for, who writes it and what they sell on the side. Forcing one
+through the other means a `price` on something free and a `cat` from a list that does not
+describe writing.
+
+What every kind does share, because it is the directory's editorial contract rather than
+anything about software: `id`, `name`, `url`, `one`, `note`, `watch`, `social`, `logo`,
+`ratings`, `updated`, `draft`. `watch` especially. A newsletter written by a vendor about
+the market they sell into has a conflict worth naming, the same way a tracker built by an
+app vendor does, and it is no more theirs to edit than a tool's is.
+
+Newsletters are not live. The one entry in the file is a draft.
 
 ## Writing style for tool entries
 
