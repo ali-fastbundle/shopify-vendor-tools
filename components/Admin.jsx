@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ThemeToggle } from "./Theme";
 
@@ -153,7 +154,7 @@ function SuggestionRow({ s, children }) {
       {s.why && <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: "4px 0 0", maxWidth: "72ch" }}>{s.why}</p>}
       <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0" }}>
         {s.by} · {s.date}
-        {s.url && <> · <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
+        {s.url && <> · <a href={outbound(s.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
       </p>
       {children && <div className="flex mt-2" style={{ gap: S.sm }}>{children}</div>}
     </div>

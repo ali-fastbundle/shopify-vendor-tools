@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useImperativeHandle } from "react";
 import {
   Star, ThumbsUp, ThumbsDown, Check, Plus, X, CaretUp, CaretDown,
   LinkedinLogo, XLogo, GithubLogo, ArrowUpRight, MagnifyingGlass,
 } from "@phosphor-icons/react";
+import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
@@ -183,7 +184,7 @@ function ExternalRatings({ ratings, detail = false }) {
   return (
     <div className="flex flex-wrap items-center" style={{ gap: detail ? S.lg : S.md }}>
       {ratings.map((r) => (
-        <a key={`${r.source}${r.url}`} href={r.url} target="_blank" rel="noopener noreferrer"
+        <a key={`${r.source}${r.url}`} href={outbound(r.url)} target="_blank" rel="noopener noreferrer"
           title={`${r.source}: ${r.score == null ? "score not captured" : `${r.score} out of ${r.outOf ?? 5}`}${r.count ? `, ${r.count} reviews` : ""}${r.captured ? `, captured ${r.captured}` : ""}`}
           style={{
             fontSize: detail ? F.sm : F.xs, color: C.dim, textDecoration: "none",
@@ -218,6 +219,64 @@ function ExternalRatings({ ratings, detail = false }) {
  * `tone="warn"` is the single exception: "winding down" is a status warning
  * about the product, not a label on it, and it is allowed to be seen.
  */
+/*
+ * A multi-line field that grows with what is typed into it.
+ *
+ * Enter makes a new line. It does not submit.
+ *
+ * The review box used to be a single-line input with `Enter` wired to submit,
+ * which is the shape of a search box, not of a place to write a paragraph.
+ * People wrote two sentences, reached for a line break, and posted half a
+ * review instead. Nobody reports that. They just do not come back.
+ *
+ * Cmd or Ctrl plus Enter still submits, for anyone who expects a keyboard way
+ * out of a text box, and the button is always the obvious one.
+ */
+const GrowText = React.forwardRef(function GrowText(
+  { value, onChange, onSubmit, rows = 2, maxRows = 12, style, ...rest }, ref,
+) {
+  const own = useRef(null);
+  /* The node either way, whether the caller passed an object ref, a callback
+     ref, or nothing at all. */
+  useImperativeHandle(ref, () => own.current, []);
+
+  /* Height follows the content: reset to auto so the box can shrink again when
+     text is deleted, then take the scroll height. Floored at `rows` so an empty
+     box still reads as somewhere to write a paragraph, and capped at `maxRows`
+     so a long review does not push the Post button off the screen. */
+  useEffect(() => {
+    const node = own.current;
+    if (!node) return;
+    node.style.height = "auto";
+    const cs = getComputedStyle(node);
+    const line = parseFloat(cs.lineHeight) || 20;
+    const border = node.offsetHeight - node.clientHeight;
+    const chrome = border + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const wanted = node.scrollHeight + border;
+    const min = line * rows + chrome;
+    const max = line * maxRows + chrome;
+    node.style.height = `${Math.min(Math.max(wanted, min), max)}px`;
+    node.style.overflowY = wanted > max ? "auto" : "hidden";
+  }, [value, rows, maxRows]);
+
+  return (
+    <textarea
+      ref={own}
+      rows={rows}
+      value={value}
+      onChange={onChange}
+      onKeyDown={(e) => {
+        if (onSubmit && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          onSubmit();
+        }
+      }}
+      style={{ resize: "none", lineHeight: 1.5, display: "block", ...style }}
+      {...rest}
+    />
+  );
+});
+
 function Pill({ children, tone = "neutral" }) {
   const warn = tone === "warn";
   return (
@@ -241,7 +300,7 @@ function Pill({ children, tone = "neutral" }) {
  */
 function VisitSite({ url, children = "Visit site", size = F.xs }) {
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer"
+    <a href={outbound(url)} target="_blank" rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
       className="press inline-flex items-center"
       style={{
@@ -275,7 +334,7 @@ function Social({ social, size = 15 }) {
   return (
     <span className="inline-flex items-center" style={{ gap: S.sm }}>
       {items.map(([k, Icon, href]) => (
-        <a key={k} href={href} target="_blank" rel="noopener noreferrer"
+        <a key={k} href={outbound(href)} target="_blank" rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
           title={k === "li" ? "LinkedIn" : k === "x" ? "X" : "GitHub"}
           aria-label={k === "li" ? "LinkedIn" : k === "x" ? "X" : "GitHub"}
@@ -940,7 +999,7 @@ export default function Directory({ tools: initialTools }) {
           <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
             By{" "}
             {AUTHOR_URL
-              ? <a href={AUTHOR_URL} target="_blank" rel="noopener noreferrer"
+              ? <a href={outbound(AUTHOR_URL)} target="_blank" rel="noopener noreferrer"
                   style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
               : AUTHOR}
             {". "}
@@ -1529,14 +1588,14 @@ function ReportProblem({ tool }) {
         }}>Cancel</button>
       </div>
 
-      <div className="flex flex-wrap mt-3" style={{ gap: S.sm }}>
+      <div className="flex flex-wrap items-start mt-3" style={{ gap: S.sm }}>
         <select value={kind} onChange={(e) => { setKind(e.target.value); setErr(""); }}
           style={{ ...field, width: 210 }}>
           {REPORT_KINDS.map((k) => (
             <option key={k.id} value={k.id} style={{ background: C.panel }}>{k.label}</option>
           ))}
         </select>
-        <input value={value} onChange={(e) => setValue(e.target.value)}
+        <GrowText value={value} onChange={(e) => setValue(e.target.value)} onSubmit={submit}
           placeholder={spec.hint} style={{ ...field, flex: 1, minWidth: 220 }} />
       </div>
 
@@ -1593,12 +1652,13 @@ function ReviewForm({ name, onSubmit, initialRating = 0 }) {
         <span style={{ fontSize: F.md, fontWeight: 600 }}>Rate {name}</span>
         <Stars value={rating} onPick={setRating} size={F.xl} title={`Rate ${name}`} />
       </div>
-      <div className="flex flex-wrap mt-3" style={{ gap: S.sm }}>
+      <div className="flex flex-wrap items-start mt-3" style={{ gap: S.sm }}>
         <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Your name"
           style={{ ...field, width: 150, flexShrink: 0 }} />
-        <input ref={textRef} value={text} onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          placeholder="What did you actually find using it?" style={{ ...field, flex: 1, minWidth: 200 }} />
+        <GrowText ref={textRef} value={text} onChange={(e) => setText(e.target.value)}
+          onSubmit={submit}
+          placeholder="What did you actually find using it?"
+          style={{ ...field, flex: 1, minWidth: 200 }} />
         <button onClick={submit} disabled={!rating} className="press" style={{
           background: rating ? C.accent : C.subtle, color: rating ? C.onAccent : C.dim,
           border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.md, fontWeight: 700,
@@ -1913,8 +1973,9 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
                   {CATEGORIES.map((c) => <option key={c.id} value={c.id} style={{ background: C.panel }}>{c.label}</option>)}
                 </select>
               )}
-              <textarea style={{ ...field, minHeight: 84, resize: "vertical" }} value={why}
-                onChange={(e) => setWhy(e.target.value)}
+              <GrowText value={why} onChange={(e) => setWhy(e.target.value)} onSubmit={submit}
+                rows={3}
+                style={field}
                 placeholder={kind === "tool"
                   ? "What does it do, and what problem does it solve better than the alternatives?"
                   : "What is it, and why is it worth an app vendor's time?"} />
@@ -1959,7 +2020,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
                     {s.why && <p className="mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, maxWidth: "50ch" }}>{s.why}</p>}
                     <p className="mt-1" style={{ fontSize: F.xs, color: C.dim }}>
                       {s.by} · {s.date}
-                      {s.url && <>{" "}<a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
+                      {s.url && <>{" "}<a href={outbound(s.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
                     </p>
                   </div>
                 ))}

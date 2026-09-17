@@ -106,7 +106,25 @@ Every attempt is written to `svt:maillog` and logged as `[mail]`, success or fai
 Silence was the bug; the log is how it stays fixed. `/admin` shows the last 100 and the
 failure count for 24 hours, and can fire any event in the matrix at the admin address.
 
-**11. A report is a message, not an edit.**
+**11. Outbound attribution is added at render time, never stored.**
+Every link leaving the site goes through `outbound()` in `lib/outbound.js`, which appends
+`utm_source=watchfor.tools`. It is applied in the JSX at the point the `href` is written:
+`VisitSite`, `Social`, `ExternalRatings`, the byline, and a suggestion's own link in both
+the public list and the admin queue.
+
+The parameter is never written into `lib/tools.js` and never into a stored suggestion. The
+catalogue is editorial source and a vendor's submitted URL is theirs; neither should carry
+our tracking around after it leaves the page. It also means changing the tag, or dropping
+it, is one line here rather than a migration over stored data.
+
+The helper leaves alone anything that is not absolute http or https, which covers
+`mailto:`, `tel:`, `#anchor` and relative paths, plus links back to watchfor.tools and any
+URL that already carries a `utm_source` in any letter case. It appends by splicing the
+string rather than re-serialising the URL, so a vendor's existing query string comes back
+byte for byte: re-serialising would rewrite their encoding, and a link that stops working
+because we tagged it is worse than an untagged link. The fragment stays last.
+
+**12. A report is a message, not an edit.**
 `/api/report` is open to anyone, with no sign-in, because the person who spots a dead
 link is rarely the person who owns the listing. It is only safe that way because it
 writes to `svt:reports` and nowhere else — never to the catalogue, never to
@@ -114,13 +132,13 @@ writes to `svt:reports` and nowhere else — never to the catalogue, never to
 make a report apply itself, it stops being safe to leave open and needs auth in front
 of it.
 
-**12. Every email goes out as HTML and plain text, with a working reply address.**
+**13. Every email goes out as HTML and plain text, with a working reply address.**
 `renderEmail()` in `lib/email.js` returns both halves together so a caller cannot send
 one without the other, and every Resend call sets `reply_to` to the first
 `ADMIN_EMAILS` address. The subscribe copy tells people they can reply to get off the
 list; the from-address has no inbox, so without `reply_to` that is a lie.
 
-**13. Every tool carries an `updated` date, and the site date is derived from it.**
+**14. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
 `lib/tools.js` — never a constant to bump by hand. A hand-maintained date only tells
@@ -146,6 +164,7 @@ day it goes in and the site-wide date moves on its own.
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
 | `lib/subscribers.js` | List add/remove, unsubscribe token mint and verify |
 | `lib/mail.js` | The event matrix and `sendEvent()`. The only caller of Resend |
+| `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
 | `lib/email.js` | The HTML/text shell, `reply_to`, and the Resend transport |
 | `components/Directory.jsx` | The whole UI, one client component |
@@ -345,6 +364,21 @@ sentences. This applies to UI copy, and to the `one` / `note` / `watch` / `blurb
 editorial strings in `lib/tools.js`, which have never had one. Code comments are not
 visitor-facing and are exempt. The middle dot is a separator, capped at one per line.
 `components/Admin.jsx` is behind auth and is not held to this.
+
+**Enter does not submit prose.** Anywhere someone writes more than a value, the field is
+a `GrowText`: a textarea that grows with the text, floored at its `rows` and capped at
+`maxRows` so a long review cannot push the button off the screen. Enter makes a new line.
+Cmd or Ctrl plus Enter submits, and the button always does.
+
+The review box was a single-line `<input>` with Enter wired to submit, which is the shape
+of a search box rather than of a place to write a paragraph. People wrote two sentences,
+reached for a line break, and posted half a review. Nobody reports that, they just do not
+come back. The same field type now covers the review, the suggestion's "why" and the
+report's correction.
+
+Enter-to-submit belongs only on genuinely single-line inputs: the search box, the two
+email fields, and the matcher, which takes Cmd or Ctrl plus Enter and never plain Enter
+because a problem description is prose too.
 
 **Rating is one click, like voting.** Like and dislike write straight from the card.
 Clicking a star on a card or a list row does the same thing as far as the person is
