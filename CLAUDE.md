@@ -204,9 +204,33 @@ Anonymous ratings were one click somebody could repeat all afternoon, which made
 the directory's own primary signal the cheapest number on the page. A fabricated
 average is worse than no average, because it looks like evidence.
 
-**Votes stay anonymous**, with the existing per-browser and per-IP limits. A like
-is a shrug, it is worth roughly what it costs, and a sign-in wall in front of one
-would lose more signal than it protects. Do not extend this to voting.
+**Votes on a tool stay anonymous**, with the existing per-browser and per-IP
+limits. A like is a shrug, it is worth roughly what it costs, and a sign-in wall
+in front of one would lose more signal than it protects. Do not extend this to
+the like and dislike buttons.
+
+**Helpfulness votes on a review are gated like a rating, not like a like.**
+`/api/review/helpful` answers 401 signed out, the session check sits above the
+limiter like everywhere else, and one account gets one vote per review, which it
+can take back. Deciding which review a visitor reads first is at least as worth
+buying as a star, so it costs the same thing to cast.
+
+- **Never on your own review.** Checked server-side, 403, and the button is not
+  rendered at all where it could not be pressed. It is the cheapest possible way
+  to climb the list and no rate limit makes it not worth doing.
+- **Voter addresses are private**, stored as `helpfulBy` on the review, and they
+  leave through the same single door as the reviewer's own: `publicReviews()`
+  turns the list into a `helpful` count plus a per-request `helpfulByMe`. Two
+  private fields now, one function that strips them.
+- **Order is `byHelpfulness` in `lib/reviews.js`**: most helpful first, most
+  recent to break a tie. It reads `date`, never `editedAt`, so an edit cannot
+  climb the list.
+- **Editing the text clears the votes on it.** They were cast on the words.
+  Otherwise the top of the list is farmable: post something genuinely useful,
+  collect what it earns, then rewrite it as an advertisement that keeps the
+  position those votes bought. Changing only the rating keeps them, and the form
+  says so when there are any to lose.
+- Nothing is emailed, either side. It is a vote.
 
 **The form says why, in one line:** "Ratings need an account so they mean
 something. One email, no password." `SignInPrompt` in `components/Account.jsx`
@@ -316,7 +340,7 @@ the informative label is the positive one.
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, and the `published()` filter every catalogue passes through |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
-| `lib/reviews.js` | One review per account per tool, and the only thing that strips a reviewer's address |
+| `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, and the only thing that strips an address off either |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
@@ -328,7 +352,7 @@ the informative label is the positive one.
 | `components/Theme.jsx` | The pre-paint theme script and the Auto/Light/Dark toggle |
 | `app/globals.css` | Also holds `.masthead` and `.roadmap`, the two layouts that need a real breakpoint rather than an inline style |
 | `app/globals.css` | The two themes, as CSS variables, plus the handful of global base rules |
-| `app/api/*` | data, vote, review, suggest, report, stat, match, claim, listing, auth, subscribe, admin |
+| `app/api/*` | data, vote, review (+ review/helpful), suggest, report, stat, match, claim, listing, auth, subscribe, admin |
 | `app/admin` | Admin page. Auth gate first, data read only after it |
 
 ## Design conventions
@@ -743,7 +767,8 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `report` | yes | thank you, only if they gave an address |
 | `listing_edited` | yes | nothing (they just made the edit) |
 
-Votes send nothing, either side.
+Votes send nothing, either side. That covers both kinds: liking a tool, and
+marking a review helpful.
 
 Suggestions and reports are open to signed-out visitors, so a missing address is normal,
 not an error: the matrix's `user` function returns null and the request carries on.

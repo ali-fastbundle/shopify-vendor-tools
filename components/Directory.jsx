@@ -7,6 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
+import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
@@ -750,6 +751,28 @@ export default function Directory({ tools: initialTools }) {
   }
 
   /*
+   * Marking a review helpful. Server-authoritative like the review itself: it
+   * can be refused (signed out, or your own review), and the answer decides
+   * both the count and the order the list is then drawn in.
+   */
+  async function markHelpful(toolId, reviewId) {
+    try {
+      const res = await fetch("/api/review/helpful", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId, reviewId }),
+      });
+      if (!res.ok) return { ok: false, error: await res.text() };
+      const d = await res.json();
+      if (d.reviews) setReviews(d.reviews);
+      setErr("");
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Could not reach the server." };
+    }
+  }
+
+  /*
    * Also not optimistic, for the same reason as a review: a submission can be
    * answered with "already listed" and stored nowhere, or folded into a row
    * that already exists. Prepending a row and then taking it away again is a
@@ -1120,6 +1143,7 @@ export default function Directory({ tools: initialTools }) {
           onClose={() => setDetail(null)}
           reviews={reviews[detail] || []}
           onReview={(a, r, x) => addReview(detail, a, r, x)}
+          onHelpful={(reviewId) => markHelpful(detail, reviewId)}
           avg={avg(detail)}
           votes={votes[detail] || { up: 0, down: 0 }}
           myVote={mine[detail] || 0}
@@ -1498,8 +1522,14 @@ function Shell({ children, onClose, width = 860 }) {
   );
 }
 
-function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
+function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
   const col = catOf(tool.cat).color;
+  /*
+   * Most helpful first, most recent to break a tie. The comparator lives in
+   * lib/reviews.js beside the rule it implements; sorting a copy rather than
+   * the prop keeps this a display decision, which is what it is.
+   */
+  const ordered = useMemo(() => [...reviews].sort(byHelpfulness), [reviews]);
   return (
     <Shell onClose={onClose} width={760}>
       <div style={{ height: 4, background: col }} />
@@ -1559,9 +1589,9 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
         <div className="mt-6" style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg }}>
           <ReviewForm toolId={tool.id} name={tool.name} onSubmit={onReview} initialRating={initialRating}
             session={session} existing={reviews.find((r) => r.mine) || null} />
-          {reviews.length > 0 && (
+          {ordered.length > 0 && (
             <div className="mt-5 flex flex-col" style={{ gap: S.md }}>
-              {reviews.map((r) => (
+              {ordered.map((r) => (
                 <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
                   <div className="flex items-baseline flex-wrap" style={{ gap: S.sm }}>
                     <Stars value={r.rating} size={F.sm} />
@@ -1574,6 +1604,8 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
                     {r.mine && <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 600 }}>yours</span>}
                   </div>
                   {r.text && <p className="mt-1" style={{ fontSize: F.md, lineHeight: 1.55, color: C.muted, maxWidth: "64ch" }}>{r.text}</p>}
+                  <Helpful review={r} signedIn={Boolean(session.signedIn)}
+                    onMark={() => onHelpful(r.id)} />
                 </div>
               ))}
             </div>
@@ -1683,6 +1715,64 @@ function ReportProblem({ tool }) {
         link a profile the vendor has not published themselves. Your email is optional and only used
         to follow up on this report.
       </p>
+    </div>
+  );
+}
+
+/*
+ * Was this review useful, and the answer decides what the next person reads
+ * first.
+ *
+ * The button exists only where it can be pressed. Signed out there is nothing
+ * to press, and on your own review there never will be, so a disabled control
+ * would be a thing to wonder about rather than an affordance. Both cases keep
+ * the count, because the count is information either way.
+ *
+ * At zero, nothing renders at all. "0 found this helpful" reads as a verdict on
+ * the review rather than on how many people have been past it, which is the
+ * same reason an empty ratings row renders nothing.
+ */
+function Helpful({ review, signedIn, onMark }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const n = review.helpful || 0;
+  const on = Boolean(review.helpfulByMe);
+  const canVote = signedIn && !review.mine;
+
+  async function click() {
+    if (busy) return;
+    setBusy(true); setErr("");
+    const res = await onMark();
+    setBusy(false);
+    if (!res?.ok) setErr(res?.error || "That did not save.");
+  }
+
+  if (!canVote) {
+    if (!n) return null;
+    return (
+      <p className="mt-2 tnum" style={{ fontSize: F.xs, color: C.dim, margin: `${S.sm}px 0 0` }}>
+        {n} found this helpful
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
+      {/* Same gesture as liking a tool, so the same active colour. */}
+      <button onClick={click} aria-pressed={on} disabled={busy}
+        aria-label={on ? "Remove your helpful vote" : "Mark this review helpful"}
+        className="press inline-flex items-center tnum" style={{
+          gap: S.xs,
+          background: on ? C.accent : C.subtle,
+          color: on ? C.onAccent : C.muted,
+          border: `1px solid ${on ? C.accent : C.line}`, borderRadius: R.control,
+          padding: "3px 10px", fontSize: F.xs, fontWeight: 600,
+          cursor: busy ? "default" : "pointer", fontFamily: "inherit",
+        }}>
+        <ThumbsUp size={12} weight={on ? "fill" : "regular"} />
+        Helpful{n > 0 ? ` ${n}` : ""}
+      </button>
+      {err && <span style={{ fontSize: F.xs, color: C.badInk }}>{err}</span>}
     </div>
   );
 }
@@ -1835,6 +1925,11 @@ function ReviewForm({ toolId, name, onSubmit, initialRating = 0, session = {}, e
       <p className="mt-2" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5, maxWidth: "62ch" }}>
         Posting as {session.email}. Your address is never shown, only the name you put above. One
         rating per account per tool, so posting again replaces this one rather than adding another.
+        {existing?.helpful > 0 && (
+          <> {existing.helpful} {existing.helpful === 1 ? "person has" : "people have"} marked this
+          helpful. Changing the words clears that, because it is what they marked. Changing only the
+          stars keeps it.</>
+        )}
       </p>
       {err && <p className="mt-2" style={{ fontSize: F.xs, color: C.badInk }}>{err}</p>}
       {done && <p className="mt-2" style={{ fontSize: F.xs, color: C.accentInk }}>{done}</p>}
