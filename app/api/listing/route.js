@@ -1,6 +1,6 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { TOOLS } from "@/lib/tools";
+import { catalogueTools } from "@/lib/entries";
 import { ownsListing, sanitiseEdit, saveEdit, mergedTools } from "@/lib/listings";
 import { sendEvent } from "@/lib/mail";
 
@@ -20,7 +20,7 @@ export async function POST(request) {
   }
 
   const { toolId, edit } = await request.json();
-  const tool = TOOLS.find((t) => t.id === toolId);
+  const tool = (await catalogueTools()).find((t) => t.id === toolId);
   if (!tool) return new Response("Unknown tool", { status: 400 });
 
   const owns = await ownsListing(toolId, session.email);

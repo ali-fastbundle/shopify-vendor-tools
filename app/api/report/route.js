@@ -1,6 +1,7 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { TOOLS, reportKindOf } from "@/lib/tools";
+import { reportKindOf } from "@/lib/tools";
+import { catalogueTools } from "@/lib/entries";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 import { sendEvent } from "@/lib/mail";
 
@@ -30,7 +31,7 @@ export async function POST(request) {
   let body;
   try { body = await request.json(); } catch { body = {}; }
 
-  const tool = TOOLS.find((t) => t.id === body.toolId);
+  const tool = (await catalogueTools()).find((t) => t.id === body.toolId);
   if (!tool) return new Response("Unknown tool", { status: 400 });
 
   const kind = reportKindOf(body.kind);

@@ -3,6 +3,9 @@ import { allow, ipOf } from "@/lib/ratelimit";
 import { read, write, KEYS } from "@/lib/store";
 import { getClaims, revokeClaim } from "@/lib/listings";
 import { sendEvent, EVENTS, adminList } from "@/lib/mail";
+import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
+import { TOOLS } from "@/lib/tools";
+import { timesAsked } from "@/lib/suggestions";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +117,78 @@ export async function POST(request) {
     const next = action === "delete-suggestion"
       ? suggestions.filter((s) => s.id !== id)
       : suggestions.map((s) => (s.id === id ? { ...s, approved: true, reviewedAt: new Date().toISOString().slice(0, 10) } : s));
+    await write(KEYS.suggestions, next);
+    return Response.json({ suggestions: next });
+  }
+
+  /*
+   * Approve, and it is live.
+   *
+   * The one place in this console where a click changes the public site. It
+   * takes the draft as the admin edited it rather than as the model wrote it,
+   * runs it through sanitiseEntry, and refuses rather than publishing a blank
+   * caveat or a colliding id. `watch` is required and "none" is rejected: an
+   * entry without a caveat is the vendor's own page with our name on it.
+   *
+   * The entry goes to svt:entries, which mergedTools() reads alongside
+   * lib/tools.js. Nothing is written into the source file, which is both
+   * invariant 4 and the only thing that works: a Vercel filesystem is read
+   * only at runtime. See lib/entries.js.
+   */
+  if (action === "publish-entry") {
+    const suggestions = await read(KEYS.suggestions, []);
+    const suggestion = suggestions.find((s) => s.id === id);
+    if (!suggestion) return new Response("Unknown suggestion", { status: 400 });
+
+    const existing = await getEntries();
+    const taken = [...TOOLS.map((t) => t.id), ...Object.keys(existing || {})];
+    const incoming = body.entry && typeof body.entry === "object" ? body.entry : suggestion.draft;
+    if (!incoming) return new Response("Nothing to publish. Research it first.", { status: 400 });
+
+    /* An id already published from this same suggestion is a re-publish, not a
+       collision, so it is allowed to overwrite itself. */
+    const selfId = suggestion.publishedId || "";
+    const { entry, error } = sanitiseEntry(incoming, {
+      existingIds: taken.filter((t) => t !== selfId),
+    });
+    if (error) return new Response(error, { status: 400 });
+
+    const saved = await saveEntry(entry, {
+      publishedBy: session.email,
+      suggestionId: suggestion.id,
+      suggestedBy: timesAsked(suggestion),
+      draftedBy: incoming.researchedBy || "",
+    });
+
+    const nextSuggestions = suggestions.map((s) => (s.id === id
+      ? { ...s, approved: true, publishedId: saved.id, publishedAt: saved.publishedAt, draft: incoming }
+      : s));
+    await write(KEYS.suggestions, nextSuggestions);
+
+    return Response.json({ suggestions: nextSuggestions, entry: saved, entries: await getEntries() });
+  }
+
+  /* Unpublish. The entry leaves the live site; the suggestion stays in the
+     queue so the demand it represents is not lost with it. */
+  if (action === "unpublish-entry") {
+    const { removed, entries } = await removeEntry(id);
+    if (!removed) return new Response("Unknown entry", { status: 400 });
+    const suggestions = await read(KEYS.suggestions, []);
+    const next = suggestions.map((s) => (s.publishedId === id ? { ...s, publishedId: "" } : s));
+    await write(KEYS.suggestions, next);
+    return Response.json({ entries, suggestions: next });
+  }
+
+  /* Editing a draft without publishing it, so a half-finished entry survives a
+     page reload and two admins see the same thing. */
+  if (action === "save-draft") {
+    const suggestions = await read(KEYS.suggestions, []);
+    if (!suggestions.some((s) => s.id === id)) {
+      return new Response("Unknown suggestion", { status: 400 });
+    }
+    const draft = body.entry && typeof body.entry === "object" ? body.entry : null;
+    if (!draft) return new Response("Nothing to save", { status: 400 });
+    const next = suggestions.map((s) => (s.id === id ? { ...s, draft: { ...(s.draft || {}), ...draft } } : s));
     await write(KEYS.suggestions, next);
     return Response.json({ suggestions: next });
   }

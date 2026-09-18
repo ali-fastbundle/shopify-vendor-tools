@@ -1,6 +1,6 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { TOOLS } from "@/lib/tools";
+import { catalogueTools, isListedId } from "@/lib/entries";
 import { sessionFrom } from "@/lib/auth";
 import { publicReviews, upsertReview } from "@/lib/reviews";
 import { sendEvent } from "@/lib/mail";
@@ -29,7 +29,7 @@ export async function POST(request) {
     return new Response("You have posted a few reviews already. Try again later.", { status: 429 });
   }
   const body = await request.json();
-  if (!TOOLS.some((t) => t.id === body.id)) return new Response("Unknown tool", { status: 400 });
+  if (!(await isListedId(body.id))) return new Response("Unknown tool", { status: 400 });
   const rating = Number(body.rating);
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
     return new Response("Rating must be 1 to 5", { status: 400 });
@@ -48,7 +48,7 @@ export async function POST(request) {
   const { reviews, replaced } = upsertReview(stored, body.id, entry);
   await write(KEYS.reviews, reviews);
 
-  const tool = TOOLS.find((t) => t.id === body.id);
+  const tool = (await catalogueTools()).find((t) => t.id === body.id);
   await sendEvent("review", {
     origin: new URL(request.url).origin,
     toolName: tool.name, toolId: tool.id,

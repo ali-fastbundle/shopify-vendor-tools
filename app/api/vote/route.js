@@ -1,6 +1,6 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { TOOLS } from "@/lib/tools";
+import { isListedId } from "@/lib/entries";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function POST(request) {
     return new Response("Too many votes. Slow down.", { status: 429 });
   }
   const { id, previous, next } = await request.json();
-  if (!TOOLS.some((t) => t.id === id)) return new Response("Unknown tool", { status: 400 });
+  if (!(await isListedId(id))) return new Response("Unknown tool", { status: 400 });
   if (![-1, 0, 1].includes(previous) || ![-1, 0, 1].includes(next)) {
     return new Response("Bad vote", { status: 400 });
   }

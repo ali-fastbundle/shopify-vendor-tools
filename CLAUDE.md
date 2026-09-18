@@ -139,8 +139,13 @@ drafts exist. Seeing a draft takes a deliberate `ALL_` import, which only `/admi
 leak has to be written on purpose rather than forgotten into existence, so keep it that
 way: if you add a catalogue, export the published list under the plain name.
 
-**There is no publish button and there should not be one.** Publishing is deleting
-`draft: true` from the entry in its source file. What makes an entry ready is `note` and
+**There is no publish button for a *file* entry, and there should not be one.** Publishing
+one of these is deleting `draft: true` from the entry in its source file.
+
+(Invariant 22 adds a publish button for a different thing: an entry drafted from a
+suggestion, which lives in Redis and never touches this file. The rule below is about
+`lib/tools.js` and is unchanged by it. A `draft: true` in the file is still published by
+editing the file.) What makes an entry ready is `note` and
 `watch` being right, which is a judgement made while editing the file, not a state to flip
 from a web page. A button would also mean storing published-ness outside the file, and
 then `lib/tools.js` would stop being the truth about what the directory says.
@@ -327,6 +332,91 @@ Not to be confused with `shopifySpecific` on a newsletter, which runs the other
 way round and for the same reason: there, most entries are not about Shopify, so
 the informative label is the positive one.
 
+**20. The model is never the last word, and never the only path.**
+Three features call a model: the matcher, suggestion dedup, and research
+drafts. All three go through `lib/model.js`, which is the only file that reads
+`ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Anthropic first, OpenAI second, either
+pinnable with `MATCH_PROVIDER`, and the other tried when the first fails.
+
+**No model file may be imported by a client component.** `lib/suggestions.js` is
+imported by `components/Admin.jsx`, so the model-backed matching lives in
+`lib/dedup.js` instead. Tree shaking would probably have saved it, and probably
+is not how invariant 2 is kept.
+
+**Every model path has a non-model path behind it.** The matcher falls back to
+local keyword matching, dedup falls back to name and domain matching, and
+research simply refuses rather than half-working. A submission is never lost
+because a model was unavailable: no key, a timeout, a 500, unparseable JSON, an
+invented id or a low confidence all land on the string matching, which lands on
+storing a new row. The worst outcome reachable here is a duplicate row an editor
+merges by hand.
+
+A verdict is ignored below `0.7` confidence, and an id the model returns is
+checked against the list it was given, because inventing one is the failure that
+would merge a submission into nothing at all.
+
+**Every dedup verdict is logged to `svt:dedupelog`** with the provider, the
+confidence, the reason and whether the model or the strings decided. A merge is
+the only destructive outcome in that pipeline, so it is the one that has to be
+answerable afterwards. `/admin` renders the last 60.
+
+**21. A drafted entry is a draft until a person publishes it.**
+`Research and draft` fetches the vendor's own pages and asks a model to write
+`one`, `note`, `watch`, `price`, `free`, `domain`, `social`, `cat` and `tags`.
+The prompt makes it go looking for what a vendor would not say: who owns or
+built it, whether it shares an owner with anything in the catalogue, whether an
+advertised rating can be stood up, whether pricing is genuinely published, how
+old and how established it is, and what it could not verify.
+
+**`watch` of "none" is refused by the software**, not just discouraged in the
+prompt. `sanitiseEntry` rejects "none", "n/a", "nothing" and their variants. If
+the research finds no caveat it must say what it checked and failed to find,
+because an absence of evidence about ownership, pricing or age is itself the
+caveat.
+
+Everything the model repeated without being able to check it lands in
+`unconfirmed`, which renders above the fields on `/admin` in the warning colour.
+Nothing else in this console is coloured like that on purpose.
+
+**What research must never do:**
+- **Fetch a review platform.** Only the vendor's own origin is fetched, seven
+  known paths, nothing else. G2 and Trustpilot terms prohibit crawling and that
+  invariant is older than this feature. The consequence is that an advertised
+  score cannot be checked, and the prompt says to record it as the vendor's
+  claim rather than assert it.
+- **Produce `ratings`.** Stripped on the way in. External scores are entered by
+  hand in the file, from the platform's own page, with a `captured` date.
+- **Set `verified: true`.** Forced to false whatever the model says. Verified
+  means a person read the vendor's site, and a model reading it is not that.
+
+A page under 200 characters is recorded as thin rather than read, because a
+client-rendered `/team` returning an empty shell would otherwise read as "they
+have no team page", which is a finding the caveat would lean on.
+
+**22. Approving publishes to Redis, never into `lib/tools.js`.**
+`Approve and publish` writes to `svt:entries`, which `mergedTools()` reads
+alongside the file. Two reasons, and the first is not a preference: **a Vercel
+function's filesystem is read only**, so there is no version of "write the entry
+into the source file" that works in production. The second is invariant 4, which
+survives intact because of the first. Nothing mutates the editorial file at
+runtime, and a bad entry is one key delete away, exactly like a bad vendor
+override.
+
+A published entry is a first-class catalogue member: `catalogueTools()` is what
+every write route validates ids against, so it can be voted on, reviewed,
+reported, claimed, matched and counted exactly like one from the file. Adding a
+route that checks `TOOLS` directly is the bug this arrangement prevents.
+
+`Copy as entry stub` is how an entry graduates into the file, and it is worth
+doing for anything meant to last: the file is reviewable in git and Redis is
+not. Nothing forces it and nothing breaks without it.
+
+**Suggestion counts are demand, and they are shown.** `suggestedBy` rides from
+the merged suggestion onto the published entry and renders as "suggested by N
+people" in the `Facts` line on the card and the detail view, above one only. The
+admin queue sorts by it, so what the most people asked for is what gets reviewed
+first.
+
 ## Layout
 
 | Path | Role |
@@ -341,7 +431,11 @@ the informative label is the positive one.
 | `lib/drafts.js` | `draft: true`, and the `published()` filter every catalogue passes through |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |
-| `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists |
+| `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists. Client-safe, so no model import |
+| `lib/dedup.js` | Model-first dedup with the string matching as fallback, and the verdict log |
+| `lib/model.js` | The provider chain. The only reader of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
+| `lib/research.js` | Fetches a vendor's own pages and drafts an entry from them |
+| `lib/entries.js` | Entries published from the admin queue, and `catalogueTools()`, the catalogue everything validates against |
 | `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, and the only thing that strips an address off either |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |

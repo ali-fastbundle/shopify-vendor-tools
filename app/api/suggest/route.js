@@ -2,11 +2,16 @@ import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { CATEGORIES, RESOURCE_KINDS, kindOf } from "@/lib/tools";
 import { entriesOf } from "@/lib/sections";
-import { findListed, findDuplicate, mergeDuplicate, timesAsked } from "@/lib/suggestions";
+import { catalogueTools } from "@/lib/entries";
+import { resolveSubmission } from "@/lib/dedup";
+import { mergeDuplicate, timesAsked } from "@/lib/suggestions";
 import { sendEvent } from "@/lib/mail";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+/* The model call is bounded at 20s inside lib/dedup, and this has to outlast
+   it plus two store round trips. */
+export const maxDuration = 60;
 
 const clean = (s, max) => String(s || "").replace(/\s+/g, " ").trim().slice(0, max);
 
@@ -50,46 +55,68 @@ export async function POST(request) {
   };
 
   /*
-   * Already in the directory. Nothing is stored: the useful answer is the link,
-   * not a queue item, and a suggestion for something a visitor could already be
-   * reading is a navigation failure rather than a gap in the catalogue.
+   * What this is compared against.
    *
-   * Matched against the published list, so a drafted entry does not answer this
-   * way — somebody asking for something we are already writing is the demand
-   * signal that makes it worth finishing, and it falls through to the queue.
+   * Tools get the file plus anything published from the admin queue, because
+   * an entry approved yesterday is as listed as one written a year ago. Other
+   * kinds get their own published catalogue. Published, in both cases: a draft
+   * is not listed, so answering "already listed" about one would be a lie, and
+   * somebody asking for something already in draft is the demand signal that
+   * makes it worth finishing.
+   *
+   * Only same-kind suggestions are candidates for a merge. A podcast called
+   * Shoptalk and a tool called Shoptalk are not the same request.
    */
-  const listed = findListed(submission, entriesOf(kind));
-  if (listed) {
-    return Response.json({
-      alreadyListed: { id: listed.id, name: listed.name, url: listed.url, kind },
-      suggestions: publicList(suggestions),
-    });
+  const catalogue = kind === "tool" ? await catalogueTools() : entriesOf(kind);
+  const sameKind = suggestions.filter((s) => (s.kind || "tool") === kind);
+
+  const { kind: outcome, id: matchedId, decidedBy } =
+    await resolveSubmission(submission, { catalogue, suggestions: sameKind });
+
+  /*
+   * Already in the directory. Nothing is stored: the useful answer is the
+   * link, and /admin should not collect queue items for things a visitor could
+   * already be reading.
+   */
+  if (outcome === "tool") {
+    const listed = catalogue.find((t) => t.id === matchedId);
+    if (listed) {
+      return Response.json({
+        alreadyListed: { id: listed.id, name: listed.name, url: listed.url, kind },
+        decidedBy,
+        suggestions: publicList(suggestions),
+      });
+    }
   }
 
   /*
    * Somebody has already asked for this. Increment the row that exists rather
    * than writing a second one, so the queue shows demand instead of hiding it
-   * across duplicate entries.
+   * across duplicate entries. Every submitted URL and reason is kept on the
+   * row: the second person's reason is usually not the first person's.
    */
-  const duplicate = findDuplicate(submission, suggestions);
-  if (duplicate) {
-    const merged = mergeDuplicate(duplicate, submission);
-    const next = suggestions.map((s) => (s.id === duplicate.id ? merged : s));
-    await write(KEYS.suggestions, next);
+  if (outcome === "suggestion") {
+    const duplicate = suggestions.find((s) => s.id === matchedId);
+    if (duplicate) {
+      const merged = mergeDuplicate(duplicate, submission);
+      const next = suggestions.map((s) => (s.id === duplicate.id ? merged : s));
+      await write(KEYS.suggestions, next);
 
-    await sendEvent("suggestion", {
-      origin: new URL(request.url).origin,
-      name: merged.name, url: merged.url, why: submission.why, by: submission.by,
-      email: submission.email, approved: merged.approved,
-      alsoAsked: timesAsked(merged),
-      kindLabel: kindOf(kind).label,
-      catLabel: kind === "tool" ? (CATEGORIES.find((c) => c.id === merged.cat)?.label || merged.cat) : "",
-    });
+      await sendEvent("suggestion", {
+        origin: new URL(request.url).origin,
+        name: merged.name, url: merged.url, why: submission.why, by: submission.by,
+        email: submission.email, approved: merged.approved,
+        alsoAsked: timesAsked(merged),
+        kindLabel: kindOf(kind).label,
+        catLabel: kind === "tool" ? (CATEGORIES.find((c) => c.id === merged.cat)?.label || merged.cat) : "",
+      });
 
-    return Response.json({
-      duplicate: { name: merged.name, count: timesAsked(merged) },
-      suggestions: publicList(next),
-    });
+      return Response.json({
+        duplicate: { name: merged.name, count: timesAsked(merged) },
+        decidedBy,
+        suggestions: publicList(next),
+      });
+    }
   }
 
   const entry = {
@@ -109,5 +136,5 @@ export async function POST(request) {
     catLabel: entry.kind === "tool" ? (CATEGORIES.find((c) => c.id === entry.cat)?.label || entry.cat) : "",
   });
 
-  return Response.json({ suggestions: publicList(next) });
+  return Response.json({ suggestions: publicList(next), decidedBy });
 }

@@ -1,6 +1,6 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { TOOLS } from "@/lib/tools";
+import { isListedId } from "@/lib/entries";
 import { sessionFrom } from "@/lib/auth";
 import { publicReviews, toggleHelpful } from "@/lib/reviews";
 
@@ -39,7 +39,7 @@ export async function POST(request) {
   let body;
   try { body = await request.json(); } catch { body = {}; }
 
-  if (!TOOLS.some((t) => t.id === body.toolId)) {
+  if (!(await isListedId(body.toolId))) {
     return new Response("Unknown tool", { status: 400 });
   }
   if (!body.reviewId || typeof body.reviewId !== "string") {

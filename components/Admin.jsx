@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { outbound } from "@/lib/outbound";
-import { C, S, R, F, TRACK, ink, ALL_TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
+import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_COMMUNITIES } from "@/lib/communities";
 import { drafted } from "@/lib/drafts";
@@ -15,10 +15,11 @@ import { ThemeToggle } from "./Theme";
  * ADMIN_EMAILS — this is the view, not the gate, and every button posts to
  * /api/admin which re-checks on its own.
  */
-export default function AdminPanel({ email, suggestions, claims, subscribers, reports, accounts, stats, maillog }) {
+export default function AdminPanel({ email, suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog }) {
   const [rows, setRows] = useState(suggestions || []);
   const [claimRows, setClaimRows] = useState(claims || {});
   const [reportRows, setReportRows] = useState(reports || []);
+  const [entryRows, setEntryRows] = useState(entries || {});
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
 
@@ -79,10 +80,10 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
           {pending.length === 0
             ? <Empty>Nothing waiting. With MODERATE_SUGGESTIONS unset, suggestions go public on submit and never land here.</Empty>
             : [...pending].sort(byDemand).map((s) => (
-              <SuggestionRow key={s.id} s={s}>
+              <SuggestionRow key={s.id} s={s}
+                footer={<DraftPanel s={s} onSuggestions={setRows} onEntries={setEntryRows} />}>
                 <Btn onClick={() => act("mark-reviewed", s.id)}
                   busy={busy === "mark-reviewed" + s.id} tone="go">Mark reviewed</Btn>
-                <CopyStub s={s} />
                 <Btn onClick={() => act("delete-suggestion", s.id)}
                   busy={busy === "delete-suggestion" + s.id} tone="stop">Delete</Btn>
               </SuggestionRow>
@@ -94,9 +95,17 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
           {approved.length === 0
             ? <Empty>No suggestions yet.</Empty>
             : [...approved].sort(byDemand).map((s) => (
-              <SuggestionRow key={s.id} s={s}><CopyStub s={s} /></SuggestionRow>
+              <SuggestionRow key={s.id} s={s}
+                footer={<DraftPanel s={s} onSuggestions={setRows} onEntries={setEntryRows} />}>
+                <Btn onClick={() => act("delete-suggestion", s.id)}
+                  busy={busy === "delete-suggestion" + s.id} tone="stop">Delete</Btn>
+              </SuggestionRow>
             ))}
         </Section>
+
+        <PublishedEntries entries={entryRows} onEntries={setEntryRows} />
+
+        <DedupeLog rows={dedupelog || []} />
 
         <ClaimsTable
           title="Verified claims"
@@ -449,7 +458,7 @@ function Empty({ children }) {
   return <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: "16px 0" }}>{children}</p>;
 }
 
-function SuggestionRow({ s, children }) {
+function SuggestionRow({ s, children, footer }) {
   const k = kindOf(s.kind);
   const asked = timesAsked(s);
   const also = Array.isArray(s.also) ? s.also : [];
@@ -463,7 +472,8 @@ function SuggestionRow({ s, children }) {
         )}
         {/* The reason duplicates are folded together rather than filed
             separately: one row, and a number on it you can sort by. */}
-        {asked > 1 && <Pill>asked {asked}×</Pill>}
+        {asked > 1 && <Pill>suggested by {asked} people</Pill>}
+        {s.publishedId && <Pill>published as {s.publishedId}</Pill>}
       </div>
       {s.why && <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: "4px 0 0", maxWidth: "72ch" }}>{s.why}</p>}
       <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0" }}>
@@ -483,6 +493,7 @@ function SuggestionRow({ s, children }) {
         </div>
       )}
       {children && <div className="flex flex-wrap mt-2" style={{ gap: S.sm }}>{children}</div>}
+      {footer}
     </div>
   );
 }
@@ -1037,5 +1048,307 @@ function Subscribers({ list }) {
       </div>
       {copied && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "8px 0 0" }}>{copied}</p>}
     </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Research, review, publish                                          */
+/*                                                                     */
+/*  The model writes a first draft from the vendor's own pages. A      */
+/*  person reads it, edits anything, and only then does it go live.    */
+/*  That order is the whole design: a model reading a vendor's site    */
+/*  writes the vendor's version of the truth, and the caveats are what */
+/*  this directory is for. Nothing below publishes without the click.  */
+/* ------------------------------------------------------------------ */
+
+const FIELD = {
+  background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
+  padding: "6px 10px", fontSize: F.sm, color: C.text, fontFamily: "inherit", width: "100%",
+};
+
+const LABEL = { fontSize: F.xs, color: C.dim, fontWeight: 600, display: "block", marginBottom: 4 };
+
+function Field({ label, children, hint }) {
+  return (
+    <div style={{ marginTop: S.md }}>
+      <label style={LABEL}>{label}</label>
+      {children}
+      {hint && <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0", lineHeight: 1.5 }}>{hint}</p>}
+    </div>
+  );
+}
+
+function Grow({ value, onChange, rows = 3, ...rest }) {
+  return <textarea value={value} onChange={onChange} rows={rows}
+    style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} {...rest} />;
+}
+
+function DraftPanel({ s, onSuggestions, onEntries }) {
+  const [draft, setDraft] = useState(s.draft || null);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const [note, setNote] = useState("");
+  const published = Boolean(s.publishedId);
+
+  const set = (k, v) => setDraft((d) => ({ ...(d || {}), [k]: v }));
+
+  async function research() {
+    setBusy("research"); setErr(""); setNote("");
+    try {
+      const res = await fetch("/api/admin/research", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: s.id }),
+      });
+      if (!res.ok) { setErr(await res.text()); return; }
+      const d = await res.json();
+      setDraft(d.draft);
+      if (d.suggestions) onSuggestions(d.suggestions);
+      setNote(`Drafted by ${d.provider}. Read it before you publish it.`);
+    } catch {
+      setErr("Could not reach the server.");
+    } finally { setBusy(""); }
+  }
+
+  async function post(action, extra) {
+    setBusy(action); setErr(""); setNote("");
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, id: s.id, ...extra }),
+      });
+      if (!res.ok) { setErr(await res.text()); return null; }
+      const d = await res.json();
+      if (d.suggestions) onSuggestions(d.suggestions);
+      if (d.entries) onEntries(d.entries);
+      return d;
+    } catch {
+      setErr("Could not reach the server."); return null;
+    } finally { setBusy(""); }
+  }
+
+  const tagText = Array.isArray(draft?.tags) ? draft.tags.join(", ") : "";
+
+  if (!draft) {
+    return (
+      <div className="mt-2">
+        <Btn onClick={research} busy={busy === "research"} tone="go">Research and draft</Btn>
+        {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      marginTop: S.md, background: C.raised, border: `1px solid ${C.line}`,
+      borderLeft: `3px solid ${published ? C.accent : C.edge}`,
+      borderRadius: R.card, padding: S.lg,
+    }}>
+      <div className="flex flex-wrap items-baseline justify-between" style={{ gap: S.sm }}>
+        <span style={{ fontSize: F.sm, fontWeight: 700 }}>
+          {published ? "Published" : "Draft, not published"}
+        </span>
+        <span style={{ fontSize: F.xs, color: C.dim }}>
+          {draft.researchedBy ? `drafted by ${draft.researchedBy}` : "hand written"}
+          {draft.researchedAt ? ` · ${String(draft.researchedAt).slice(0, 16).replace("T", " ")}` : ""}
+        </span>
+      </div>
+
+      {(draft.pagesRead?.length || draft.pagesFailed?.length) && (
+        <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>
+          Read: {draft.pagesRead?.join(", ") || "nothing"}
+          {draft.pagesFailed?.length ? ` · could not read: ${draft.pagesFailed.join(", ")}` : ""}
+        </p>
+      )}
+
+      {/* The reason this screen exists. Anything the model repeated without
+          being able to check it is listed before the fields, not after. */}
+      {draft.unconfirmed?.length > 0 && (
+        <div style={{
+          marginTop: S.md, background: C.badSoft, border: `1px solid ${C.badEdge}`,
+          borderRadius: R.control, padding: S.md,
+        }}>
+          <p style={{ fontSize: F.xs, color: C.badInk, fontWeight: 700, margin: 0 }}>
+            Unverified, taken from the vendor's own pages
+          </p>
+          <ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>
+            {draft.unconfirmed.map((u, i) => (
+              <li key={i} style={{ fontSize: F.xs, color: C.muted, lineHeight: 1.55 }}>{u}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(draft.ownership || draft.sharedOwnerWith) && (
+        <p style={{ fontSize: F.xs, color: C.muted, margin: `${S.md}px 0 0`, lineHeight: 1.55 }}>
+          <b style={{ color: C.text }}>Ownership. </b>{draft.ownership || "not stated"}
+          {draft.sharedOwnerWith ? ` · shares an owner with ${draft.sharedOwnerWith}` : ""}
+          {typeof draft.confidence === "number" ? ` · model confidence ${draft.confidence}` : ""}
+        </p>
+      )}
+
+      <div className="flex flex-wrap" style={{ gap: S.md }}>
+        <div style={{ flex: "1 1 220px" }}>
+          <Field label="name"><input style={FIELD} value={draft.name || ""} onChange={(e) => set("name", e.target.value)} /></Field>
+        </div>
+        <div style={{ flex: "1 1 160px" }}>
+          <Field label="cat">
+            <select style={FIELD} value={draft.cat || CATEGORIES[0].id} onChange={(e) => set("cat", e.target.value)}>
+              {CATEGORIES.map((c) => <option key={c.id} value={c.id} style={{ background: C.panel }}>{c.id} · {c.label}</option>)}
+            </select>
+          </Field>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap" style={{ gap: S.md }}>
+        <div style={{ flex: "1 1 240px" }}>
+          <Field label="url"><input style={FIELD} value={draft.url || ""} onChange={(e) => set("url", e.target.value)} /></Field>
+        </div>
+        <div style={{ flex: "1 1 160px" }}>
+          <Field label="domain"><input style={FIELD} value={draft.domain || ""} onChange={(e) => set("domain", e.target.value)} /></Field>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-end" style={{ gap: S.md }}>
+        <div style={{ flex: "1 1 200px" }}>
+          <Field label="price"><input style={FIELD} value={draft.price || ""} onChange={(e) => set("price", e.target.value)} /></Field>
+        </div>
+        <label className="flex items-center" style={{ gap: S.sm, fontSize: F.sm, color: C.muted, paddingBottom: 6 }}>
+          <input type="checkbox" checked={Boolean(draft.free)} onChange={(e) => set("free", e.target.checked)} />
+          free tier
+        </label>
+        <label className="flex items-center" style={{ gap: S.sm, fontSize: F.sm, color: C.muted, paddingBottom: 6 }}>
+          <input type="checkbox" checked={draft.shopifyExclusive === false}
+            onChange={(e) => set("shopifyExclusive", e.target.checked ? false : true)} />
+          not Shopify-only
+        </label>
+      </div>
+
+      <Field label="one"><input style={FIELD} value={draft.one || ""} onChange={(e) => set("one", e.target.value)} /></Field>
+      <Field label="note"><Grow rows={5} value={draft.note || ""} onChange={(e) => set("note", e.target.value)} /></Field>
+      <Field label="watch"
+        hint="Required, and &quot;none&quot; is refused. If there is no caveat, say what was checked and not found.">
+        <Grow rows={5} value={draft.watch || ""} onChange={(e) => set("watch", e.target.value)} />
+      </Field>
+      <Field label="tags" hint="Comma separated.">
+        <input style={FIELD} value={tagText}
+          onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))} />
+      </Field>
+
+      <div className="flex flex-wrap" style={{ gap: S.md }}>
+        {SOCIALS.map(({ key, label, placeholder }) => (
+          <div key={key} style={{ flex: "1 1 200px" }}>
+            <Field label={`social.${key} (${label})`}>
+              <input style={FIELD} placeholder={placeholder} value={draft.social?.[key] || ""}
+                onChange={(e) => set("social", { ...(draft.social || {}), [key]: e.target.value })} />
+            </Field>
+          </div>
+        ))}
+      </div>
+
+      <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.55, maxWidth: "76ch" }}>
+        Publishing writes this to <code style={{ color: C.muted }}>svt:entries</code>, which the live
+        site reads alongside <code style={{ color: C.muted }}>lib/tools.js</code>. It goes live
+        immediately. It is set <code style={{ color: C.muted }}>verified: false</code> whatever the
+        model said, because verified means a person read the vendor's site. External ratings are never
+        drafted here: those are entered by hand in the file, from the platform's own page.
+      </p>
+
+      <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
+        <Btn onClick={() => post("publish-entry", { entry: draft })} busy={busy === "publish-entry"} tone="go">
+          {published ? "Republish with these edits" : "Approve and publish"}
+        </Btn>
+        <Btn onClick={() => post("save-draft", { entry: draft })} busy={busy === "save-draft"}>Save draft</Btn>
+        <Btn onClick={research} busy={busy === "research"}>Research again</Btn>
+        {published && (
+          <Btn onClick={() => post("unpublish-entry", { id: s.publishedId })}
+            busy={busy === "unpublish-entry"} tone="stop">Unpublish</Btn>
+        )}
+        <CopyStub s={{ ...s, draft }} />
+      </div>
+
+      {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>}
+      {note && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "8px 0 0" }}>{note}</p>}
+    </div>
+  );
+}
+
+/* Published from the queue, and live right now. Separate from the file, which
+   is what git reviews; this is what Redis holds. */
+function PublishedEntries({ entries, onEntries }) {
+  const rows = Object.values(entries || {});
+  const [busy, setBusy] = useState("");
+
+  async function unpublish(id) {
+    setBusy(id);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unpublish-entry", id }),
+      });
+      if (res.ok) { const d = await res.json(); if (d.entries) onEntries(d.entries); }
+    } finally { setBusy(""); }
+  }
+
+  return (
+    <Section
+      title="Published from the queue"
+      count={rows.length}
+      hint="Live on the site now, stored in svt:entries rather than in lib/tools.js, because a Vercel filesystem is read only at runtime. Promote anything worth keeping into the file with Copy as entry stub: the file is what git reviews, this is not."
+    >
+      {rows.length === 0
+        ? <Empty>Nothing published this way yet. Everything on the site comes from lib/tools.js.</Empty>
+        : rows.map((e) => (
+          <div key={e.id} style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0" }}>
+            <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+              <span style={{ fontSize: F.lg, fontWeight: 700 }}>{e.name}</span>
+              <span style={{ fontSize: F.xs, color: ink(catOf(e.cat).color) }}>{catOf(e.cat).label}</span>
+              <span style={{ fontSize: F.xs, color: C.dim }}>{e.id}</span>
+              {e.suggestedBy > 1 && <Pill>suggested by {e.suggestedBy}</Pill>}
+              {e.shopifyExclusive === false && <Pill>not Shopify-only</Pill>}
+            </div>
+            <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.5 }}>{e.one}</p>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0" }}>
+              published {e.publishedAt} by {e.publishedBy}
+              {e.draftedBy ? ` · drafted by ${e.draftedBy}` : ""}
+              {e.unconfirmed?.length ? ` · ${e.unconfirmed.length} unverified claim${e.unconfirmed.length === 1 ? "" : "s"}` : ""}
+            </p>
+            <div className="flex mt-2" style={{ gap: S.sm }}>
+              <Btn onClick={() => unpublish(e.id)} busy={busy === e.id} tone="stop">Unpublish</Btn>
+            </div>
+          </div>
+        ))}
+    </Section>
+  );
+}
+
+/* Why a submission was merged, or was not. The only destructive outcome in the
+   suggestion pipeline is a merge, so it is the one that has to be answerable. */
+function DedupeLog({ rows }) {
+  return (
+    <Section
+      title="Dedup decisions"
+      count={rows.length}
+      hint="Every submission, what it was matched to, and what decided it. `model` means the model was confident enough; `strings` means it was unavailable or unsure and name and domain matching decided instead."
+    >
+      {rows.length === 0
+        ? <Empty>No submissions since this log started.</Empty>
+        : rows.map((r, i) => (
+          <div key={i} style={{ borderTop: `1px solid ${C.line}`, padding: "10px 0" }}>
+            <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+              <span style={{ fontSize: F.sm, fontWeight: 600 }}>{r.submitted?.name}</span>
+              <span style={{ fontSize: F.xs, color: r.outcome === "none" ? C.dim : ink("#FFB020") }}>
+                {r.outcome === "none" ? "stored as new" : `merged into ${r.outcome} ${r.matchedId}`}
+              </span>
+              <span style={{ fontSize: F.xs, color: C.dim }}>by {r.decidedBy}</span>
+              <span style={{ fontSize: F.xs, color: C.dim }}>{String(r.at || "").slice(0, 16).replace("T", " ")}</span>
+            </div>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0", lineHeight: 1.5, maxWidth: "76ch" }}>
+              {r.model?.unavailable
+                ? `model unavailable: ${r.model.unavailable}`
+                : `${r.model?.provider} said ${r.model?.said || "none"}${r.model?.id ? ` (${r.model.id})` : ""} at ${r.model?.confidence}${r.model?.reason ? `: ${r.model.reason}` : ""}${r.model?.dropped ? ` · ignored, ${r.model.dropped}` : ""}`}
+            </p>
+          </div>
+        ))}
+    </Section>
   );
 }

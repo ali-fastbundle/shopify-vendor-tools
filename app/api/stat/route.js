@@ -1,6 +1,6 @@
 import { bumpStats } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { TOOLS } from "@/lib/tools";
+import { catalogueTools } from "@/lib/entries";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +38,14 @@ export async function POST(request) {
   // Unknown ids are dropped rather than counted, so the hash cannot be seeded
   // with junk fields by anyone posting arbitrary strings.
   const opens = Array.isArray(body.tools) ? body.tools.slice(0, MAX_EVENTS) : [];
-  for (const id of opens) {
-    if (TOOLS.some((t) => t.id === id)) fields[`tool:${id}`] = (fields[`tool:${id}`] || 0) + 1;
+  if (opens.length) {
+    /* Read once for the whole batch rather than per id: this is the hot path
+       and an entry published from the queue is as countable as one in the
+       file. */
+    const known = new Set((await catalogueTools()).map((t) => t.id));
+    for (const id of opens) {
+      if (known.has(id)) fields[`tool:${id}`] = (fields[`tool:${id}`] || 0) + 1;
+    }
   }
 
   const uses = Number(body.matcher);

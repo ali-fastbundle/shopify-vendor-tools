@@ -1350,6 +1350,9 @@ function Facts({ tool }) {
     tool.suite && `part of ${tool.suite}`,
     tool.linked && `same owner as ${tool.linked}`,
     tool.owner && `by ${tool.owner}`,
+    /* Only above one. "Suggested by 1 person" is how everything got here and
+       says nothing; the number is only information once it is demand. */
+    tool.suggestedBy > 1 && `suggested by ${tool.suggestedBy} people`,
     tool.claimed && "claimed",
     !tool.verified && "unverified",
   ].filter(Boolean);
@@ -2308,6 +2311,11 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
                         : <span style={{ fontSize: F.xs, color: ink(catOf(s.cat).color) }}>{catOf(s.cat).label}</span>}
                     </div>
                     {s.why && <p className="mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, maxWidth: "50ch" }}>{s.why}</p>}
+                    {s.count > 1 && (
+                      <p className="mt-1" style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 600 }}>
+                        Suggested by {s.count} people
+                      </p>
+                    )}
                     <p className="mt-1" style={{ fontSize: F.xs, color: C.dim }}>
                       {s.by} · {s.date}
                       {s.url && <>{" "}<a href={outbound(s.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}

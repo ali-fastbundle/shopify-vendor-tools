@@ -1,5 +1,5 @@
 import { configured, isEmail, mintLoginToken, normaliseEmail } from "@/lib/auth";
-import { TOOLS } from "@/lib/tools";
+import { isListedId } from "@/lib/entries";
 import { isSendingRestricted } from "@/lib/email";
 import { sendEvent } from "@/lib/mail";
 import { allow, ipOf } from "@/lib/ratelimit";
@@ -26,7 +26,7 @@ export async function POST(request) {
    * then travels inside the signed token, so an unknown or malformed one is
    * dropped rather than carried, and the callback cannot be pointed anywhere.
    */
-  const back = TOOLS.some((t) => t.id === tool) ? tool : "";
+  const back = (await isListedId(tool)) ? tool : "";
 
   const origin = new URL(request.url).origin;
   const link = `${origin}/api/auth/callback?token=${encodeURIComponent(mintLoginToken(addr, back))}`;
