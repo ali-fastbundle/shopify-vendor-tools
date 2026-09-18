@@ -15,11 +15,12 @@ import { ThemeToggle } from "./Theme";
  * ADMIN_EMAILS — this is the view, not the gate, and every button posts to
  * /api/admin which re-checks on its own.
  */
-export default function AdminPanel({ email, suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog }) {
+export default function AdminPanel({ email, suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog, changelog, monitor, changesSeen }) {
   const [rows, setRows] = useState(suggestions || []);
   const [claimRows, setClaimRows] = useState(claims || {});
   const [reportRows, setReportRows] = useState(reports || []);
   const [entryRows, setEntryRows] = useState(entries || {});
+  const [seen, setSeen] = useState(changesSeen || {});
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
 
@@ -67,6 +68,8 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
             <p className="mt-3" style={{ fontSize: F.sm, color: C.badInk, margin: "12px 0 0" }}>{err}</p>
           )}
         </header>
+
+        <ChangeMonitor rows={changelog || []} monitor={monitor} seen={seen} onSeen={setSeen} />
 
         <Drafts />
 
@@ -825,6 +828,16 @@ function Stats({ stats }) {
   );
 }
 
+/*
+ * A second copy of the matrix's keys, which is normally the thing this codebase
+ * refuses to do. It is deliberate here: lib/mail.js exports EVENTS, but it also
+ * holds the Resend transport and the API key, and importing it into a client
+ * component would drag both into the browser bundle. The labels have to live
+ * somewhere the client can read.
+ *
+ * The cost is that this list can fall behind MATRIX, which it has done at least
+ * once. Adding a row to MATRIX means adding one here.
+ */
 const MAIL_EVENTS = [
   ["signin_new", "Sign-in (new)"],
   ["signin_return", "Sign-in (returning)"],
@@ -835,6 +848,7 @@ const MAIL_EVENTS = [
   ["suggestion", "Suggestion"],
   ["report", "Report"],
   ["listing_edited", "Listing edited"],
+  ["monitor_digest", "Weekly change digest"],
 ];
 
 /*
@@ -1349,6 +1363,152 @@ function DedupeLog({ rows }) {
             </p>
           </div>
         ))}
+    </Section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Weekly change monitor                                              */
+/*                                                                     */
+/*  Proposals, not edits. Nothing in this panel has changed a listing   */
+/*  and nothing in it can: the monitor writes to svt:changelog and      */
+/*  stops. "Update listing" opens the listing so a person makes the     */
+/*  change, which is the same reason the suggestion pipeline ends in a  */
+/*  human click.                                                       */
+/* ------------------------------------------------------------------ */
+
+const KIND_LABEL = {
+  pricing: "Pricing", "free-tier": "Free tier", "wind-down": "Winding down",
+  acquisition: "Acquired", "new-capability": "New capability",
+  "dead-page": "Page dead", scale: "Scale numbers", ownership: "Ownership",
+};
+
+/* Two hues only, and both already in the palette: the warning colour for the
+   ones that change what the listing claims, neutral for the rest. A colour per
+   kind is how eight unrelated hues end up next to a spine that means something. */
+const LOUD = new Set(["wind-down", "acquisition", "dead-page", "free-tier", "pricing"]);
+
+function ChangeMonitor({ rows, monitor, seen, onSeen }) {
+  const [busy, setBusy] = useState("");
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState("");
+  const [dismissed, setDismissed] = useState(seen || {});
+  const [showDone, setShowDone] = useState(false);
+
+  const open = rows.filter((r) => !dismissed[r.id]);
+  const closed = rows.filter((r) => dismissed[r.id]);
+  const shown = showDone ? [...open, ...closed] : open;
+
+  async function mark(id, action) {
+    setBusy(id);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, id }),
+      });
+      if (res.ok) { const d = await res.json(); setDismissed(d.dismissed || {}); onSeen?.(d.dismissed || {}); }
+    } finally { setBusy(""); }
+  }
+
+  async function runNow() {
+    setRunning(true); setResult("");
+    try {
+      const res = await fetch("/api/cron/monitor", { method: "POST" });
+      if (!res.ok) { setResult(await res.text()); return; }
+      const d = await res.json();
+      setResult(`Checked ${d.checked} of ${d.total} in ${Math.round(d.tookMs / 1000)}s. ${d.changes} change${d.changes === 1 ? "" : "s"}.${d.emailed ? " Digest sent." : " Nothing emailed, which is the usual answer."}${d.stopped ? ` Stopped early: ${d.stopped}.` : ""} Reload to see them.`);
+    } catch {
+      setResult("Could not reach the server.");
+    } finally { setRunning(false); }
+  }
+
+  return (
+    <Section
+      title="Listing changes"
+      count={open.length}
+      hint="Proposed by the weekly monitor, newest first. Nothing here has been applied: the monitor reads the vendor's pages and reports, it never edits a listing. Update listing opens the entry so you make the change yourself."
+    >
+      <div className="flex flex-wrap items-center" style={{ gap: S.md, padding: "12px 0" }}>
+        <Btn onClick={runNow} busy={running} tone="go">Run the monitor now</Btn>
+        <span style={{ fontSize: F.xs, color: C.dim }}>
+          {monitor?.lastRunAt
+            ? `Last run ${String(monitor.lastRunAt).slice(0, 16).replace("T", " ")} · checked ${monitor.lastChecked || 0} of ${monitor.lastTotal || 0} · ${monitor.lastCount || 0} change${monitor.lastCount === 1 ? "" : "s"}`
+            : "Never run. Weekly on Mondays once the cron is live."}
+        </span>
+        {closed.length > 0 && (
+          <button onClick={() => setShowDone((v) => !v)} style={{
+            background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+            fontSize: F.xs, color: C.dim, textDecoration: "underline",
+          }}>{showDone ? "hide" : "show"} {closed.length} dismissed</button>
+        )}
+      </div>
+
+      {result && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "0 0 12px", lineHeight: 1.55 }}>{result}</p>}
+
+      {monitor?.notes?.length > 0 && (
+        <p style={{ fontSize: F.xs, color: C.dim, margin: "0 0 12px", lineHeight: 1.55, maxWidth: "76ch" }}>
+          Last run also noted: {monitor.notes.join(" · ")}
+        </p>
+      )}
+
+      {shown.length === 0
+        ? <Empty>Nothing proposed. Most weeks this is the correct answer, and an empty digest is not emailed.</Empty>
+        : shown.map((r) => {
+          const done = Boolean(dismissed[r.id]);
+          return (
+            <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, padding: "14px 0", opacity: done ? 0.55 : 1 }}>
+              <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+                <span style={{ fontSize: F.lg, fontWeight: 700 }}>{r.entryName}</span>
+                <span style={{
+                  fontSize: F.xs, fontWeight: 700,
+                  color: LOUD.has(r.kind) ? C.warnInk : C.muted,
+                }}>{KIND_LABEL[r.kind] || r.kind}</span>
+                {r.editListing && <Pill tone="warn">listing needs editing</Pill>}
+                <span style={{ fontSize: F.xs, color: C.dim }}>
+                  confidence {r.confidence} · {String(r.at || "").slice(0, 10)}
+                </span>
+              </div>
+
+              <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.55, maxWidth: "76ch" }}>{r.what}</p>
+
+              {(r.old || r.new) && (
+                <p className="tnum" style={{ fontSize: F.sm, color: C.muted, margin: "6px 0 0", lineHeight: 1.55 }}>
+                  <span style={{ color: C.dim }}>was</span> {r.old || "absent"}
+                  {"  "}<span style={{ color: C.dim }}>now</span>{" "}
+                  <b style={{ color: C.text }}>{r.new || "absent"}</b>
+                </p>
+              )}
+
+              {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "76ch" }}>{r.why}</p>}
+
+              <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
+                {/* The deep link the sign-in return trip already uses: opens
+                    the directory with that listing's detail view open. */}
+                <a href={`/?tool=${encodeURIComponent(r.entryId)}`} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    background: C.subtle, border: `1px solid ${C.line}`, color: C.text,
+                    borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
+                    textDecoration: "none", whiteSpace: "nowrap",
+                  }}>Update listing</a>
+                {r.url && (
+                  <a href={outbound(r.url)} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: F.xs, color: C.muted }}>{r.url.replace(/^https?:\/\//, "").slice(0, 60)}</a>
+                )}
+                {done
+                  ? <Btn onClick={() => mark(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
+                  : <Btn onClick={() => mark(r.id, "dismiss-change")} busy={busy === r.id} tone="stop">Dismiss</Btn>}
+              </div>
+            </div>
+          );
+        })}
+
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "14px 0 4px", lineHeight: 1.55, maxWidth: "76ch" }}>
+        Update listing opens the entry on the site. Price, summary, description, URL and socials are
+        editable there. The <b style={{ color: C.muted }}>watch</b> note, the category and the external
+        ratings are not, by design: those are a hand edit to <code style={{ color: C.muted }}>lib/tools.js</code>,
+        and a monitor that could rewrite a caveat because a vendor stopped mentioning it is the exact
+        failure this arrangement exists to prevent.
+      </p>
     </Section>
   );
 }

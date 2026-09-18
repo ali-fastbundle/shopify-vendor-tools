@@ -417,6 +417,67 @@ people" in the `Facts` line on the card and the detail view, above one only. The
 admin queue sorts by it, so what the most people asked for is what gets reviewed
 first.
 
+**23. The weekly monitor proposes. It never edits.**
+`lib/monitor.js` fetches every published entry once a week, records a
+structured snapshot, and reports only material changes. It writes to
+`svt:changelog` and sends one email. It writes to **nothing else**: not
+`lib/tools.js`, not `svt:overrides`, not `svt:entries`.
+
+This is invariant 21's rule applied to a second surface. A monitor that could
+edit a listing could quietly delete a caveat because the vendor stopped
+mentioning the thing it warns about, and `watch` is the field this directory
+exists for. `Update listing` on `/admin` opens the listing for a person; price,
+summary, description, URL and socials are editable there, and `watch`, `cat` and
+`ratings` remain a hand edit to the file.
+
+**The snapshot is structured, never raw HTML.** Diffing HTML produces a diff
+every week and none of it means anything: session tokens, build hashes, rotating
+testimonials, a copyright year, a blog teaser. A monitor whose output is noise is
+one nobody opens, and then the week it matters it gets skimmed past with the
+rest. The model records the handful of facts a listing depends on (pricing
+tiers and figures, the headline claim, stated scale numbers, named integrations,
+status signals, whether each page resolves) and the diff happens between two
+small objects.
+
+**Strictness is the feature.** Only eight kinds count, they are listed in the
+compare prompt along with what explicitly does not (copy edits, blog posts,
+design changes, a few percent of drift), a change under `0.6` confidence is
+dropped, and an unknown kind is dropped. An empty result is the expected answer
+most weeks.
+
+**Silence is an output.** Nothing is emailed on a quiet week. An empty digest
+every Monday is how a digest becomes something people filter into a folder.
+
+**Politeness.** A descriptive user agent naming the site and the purpose,
+`robots.txt` parsed and obeyed per origin and cached for the run, three entries
+at a time across different domains with a pause between waves, and a 12s
+timeout. Per-domain concurrency is 1 by construction.
+
+**Cost.** One snapshot call per entry per week, plus a comparison call **only
+when the snapshot actually moved**: an unchanged snapshot short-circuits before
+the second call, compared with sorted keys so a provider reordering its JSON
+does not buy itself a call. A quiet week is therefore about one call per entry,
+a busy one closer to two.
+
+**The schedule.** `vercel.json`, `0 9 * * 1`. Vercel's Hobby plan allows cron
+expressions that run **at most once per day**, so weekly is within it; what
+Hobby does not give is precision, so it fires somewhere in the 09:00 hour. The
+endpoint also accepts `Authorization: Bearer $CRON_SECRET` from any external
+scheduler and a POST from an admin session, so nothing depends on Vercel Cron
+specifically and the sweep can be run by hand from `/admin`.
+
+**A run that cannot finish does as much as it can.** Entries are processed
+oldest-snapshot-first under a wall-clock budget, so a sweep cut short by the
+function timeout resumes where it stopped rather than re-checking the same first
+fifteen entries forever. An unreachable entry keeps last week's snapshot rather
+than overwriting it with an outage, and is reported as needing a look rather
+than as a dead site.
+
+**`pricingUrl` and `changelogUrl` are optional and never guessed.** The monitor
+fetches the homepage plus whatever an entry declares. Guessing at `/pricing`
+would produce a dead-page alert every week for every vendor who does not have
+one, which is exactly the crying-wolf failure this is built to avoid.
+
 ## Layout
 
 | Path | Role |
@@ -435,6 +496,7 @@ first.
 | `lib/dedup.js` | Model-first dedup with the string matching as fallback, and the verdict log |
 | `lib/model.js` | The provider chain. The only reader of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
 | `lib/research.js` | Fetches a vendor's own pages and drafts an entry from them |
+| `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, the strict diff |
 | `lib/entries.js` | Entries published from the admin queue, and `catalogueTools()`, the catalogue everything validates against |
 | `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, and the only thing that strips an address off either |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |
@@ -865,6 +927,7 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `suggestion` | yes | thank you, only if they gave an address. Says how many have asked when it was a repeat |
 | `report` | yes | thank you, only if they gave an address |
 | `listing_edited` | yes | nothing (they just made the edit) |
+| `monitor_digest` | yes, and only when something changed | nothing |
 
 Votes send nothing, either side. That covers both kinds: liking a tool, and
 marking a review helpful.

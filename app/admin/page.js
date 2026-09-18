@@ -8,6 +8,7 @@ import AdminPanel from "@/components/Admin";
 import { getAccounts } from "@/lib/accounts";
 import { getEntries } from "@/lib/entries";
 import { readDedupeLog } from "@/lib/dedup";
+import { readChangelog, getMonitorState } from "@/lib/monitor";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -52,12 +53,16 @@ export default async function AdminPage() {
     readMailLog(100),
     getEntries(),
     readDedupeLog(60),
+    readChangelog(120),
+    getMonitorState(),
+    read(KEYS.changesSeen, {}),
   ]);
-  const [suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog] =
+  const [suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog,
+    changelog, monitor, changesSeen] =
     settled.map((r, i) => {
       if (r.status === "fulfilled" && r.value != null) return r.value;
       if (r.status === "rejected") console.error("[admin] read failed —", r.reason?.message || r.reason);
-      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, []][i];
+      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, [], [], {}, {}][i];
     });
 
   return (
@@ -72,6 +77,9 @@ export default async function AdminPage() {
       maillog={maillog}
       entries={entries}
       dedupelog={dedupelog}
+      changelog={changelog}
+      monitor={monitor}
+      changesSeen={changesSeen}
     />
   );
 }

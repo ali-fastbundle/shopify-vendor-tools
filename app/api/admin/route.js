@@ -6,6 +6,7 @@ import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
 import { TOOLS } from "@/lib/tools";
 import { timesAsked } from "@/lib/suggestions";
+import { readChangelog } from "@/lib/monitor";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,10 @@ export async function POST(request) {
       suggestion:     { email: me, name: "Test Tool", url: "https://example.com", why: "A test suggestion.", by: "Test", approved: true, kindLabel: "Tools", catLabel: "App Store ASO" },
       report:         { email: me, toolName: "Applora", domain: "applora.ai", kindLabel: "Broken link", value: "A test report." },
       listing_edited: { email: me, toolName: "Applora", changed: ["price"], values: ["price: $0 (test)"], byAdmin: true },
+      monitor_digest: { email: me, count: 2, checked: 29, total: 29, changes: [
+        { entryName: "Applora", kind: "pricing", what: "Starter tier went up.", old: "$29/mo", new: "$39/mo", editListing: true },
+        { entryName: "Applora", kind: "free-tier", what: "The free plan is gone.", old: "free tier", new: "trial only", editListing: true },
+      ] },
     }[event] || { email: me };
 
     const result = await sendEvent(event, { ...dummy, origin, adminOverride: me });
@@ -191,6 +196,25 @@ export async function POST(request) {
     const next = suggestions.map((s) => (s.id === id ? { ...s, draft: { ...(s.draft || {}), ...draft } } : s));
     await write(KEYS.suggestions, next);
     return Response.json({ suggestions: next });
+  }
+
+  /*
+   * Dismiss a proposed change. It keeps the row and stamps it, the same as a
+   * dismissed report: evidence that somebody looked is worth more than a tidy
+   * list. Nothing about the listing is touched either way, because the monitor
+   * proposes and never edits.
+   */
+  if (action === "dismiss-change" || action === "reopen-change") {
+    const rows = await readChangelog(500);
+    if (!rows.some((r) => r.id === id)) return new Response("Unknown change", { status: 400 });
+    const dismissed = await read(KEYS.changesSeen, {});
+    if (action === "dismiss-change") {
+      dismissed[id] = { at: new Date().toISOString().slice(0, 10), by: session.email };
+    } else {
+      delete dismissed[id];
+    }
+    await write(KEYS.changesSeen, dismissed);
+    return Response.json({ dismissed });
   }
 
   if (action === "resolve-report" || action === "dismiss-report") {
