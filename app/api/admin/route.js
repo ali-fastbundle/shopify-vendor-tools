@@ -1,7 +1,7 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { read, write, KEYS } from "@/lib/store";
-import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind } from "@/lib/listings";
+import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind, sweepOwnership } from "@/lib/listings";
 import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
 import { TOOLS } from "@/lib/tools";
@@ -191,6 +191,18 @@ export async function POST(request) {
     await tally("suggestions:discovered");
 
     return Response.json({ suggestions: [entry, ...suggestions].slice(0, 500), suggestion: entry });
+  }
+
+  /*
+   * Clear stored owner values that only repeat the tool's own name.
+   *
+   * Above the id check, because it acts on every entry rather than one. Safe to
+   * press twice: the second run clears nothing and says so, which is how you
+   * tell it worked.
+   */
+  if (action === "sweep-ownership") {
+    const { cleared, count } = await sweepOwnership({ by: session.email });
+    return Response.json({ cleared, count });
   }
 
   if (!id || typeof id !== "string") return new Response("Missing id", { status: 400 });
