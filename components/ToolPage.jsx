@@ -35,6 +35,11 @@ function Facts({ tool }) {
     tool.linked && `same owner as ${tool.linked}`,
     ownerOf(tool) && `by ${ownerOf(tool)}`,
     tool.suggestedBy >= 2 && `suggested by ${tool.suggestedBy} people`,
+    /* The one qualifier a general tool's own page cannot be without. It is the
+       badge from the list row and the modal, set as type here because on this
+       page every attribute is type. Absent or true renders nothing, per
+       invariant 19: there is no "Shopify-only" label. */
+    tool.shopifyExclusive === false && "not Shopify-only",
     tool.claimed && "claimed",
   ].filter(Boolean);
 

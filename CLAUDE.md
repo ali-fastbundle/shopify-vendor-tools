@@ -400,16 +400,19 @@ queued row, so there is something to retry rather than nothing.
 Nearly everything in the catalogue exists for the Shopify ecosystem and nothing
 else, so a badge saying so would sit on every card and carry no information. The
 badge that carries information is the one on the handful of general tools an app
-vendor still genuinely reaches for, and it renders as a neutral "not Shopify-only"
-`Pill` next to the name, on the card, the list row and the detail view. The
+vendor still genuinely reaches for. It renders as a neutral "not Shopify-only"
+`Pill` on the list row and the detail view, and as type in the `Facts` line on
+`/tools/[id]`, because on that page every attribute is type. **Not on the card**,
+which rule J stripped back to what helps somebody choose which one to open. The
 compare table adds a Scope row only when one of the tools being compared answers
-differently.
+differently, and `llms.txt` carries it as a note.
 
 It is a **label, not a gate**. What gets listed is still judged on whether an app
 vendor has a real use for it, and a general tool has to clear a higher bar to be
 worth the row: its `watch` should say plainly what it does not know about
-Shopify. PartnerStack is listed and badged. Do not read this as an invitation to
-list general tools generally.
+Shopify. PartnerStack and BuiltWith are listed and badged, and each `watch` ends
+by naming the one job the native tools cannot do, which is what earns the row.
+Do not read this as an invitation to list general tools generally.
 
 Not to be confused with `shopifySpecific` on a newsletter, which runs the other
 way round and for the same reason: there, most entries are not about Shopify, so
@@ -1304,9 +1307,10 @@ as a verdict on a tool with no external ratings.
 **It is not the Shopify-exclusive rule, and it does not extend that rule to newsletters.**
 Those are different kinds of thing:
 
-- For **tools**, Shopify-exclusive is a *boundary*. A general tool is not listed at all,
-  and Wappalyzer, BuiltWith, PartnerStack and the mobile ASO platforms were removed on
-  purpose. That rule is unchanged.
+- For **tools**, Shopify-exclusive is a *boundary*. A general tool is listed only when it
+  clears the higher bar in invariant 19, and Wappalyzer and the mobile ASO platforms were
+  removed on purpose and stay out. PartnerStack and BuiltWith were each let back in on an
+  explicit decision, which is the process working rather than the rule weakening.
 - For **newsletters**, `shopifySpecific` is a *label on something already listed*. The
   boundary is usefulness to an app vendor, which is wider. ECDB is ecommerce market data
   written for retailers, not a word of it about apps, and an app vendor reads it sideways
@@ -1593,9 +1597,16 @@ check will silently run against a stale build.
 - Add a general tool. Shopify-only is still the default and the bar: a general tool is
   listed only where an app vendor genuinely reaches for it and nothing native covers the
   job, and it carries `shopifyExclusive: false` and a `watch` saying what it does not know
-  about Shopify. PartnerStack is listed on that basis. Wappalyzer, BuiltWith and the
-  mobile ASO platforms are still out, and adding one is a decision to check first, not a
-  precedent this creates.
+  about Shopify. **Two are listed on that basis, and each names the thing the native
+  tools cannot do.** PartnerStack, because an app vendor selling to agencies and
+  enterprise partners at scale outgrows a link tracker. BuiltWith, because a
+  Shopify-only database structurally cannot show you a merchant who is not on Shopify
+  yet, which is the migration conversation.
+
+  Wappalyzer and the mobile ASO platforms are still out. **Adding one is a decision to
+  check first, and the answer has twice been yes, which is not the same as the bar
+  moving.** The test is whether the row names a job nothing native does, not whether the
+  tool is good.
 - Add affiliate links or sponsored placement. The footer promises neither exists.
 - Fabricate a social profile URL. Only link profiles published on the vendor's own site;
   otherwise leave `social` empty, and it renders nothing at all.
