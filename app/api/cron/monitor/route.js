@@ -85,6 +85,22 @@ async function sweep(request, by) {
 export async function GET(request) {
   const by = authorised(request);
   if (!by) return DENY();
+
+  /*
+   * `?changes=1` reads the log instead of running a sweep.
+   *
+   * Same gate, no side effects, and it exists because the sweep's own response
+   * is a count: "21 changes" is not an answer to "what changed", and reading
+   * them otherwise meant an admin session. Deliberately a separate parameter
+   * rather than a different status on the same path, so a cron invocation can
+   * never accidentally land here and report nothing.
+   */
+  if (new URL(request.url).searchParams.get("changes")) {
+    const { readChangelog, getMonitorState } = await import("@/lib/monitor");
+    const [rows, state] = await Promise.all([readChangelog(200), getMonitorState()]);
+    return Response.json({ lastRun: state, count: rows.length, changes: rows });
+  }
+
   return sweep(request, by);
 }
 
