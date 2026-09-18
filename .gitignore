@@ -6,3 +6,9 @@ out
 .vercel
 .DS_Store
 *.log
+
+# Local agent tooling state. Not project configuration: .claude/ can hold
+# personal settings and credentials, and both directories are per-machine.
+.agents/
+.claude/
+skills-lock.json
