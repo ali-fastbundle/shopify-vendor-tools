@@ -290,6 +290,8 @@ function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, a
 
       <ChangeMonitor rows={changes} monitor={monitor} seen={seen}
         appliedChanges={appliedChanges} onSeen={onSeen} />
+
+      <Discovered discovery={discovery} />
     </>
   );
 }
@@ -2042,6 +2044,93 @@ function Deleted({ rows, act, busy }) {
                 }
               />
             ))}
+          </>
+        )}
+    </Section>
+  );
+}
+
+/*
+ * Competitors named on listed vendors' own comparison pages, that we do not
+ * list.
+ *
+ * Separate from the change alerts above it, and deliberately so: a change alert
+ * is a listing that may now be wrong and wants a decision this week. These are
+ * leads. Each one needs somebody to open a website and read it, and half will
+ * turn out to be dead, renamed, merchant-facing or not a product at all. There
+ * is no Apply here and there never will be.
+ *
+ * Ranked by how many different vendors name the same product, because that is
+ * the only signal on the page worth ranking by: one vendor naming a competitor
+ * is marketing, three unrelated vendors all positioning against the same thing
+ * is a gap in the catalogue.
+ */
+function Discovered({ discovery }) {
+  const findings = discovery?.findings || [];
+  const [open, setOpen] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState("");
+
+  async function runNow() {
+    setRunning(true); setResult("");
+    try {
+      const res = await fetch("/api/cron/discovery", { method: "POST" });
+      if (!res.ok) { setResult(await res.text()); return; }
+      const d = await res.json();
+      setResult(`Read ${d.checked} sites, ${d.withComparisonPages} had comparison pages, ${d.found} names not in the directory. Reload to see them.`);
+    } catch {
+      setResult("Could not reach the server.");
+    } finally { setRunning(false); }
+  }
+
+  const shown = open ? findings : findings.slice(0, 8);
+
+  return (
+    <Section
+      title="Discovered competitors"
+      count={findings.length}
+      hint="Products named on listed vendors' own comparison pages that are not in the directory. These are leads, not alerts: each one needs somebody to read the site before it becomes an entry. Nothing here is added automatically."
+    >
+      <div className="flex flex-wrap items-center" style={{ gap: S.md, padding: "12px 0" }}>
+        <Btn onClick={runNow} busy={running} tone="go">Run discovery now</Btn>
+        <span style={{ fontSize: F.xs, color: C.dim }}>
+          {discovery?.at
+            ? `Last pass ${String(discovery.at).slice(0, 16).replace("T", " ")} · read ${discovery.checked} sites · ${discovery.withPages} publish comparisons`
+            : "Never run. Monthly, on the 1st, once the cron is live."}
+        </span>
+      </div>
+
+      {result && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "0 0 12px", lineHeight: 1.55 }}>{result}</p>}
+
+      {findings.length === 0
+        ? <Empty>Nothing found. Most vendors do not publish comparison pages at all.</Empty>
+        : (
+          <>
+            {shown.map((f) => (
+              <Row key={f.name}
+                title={f.name}
+                badges={f.count > 1 ? <Pill>named by {f.count}</Pill> : null}
+                body={<>
+                  <p style={{ margin: 0, lineHeight: 1.55 }}>
+                    Named as a competitor by <b style={{ color: C.text }}>{f.namedBy.join(", ")}</b>, not in the directory.
+                  </p>
+                  {f.contexts?.length > 0 && (
+                    <p style={{ margin: "4px 0 0", lineHeight: 1.5, color: C.dim, fontSize: F.xs }}>
+                      {f.contexts.join(" · ")}
+                    </p>
+                  )}
+                </>}
+                meta={f.url
+                  ? <a href={outbound(f.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{f.url.replace(/^https?:\/\//, "")}</a>
+                  : "no URL given on the page"}
+              />
+            ))}
+            {findings.length > 8 && (
+              <button onClick={() => setOpen((v) => !v)} style={{
+                background: "none", border: 0, padding: "12px 0", cursor: "pointer",
+                fontFamily: "inherit", fontSize: F.sm, color: C.muted, textDecoration: "underline",
+              }}>{open ? "Show fewer" : `Show all ${findings.length}`}</button>
+            )}
           </>
         )}
     </Section>

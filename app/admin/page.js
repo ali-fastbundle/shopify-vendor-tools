@@ -10,6 +10,7 @@ import { getEntries } from "@/lib/entries";
 import { readDedupeLog } from "@/lib/dedup";
 import { readChangelog, getMonitorState } from "@/lib/monitor";
 import { getInterest } from "@/lib/interest";
+import { getDiscovery } from "@/lib/discovery";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -60,13 +61,14 @@ export default async function AdminPage() {
     getInterest(),
     read(KEYS.adminSeen, {}),
     read(KEYS.changesApplied, {}),
+    getDiscovery(),
   ]);
   const [suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog,
-    changelog, monitor, changesSeen, interest, adminSeen, appliedChanges] =
+    changelog, monitor, changesSeen, interest, adminSeen, appliedChanges, discovery] =
     settled.map((r, i) => {
       if (r.status === "fulfilled" && r.value != null) return r.value;
       if (r.status === "rejected") console.error("[admin] read failed —", r.reason?.message || r.reason);
-      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, [], [], {}, {}, {}, {}, {}][i];
+      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, [], [], {}, {}, {}, {}, {}, { findings: [] }][i];
     });
 
   return (
@@ -87,6 +89,7 @@ export default async function AdminPage() {
       interest={interest}
       lastVisit={adminSeen?.[session.email] || ""}
       appliedChanges={appliedChanges}
+      discovery={discovery}
     />
   );
 }
