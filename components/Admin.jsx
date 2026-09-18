@@ -2305,7 +2305,9 @@ function AdminLogo({ tool, size = 22 }) {
 function ChangeAction({ r, done, applied, published, busy, onAct }) {
   const edit = r.edit || { state: "unmapped" };
   const [writing, setWriting] = useState(false);
-  const [headline, setHeadline] = useState(r.what || "");
+  const [headline, setHeadline] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [meta, setMeta] = useState(null);
   const [err, setErr] = useState("");
 
   const openListing = (
@@ -2323,6 +2325,39 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
   );
 
   const shown = (v) => (v === "" || v === null || v === undefined ? "absent" : String(v));
+
+  /*
+   * Draft first, then open the editor.
+   *
+   * The monitor's own summary used to be the pre-fill, and it is written in a
+   * different register: it addresses an editor deciding whether something
+   * matters, and the feed is read by somebody who uses the tool and wants to
+   * know what it costs now. So the model writes for the reader and a person
+   * cuts it down.
+   *
+   * A failed draft still opens the editor, empty. Nothing about the model
+   * being unavailable should stop somebody writing two sentences themselves.
+   */
+  async function startDraft() {
+    setWriting(true); setErr(""); setDrafting(true); setMeta(null);
+    try {
+      const res = await fetch("/api/admin/announce", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id }),
+      });
+      if (!res.ok) {
+        setErr(`${await res.text()} Write it yourself below.`);
+        setHeadline("");
+        return;
+      }
+      const d = await res.json();
+      setHeadline(d.draft || "");
+      setMeta(d);
+    } catch {
+      setErr("Could not reach the server. Write it yourself below.");
+      setHeadline("");
+    } finally { setDrafting(false); }
+  }
 
   async function publish() {
     setErr("");
@@ -2368,31 +2403,83 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
       )}
 
       {/*
-        * The feed editor. Pre-filled with the monitor's sentence and never
-        * submitted as-is by accident: the point of opening it is that somebody
-        * rewrites the line in the site's own voice before it is public.
+        * The feed editor: the draft on the left, the evidence for it on the
+        * right. Both halves matter. A generated sentence reads as finished
+        * whether or not it is true, so the figures it came from sit beside it
+        * rather than a click away, and publishing stays a separate button.
         */}
       {writing && (
         <div style={{
           background: C.raised, border: `1px solid ${C.accentEdge}`, borderRadius: R.card,
           padding: S.lg, marginBottom: S.sm,
         }}>
-          <label style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, display: "block", marginBottom: 4 }}>
-            What changed, in one or two sentences
-          </label>
-          <textarea value={headline} onChange={(e) => setHeadline(e.target.value)} rows={3}
-            style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
-          <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "70ch" }}>
-            This goes on <a href="/changes" target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>/changes</a> and
-            on the tool&apos;s own page, under today&apos;s date, with a link to the source. House voice:
-            plain, specific, no marketing, and no em-dash. It is pre-filled with the monitor&apos;s
-            wording so you have something to cut down, not something to accept.
-          </p>
-          <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
-            <Btn onClick={publish} busy={busy === r.id} tone="go">Publish to feed</Btn>
+          <div className="flex flex-wrap" style={{ gap: S.lg }}>
+            <div style={{ flex: "2 1 300px", minWidth: 0 }}>
+              <label style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, display: "block", marginBottom: 4 }}>
+                The announcement
+                {meta?.provider && <span style={{ fontWeight: 400 }}> · drafted by {meta.provider}</span>}
+              </label>
+              {drafting ? (
+                <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.6, padding: "12px 0" }}>
+                  Writing a draft from what the monitor saw…
+                </p>
+              ) : (
+                <textarea value={headline} onChange={(e) => setHeadline(e.target.value)} rows={4}
+                  placeholder="One to three sentences. What changed, and what it means for somebody using it."
+                  style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
+              )}
+              {meta?.thin && (
+                <p style={{ fontSize: F.xs, color: C.warnInk, margin: "6px 0 0", lineHeight: 1.5 }}>
+                  The model says the observation is thin. Check it is worth publishing at all.
+                </p>
+              )}
+              {meta?.note && (
+                <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>
+                  It could not stand up: {meta.note}
+                </p>
+              )}
+              <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5, maxWidth: "62ch" }}>
+                Goes on <a href="/changes" target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>/changes</a>,
+                the RSS feed and the tool&apos;s own page under today&apos;s date. A draft is something to
+                cut down, not something to accept. No em-dash: the form refuses one.
+              </p>
+            </div>
+
+            {/*
+              * The claim, beside the draft rather than under it, so it can be
+              * checked before publishing instead of afterwards. A generated
+              * sentence is easy to read past; the figures it came from are not.
+              */}
+            <div style={{
+              flex: "1 1 200px", minWidth: 0, background: C.panel,
+              border: `1px solid ${C.line}`, borderRadius: R.control, padding: S.md,
+            }}>
+              <p style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, margin: 0 }}>What the monitor saw</p>
+              <p style={{ fontSize: F.xs, color: C.muted, margin: "6px 0 0", lineHeight: 1.55 }}>{r.what}</p>
+              {(r.old || r.new) && (
+                <p className="tnum" style={{ fontSize: F.xs, color: C.muted, margin: "6px 0 0", lineHeight: 1.55 }}>
+                  <span style={{ color: C.dim }}>was</span> {r.old || "absent"}<br />
+                  <span style={{ color: C.dim }}>now</span> <b style={{ color: C.text }}>{r.new || "absent"}</b>
+                </p>
+              )}
+              <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0" }}>confidence {r.confidence}</p>
+              {r.url && (
+                <p style={{ margin: "8px 0 0" }}>
+                  <a href={outbound(r.url)} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: F.xs, color: C.muted, wordBreak: "break-all" }}>
+                    {r.url.replace(/^https?:\/\//, "")}
+                  </a>
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
+            <Btn onClick={publish} busy={busy === r.id || drafting} tone="go">Publish to feed</Btn>
+            <Btn onClick={startDraft} busy={drafting}>Draft again</Btn>
             <Btn onClick={() => { setWriting(false); setErr(""); }}>Cancel</Btn>
           </div>
-          {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0" }}>{err}</p>}
+          {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>}
         </div>
       )}
 
@@ -2412,7 +2499,7 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
               confirm="Remove">Remove from feed</ConfirmBtn>
           </>
         ) : !writing && (
-          <Btn onClick={() => { setWriting(true); setHeadline(r.what || ""); }} tone="go">
+          <Btn onClick={startDraft} busy={drafting} tone="go">
             Publish to feed
           </Btn>
         )}
