@@ -68,27 +68,33 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
 
         <Drafts />
 
+        <PublishingNote />
+
         <Section
-          title="Pending suggestions"
+          title="Waiting to be reviewed"
           count={pending.length}
-          hint="Stored but not served by /api/data. Approving publishes it immediately. Turning one into a listing is a separate, manual edit to lib/tools.js — give the new entry an `updated` of the day it goes in, and the site-wide date follows on its own."
+          hint="Held back by MODERATE_SUGGESTIONS: stored, but not served by /api/data. Mark reviewed clears that hold and makes the row public. It does not create a listing."
         >
           {pending.length === 0
-            ? <Empty>Nothing waiting. With MODERATE_SUGGESTIONS unset, suggestions go live on submit and never land here.</Empty>
+            ? <Empty>Nothing waiting. With MODERATE_SUGGESTIONS unset, suggestions go public on submit and never land here.</Empty>
             : [...pending].sort(byDemand).map((s) => (
               <SuggestionRow key={s.id} s={s}>
-                <Btn onClick={() => act("approve-suggestion", s.id)}
-                  busy={busy === "approve-suggestion" + s.id} tone="go">Approve</Btn>
+                <Btn onClick={() => act("mark-reviewed", s.id)}
+                  busy={busy === "mark-reviewed" + s.id} tone="go">Mark reviewed</Btn>
+                <CopyStub s={s} />
                 <Btn onClick={() => act("delete-suggestion", s.id)}
                   busy={busy === "delete-suggestion" + s.id} tone="stop">Delete</Btn>
               </SuggestionRow>
             ))}
         </Section>
 
-        <Section title="Approved suggestions" count={approved.length} hint="Public now. Read-only here.">
+        <Section title="Reviewed" count={approved.length}
+          hint="Public on the site. Still suggestions, not listings. Sorted by how many people have asked.">
           {approved.length === 0
             ? <Empty>No suggestions yet.</Empty>
-            : [...approved].sort(byDemand).map((s) => <SuggestionRow key={s.id} s={s} />)}
+            : [...approved].sort(byDemand).map((s) => (
+              <SuggestionRow key={s.id} s={s}><CopyStub s={s} /></SuggestionRow>
+            ))}
         </Section>
 
         <ClaimsTable
@@ -128,6 +134,199 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
 }
 
 const cell = { padding: "12px 12px 12px 0", borderBottom: `1px solid ${C.line}`, verticalAlign: "top" };
+
+/* ------------------------------------------------------------------ */
+/*  What the buttons above actually do                                 */
+/*                                                                     */
+/*  The button used to say "Approve", which reads like the last step    */
+/*  before something appears in the directory. It never was: it clears  */
+/*  a moderation hold on a suggestion and nothing else, and people      */
+/*  reasonably waited for a listing that was never coming. So the       */
+/*  button says what it does, and this says what it does not.           */
+/* ------------------------------------------------------------------ */
+function PublishingNote() {
+  return (
+    <section className="pb-10">
+      <div style={{
+        background: C.raised, border: `1px solid ${C.line}`, borderLeft: `3px solid ${C.accent}`,
+        borderRadius: R.card, padding: S.lg,
+      }}>
+        <h2 style={{ fontSize: F.lg, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
+          Marking a suggestion reviewed does not publish anything
+        </h2>
+        <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0`, lineHeight: 1.6, maxWidth: "76ch" }}>
+          It clears the moderation hold, so the suggestion shows in the public list on the site. That
+          is all it does. It does not create a listing, and there is no button here that will, because
+          a listing needs a <b style={{ color: C.text }}>note</b> and a <b style={{ color: C.text }}>watch</b>,
+          and those are editorial writing rather than a state to flip from a web page.
+        </p>
+        <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0`, lineHeight: 1.6, maxWidth: "76ch" }}>
+          Publishing is: read the vendor's own site, write the entry in{" "}
+          <code style={{ fontSize: F.xs, color: C.text }}>lib/tools.js</code> (or{" "}
+          <code style={{ fontSize: F.xs, color: C.text }}>lib/newsletters.js</code>,{" "}
+          <code style={{ fontSize: F.xs, color: C.text }}>lib/communities.js</code> for the other
+          kinds), give it an <code style={{ fontSize: F.xs, color: C.text }}>updated</code> of the day
+          it goes in, and ship. The site-wide date follows on its own. Anything you could not confirm
+          on the vendor's own site is{" "}
+          <code style={{ fontSize: F.xs, color: C.text }}>verified: false</code>, not a guess written
+          as fact.
+        </p>
+        <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0`, lineHeight: 1.6, maxWidth: "76ch" }}>
+          <b style={{ color: C.text }}>Copy as entry stub</b> gives you that object with everything the
+          suggestion already knows filled in, and the editorial fields left empty for you. Paste it
+          into the right file and finish it. It carries{" "}
+          <code style={{ fontSize: F.xs, color: C.text }}>draft: true</code>, so a half-written entry
+          is invisible to visitors until you delete that line.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Copy as entry stub                                                 */
+/*                                                                     */
+/*  The mechanical half of turning a suggestion into a listing: the id, */
+/*  the domain, the URL and the date are all derivable, and retyping    */
+/*  them is where a typo'd id comes from. The editorial half is left    */
+/*  empty on purpose — a stub that guessed at `one`, `note` or `watch`  */
+/*  would be a stub somebody ships without reading the vendor's site.   */
+/* ------------------------------------------------------------------ */
+
+/* Mirrors the id convention in the catalogue: lowercase, letters and digits. */
+const idFrom = (name, url) => {
+  const fromName = String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  if (fromName) return fromName.slice(0, 32);
+  return String(url || "").replace(/^https?:\/\//, "").replace(/^www\./, "")
+    .split(/[/?#]/)[0].split(".")[0].replace(/[^a-z0-9]+/g, "").slice(0, 32) || "unnamed";
+};
+
+const domainFrom = (url) => String(url || "")
+  .replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
+
+const FILES = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", group: "lib/communities.js" };
+
+function entryStub(s) {
+  const today = new Date().toISOString().slice(0, 10);
+  const kind = s.kind || "tool";
+  const id = idFrom(s.name, s.url);
+  const domain = domainFrom(s.url);
+  const asked = timesAsked(s);
+  const head = [
+    `/* Suggested by ${s.by || "Anonymous"} on ${s.date}${asked > 1 ? `, and by ${asked - 1} other${asked > 2 ? "s" : ""} since` : ""}.`,
+    s.why ? `   They said: ${s.why}` : "",
+    `   Read ${domain || "the site"} before filling in one, note and watch. Anything you cannot`,
+    `   confirm there stays verified: false. Delete draft: true when it is ready. */`,
+  ].filter(Boolean).join("\n");
+
+  if (kind === "tool") {
+    return `${head}
+  {
+    id: "${id}", name: "${s.name}", cat: "${s.cat || "aso"}", domain: "${domain}",
+    url: "${s.url || ""}", price: "", free: false, verified: false,
+    updated: "${today}",
+    tags: [],
+    one: "",
+    note: "",
+    watch: "",
+    social: {},
+    draft: true,
+  },`;
+  }
+
+  if (kind === "newsletter") {
+    return `${head}
+  {
+    id: "${id}",
+    name: "${s.name}",
+    url: "${s.url || ""}",
+    publisher: "",
+    cadence: "",
+    platform: "",
+    free: true,
+    topics: [],
+    one: "",
+    note: "",
+    watch: "",
+    social: {},
+    updated: "${today}",
+    draft: true,
+  },`;
+  }
+
+  if (kind === "group") {
+    return `${head}
+  {
+    id: "${id}",
+    name: "${s.name}",
+    url: "${s.url || ""}",
+    platform: "",
+    price: "",
+    free: false,
+    entry: "",
+    audience: "",
+    topics: [],
+    one: "",
+    note: "",
+    watch: "",
+    social: {},
+    updated: "${today}",
+    draft: true,
+  },`;
+  }
+
+  /*
+   * A kind with no catalogue file yet. The shared editorial contract is the
+   * same for every kind, so the stub is still worth having — it is the shape
+   * the new file starts from.
+   */
+  return `${head}
+  /* No catalogue file for "${kind}" yet. Write lib/<kind>s.js with its own shape,
+     export the published list under the plain name, and register it in
+     lib/sections.js and in SOURCES in components/Admin.jsx. */
+  {
+    id: "${id}",
+    name: "${s.name}",
+    url: "${s.url || ""}",
+    one: "",
+    note: "",
+    watch: "",
+    social: {},
+    updated: "${today}",
+    draft: true,
+  },`;
+}
+
+function CopyStub({ s }) {
+  const [state, setState] = useState("");
+  const file = FILES[s.kind || "tool"] || "a new catalogue file";
+
+  async function copy() {
+    const text = entryStub(s);
+    try {
+      await navigator.clipboard.writeText(text);
+      setState("Copied");
+    } catch {
+      /* No clipboard permission, or an insecure origin. The text is the point,
+         so hand it over in a way they can still select. */
+      window.prompt(`Copy this into ${file}`, text);
+      setState("");
+      return;
+    }
+    setTimeout(() => setState(""), 2000);
+  }
+
+  return (
+    <button onClick={copy} title={`Paste into ${file}`} style={{
+      background: "transparent", color: C.muted, border: `1px solid ${C.edge}`,
+      borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
+      cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+    }}>{state || "Copy as entry stub"}</button>
+  );
+}
+
+
+
 
 /* ------------------------------------------------------------------ */
 /*  Drafts                                                             */

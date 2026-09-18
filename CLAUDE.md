@@ -185,9 +185,9 @@ vendor editing their own listing must not move the site-wide date — that is th
 change, not an editorial one, and it shows as "last updated {editedAt}" on that listing
 alone. `updated` is in the protected set with `watch`, `cat`, `verified` and `ratings`.
 
-Approving a suggestion in `/admin` publishes the suggestion, not a listing. Turning it
-into a tool is still a hand edit to `lib/tools.js`; give that entry an `updated` of the
-day it goes in and the site-wide date moves on its own.
+Marking a suggestion reviewed in `/admin` publishes the suggestion, not a listing.
+Turning it into a tool is still a hand edit to `lib/tools.js`; give that entry an
+`updated` of the day it goes in and the site-wide date moves on its own. See invariant 18.
 
 **17. A repeat suggestion increments a row. It never creates one.**
 `lib/suggestions.js` matches a submission before it is stored, against the
@@ -217,6 +217,27 @@ answer anyway.
 `also` carries submitter addresses, so it is stripped alongside `email` on every
 public read. `/admin` sorts by `timesAsked()` and shows the count as a neutral
 pill, because being able to see demand is the entire point of counting it.
+
+**18. Approving a suggestion is not publishing, and the button says so.**
+The action is **Mark reviewed**. It clears the `MODERATE_SUGGESTIONS` hold so the
+row is served by `/api/data`, and it does nothing else. It used to say Approve,
+which reads like the last step before something appears in the directory, and
+people reasonably waited for a listing that was never coming.
+
+Publishing is still a hand edit to `lib/tools.js` (or the catalogue file for the
+kind), for the same reason invariant 12 has no publish button: `note` and `watch`
+are editorial writing, not a state to flip from a web page. `/admin` says this
+above the queue rather than leaving it to be rediscovered.
+
+**Copy as entry stub** does the mechanical half: the id, the domain, the URL and
+today's date, which are all derivable and are where a typo'd id comes from. It
+leaves `one`, `note` and `watch` empty, sets `verified: false`, and carries
+`draft: true`. A stub that guessed at the editorial fields would be a stub
+somebody ships without reading the vendor's site.
+
+The stored field is still `approved`, because rows written before the rename
+carry it, and `approve-suggestion` is still accepted as an action name so a
+client on an older page load does not get an error for pressing the same button.
 
 **19. `shopifyExclusive: false` marks a general tool. There is no `true`.**
 Nearly everything in the catalogue exists for the Shopify ecosystem and nothing

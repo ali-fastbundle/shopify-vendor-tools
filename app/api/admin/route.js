@@ -91,14 +91,29 @@ export async function POST(request) {
    */
   const revertContent = body.revertContent === true;
 
-  if (action === "approve-suggestion" || action === "delete-suggestion") {
+  /*
+   * "Mark reviewed", not "approve", and the difference is the whole point.
+   *
+   * This clears the moderation hold so the suggestion is served by /api/data
+   * and visible in the public list. It does not create a listing and it never
+   * will: a listing needs a `note` and a `watch`, which are editorial writing,
+   * and publishing one is a hand edit to lib/tools.js. The button used to say
+   * Approve, which reads like the last step before something appears in the
+   * directory, and people reasonably assumed it was.
+   *
+   * The stored field is still `approved`, because rows written before this
+   * rename carry it and renaming it would orphan them. `approve-suggestion` is
+   * still accepted for the same reason — a client on an older page load should
+   * not get an error for pressing the same button.
+   */
+  if (action === "mark-reviewed" || action === "approve-suggestion" || action === "delete-suggestion") {
     const suggestions = await read(KEYS.suggestions, []);
     if (!suggestions.some((s) => s.id === id)) {
       return new Response("Unknown suggestion", { status: 400 });
     }
-    const next = action === "approve-suggestion"
-      ? suggestions.map((s) => (s.id === id ? { ...s, approved: true } : s))
-      : suggestions.filter((s) => s.id !== id);
+    const next = action === "delete-suggestion"
+      ? suggestions.filter((s) => s.id !== id)
+      : suggestions.map((s) => (s.id === id ? { ...s, approved: true, reviewedAt: new Date().toISOString().slice(0, 10) } : s));
     await write(KEYS.suggestions, next);
     return Response.json({ suggestions: next });
   }
