@@ -9,6 +9,7 @@ import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
 import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
+import { FeedRows } from "./ChangesFeed";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
@@ -626,6 +627,27 @@ const externalOf = (t) =>
  * and review tallies, because two of these orders are not properties of the
  * tool at all.
  */
+/*
+ * How many updates have landed since this visitor was last here.
+ *
+ * localStorage, not an account: the question is "what is new to me", which is
+ * per browser and nobody's business but theirs. It is stamped when the tab is
+ * opened rather than on page load, so arriving, not looking, and coming back
+ * tomorrow still shows the same count.
+ *
+ * Every access is wrapped. A browser with storage blocked reports nothing new,
+ * which is the right failure: no count is a quiet tab, and a wrong count on a
+ * tab people learn to trust is worse than none.
+ */
+const SEEN_KEY = "svt:updates:seen";
+
+const readSeen = () => {
+  try { return localStorage.getItem(SEEN_KEY) || ""; } catch { return ""; }
+};
+const stampSeen = () => {
+  try { localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch { /* fine */ }
+};
+
 const SORTS = {
   rating: { label: "Top rated", dir: "desc", value: (t, x) => x.avg(t.id) },
   votes: { label: "Most liked", dir: "desc", value: (t, x) => x.net(t.id) },
@@ -643,7 +665,7 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools }) {
+export default function Directory({ tools: initialTools, feed = [] }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
   const [votes, setVotes] = useState({});
@@ -652,6 +674,14 @@ export default function Directory({ tools: initialTools }) {
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+
+  /*
+   * Which of the two things the directory is for. The catalogue is the default
+   * and always will be: somebody arriving cold has never heard of any of these
+   * tools, and "Ranksy raised Starter to $79" means nothing until it does.
+   */
+  const [view2, setView2] = useState("directory");
+  const [seenAt, setSeenAt] = useState("");
 
   const [cat, setCat] = useState("all");
   const [q, setQ] = useState("");
@@ -852,6 +882,27 @@ export default function Directory({ tools: initialTools }) {
 
   const totalReviews = Object.values(reviews).reduce((a, b) => a + b.length, 0);
   /* `rating` is set when the person got here by clicking a star. */
+  /* After mount only: localStorage does not exist on the server, and reading it
+     during render would make the first paint disagree with the HTML. */
+  useEffect(() => { setSeenAt(readSeen()); }, []);
+
+  const unread = useMemo(
+    () => (seenAt ? feed.filter((e) => String(e.at || "") > seenAt).length : 0),
+    [feed, seenAt],
+  );
+
+  /*
+   * Opening the tab marks everything in it seen. Stamped on the click rather
+   * than on a timer, because "I have looked at this" is a thing somebody does,
+   * not a thing that happens to them. The count clears on the next visit, not
+   * under the pointer: watching a number vanish as you arrive is the animation
+   * this page does not do.
+   */
+  const showUpdates = () => {
+    setView2("updates");
+    stampSeen();
+  };
+
   const openTool = (id, rating = 0) => {
     trackToolOpen(id); setDetail(id);
     setDetailRating(Number.isInteger(rating) ? rating : 0);
@@ -915,16 +966,14 @@ export default function Directory({ tools: initialTools }) {
           *
           * Two columns above 900px, stacked below.
           */}
-        <header style={{ paddingTop: S["3xl"], paddingBottom: S["2xl"] }}>
+        <header style={{ paddingTop: S["3xl"], paddingBottom: S.xl }}>
           <div className="flex flex-wrap items-center justify-between" style={{ gap: S.lg, marginBottom: S["2xl"] }}>
             <Wordmark />
             <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
-              {/* The feed is a primary view, not a footnote. It is the half of
-                  the site that moves, and a link only in the footer is a link
-                  nobody follows. */}
-              <a href="/changes" style={{
-                fontSize: F.sm, fontWeight: 600, color: C.muted, textDecoration: "none",
-              }}>What changed</a>
+              {/* Recent updates used to sit here, a small link between the
+                  wordmark and the account controls, which is where links go to
+                  be ignored. It is one of the two things the directory is for,
+                  so it is a view now, in the switcher above the grid. */}
               <AccountBar session={session} refresh={refreshSession} />
               <ThemeToggle />
             </div>
@@ -951,6 +1000,78 @@ export default function Directory({ tools: initialTools }) {
           </div>
         </header>
 
+        {/*
+          * The two things the directory is for, as a view switcher.
+          *
+          * Recent updates was a small link between the wordmark and the account
+          * controls, which is where links go to be ignored. It is half of what
+          * the site is: the catalogue says what exists, this says what moved.
+          *
+          * The tab is a real anchor to /changes. A plain left click is
+          * intercepted and the rows render here; a middle click, a modifier
+          * click, a crawler and a browser with no JavaScript all get the
+          * standalone page, which keeps its own title, description and
+          * JSON-LD. That page is the one that changes weekly, so it has to stay
+          * a page rather than become a tab somebody has to know to press.
+          *
+          * A selected tab is a state rather than an action, so it takes the
+          * neutral inversion, the same device as the "All" chip and the view
+          * toggle. No category colour: it is not a category. No accent: green
+          * is for things that do something.
+          */}
+        <div role="group" aria-label="Directory views" className="flex items-center"
+          style={{ gap: S.xs, marginBottom: S.md, borderBottom: `1px solid ${C.line}`, paddingBottom: S.sm }}>
+          <button aria-pressed={view2 === "directory"}
+            onClick={() => setView2("directory")}
+            className="press"
+            style={{
+              background: view2 === "directory" ? C.text : "transparent",
+              color: view2 === "directory" ? C.bg : C.muted,
+              border: `1px solid ${view2 === "directory" ? C.text : C.line}`,
+              borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
+              cursor: "pointer", fontFamily: "inherit",
+            }}>Directory</button>
+
+          {/* An anchor rather than a button, because it goes somewhere real.
+              aria-pressed matches the view toggle: neither this nor that
+              implements the arrow-key contract that role="tab" promises, so
+              neither claims it. */}
+          <a aria-pressed={view2 === "updates"} href="/changes"
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              showUpdates();
+            }}
+            className="press flex items-center"
+            style={{
+              gap: S.sm, textDecoration: "none",
+              background: view2 === "updates" ? C.text : "transparent",
+              color: view2 === "updates" ? C.bg : C.muted,
+              border: `1px solid ${view2 === "updates" ? C.text : C.line}`,
+              borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
+              cursor: "pointer", fontFamily: "inherit",
+            }}>
+            <span>Recent updates</span>
+            {/* Only above zero, and never a coloured dot. A first-time visitor
+                has no mark stored, so there is nothing to be new against and
+                the tab is just a tab. Rule E: when there is nothing, render
+                nothing. */}
+            {unread > 0 && view2 !== "updates" && (
+              <span className="tnum" style={{ color: C.text, fontWeight: 700 }}>{unread}</span>
+            )}
+          </a>
+        </div>
+
+        {view2 === "updates" ? (
+          <div style={{ paddingBottom: BAND.desktop }}>
+            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.6, maxWidth: "62ch", margin: 0 }}>
+              Pricing moves, new features, rebrands and wind-downs across the directory, dated and in
+              order. <a href="/changes" style={{ color: C.text }}>Open as its own page</a>.
+            </p>
+            <FeedRows entries={feed} tools={tools} />
+          </div>
+        ) : (
+        <>
         {/* Filters */}
         <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
           {/* No category behind it, so no category colour to borrow: All fills
@@ -1081,6 +1202,8 @@ export default function Directory({ tools: initialTools }) {
             />
           )}
         </div>
+        </>
+        )}
 
         <Roadmap onSuggest={setShowSuggest} />
 
@@ -1092,7 +1215,7 @@ export default function Directory({ tools: initialTools }) {
                   style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
               : AUTHOR}
             {". "}
-            <a href="/changes" style={{ color: C.muted }}>What changed</a>{" · "}
+            <a href="/changes" style={{ color: C.muted }}>Recent updates</a>{" · "}
             watchfor.tools is an independent directory. Not affiliated with, endorsed by, or sponsored by
             Shopify. Shopify is a trademark of Shopify Inc.
             No tool here paid to be listed and none of the links are affiliate links.

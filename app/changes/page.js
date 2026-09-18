@@ -5,7 +5,7 @@ import ChangesFeed from "@/components/ChangesFeed";
 
 export const dynamic = "force-dynamic";
 
-const title = "What changed | watchfor.tools";
+const title = "Recent updates | watchfor.tools";
 const description =
   "Pricing moves, new features, rebrands and wind-downs across tools for Shopify app vendors, dated and in order.";
 
@@ -15,7 +15,7 @@ export const metadata = {
   /* So a reader that lands on the page can find the feed without being told. */
   alternates: {
     canonical: "/changes",
-    types: { "application/rss+xml": [{ url: "/changes/rss", title: "watchfor.tools: what changed" }] },
+    types: { "application/rss+xml": [{ url: "/changes/rss", title: "watchfor.tools: recent updates" }] },
   },
   openGraph: { title, description, type: "website", url: `${SITE}/changes`, siteName: "watchfor.tools" },
 };
@@ -33,7 +33,7 @@ export default async function Page() {
     "@type": "CollectionPage",
     "@id": `${SITE}/changes#collection`,
     url: `${SITE}/changes`,
-    name: "What changed",
+    name: "Recent updates",
     description,
     isPartOf: { "@id": `${SITE}#website` },
     mainEntity: {

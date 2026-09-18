@@ -44,7 +44,7 @@ export async function GET() {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>watchfor.tools: what changed</title>
+    <title>watchfor.tools: recent updates</title>
     <link>${SITE}/changes</link>
     <atom:link href="${SITE}/changes/rss" rel="self" type="application/rss+xml" />
     <description>Pricing moves, new features, rebrands and wind-downs across tools built for Shopify app vendors.</description>

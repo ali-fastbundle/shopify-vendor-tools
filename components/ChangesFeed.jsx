@@ -50,7 +50,14 @@ function Logo({ entry, size = 34 }) {
   );
 }
 
-export default function ChangesFeed({ entries = [], tools = [] }) {
+/*
+ * The feed body: filters and the dated list, with no page chrome.
+ *
+ * Split out so the standalone page and the Recent updates tab on the directory
+ * are the same component rather than two that drift. The page wraps this in a
+ * <main> with its own heading; the tab drops it straight under the tab row.
+ */
+export function FeedRows({ entries = [], tools = [] }) {
   const [tool, setTool] = useState("all");
   const [cat, setCat] = useState("all");
 
@@ -74,23 +81,7 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
   };
 
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
-      <div className="mx-auto" style={{ maxWidth: 860, padding: "0 20px" }}>
-        <nav style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
-          <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
-          <span style={{ color: C.dim }}> / </span><span>Changes</span>
-        </nav>
-
-        <header style={{ paddingTop: S.xl }}>
-          <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
-            What changed
-          </h1>
-          <p style={{ fontSize: F.lg, color: C.muted, maxWidth: "58ch", lineHeight: 1.5, margin: `${S.md}px 0 0` }}>
-            Pricing moves, new features, rebrands and wind-downs across the directory, dated and in
-            order. The listings say what each tool is. This says what happened to it.
-          </p>
-        </header>
-
+    <>
         {entries.length > 0 && (
           <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.xl }}>
             <select value={tool} onChange={(e) => setTool(e.target.value)} style={field} aria-label="Filter by tool">
@@ -112,7 +103,7 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
           </div>
         )}
 
-        <div style={{ marginTop: S.xl, paddingBottom: S["4xl"] }}>
+        <div style={{ marginTop: S.xl }}>
           {entries.length === 0 ? (
             <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.6, maxWidth: "58ch" }}>
               Nothing recorded yet. The directory is checked weekly and anything material lands here.
@@ -158,6 +149,39 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
               </div>
             </article>
           ))}
+        </div>
+    </>
+  );
+}
+
+/*
+ * The standalone page at /changes.
+ *
+ * It keeps its own URL, title, description and JSON-LD because it is the part
+ * of the site that moves weekly, which makes it what a crawler comes back for.
+ * The tab on the directory renders the same rows without this chrome.
+ */
+export default function ChangesFeed({ entries = [], tools = [] }) {
+  return (
+    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+      <div className="mx-auto" style={{ maxWidth: 860, padding: "0 20px" }}>
+        <nav style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
+          <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
+          <span style={{ color: C.dim }}> / </span><span>Recent updates</span>
+        </nav>
+
+        <header style={{ paddingTop: S.xl }}>
+          <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
+            Recent updates
+          </h1>
+          <p style={{ fontSize: F.lg, color: C.muted, maxWidth: "58ch", lineHeight: 1.5, margin: `${S.md}px 0 0` }}>
+            Pricing moves, new features, rebrands and wind-downs across the directory, dated and in
+            order. The listings say what each tool is. This says what happened to it.
+          </p>
+        </header>
+
+        <div style={{ paddingBottom: S["4xl"] }}>
+          <FeedRows entries={entries} tools={tools} />
         </div>
       </div>
     </main>

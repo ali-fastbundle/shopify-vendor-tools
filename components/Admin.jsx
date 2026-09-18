@@ -1370,7 +1370,7 @@ function Compose({ count, feed = [] }) {
               fontSize: F.sm, fontWeight: 600, cursor: week.length ? "pointer" : "default",
               fontFamily: "inherit",
             }}>
-              {week.length ? `Draft from this week (${week.length})` : "Nothing on the feed this week"}
+              {week.length ? `Draft from this week (${week.length})` : "No recent updates this week"}
             </button>
 
             <button onClick={() => send(true)} disabled={!ready || Boolean(busy)} style={{
@@ -2186,7 +2186,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
     <Section
       title="Listing changes"
       count={open.length}
-      hint="Proposed by the weekly monitor, grouped by tool. Nothing here has been applied: most belong on the feed, a few in the listing, the rest are noise."
+      hint="Proposed by the weekly monitor, grouped by tool. Nothing here has been applied: most belong in Recent updates, a few in the listing, the rest are noise."
     >
       <div className="flex flex-wrap items-center" style={{ gap: S.md, padding: "12px 0" }}>
         <Btn onClick={runNow} busy={running} tone="go">Run the monitor now</Btn>
@@ -2450,7 +2450,7 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
       {edit.state === "unmapped" && (
         <p style={{ fontSize: F.xs, color: C.dim, margin: `0 0 ${S.sm}px`, lineHeight: 1.55, maxWidth: "72ch" }}>
           The monitor could not map this onto a single field{edit.field ? ` (it suggested "${edit.field}", which is not one we store)` : ""}.
-          It may still be worth publishing to the feed.
+          It may still be worth publishing to Recent updates.
         </p>
       )}
 
@@ -2527,7 +2527,7 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
           </div>
 
           <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
-            <Btn onClick={publish} busy={busy === r.id || drafting} tone="go">Publish to feed</Btn>
+            <Btn onClick={publish} busy={busy === r.id || drafting} tone="go">Publish to Recent updates</Btn>
             <Btn onClick={startDraft} busy={drafting}>Draft again</Btn>
             <Btn onClick={() => { setWriting(false); setErr(""); }}>Cancel</Btn>
           </div>
@@ -2545,14 +2545,14 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
         {published ? (
           <>
             <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
-              On the feed {String(published.at || "").slice(0, 10)}
+              In Recent updates {String(published.at || "").slice(0, 10)}
             </span>
             <ConfirmBtn onConfirm={() => onAct(r.id, "unpublish-from-feed")} busy={busy === r.id}
-              confirm="Remove">Remove from feed</ConfirmBtn>
+              confirm="Remove">Remove from updates</ConfirmBtn>
           </>
         ) : !writing && (
           <Btn onClick={startDraft} busy={drafting} tone="go">
-            Publish to feed
+            Publish to Recent updates
           </Btn>
         )}
 
