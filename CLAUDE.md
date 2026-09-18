@@ -189,6 +189,51 @@ Marking a suggestion reviewed in `/admin` publishes the suggestion, not a listin
 Turning it into a tool is still a hand edit to `lib/tools.js`; give that entry an
 `updated` of the day it goes in and the site-wide date moves on its own. See invariant 18.
 
+**16. Rating and reviewing need an account. Voting does not.**
+A review is stored against the reviewer's email, one per account per tool, and
+posting again replaces it rather than adding a second one under the same name.
+`/api/review` answers 401 to a signed-out caller, and the check sits *above* the
+rate limiter because reading the session is a signature compare with no I/O
+(invariant 6). The reviewer's address is the key that makes one-per-account
+possible and it is the only private field in the store: nothing reaches a
+visitor except through `publicReviews()` in `lib/reviews.js`, which strips it, so
+a route that forgets the helper ships nothing rather than shipping addresses.
+`mine` is added per request from the caller's own session and never stored.
+
+Anonymous ratings were one click somebody could repeat all afternoon, which made
+the directory's own primary signal the cheapest number on the page. A fabricated
+average is worse than no average, because it looks like evidence.
+
+**Votes stay anonymous**, with the existing per-browser and per-IP limits. A like
+is a shrug, it is worth roughly what it costs, and a sign-in wall in front of one
+would lose more signal than it protects. Do not extend this to voting.
+
+**The form says why, in one line:** "Ratings need an account so they mean
+something. One email, no password." `SignInPrompt` in `components/Account.jsx`
+takes a required `reason`, because a sign-in wall with no stated reason reads as
+a toll, and this one has an argument behind it.
+
+**Signing in happens in place and comes back.** The prompt is inside the review
+form, not a redirect to a sign-in page. `SignInPrompt` takes a `returnTo` tool
+id, `/api/auth/request` checks it against the catalogue, and it travels inside
+the *signed* login token rather than as a query parameter, so the callback can
+only ever land on our own origin with an id we minted. The callback redirects to
+`/?signin=ok&tool=<id>`, and `Directory` validates the id again before opening
+that listing and then strips both parameters so a refresh does not replay it.
+
+**What they typed survives the trip.** `ReviewForm` keeps the rating, name and
+text in `localStorage` under `svt:draft:<toolId>` while it is being written, and
+clears it on a successful post. Signing in means leaving the page, opening an
+email and coming back, and a half-written review does not survive that on its
+own. Nobody reports losing two sentences to a sign-in wall, they just do not come
+back. It is per-browser and every access is wrapped, because an unposted draft is
+not something to put on the server and a browser with storage blocked should lose
+the draft and nothing else.
+
+Precedence when all three exist: a star just clicked beats a saved draft, and
+both beat the review already stored. That is oldest-last, and it is why the
+`existing` effect uses `(r) => r || ...` rather than assigning.
+
 **17. A repeat suggestion increments a row. It never creates one.**
 `lib/suggestions.js` matches a submission before it is stored, against the
 published catalogue for its kind and against the suggestions already filed.
@@ -271,6 +316,7 @@ the informative label is the positive one.
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, and the `published()` filter every catalogue passes through |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
+| `lib/reviews.js` | One review per account per tool, and the only thing that strips a reviewer's address |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
@@ -691,18 +737,20 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `signin_return` | no | nothing |
 | `signin_link` | no | the magic link |
 | `subscribe` | yes | confirmation + unsubscribe link |
-| `review` | yes | thank you, names the tool — only if signed in |
+| `review` | yes | thank you, names the tool. Says "updated" when it replaced one |
 | `claim_verified` | yes | what they can and cannot edit |
-| `suggestion` | yes | thank you, only if they gave an address |
+| `suggestion` | yes | thank you, only if they gave an address. Says how many have asked when it was a repeat |
 | `report` | yes | thank you, only if they gave an address |
 | `listing_edited` | yes | nothing (they just made the edit) |
 
 Votes send nothing, either side.
 
 Suggestions and reports are open to signed-out visitors, so a missing address is normal,
-not an error: the matrix's `user` function returns null and the request carries on. The
-review form never asks for an address at all, so an anonymous review gets no thank-you
-by construction rather than by a check somebody has to remember.
+not an error: the matrix's `user` function returns null and the request carries on.
+
+Reviewing needs an account now (invariant 16), so there is always an address on `review`.
+The `d.email` guard in that row stays anyway: the matrix is the contract, and a caller
+that omits the field should send nothing rather than throw.
 
 Adding an event means adding a row to `MATRIX` and nothing else. If you find yourself
 importing the Resend transport into a route, stop — that is the pattern this replaced.

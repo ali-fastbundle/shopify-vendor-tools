@@ -45,27 +45,102 @@ const primary = (on) => ({
 });
 
 /* ------------------------------------------------------------------ */
-/*  Sign in / out, top right                                           */
+/*  Asking for a magic link                                            */
+/*                                                                     */
+/*  Shared by the bar at the top of the page and by the sign-in prompt  */
+/*  inside the review form, because there is one way to sign in and     */
+/*  two copies of a fetch is how the two ends up behaving differently.  */
 /* ------------------------------------------------------------------ */
-export function AccountBar({ session, refresh }) {
-  const [open, setOpen] = useState(false);
+function useMagicLink(tool = "") {
   const [email, setEmail] = useState("");
   const [state, setState] = useState({ status: "idle" });
 
   async function submit() {
     if (!email.trim()) return;
     setState({ status: "sending" });
-    const res = await fetch("/api/auth/request", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    if (!res.ok) {
-      setState({ status: "error", message: await res.text() });
-      return;
+    try {
+      const res = await fetch("/api/auth/request", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        /* `tool` is where to come back to. The server checks it against the
+           catalogue and carries it inside the signed token; see lib/auth.js. */
+        body: JSON.stringify({ email, tool }),
+      });
+      if (!res.ok) {
+        setState({ status: "error", message: await res.text() });
+        return;
+      }
+      const d = await res.json();
+      setState({ status: "sent", dev: d.dev });
+    } catch {
+      setState({ status: "error", message: "Could not reach the server." });
     }
-    const d = await res.json();
-    setState({ status: "sent", dev: d.dev });
   }
+
+  return { email, setEmail, state, submit };
+}
+
+/*
+ * The inline version, for the places that need somebody signed in before they
+ * can do the thing they came to do. `reason` is the caller's sentence about
+ * why, and it is required rather than optional: a sign-in wall with no stated
+ * reason reads as a toll, and this one has an argument behind it.
+ *
+ * `returnTo` is a tool id. It makes the link come back to the tool they were
+ * rating rather than to the top of the directory, which is the difference
+ * between signing in and being interrupted. What they had typed is kept by the
+ * form itself, so it survives the trip through the inbox whichever way they
+ * come back.
+ */
+export function SignInPrompt({ reason, returnTo = "" }) {
+  const { email, setEmail, state, submit } = useMagicLink(returnTo);
+
+  if (state.status === "sent") {
+    return (
+      <div>
+        <p style={{ fontSize: F.sm, color: C.text, margin: 0, lineHeight: 1.55, maxWidth: "58ch" }}>
+          Check your inbox. The link works once and expires in 15 minutes. It comes back to this
+          tool, and what you have written is kept.
+        </p>
+        {state.dev && (
+          <p style={{ fontSize: F.xs, color: C.warnInk, margin: "8px 0 0", lineHeight: 1.5 }}>
+            Email is not configured, so the link was written to the server log instead.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "58ch" }}>
+        {reason}
+      </p>
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+        <input style={{ ...field, width: 240, flexShrink: 0 }} value={email} type="email"
+          placeholder="you@yourcompany.com"
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
+        <button onClick={submit} disabled={!email.trim() || state.status === "sending"}
+          className="press" style={primary(Boolean(email.trim()))}>
+          {state.status === "sending" ? "Sending…" : "Email me a link"}
+        </button>
+      </div>
+      {state.status === "error" && (
+        <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0" }}>{state.message}</p>
+      )}
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5 }}>
+        We store your email address and when you signed in, and nothing else.
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sign in / out, top right                                           */
+/* ------------------------------------------------------------------ */
+export function AccountBar({ session, refresh }) {
+  const [open, setOpen] = useState(false);
+  const { email, setEmail, state, submit } = useMagicLink();
 
   async function signOut() {
     await fetch("/api/auth/session", { method: "DELETE" });
@@ -107,7 +182,7 @@ export function AccountBar({ session, refresh }) {
         borderRadius: R.control, padding: "8px 12px", fontSize: F.sm, fontWeight: 600,
         cursor: "pointer", fontFamily: "inherit",
       }}>
-        Sign in to claim a listing
+        Sign in
       </button>
 
       {open && (
@@ -130,7 +205,8 @@ export function AccountBar({ session, refresh }) {
           ) : (
             <>
               <p style={{ fontSize: F.sm, color: C.muted, margin: "0 0 12px", lineHeight: 1.5 }}>
-                Built one of these tools? Sign in, then prove you control its domain to edit the listing.
+                Signing in is what lets you rate and review a tool, one rating per account. Built one
+                of these tools? Sign in, then prove you control its domain to edit the listing.
               </p>
               <input style={field} value={email} type="email" placeholder="you@yourcompany.com"
                 onChange={(e) => setEmail(e.target.value)}

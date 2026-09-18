@@ -9,7 +9,7 @@ import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
 import { Pill } from "./Pill";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
-import { AccountBar, OwnerPanel, useSession } from "./Account";
+import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
 
 /* ================================================================== */
@@ -721,24 +721,39 @@ export default function Directory({ tools: initialTools }) {
     });
   }
 
-  function addReview(id, author, rating, text) {
-    const e = {
-      id: Date.now().toString(36), author: author.trim() || "Anonymous",
-      rating, text: text.trim(), date: new Date().toISOString().slice(0, 10),
-    };
-    const nr = { ...reviews, [id]: [e, ...(reviews[id] || [])] };
-    setReviews(nr);
-    post("/api/review", { id, author: e.author, rating, text: e.text }).then((r) => {
-      if (r && r.reviews) setReviews(r.reviews);
-    });
+  /*
+   * Not optimistic, unlike voting, and deliberately.
+   *
+   * A review can be rejected (signed out), and it can replace a row rather than
+   * add one, so the shape of the list after the write is the server's to decide.
+   * Guessing at it and reconciling afterwards would flash a duplicate on every
+   * edit. A vote is a number that cannot fail, which is why that one still is.
+   *
+   * Returns the failure rather than setting the page-wide error, so the form
+   * can say "sign in to rate" next to the button somebody just pressed.
+   */
+  async function addReview(id, author, rating, text) {
+    try {
+      const res = await fetch("/api/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, author, rating, text }),
+      });
+      if (!res.ok) return { ok: false, error: await res.text() };
+      const d = await res.json();
+      if (d.reviews) setReviews(d.reviews);
+      setErr("");
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Could not reach the server." };
+    }
   }
 
   /*
-   * Not optimistic, unlike voting.
-   *
-   * A submission can be answered with "already listed" and stored nowhere, or
-   * folded into a row that already exists. Prepending a row and then taking it
-   * away again is a worse answer than waiting a moment for the real one.
+   * Also not optimistic, for the same reason as a review: a submission can be
+   * answered with "already listed" and stored nowhere, or folded into a row
+   * that already exists. Prepending a row and then taking it away again is a
+   * worse answer than waiting a moment for the real one.
    */
   async function addSuggestion(s) {
     try {
@@ -815,6 +830,33 @@ export default function Directory({ tools: initialTools }) {
     setDetailRating(Number.isInteger(rating) ? rating : 0);
     setCompare(false);
   };
+
+  /*
+   * Coming back from a sign-in link.
+   *
+   * The callback puts the tool id from the signed token on the URL, so somebody
+   * who signed in to rate something lands back on that listing with the form
+   * open, rather than at the top of the directory having to find it again. What
+   * they had typed is restored by the form itself from localStorage, which is
+   * what makes this work even when the link is opened in a different tab.
+   *
+   * The id is checked against the catalogue before it opens anything, and both
+   * parameters are stripped afterwards: a refresh should not replay a sign-in,
+   * and the URL people copy out of the bar should not carry one.
+   */
+  useEffect(() => {
+    let params;
+    try { params = new URLSearchParams(window.location.search); } catch { return; }
+    if (!params.has("tool") && !params.has("signin")) return;
+    const id = params.get("tool");
+    if (id && (initialTools || TOOLS).some((t) => t.id === id)) openTool(id);
+    params.delete("tool"); params.delete("signin");
+    const rest = params.toString();
+    try {
+      window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     /*
@@ -1515,7 +1557,8 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
         <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools} />
 
         <div className="mt-6" style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg }}>
-          <ReviewForm name={tool.name} onSubmit={onReview} initialRating={initialRating} />
+          <ReviewForm toolId={tool.id} name={tool.name} onSubmit={onReview} initialRating={initialRating}
+            session={session} existing={reviews.find((r) => r.mine) || null} />
           {reviews.length > 0 && (
             <div className="mt-5 flex flex-col" style={{ gap: S.md }}>
               {reviews.map((r) => (
@@ -1523,7 +1566,12 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
                   <div className="flex items-baseline flex-wrap" style={{ gap: S.sm }}>
                     <Stars value={r.rating} size={F.sm} />
                     <span style={{ fontSize: F.sm, fontWeight: 600 }}>{r.author}</span>
-                    <span style={{ fontSize: F.xs, color: C.dim }}>{r.date}</span>
+                    <span style={{ fontSize: F.xs, color: C.dim }}>
+                      {r.date}{r.editedAt && r.editedAt !== r.date ? `, edited ${r.editedAt}` : ""}
+                    </span>
+                    {/* Only ever true for the person reading it: the server
+                        sets it from their own session and never stores it. */}
+                    {r.mine && <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 600 }}>yours</span>}
                   </div>
                   {r.text && <p className="mt-1" style={{ fontSize: F.md, lineHeight: 1.55, color: C.muted, maxWidth: "64ch" }}>{r.text}</p>}
                 </div>
@@ -1644,32 +1692,132 @@ function ReportProblem({ tool }) {
  * a row. That click was the rating, so the form opens with it picked and the
  * cursor already in the text field: they carry on writing rather than starting
  * the same decision over.
+ *
+ * Rating needs an account. That is the credibility layer and it is meant to
+ * cost something: an anonymous star is one click repeated as often as somebody
+ * likes, and an average assembled that way is worse than none, because it
+ * looks like evidence. The stars stay live while signed out on purpose, so the
+ * click that brought somebody here is still theirs when they come back from
+ * the email rather than a decision they have to make twice.
+ *
+ * `existing` is this account's review of this tool, when there is one. One per
+ * account per tool, so the form opens on it and replaces it. A second opinion
+ * about the same tool from the same person is a change of mind, not a second
+ * review, and stacking them under one name reads as two people agreeing.
  */
-function ReviewForm({ name, onSubmit, initialRating = 0 }) {
+function ReviewForm({ toolId, name, onSubmit, initialRating = 0, session = {}, existing = null }) {
   const [author, setAuthor] = useState("");
   const [rating, setRating] = useState(initialRating);
   const [text, setText] = useState("");
-  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState("");
   const textRef = useRef(null);
+
+  const signedIn = Boolean(session.signedIn);
+
+  /*
+   * What they had typed, kept across the trip through their inbox.
+   *
+   * Signing in from here means leaving the page, opening an email and coming
+   * back, and half-written reviews do not survive that on their own. Losing
+   * two sentences to a sign-in wall is the sort of thing nobody complains
+   * about, they just do not come back.
+   *
+   * localStorage rather than a URL or the session, because it has to survive a
+   * full navigation while the person is still signed out, and because it is
+   * genuinely per-browser: an unposted draft is not something to store on the
+   * server. Every access is wrapped, since a browser with storage blocked
+   * should lose the draft and nothing else.
+   */
+  const draftKey = `svt:draft:${toolId}`;
+
   useEffect(() => {
-    if (initialRating) textRef.current?.focus();
-  }, [initialRating]);
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(draftKey) || "null"); } catch {}
+    if (!d) return;
+    setAuthor((a) => a || d.author || "");
+    setText((t) => t || d.text || "");
+    /* A star clicked a moment ago on the card beats one saved earlier. */
+    if (!initialRating) setRating((r) => r || d.rating || 0);
+  }, [draftKey, initialRating]);
+
+  useEffect(() => {
+    /* Nothing typed yet: this fires once on mount, before the restore above
+       has anything to put back, and writing here would erase the draft. */
+    if (!rating && !author && !text) return;
+    try { localStorage.setItem(draftKey, JSON.stringify({ rating, author, text })); } catch {}
+  }, [draftKey, rating, author, text]);
+
+  /*
+   * Load whatever this account already said, once we know who they are. A
+   * draft and the star they arrived on both win over it: the stored review is
+   * the oldest of the three opinions, and `existing` arrives after the data
+   * fetch, by which point the other two are already in state.
+   */
+  useEffect(() => {
+    if (!existing) return;
+    setRating((r) => r || existing.rating);
+    setAuthor((a) => a || existing.author || "");
+    setText((t) => t || existing.text || "");
+  }, [existing]);
+
+  useEffect(() => {
+    if (initialRating && signedIn) textRef.current?.focus();
+  }, [initialRating, signedIn]);
+
   const field = {
     background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
     padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit", width: "100%",
   };
-  const submit = () => {
-    if (!rating) return;
-    onSubmit(author, rating, text);
-    setAuthor(""); setRating(0); setText(""); setDone(true);
-    setTimeout(() => setDone(false), 2600);
-  };
+
+  async function submit() {
+    if (!rating || busy) return;
+    setBusy(true); setErr(""); setDone("");
+    const res = await onSubmit(author, rating, text);
+    setBusy(false);
+    if (!res?.ok) { setErr(res?.error || "That did not save."); return; }
+    /* It is posted, so it is no longer a draft. */
+    try { localStorage.removeItem(draftKey); } catch {}
+    setDone(existing ? "Updated. It replaced the one you left before." : "Posted. Everyone can see it.");
+    setTimeout(() => setDone(""), 3200);
+  }
+
+  const heading = (
+    <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
+      <span style={{ fontSize: F.md, fontWeight: 600 }}>
+        {existing ? `Your rating of ${name}` : `Rate ${name}`}
+      </span>
+      <Stars value={rating} onPick={setRating} size={F.xl} title={`Rate ${name}`} />
+    </div>
+  );
+
+  /* Nothing known about the visitor yet. Rendering the signed-out wall and
+     then replacing it a beat later is worse than one beat of the stars. */
+  if (session.loading) return heading;
+
+  if (!signedIn) {
+    return (
+      <div>
+        {heading}
+        <div className="mt-3">
+          {session.configured === false ? (
+            <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "58ch" }}>
+              Accounts are not enabled on this deployment, so rating is closed. Likes still work and
+              do not need one.
+            </p>
+          ) : (
+            <SignInPrompt returnTo={toolId}
+              reason="Ratings need an account so they mean something. One email, no password." />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
-        <span style={{ fontSize: F.md, fontWeight: 600 }}>Rate {name}</span>
-        <Stars value={rating} onPick={setRating} size={F.xl} title={`Rate ${name}`} />
-      </div>
+      {heading}
       <div className="flex flex-wrap items-start mt-3" style={{ gap: S.sm }}>
         <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Your name"
           style={{ ...field, width: 150, flexShrink: 0 }} />
@@ -1677,14 +1825,19 @@ function ReviewForm({ name, onSubmit, initialRating = 0 }) {
           onSubmit={submit}
           placeholder="What did you actually find using it?"
           style={{ ...field, flex: 1, minWidth: 200 }} />
-        <button onClick={submit} disabled={!rating} className="press" style={{
-          background: rating ? C.accent : C.subtle, color: rating ? C.onAccent : C.dim,
+        <button onClick={submit} disabled={!rating || busy} className="press" style={{
+          background: rating && !busy ? C.accent : C.subtle, color: rating && !busy ? C.onAccent : C.dim,
           border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.md, fontWeight: 700,
-          cursor: rating ? "pointer" : "default", fontFamily: "inherit",
-        }}>Post</button>
+          cursor: rating && !busy ? "pointer" : "default", fontFamily: "inherit",
+        }}>{busy ? "Saving…" : existing ? "Update" : "Post"}</button>
       </div>
       {!rating && <p className="mt-2" style={{ fontSize: F.xs, color: C.dim }}>Pick a star rating to post.</p>}
-      {done && <p className="mt-2" style={{ fontSize: F.xs, color: C.accentInk }}>Posted. Everyone can see it.</p>}
+      <p className="mt-2" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5, maxWidth: "62ch" }}>
+        Posting as {session.email}. Your address is never shown, only the name you put above. One
+        rating per account per tool, so posting again replaces this one rather than adding another.
+      </p>
+      {err && <p className="mt-2" style={{ fontSize: F.xs, color: C.badInk }}>{err}</p>}
+      {done && <p className="mt-2" style={{ fontSize: F.xs, color: C.accentInk }}>{done}</p>}
     </div>
   );
 }

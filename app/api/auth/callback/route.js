@@ -7,9 +7,18 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   const token = new URL(request.url).searchParams.get("token");
-  const email = readLoginToken(token);
+  const claims = readLoginToken(token);
   const origin = new URL(request.url).origin;
-  if (!email) return Response.redirect(`${origin}/?signin=expired`, 302);
+  if (!claims) return Response.redirect(`${origin}/?signin=expired`, 302);
+  const { email, tool } = claims;
+
+  /*
+   * Where to put them back. The id came out of the signed token, so it is one
+   * we minted and validated against the catalogue, not something a link can be
+   * edited to say. It becomes a parameter on our own origin either way, so
+   * there is no destination here for anyone to control.
+   */
+  const back = tool ? `/?signin=ok&tool=${encodeURIComponent(tool)}` : "/?signin=ok";
 
   /*
    * After the token check, which is a pure HMAC compare with no I/O — a forged
@@ -50,7 +59,7 @@ export async function GET(request) {
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `${origin}/?signin=ok`,
+      Location: `${origin}${back}`,
       "Set-Cookie": sessionCookie(mintSession(email)),
     },
   });

@@ -1,4 +1,5 @@
 import { configured, isEmail, mintLoginToken, normaliseEmail } from "@/lib/auth";
+import { TOOLS } from "@/lib/tools";
 import { isSendingRestricted } from "@/lib/email";
 import { sendEvent } from "@/lib/mail";
 import { allow, ipOf } from "@/lib/ratelimit";
@@ -15,12 +16,20 @@ export async function POST(request) {
     return new Response("Too many sign-in attempts. Wait a few minutes.", { status: 429 });
   }
 
-  const { email } = await request.json();
+  const { email, tool } = await request.json();
   const addr = normaliseEmail(email);
   if (!isEmail(addr)) return new Response("That email does not look right", { status: 400 });
 
+  /*
+   * Somebody signing in from a rating form is trying to rate that tool, not to
+   * arrive at the homepage. The id is checked against the catalogue here and
+   * then travels inside the signed token, so an unknown or malformed one is
+   * dropped rather than carried, and the callback cannot be pointed anywhere.
+   */
+  const back = TOOLS.some((t) => t.id === tool) ? tool : "";
+
   const origin = new URL(request.url).origin;
-  const link = `${origin}/api/auth/callback?token=${encodeURIComponent(mintLoginToken(addr))}`;
+  const link = `${origin}/api/auth/callback?token=${encodeURIComponent(mintLoginToken(addr, back))}`;
   /*
    * sendEvent never throws, so the failure arrives as a result rather than an
    * exception — but this is the one caller that must act on it. Everywhere else
