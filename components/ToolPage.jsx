@@ -1,6 +1,6 @@
 import React from "react";
 import { outbound } from "@/lib/outbound";
-import { C, S, R, F, TRACK, ink, catOf, socialLabel, SOCIALS, formatDay } from "@/lib/tools";
+import { C, S, R, F, TRACK, ink, catOf, socialLabel, SOCIALS, formatDay, ownerOf } from "@/lib/tools";
 import { toolDescription, logoAlt } from "@/lib/seo";
 
 /*
@@ -33,10 +33,9 @@ function Facts({ tool }) {
     tool.free && "free plan",
     tool.suite && `part of ${tool.suite}`,
     tool.linked && `same owner as ${tool.linked}`,
-    tool.owner && `by ${tool.owner}`,
+    ownerOf(tool) && `by ${ownerOf(tool)}`,
     tool.suggestedBy >= 2 && `suggested by ${tool.suggestedBy} people`,
     tool.claimed && "claimed",
-    !tool.verified && "unverified",
   ].filter(Boolean);
 
   return (
@@ -53,7 +52,7 @@ function Facts({ tool }) {
   );
 }
 
-export default function ToolPage({ tool, related, reviews = [], rating, changes = [], lastUpdated }) {
+export default function ToolPage({ tool, related, reviews = [], rating, lastUpdated }) {
   const col = catOf(tool.cat).color;
   const socials = SOCIALS
     .map(({ key }) => [key, tool.social?.[key]])
@@ -154,36 +153,6 @@ export default function ToolPage({ tool, related, reviews = [], rating, changes 
             </p>
           </div>
         </article>
-
-        {/*
-          * What happened to this tool, as opposed to what it is. The listing
-          * above is the description; this is the record. Keeping them apart is
-          * why the description does not grow a sentence every week.
-          */}
-        {changes.length > 0 && (
-          <section style={{ marginTop: S["3xl"] }}>
-            <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
-              Recent changes
-            </h2>
-            <div style={{ marginTop: S.md }}>
-              {changes.map((c) => (
-                <article key={c.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.md}px 0` }}>
-                  <time dateTime={c.date} style={{ fontSize: F.xs, color: C.dim }}>{formatDay(c.date)}</time>
-                  <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.xs}px 0 0`, maxWidth: "64ch" }}>{c.headline}</p>
-                  {c.sourceUrl && (
-                    <a href={outbound(c.sourceUrl)} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: F.xs, color: C.muted }}>
-                      {c.sourceUrl.replace(/^https?:\/\//, "").slice(0, 60)}
-                    </a>
-                  )}
-                </article>
-              ))}
-            </div>
-            <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 0` }}>
-              <a href="/changes" style={{ color: C.muted }}>Every change across the directory</a>
-            </p>
-          </section>
-        )}
 
         {reviews.length > 0 && (
           <section style={{ marginTop: S["3xl"] }}>

@@ -3,15 +3,14 @@ import { mergedTools } from "@/lib/listings";
 import { read, KEYS } from "@/lib/store";
 import { publicReviews } from "@/lib/reviews";
 import { homeGraph } from "@/lib/seo";
-import { feedEntries } from "@/lib/feed";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   // Rendered on the server so the catalogue, including vendor edits, is in the
   // HTML for crawlers rather than arriving after hydration.
-  const [tools, stored, feed] = await Promise.all([
-    mergedTools(), read(KEYS.reviews, {}), feedEntries({ limit: 120 }),
+  const [tools, stored] = await Promise.all([
+    mergedTools(), read(KEYS.reviews, {}),
   ]);
 
   /*
@@ -30,7 +29,7 @@ export default async function Page() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeGraph(tools, reviews)) }}
       />
-      <Directory tools={tools} feed={feed} />
+      <Directory tools={tools} />
     </>
   );
 }

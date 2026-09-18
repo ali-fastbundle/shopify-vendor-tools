@@ -9,7 +9,7 @@ import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
 import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
 
@@ -302,7 +302,7 @@ function VisitSite({ url, children = "Visit site", size = F.xs }) {
 const ownershipOf = (t) =>
   t.suite ? `Part of ${t.suite}`
     : t.linked ? `Same owner as ${t.linked}`
-      : t.owner ? `Built by ${t.owner}`
+      : ownerOf(t) ? `Built by ${ownerOf(t)}`
         : "Independent";
 
 /*
@@ -643,7 +643,7 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools, feed = [] }) {
+export default function Directory({ tools: initialTools }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
   const [votes, setVotes] = useState({});
@@ -1096,8 +1096,7 @@ export default function Directory({ tools: initialTools, feed = [] }) {
             watchfor.tools is an independent directory. Not affiliated with, endorsed by, or sponsored by
             Shopify. Shopify is a trademark of Shopify Inc.
             No tool here paid to be listed and none of the links are affiliate links.
-            Notes were last updated {LAST_UPDATED}. They are an editorial view, not an endorsement, and pricing moves. Tools marked unverified
-            were sourced from search results or third parties rather than the vendor's own site. Social
+            Notes were last updated {LAST_UPDATED}. They are an editorial view, not an endorsement, and pricing moves. Social
             profiles are linked only where the vendor publishes them. Ratings, reviews and suggestions are
             contributed by visitors and shared with everyone.
           </p>
@@ -1155,7 +1154,6 @@ export default function Directory({ tools: initialTools, feed = [] }) {
           reviews={reviews[detail] || []}
           onReview={(a, r, x) => addReview(detail, a, r, x)}
           onHelpful={(reviewId) => markHelpful(detail, reviewId)}
-          changes={feed.filter((f) => f.toolId === detail).slice(0, 5)}
           avg={avg(detail)}
           votes={votes[detail] || { up: 0, down: 0 }}
           myVote={mine[detail] || 0}
@@ -1358,21 +1356,26 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
  *
  * Neutral on purpose and restated here rather than in `Pill`: these are
  * attributes, and category colour is the only colour on this page that means
- * anything. Nothing is dropped for tidiness - an unverified listing says so on
- * the card, not only in the detail view.
+ * anything.
+ *
+ * `verified` is deliberately absent. It reported our research process rather
+ * than anything about the product, and next to a competitor carrying no badge
+ * it read as a mark against the tool. It lives in the data and shows on /admin,
+ * which is where the question "what still needs checking" is actually asked.
  */
 function Facts({ tool }) {
   const facts = [
     tool.free && "free plan",
     tool.suite && `part of ${tool.suite}`,
     tool.linked && `same owner as ${tool.linked}`,
-    tool.owner && `by ${tool.owner}`,
+    /* ownerOf, never tool.owner. A stored value equal to the tool's own name
+       says nothing and has been in the record before now. */
+    ownerOf(tool) && `by ${ownerOf(tool)}`,
     /* Two or more only. "Suggested by 1 person" is how everything got here and
        says nothing about this one; the number is information once it is
        demand rather than provenance. Counted in lib/interest.js. */
     tool.suggestedBy >= 2 && `suggested by ${tool.suggestedBy} people`,
     tool.claimed && "claimed",
-    !tool.verified && "unverified",
   ].filter(Boolean);
   if (!facts.length) return null;
   return (
@@ -1588,7 +1591,7 @@ function Shell({ children, onClose, width = 860 }) {
   );
 }
 
-function DetailModal({ tool, onClose, reviews, onReview, onHelpful, changes = [], avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
+function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
   const col = catOf(tool.cat).color;
   /*
    * Most helpful first, most recent to break a tie. The comparator lives in
@@ -1654,28 +1657,6 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, changes = []
             <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
           </div>
         </div>
-
-        {/* What happened, as opposed to what it is. The note above describes
-            the tool; these are dated events, and keeping them apart is why the
-            note does not grow a line every week. */}
-        {changes.length > 0 && (
-          <div className="mt-5">
-            <p style={{ fontSize: F.xs, color: C.dim, margin: 0, fontWeight: 600 }}>Recent changes</p>
-            <div className="mt-2">
-              {changes.map((c) => (
-                <div key={c.id} style={{ borderTop: `1px solid ${C.line}`, padding: "10px 0" }}>
-                  <span style={{ fontSize: F.xs, color: C.dim }}>{formatDay(c.date)}</span>
-                  <p style={{ fontSize: F.md, lineHeight: 1.55, color: C.muted, margin: "2px 0 0", maxWidth: "64ch" }}>
-                    {c.headline}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0" }}>
-              <a href="/changes" style={{ color: C.muted }}>Every change across the directory</a>
-            </p>
-          </div>
-        )}
 
         <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools} />
 
@@ -2067,7 +2048,6 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
     ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
     ["Ownership", ownershipOf],
-    ["Research source", (t) => (t.verified ? "Vendor site read directly" : "Third party, unverified")],
     ["Site", (t) => t.domain],
   ];
   const cellW = `${Math.max(24, Math.floor(66 / list.length))}%`;
