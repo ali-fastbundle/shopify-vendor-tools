@@ -63,6 +63,21 @@ compares with no I/O, so a rejected request currently costs nothing. Limiting fi
 turns the cheapest rejection into the most expensive one and hands an attacker
 amplification instead of protection. The limiter belongs where real work starts.
 
+**Limit the outcome that creates work, not the request that might.**
+`/api/suggest` capped every submission at 3 an hour, at the top of the route,
+before it knew what the submission was. Three of its four outcomes create
+nothing: already listed is answered from the catalogue, a merge increments a row
+that exists, and a validation failure stores nothing at all. Only a new queue row
+costs anybody attention. So the fourth person in an hour to suggest a tool that
+was already in the directory got "Suggestion limit reached" instead of the link
+they were looking for, having created nothing on any of the previous three.
+
+It is two limits now: a wide flood guard before the dedup, which is what
+protects the model call, and the tight budget immediately above the line that
+writes a new row. **Being told something is already listed must never be rate
+limited.** It creates nothing, it is the answer the person wanted, and refusing
+it teaches them the form is broken.
+
 The one place this rule argues *against* a limiter is `/api/auth/session`: it does a
 single `getClaims()` read, so a limiter would triple the I/O on the hottest signed-in
 path and save nothing once tripped (one read either way). Left unlimited on purpose.
@@ -289,7 +304,11 @@ already listed. Anything else falls through to the queue, which is the right
 answer anyway.
 
 `also` carries submitter addresses, so it is stripped alongside `email` on every
-public read. `/admin` sorts by `timesAsked()` and shows the count as a neutral
+public read. **So is `draft`**, which is a model's unreviewed entry about a named
+company, caveat and all. It was going out to anyone who called `/api/data` or
+`/api/suggest`, which made invariant 21's human-approval step decorative: the
+unapproved text was already public. Anything added to a suggestion row that is
+not for a visitor has to be added to `publicOf` in the same commit. `/admin` sorts by `timesAsked()` and shows the count as a neutral
 pill, because being able to see demand is the entire point of counting it.
 
 **18. Approving a suggestion is not publishing, and the button says so.**
@@ -503,6 +522,11 @@ hand-written entry and a published one both get it.
   entry is written.
 - `people` carries addresses, so it is stripped on every public read exactly
   like a suggestion's `also`. The count is public; who asked is not.
+- **This path must never return an error.** Not rate limited (see invariant 6),
+  and `addInterest` catches its own store failures and returns 0 rather than
+  throwing: losing a counter is not a reason to hand somebody an error instead
+  of the link they asked for. `scripts/interest-test.mjs` runs against a live
+  server and checks exactly this, including the fourth submission in an hour.
 
 **25. `/admin` is four tabs, ordered by whether there is anything to do.**
 Inbox, Catalogue, People, System. It had grown to thirteen headings in one

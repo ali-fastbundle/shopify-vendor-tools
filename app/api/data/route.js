@@ -16,8 +16,10 @@ export const dynamic = "force-dynamic";
  *
  * Suggestions hide the submitter's address the same way, and `also` (the people
  * who asked for a duplicate) carries addresses too, so it does not go out here.
+ * Nor does `draft`: that is a model's unreviewed entry about a named company,
+ * caveat and all, and nobody has approved it. See invariant 21.
  */
-const publicSuggestion = ({ email, also, ...rest }) => rest;
+const publicSuggestion = ({ email, also, draft, ...rest }) => rest;
 
 export async function GET(request) {
   const session = sessionFrom(request);

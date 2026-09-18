@@ -16,9 +16,17 @@ export const maxDuration = 60;
 
 const clean = (s, max) => String(s || "").replace(/\s+/g, " ").trim().slice(0, max);
 
-// The email is for the editor only, never served back to the page. `also`
-// carries submitter emails for the same reason, so it goes too.
-const publicOf = ({ email, also, ...rest }) => rest;
+/*
+ * What a visitor may see of a suggestion.
+ *
+ * `email` is the submitter's. `also` carries the addresses of everyone who
+ * asked for the same thing after them. `draft` is the research entry a model
+ * wrote and nobody has approved: unreviewed editorial prose about a named
+ * company, including a `watch` note and a list of things it could not verify.
+ * Publishing that is the one thing invariant 21 exists to prevent, and it was
+ * going out to anyone who called this route.
+ */
+const publicOf = ({ email, also, draft, ...rest }) => rest;
 const publicList = (list) => list.filter((s) => s.approved !== false).map(publicOf);
 
 /*
@@ -28,8 +36,20 @@ const publicList = (list) => list.filter((s) => s.approved !== false).map(public
  */
 export async function POST(request) {
   const ip = ipOf(request);
-  if (!(await allow("suggest", ip, 3, 60 * 60_000))) {
-    return new Response("Suggestion limit reached for this hour.", { status: 429 });
+
+  /*
+   * The flood guard, and the only limit that applies to every submission.
+   *
+   * It is here rather than lower down because the dedup below costs a model
+   * call, and that is the thing worth protecting from a loop. It is generous
+   * on purpose: a person reading the directory and suggesting half a dozen
+   * things, most of which turn out to be listed already, must never meet it.
+   *
+   * The tight budget is further down, on the one outcome that actually creates
+   * work. See the note above it.
+   */
+  if (!(await allow("suggest-burst", ip, 30, 60 * 60_000))) {
+    return new Response("That is a lot of submissions from one place. Try again a bit later.", { status: 429 });
   }
   const body = await request.json();
   const name = clean(body.name, 60);
@@ -121,6 +141,26 @@ export async function POST(request) {
         suggestions: publicList(next),
       });
     }
+  }
+
+  /*
+   * A new row in the queue, and the only outcome that makes work for anybody.
+   *
+   * The tight budget lives here rather than at the top of the route, which is
+   * the bug this comment exists to prevent coming back. It used to gate every
+   * submission, so the fourth person in an hour to suggest a tool that was
+   * already listed got "Suggestion limit reached" instead of a link to the
+   * thing they were looking for. Nothing had been created on any of the three
+   * before it either: they were all answered from the catalogue.
+   *
+   * Being told something is already listed must never be rate limited. It
+   * creates nothing, it is the answer the person wanted, and refusing it
+   * teaches them the form is broken. Same for a merge into an existing row.
+   * Only this branch spends anybody's attention, so only this branch is
+   * capped.
+   */
+  if (!(await allow("suggest", ip, 3, 60 * 60_000))) {
+    return new Response("Suggestion limit reached for this hour.", { status: 429 });
   }
 
   const entry = {
