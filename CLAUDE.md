@@ -193,6 +193,42 @@ one without the other, and every Resend call sets `reply_to` to the first
 `ADMIN_EMAILS` address. The subscribe copy tells people they can reply to get off the
 list; the from-address has no inbox, so without `reply_to` that is a lie.
 
+**32. Ownership is only a fact when it names something else.**
+"AppJubilee is built by AppJubilee" is not information: every product is made by
+itself. An owner is worth stating when it names a parent company, a legal
+entity, a person, or another listed tool. `isVacuousOwner` in `lib/tools.js` is
+the single copy of that rule.
+
+It reached the live site once, and fixing it at the monitor was not enough,
+which is the lesson worth keeping: **a guard on the door the last bad value came
+through is not a rule about the field.** There are three defences now and they
+fail in different directions.
+
+- **`mergedTools()` drops a vacuous `owner` override** rather than merging it.
+  This is the one that matters, because an override outranks the file. Had it
+  only been suppressed at render, AppJubilee would have shown no owner at all
+  instead of falling back to the real one in `lib/tools.js`.
+- **`ownerOf(tool)` returns "" for one**, and every public render reads
+  `ownerOf` rather than `tool.owner`: `Facts`, `ownershipOf`, the tool page and
+  `llms.txt`. A bad value written by any route later still cannot reach a page.
+- **`sweepOwnership()` clears what is already stored**, in `svt:overrides` and
+  `svt:entries`, from a button on `/admin`. It deletes the key rather than
+  writing an empty string, because an override's absence means "whatever the
+  file says" and an empty string would pin it to nothing. Idempotent, and it
+  returns what it cleared, so a second run reporting nothing is the evidence
+  the first one worked.
+
+**Match on equality after normalising, never on substring.** The first version
+used substring and it cost a real owner: Becketto is built by Beckett Oliphant,
+and `beckettoliphant` contains `becketto`, so the rule hid a genuine person and
+the sweep would have deleted them from the record. A product named after its
+founder is common. `bare()` strips protocol, `www.`, the TLD, legal suffixes and
+the generic product nouns (`app`, `software`, `platform`, `team`, `hq`), so
+"AppJubilee Inc", "The AppJubilee App" and "appjubilee.io" all reduce to
+`appjubilee` on their own. It deliberately does **not** strip `labs`, `studio`
+or `group`, which are what distinguish a real parent: Dark Ecommerce Labs is the
+answer here, not the noise.
+
 **15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
@@ -839,8 +875,14 @@ per-tool sub-page. Filters narrow it by tool and by category; they do not change
 what it is. It is the part of the site that moves weekly, which makes it what a
 crawler comes back for and what a returning visitor has a reason to open. It is
 in the sitemap with its `lastModified` taken from the newest entry rather than
-the build date. Each tool's own entries also render on its detail modal and its
-`/tools/[id]` page.
+the build date.
+
+**It is the only place changes appear.** Not the detail modal, not
+`/tools/[id]`, not collapsed and not further down. Those render what a tool
+*is*, and a dated list of events under the description gives a reader two
+answers to "is this current" on one screen, which is the problem the feed was
+built to solve rather than to relocate. If you find yourself passing a
+`changes` prop into a listing component, that is this rule being broken.
 
 **RSS lives at `/changes/rss`**, declared through `alternates.types` on the page
 so a reader finds it without being told. It is the one surface here that a person
@@ -1266,9 +1308,21 @@ or with you: a research panel and an expert marketplace. There, `linked` says it
 listed. A `watch` opening with a fact that is already on the card, stated neutrally, one
 line up, trains people to skim the field that matters most.
 
-State what is verified and what is not. `verified: true` means the vendor's own site was
-read directly. Anything sourced from search results or a third party is `verified:
-false` and renders an "unverified" badge.
+**`verified` is an editorial record, and it never renders publicly.** `true`
+means the vendor's own site was read directly; anything sourced from search
+results or a third party is `false`.
+
+It used to render an "unverified" badge on every public view. It reports our
+research process, which is not a fact about the product and not something a
+reader can act on, and next to a competitor carrying no badge it read as a mark
+against the tool. Same failure as "None found" on external ratings: a note about
+how much work we have done, phrased as a verdict on somebody else.
+
+It shows in exactly one place, the **Needs verifying** panel on the Catalogue
+tab, which lists every *published* entry still at `false`. Drafts are excluded:
+they are unverified nearly by definition, they are already listed one panel up,
+and including them would bury the entries that are live and thin. Do not put it
+back on a card, a row, the compare table, the footer or `llms.txt`.
 
 ## Logos
 
@@ -1442,6 +1496,7 @@ node scripts/feed-test.mjs           # the feed library and its field contract
 node scripts/announce-test.mjs       # the draft prompt, the em-dash scrub, the voice examples
 node scripts/feed-independence.mjs   # publishing does not apply, applying does not publish
 node scripts/discovery-promote.mjs   # a lead becomes one suggestion, and never a public one
+node scripts/ownership-test.mjs      # vacuous owners: merge, render and sweep
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
