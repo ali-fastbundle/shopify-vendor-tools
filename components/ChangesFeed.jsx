@@ -108,6 +108,7 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
             <span className="tnum" style={{ fontSize: F.sm, color: C.dim }}>
               {rows.length} {rows.length === 1 ? "entry" : "entries"}
             </span>
+            <a href="/changes/rss" style={{ fontSize: F.sm, color: C.muted, marginLeft: "auto" }}>RSS</a>
           </div>
         )}
 
@@ -123,6 +124,13 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
           ) : rows.map((e) => (
             <article key={e.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
               <div className="flex items-start" style={{ gap: S.md }}>
+                {/* The spine, turned on its side. Same device as a list row on
+                    the directory, and the same rule: category colour appears
+                    here, on the label, and on the filter. Nowhere else. */}
+                <span aria-hidden="true" style={{
+                  width: 3, borderRadius: 2, background: catOf(e.cat).color,
+                  flexShrink: 0, alignSelf: "stretch",
+                }} />
                 <Logo entry={e} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>

@@ -12,7 +12,11 @@ const description =
 export const metadata = {
   title,
   description,
-  alternates: { canonical: "/changes" },
+  /* So a reader that lands on the page can find the feed without being told. */
+  alternates: {
+    canonical: "/changes",
+    types: { "application/rss+xml": [{ url: "/changes/rss", title: "watchfor.tools: what changed" }] },
+  },
   openGraph: { title, description, type: "website", url: `${SITE}/changes`, siteName: "watchfor.tools" },
 };
 

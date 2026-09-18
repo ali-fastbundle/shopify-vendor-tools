@@ -919,6 +919,12 @@ export default function Directory({ tools: initialTools, feed = [] }) {
           <div className="flex flex-wrap items-center justify-between" style={{ gap: S.lg, marginBottom: S["2xl"] }}>
             <Wordmark />
             <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
+              {/* The feed is a primary view, not a footnote. It is the half of
+                  the site that moves, and a link only in the footer is a link
+                  nobody follows. */}
+              <a href="/changes" style={{
+                fontSize: F.sm, fontWeight: 600, color: C.muted, textDecoration: "none",
+              }}>What changed</a>
               <AccountBar session={session} refresh={refreshSession} />
               <ThemeToggle />
             </div>
