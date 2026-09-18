@@ -332,6 +332,34 @@ The stored field is still `approved`, because rows written before the rename
 carry it, and `approve-suggestion` is still accepted as an action name so a
 client on an older page load does not get an error for pressing the same button.
 
+**A discovered competitor becomes a suggestion, and then it is just a
+suggestion.** `promote-discovery` creates a queue row from a discovery finding
+and stops. Research, the draft editor, approve-and-publish, the entry stub and
+the tallies are the pipeline that already exists, reached unchanged. A name off
+a competitor's comparison page and a name somebody typed into the form differ
+only in how they arrived, so that is the only thing recorded differently: `via:
+"discovery"` and `namedBy`, the vendors whose pages named it, which is the
+evidence for looking at all.
+
+- **It is idempotent.** Two admins on the same list, or one double click, land
+  on the row that exists. `findDuplicate` decides, and the existing row comes
+  back so the caller researches that one.
+- **Already in the directory is refused**, not queued. Discovery filters those
+  out when it runs, so hitting one means the finding went stale.
+- **Never public, and not on one flag.** The row is written `approved: false`
+  whatever `MODERATE_SUGGESTIONS` says, *and* `publicList` drops
+  `via: "discovery"`. The public list is captioned as what people have asked
+  for, and a lead we generated is not that.
+- **It gets its own tally**, `suggestions:discovered`, rather than incrementing
+  `suggestions:received`. That counter answers "how many people asked", and
+  nobody asked for this one. Folding it in would make the label wrong, which is
+  the whole of invariant 27.
+
+The button is on the Discovered panel and does both steps, so one click means
+one click: promote, then run the existing research pass, then render the same
+`DraftPanel` the suggestion queue uses. A research failure still leaves the
+queued row, so there is something to retry rather than nothing.
+
 **19. `shopifyExclusive: false` marks a general tool. There is no `true`.**
 Nearly everything in the catalogue exists for the Shopify ecosystem and nothing
 else, so a badge saying so would sit on every card and carry no information. The
@@ -1024,6 +1052,46 @@ them all neutral the row became six identical grey capsules, and the borders dre
 attention than the words inside them. `Pill` survives for exactly one thing: the
 `tone="warn"` status badge.
 
+**That line is on the detail view and the tool page. It is not on the card.** See rule J.
+
+**J. The card answers one question: which of these thirty do I open.**
+Everything on it earns its place against that question, and everything that
+answers a question you only ask *after* choosing lives in the detail view. The
+card had grown a badge per feature until it carried fifteen unranked elements.
+
+On the card: the mark, the name, the category, the one-line summary, the price,
+the community rating and review count, the votes, `Visit site`, and the compare
+control. Plus `winding down`, which is rule B's one allowed warn badge and the
+only thing on a card that tells you not to bother.
+
+Not on the card, because each was already rendered on the detail view and was
+being shown twice: suite membership, shared ownership, `by {owner}`, `suggested
+by N people`, claimed, unverified, `not Shopify-only`, external ratings and
+social links. Nothing was deleted. It stopped being in two places.
+
+**The list view keeps them, and that is the point of having two views.** Cards
+browse, rows compare: a row gives up the description to line the facts up in
+sortable columns, so `not Shopify-only` and the external score belong there. Do
+not "fix" the list to match the card.
+
+**Free plan is part of the price line, never a badge.** `priceLine()` returns
+the price untouched when it already says free, which is most of the catalogue
+("Free, Pro $49/mo", "Free tier, then $49 / $149 / $349"), and completes the
+sentence only where it does not: `From $49/mo` with `free: true` renders
+"Free, then from $49/mo". A `dying` tool is left alone, because its price field
+describes the wind-down and "Free, then winding down" is not a sentence anybody
+meant to write. A badge repeating what the price already said was two elements
+carrying one fact, and the badge was the one with a border around it.
+
+**The rhythm is name, summary, price, footer.** One visual weight per line. The
+footer is two rows, each with a left and a right and nothing in the middle:
+rating and votes, which are both the community answering, then `Visit site` and
+`Compare`, which are both things you do next.
+
+**Adding anything to the card means arguing it helps somebody choose which one
+to open.** That is the bar, and it is the bar because every one of the fifteen
+was defensible on its own.
+
 **H. Every text token clears 4.5:1 in both themes.** `C.dim` was 3.25:1 on raised in
 dark and carried review counts, capture dates and the whole footer disclaimer. The
 light-theme star was 2.76:1, which made the directory's own primary signal the least
@@ -1369,7 +1437,22 @@ deployment was working.
 
 ```
 npm run build      # must compile
+
+node scripts/feed-test.mjs           # the feed library and its field contract
+node scripts/announce-test.mjs       # the draft prompt, the em-dash scrub, the voice examples
+node scripts/feed-independence.mjs   # publishing does not apply, applying does not publish
+node scripts/discovery-promote.mjs   # a lead becomes one suggestion, and never a public one
+node scripts/interest-test.mjs       # needs a running server
+node scripts/validate-jsonld.mjs     # needs a running server
+node scripts/admin-smoke.mjs <cookie>
 ```
+
+The four library tests need no server and no keys: they call the route handlers
+directly with a plain `Request` and shim `lib/` into a temp directory, which is
+how they run against the in-memory store rather than production Redis. Two of
+them exist because reading the code proved the claim once and a test proves it
+every time: that publishing to the feed never writes a listing, and that a
+promoted discovery lead cannot escape as a community suggestion.
 
 Then check the homepage HTML actually contains tool names, not just a loading state.
 
