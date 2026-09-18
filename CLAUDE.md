@@ -877,12 +877,57 @@ crawler comes back for and what a returning visitor has a reason to open. It is
 in the sitemap with its `lastModified` taken from the newest entry rather than
 the build date.
 
-**It is the only place changes appear.** Not the detail modal, not
-`/tools/[id]`, not collapsed and not further down. Those render what a tool
-*is*, and a dated list of events under the description gives a reader two
-answers to "is this current" on one screen, which is the problem the feed was
-built to solve rather than to relocate. If you find yourself passing a
-`changes` prop into a listing component, that is this rule being broken.
+**It is called Recent updates** in the nav, the page heading, the RSS channel
+title, the admin labels and the weekly email subject. The store keys, the route
+and the internal names are still `changes`, which is fine: those are not read by
+anybody the name is for.
+
+**It appears in exactly two places, and both are the universal stream.** The
+standalone page at `/changes`, and the Recent updates view on the directory. Not
+the detail modal, not `/tools/[id]`, not collapsed and not further down a
+listing. Those render what a tool *is*, and a dated list of events under the
+description gives a reader two answers to "is this current" on one screen, which
+is the problem the feed was built to solve rather than to relocate. If you find
+yourself passing a `changes` prop into a listing component, that is this rule
+being broken.
+
+**The directory has two views, and the catalogue is always the default.**
+A switcher above the filters, matching the view toggle's shape: `role="group"`
+and `aria-pressed`, not `role="tab"`, because neither implements the arrow-key
+contract `role="tab"` promises. Selected is a state rather than an action, so it
+takes the neutral inversion, the same device as the "All" chip. No category
+colour, because it is not a category, and no accent, because green does things.
+
+**The Recent updates tab is a real `<a href="/changes">`.** A plain left click
+is intercepted and the rows render in place; a middle click, a modifier click, a
+crawler and a browser with no JavaScript all get the standalone page. That page
+keeps its own title, description and JSON-LD and stays the thing that updates
+weekly, so it cannot become a tab somebody has to know to press. Same pattern as
+a card title linking to `/tools/[id]`.
+
+**`FeedRows` in `components/ChangesFeed.jsx` is the shared body.** The page wraps
+it in a `<main>` with a heading; the tab drops it under the switcher. One
+implementation, because two would drift.
+
+**The count is per browser, and absent by default.** `localStorage` under
+`svt:updates:seen`, never an account: "what is new to me" is a per-browser
+question and nobody else's business. It renders only above zero and only on the
+unselected tab, as a neutral figure, never a coloured dot and never with motion.
+
+A first-time visitor has no mark stored, so there is nothing to be new against
+and the tab is just a tab. That is the whole answer to "do not swamp somebody
+who has never heard of any of these tools": the feed says nothing until the
+visitor has a history to compare against. It is rule E applied to time.
+
+The mark is stamped when the tab is **opened**, not on page load, because "I
+have looked at this" is something a person does. The count clears on the next
+visit rather than under the pointer. Every access is wrapped: blocked storage
+costs the count and nothing else, and a corrupt mark fails closed to no count,
+which is the direction to fail in.
+
+**Anything added above the grid comes out of the fold budget** (invariant F).
+The switcher costs roughly 50px and the header's bottom padding gave back 4 of
+them. Measure before adding a third thing.
 
 **RSS lives at `/changes/rss`**, declared through `alternates.types` on the page
 so a reader finds it without being told. It is the one surface here that a person
@@ -1497,6 +1542,7 @@ node scripts/announce-test.mjs       # the draft prompt, the em-dash scrub, the 
 node scripts/feed-independence.mjs   # publishing does not apply, applying does not publish
 node scripts/discovery-promote.mjs   # a lead becomes one suggestion, and never a public one
 node scripts/ownership-test.mjs      # vacuous owners: merge, render and sweep
+node scripts/updates-count.mjs       # "new since your last visit", including the first visit
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
