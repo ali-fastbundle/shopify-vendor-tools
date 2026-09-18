@@ -524,7 +524,8 @@ into `watch` makes it a warning, and a warning needs something to warn about.
 It usually has one. AppJubilee and StoreCensus are the same company and AppJubilee
 publishes comparisons against rivals, so the shared owner is the reason not to read those
 as two sources. AppstorePulse is built by the maker of a bundle app, so anyone competing
-in bundles would be handing over their keyword strategy. In each of those, the conflict
+in bundles would be handing over their keyword strategy. Rankbase started as Craftshift's
+internal tracker and Craftshift sells product-image apps. In each of those, the conflict
 is the caveat.
 
 App Store Research and ShopExperts are the same owner and do not compete with each other
