@@ -51,7 +51,7 @@ const TABS = [
 
 export default function AdminPanel({
   email, suggestions, claims, subscribers, reports, accounts, stats, maillog,
-  entries, dedupelog, changelog, monitor, changesSeen, interest, lastVisit, appliedChanges,
+  entries, dedupelog, changelog, monitor, changesSeen, interest, lastVisit, appliedChanges, discovery, blocked,
 }) {
   const [tab, setTab] = useState("inbox");
   const [rows, setRows] = useState(suggestions || []);
@@ -196,6 +196,7 @@ export default function AdminPanel({
             interest={interest || {}}
             outOfScope={outOfScopeRows}
             deleted={deletedRows}
+            blocked={blocked || []}
             stats={stats}
             allSuggestions={rows}
             act={act}
@@ -296,7 +297,7 @@ function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, a
   );
 }
 
-function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, outOfScope, deleted, stats, allSuggestions, act, busy }) {
+function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, outOfScope, deleted, stats, allSuggestions, blocked, act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
@@ -304,6 +305,7 @@ function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, outO
       <Drafts />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
+      <CannotMonitor rows={blocked} />
       <OutOfScope rows={outOfScope} />
       <Deleted rows={deleted} act={act} busy={busy} />
       <Section title="Reviewed suggestions" count={reviewed.length}
@@ -2133,6 +2135,45 @@ function Discovered({ discovery }) {
             )}
           </>
         )}
+    </Section>
+  );
+}
+
+/*
+ * Entries the monitor has no coverage of.
+ *
+ * Not an alert and not a queue. A blocked site is live, healthy and refusing
+ * our requests, usually because a WAF does not like the datacentre range a
+ * serverless function runs in, and no user agent changes that. Reported once
+ * here rather than every Monday as "unreachable", because the useful sentence
+ * is "we are not watching these three" and it only needs saying when the list
+ * changes.
+ *
+ * The flag clears itself: one successful read and the entry drops off this
+ * list without anybody tidying up.
+ */
+function CannotMonitor({ rows }) {
+  return (
+    <Section title="Cannot be monitored" count={rows.length}
+      hint="Live sites that refuse our fetches: a 403, a challenge page, or a 200 with nothing readable in it. The weekly monitor has no coverage of these, so their entries only change when somebody edits them by hand.">
+      {rows.length === 0
+        ? <Empty>Every listed site lets the monitor read it.</Empty>
+        : rows.map((b) => {
+          const tool = ALL_TOOLS.find((t) => t.id === b.id);
+          return (
+            <Row key={b.id}
+              title={tool ? tool.name : b.id}
+              tag={tool ? catOf(tool.cat).label : ""}
+              tagColor={tool ? ink(catOf(tool.cat).color) : C.muted}
+              badges={<Pill tone="warn">no coverage</Pill>}
+              body={b.why}
+              meta={<>
+                {b.since ? `blocked since ${String(b.since).slice(0, 10)}` : "blocked"}
+                {tool && <> · <a href={`/tools/${tool.id}`} style={{ color: C.muted }}>open the entry</a></>}
+              </>}
+            />
+          );
+        })}
     </Section>
   );
 }

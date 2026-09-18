@@ -489,6 +489,18 @@ no entry declared a `pricingUrl`, and the model filled the gap with "dead". A
 live page with four pricing tiers was reported gone at 0.9. The prompt now lists
 exactly which pages were fetched and forbids saying anything about the others.
 
+**Three fetch outcomes, not two: reachable, blocked, unreachable.** A 401,
+403, 429, a challenge page or a 200 with nothing readable in it means the site
+is live and refusing us, usually because a WAF dislikes the datacentre range a
+serverless function runs from. That is **a property of our coverage, not an
+event in the vendor's week**, so it is recorded as `blocked` on the snapshot,
+alerted on never, and surfaced once in "Cannot be monitored" in Catalogue. One
+successful read clears the flag by itself.
+
+Each page is tried with a second user agent before giving up, which helps where
+a filter keys on the UA string and does nothing where it keys on the IP, which
+is the SAMI and Ranksy case.
+
 **A dead page takes two runs.** One failed fetch is a timeout, a deploy, a WAF
 having a moment or our own network. The first failure is recorded as
 "unreachable this run" at **0.3**; only a failure that repeats becomes a
@@ -496,6 +508,19 @@ dead-page claim, at **0.75**. Confidence on an availability finding is a
 statement about how many times it has been verified, not about how certain the
 sentence sounds. The streak lives on the snapshot record, and one good read
 clears it.
+
+**Non-findings are filtered in code, not just discouraged in the prompt.**
+`isNonFinding()` drops a change whose old and new values are the same once
+formatting is ignored, one whose value already appears in the entry we publish,
+and one whose applyable edit would write what is already stored. Ownership gets
+its own rule: **naming a brand as its own owner is not information.** The
+monitor reported AppJubilee's owner as "AppJubilee"; the real answer, Dark
+Ecommerce Labs LLC, is in the site metadata, and the vacuous finding crowded it
+out. Ownership is reportable only when it names something else: a parent
+company, a legal entity, a person, or another listed tool.
+
+Every drop is logged, so a filter that is too aggressive is visible rather than
+silent.
 
 **Strictness is the feature.** Only seven kinds count, they are listed in the
 compare prompt along with what explicitly does not (copy edits, blog posts,
