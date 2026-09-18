@@ -1,5 +1,5 @@
 import { mergedTools } from "@/lib/listings";
-import { CATEGORIES, catOf, AUTHOR, AUTHOR_URL, LAST_UPDATED } from "@/lib/tools";
+import { CATEGORIES, catOf, AUTHOR, AUTHOR_URL, LAST_UPDATED, ownerOf } from "@/lib/tools";
 import { SITE } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -38,8 +38,7 @@ Last updated ${LAST_UPDATED}. ${tools.length} tools listed.
 
 Every entry is written by hand after reading the vendor's own site. Each carries a
 "watch for" note: the honest caveat somebody would want before paying, such as a
-conflict of interest, a coverage gap, or a claim the vendor cannot back up. Entries
-marked unverified were sourced from somewhere other than the vendor's own site.
+conflict of interest, a coverage gap, or a claim the vendor cannot back up.
 There are no affiliate links and no paid placement.
 
 External review scores, where present, are transcribed by hand from the platform's
@@ -67,10 +66,9 @@ ${byCat.map(({ cat, items }) => `### ${cat.label}
 ${items.map((t) => [
     `- [${t.name}](${SITE}/tools/${t.id}): ${t.one}`,
     `  site: ${t.url} | pricing: ${t.price}${t.free ? " | has a free tier" : ""}`,
-    t.owner || t.linked || t.suite
-      ? `  ownership: ${t.suite ? `part of ${t.suite}` : t.linked ? `same owner as ${t.linked}` : `built by ${t.owner}`}`
+    t.suite || t.linked || ownerOf(t)
+      ? `  ownership: ${t.suite ? `part of ${t.suite}` : t.linked ? `same owner as ${t.linked}` : `built by ${ownerOf(t)}`}`
       : "",
-    t.verified ? "" : "  note: unverified, not read from the vendor's own site",
     t.shopifyExclusive === false ? "  note: general tool, not Shopify-only" : "",
     t.dying ? "  note: winding down" : "",
   ].filter(Boolean).join("\n")).join("\n")}`).join("\n\n")}

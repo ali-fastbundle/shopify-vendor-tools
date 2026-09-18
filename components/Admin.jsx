@@ -5,7 +5,7 @@ import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_COMMUNITIES } from "@/lib/communities";
-import { drafted } from "@/lib/drafts";
+import { drafted, published } from "@/lib/drafts";
 import { timesAsked } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
 import { Pill } from "./Pill";
@@ -364,6 +364,7 @@ function Catalogue({ reviewed = [], entries = {}, onEntries, onSuggestions, inte
       <Tallies stats={stats} rows={allSuggestions} />
       <PublishingNote />
       <Drafts />
+      <NeedsVerifying />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
       <Collapsible title="Cannot be monitored" count={blocked.length}
@@ -1058,6 +1059,57 @@ function CopyStub({ s }) {
 
 
 /* ------------------------------------------------------------------ */
+/*  Needs verifying                                                    */
+/* ================================================================== */
+
+/*
+ * Which published entries have not been read on the vendor's own site.
+ *
+ * `verified` used to render as an "unverified" badge on every public view. It
+ * reports our research process, which is not a fact about the product and not
+ * something a reader can act on: next to a competitor with no badge it reads as
+ * a mark against the tool rather than as a note about how much work we have
+ * done. So it comes off the public site entirely and stays in the data, and
+ * this is the one place it shows.
+ *
+ * Published only. A draft is unverified nearly by definition and is already
+ * listed one panel up, so including them here would bury the entries that are
+ * live and thin under the ones nobody can see yet.
+ */
+function NeedsVerifying() {
+  const rows = SOURCES.flatMap(({ kind, entries }) =>
+    published(entries).filter((e) => e.verified !== true).map((entry) => ({ kind, entry })));
+
+  return (
+    <Collapsible
+      title="Needs verifying"
+      count={rows.length}
+      hint="Live entries written from search results or a third party rather than the vendor's own site. Read the site, fix what it contradicts, then set verified: true in the source file."
+    >
+      {rows.length === 0
+        ? <Empty>Every published entry was read on the vendor's own site.</Empty>
+        : rows.map(({ kind, entry }) => (
+          <Row key={`${kind}:${entry.id}`}
+            title={entry.name}
+            badges={<>
+              <span style={{ fontSize: F.xs, color: C.dim }}>{entry.id}</span>
+              <Pill>{kindOf(kind).label}</Pill>
+              {entry.dying && <Pill tone="warn">winding down</Pill>}
+            </>}
+            meta={<>
+              <a href={outbound(entry.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>
+                {String(entry.url || "").replace(/^https?:\/\//, "")}
+              </a>
+              {entry.updated ? ` · last checked ${entry.updated}` : ""}
+            </>}
+            body={entry.one ? <p style={{ margin: 0, lineHeight: 1.55 }}>{entry.one}</p> : null}
+          />
+        ))}
+    </Collapsible>
+  );
+}
+
+/* ================================================================== */
 /*  Drafts                                                             */
 /*                                                                     */
 /*  Written, not published. Every catalogue contributes its own drafts  */
