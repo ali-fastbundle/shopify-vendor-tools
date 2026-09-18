@@ -49,11 +49,47 @@ const TABS = [
   ["system", "System"],
 ];
 
+/*
+ * Every collection defaults to empty right here, in the signature.
+ *
+ * Most of these Redis keys postdate the first deployment, so a store that has
+ * not seen a feature yet returns nothing for it and the panel should render
+ * its empty state rather than throw. A default in the declaration is the
+ * cheapest possible version of that: it is a statement about the shape of the
+ * prop, and it removes the temptation to sprinkle `|| []` through the render,
+ * which is a null-check around a wiring bug rather than a fix for one.
+ */
 export default function AdminPanel({
-  email, suggestions, claims, subscribers, reports, accounts, stats, maillog,
-  entries, dedupelog, changelog, monitor, changesSeen, interest, lastVisit, appliedChanges, discovery, blocked,
+  email,
+  suggestions = [],
+  claims = {},
+  subscribers = [],
+  reports = [],
+  accounts = {},
+  stats = { fields: {}, queries: [] },
+  maillog = [],
+  entries = {},
+  dedupelog = [],
+  changelog = [],
+  monitor = {},
+  changesSeen = {},
+  interest = {},
+  lastVisit = "",
+  appliedChanges = {},
+  discovery = { findings: [] },
+  blocked = [],
+  initialTab = "inbox",
 }) {
-  const [tab, setTab] = useState("inbox");
+  /*
+   * The tab comes from the URL, so every tab renders on the server.
+   *
+   * Useful in itself: /admin?tab=people is a link somebody can send. It also
+   * makes each tab reachable without a browser, which is how the whole page
+   * shipped broken once. Only the default tab server-renders, so a bad
+   * reference in Catalogue, People or System is invisible to any check that
+   * loads /admin and reads the response.
+   */
+  const [tab, setTab] = useState(TABS.some(([id]) => id === initialTab) ? initialTab : "inbox");
   const [rows, setRows] = useState(suggestions || []);
   const [claimRows, setClaimRows] = useState(claims || {});
   const [reportRows, setReportRows] = useState(reports || []);
@@ -151,7 +187,17 @@ export default function AdminPanel({
             const on = tab === id;
             const n = counts[id];
             return (
-              <button key={id} onClick={() => setTab(id)} aria-current={on ? "page" : undefined}
+              <button key={id} onClick={() => {
+                setTab(id);
+                /* Keep the URL honest without a navigation, so a reload and a
+                   copied link both land where the person is looking. */
+                try {
+                  const u = new URL(window.location.href);
+                  if (id === "inbox") u.searchParams.delete("tab");
+                  else u.searchParams.set("tab", id);
+                  window.history.replaceState(null, "", u);
+                } catch { /* history is not essential to switching tabs */ }
+              }} aria-current={on ? "page" : undefined}
                 style={{
                   background: "none", border: 0, borderBottom: `2px solid ${on ? C.accent : "transparent"}`,
                   padding: "8px 14px", marginBottom: -1, cursor: "pointer", fontFamily: "inherit",
@@ -179,6 +225,7 @@ export default function AdminPanel({
             monitor={monitor}
             seen={seen}
             appliedChanges={appliedChanges || {}}
+            discovery={discovery}
             onSeen={setSeen}
             act={act}
             busy={busy}
@@ -229,7 +276,7 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, appliedChanges, onSeen, act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, discovery = { findings: [] }, onSeen, act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
   const openChanges = changes.filter((r) => !seen[r.id]);
   const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length;
@@ -297,7 +344,7 @@ function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, a
   );
 }
 
-function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, outOfScope, deleted, stats, allSuggestions, blocked, act, busy }) {
+function Catalogue({ reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
@@ -324,7 +371,7 @@ function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, outO
   );
 }
 
-function People({ accounts, claims, verified, subscribers, act, busy }) {
+function People({ accounts = {}, claims = {}, verified = [], subscribers = [], act, busy }) {
   return (
     <>
       <Section
@@ -343,7 +390,7 @@ function People({ accounts, claims, verified, subscribers, act, busy }) {
   );
 }
 
-function System({ stats, maillog, dedupelog }) {
+function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [] }) {
   return (
     <>
       <MailLog rows={maillog} />
@@ -490,7 +537,7 @@ function ClaimRow({ toolId, c, act, busy, verified }) {
   );
 }
 
-function OpenReports({ rows, act, busy }) {
+function OpenReports({ rows = [], act, busy }) {
   const open = rows.filter((r) => r.status === "open");
   const closed = rows.filter((r) => r.status !== "open");
   return (
@@ -533,7 +580,7 @@ function OpenReports({ rows, act, busy }) {
  * as much as the number: somebody explaining why a listed tool matters to them
  * is editorial input, and it keeps arriving long after the entry is written.
  */
-function Interest({ interest, entries }) {
+function Interest({ interest = {}, entries = {} }) {
   const rows = Object.entries(interest || {})
     .map(([id, v]) => ({ id, count: Number(v?.count) || 0, people: Array.isArray(v?.people) ? v.people : [] }))
     .filter((r) => r.count > 0)
@@ -1068,7 +1115,7 @@ const when = (iso) => {
  * than duplicated onto the account record, so there is one source of truth for
  * who owns what.
  */
-function Accounts({ accounts, claims }) {
+function Accounts({ accounts = {}, claims = {} }) {
   const [q, setQ] = useState("");
   const all = Object.values(accounts).sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
   const rows = q.trim()
@@ -1109,7 +1156,7 @@ function Accounts({ accounts, claims }) {
  * Directory counters. Deliberately narrow: page traffic is Vercel Analytics'
  * job, and this holds only the two things it cannot see.
  */
-function Stats({ stats }) {
+function Stats({ stats = { fields: {}, queries: [] } }) {
   const fields = stats.fields || {};
   const queries = stats.queries || [];
   const opens = Object.entries(fields)
@@ -1200,7 +1247,7 @@ const MAIL_EVENTS = [
  * The audit trail. Every attempt lands here, so an empty panel after a real
  * event is itself the finding — it means nothing was even tried.
  */
-function MailLog({ rows }) {
+function MailLog({ rows = [] }) {
   const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
   const failed24 = rows.filter((r) => !r.ok && Date.parse(r.at || "") >= dayAgo).length;
   const failedAll = rows.filter((r) => !r.ok).length;
@@ -1312,7 +1359,7 @@ function NotificationTest() {
 }
 
 
-function Subscribers({ list }) {
+function Subscribers({ list = [] }) {
   const [copied, setCopied] = useState("");
 
   async function copy() {
@@ -1576,7 +1623,7 @@ function DraftPanel({ s, onSuggestions, onEntries }) {
 
 /* Published from the queue, and live right now. Separate from the file, which
    is what git reviews; this is what Redis holds. */
-function PublishedEntries({ entries, onEntries }) {
+function PublishedEntries({ entries = {}, onEntries }) {
   const all = Object.values(entries || {});
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState("");
@@ -1651,7 +1698,7 @@ function PublishedEntries({ entries, onEntries }) {
 
 /* Why a submission was merged, or was not. The only destructive outcome in the
    suggestion pipeline is a merge, so it is the one that has to be answerable. */
-function DedupeLog({ rows }) {
+function DedupeLog({ rows = [] }) {
   return (
     <Section
       title="Dedup decisions"
@@ -1697,7 +1744,7 @@ const KIND_LABEL = {
    kind is how eight unrelated hues end up next to a spine that means something. */
 const LOUD = new Set(["wind-down", "acquisition", "dead-page", "free-tier", "pricing"]);
 
-function ChangeMonitor({ rows, monitor, seen, appliedChanges, onSeen }) {
+function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}, onSeen }) {
   const [busy, setBusy] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
@@ -1913,7 +1960,7 @@ function ChangeAction({ r, done, applied, busy, onAct }) {
  * arrive expecting to find is worth knowing, and a run of them would say the
  * front page is not being read the way it is written.
  */
-function OutOfScope({ rows }) {
+function OutOfScope({ rows = [] }) {
   const [open, setOpen] = useState(false);
   return (
     <Section title="Out of scope" count={rows.length}
@@ -1960,7 +2007,7 @@ function OutOfScope({ rows }) {
  * since would drift the moment two counters got out of step, and it would go
  * negative rather than merely wrong.
  */
-function Tallies({ stats, rows }) {
+function Tallies({ stats = { fields: {} }, rows = [] }) {
   const fields = stats?.fields || {};
   const figures = TALLIES.map(([key, label]) => [label, Number(fields[key]) || 0]);
   const pending = pendingCount(rows || []);
@@ -2009,7 +2056,7 @@ function Tallies({ stats, rows }) {
  * submitter and their reasons, and Restore puts one back in the queue exactly
  * as it was.
  */
-function Deleted({ rows, act, busy }) {
+function Deleted({ rows = [], act, busy }) {
   const [open, setOpen] = useState(false);
   return (
     <Section title="Deleted" count={rows.length}
@@ -2067,7 +2114,7 @@ function Deleted({ rows, act, busy }) {
  * is marketing, three unrelated vendors all positioning against the same thing
  * is a gap in the catalogue.
  */
-function Discovered({ discovery }) {
+function Discovered({ discovery = { findings: [] } }) {
   const findings = discovery?.findings || [];
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
@@ -2152,7 +2199,7 @@ function Discovered({ discovery }) {
  * The flag clears itself: one successful read and the entry drops off this
  * list without anybody tidying up.
  */
-function CannotMonitor({ rows }) {
+function CannotMonitor({ rows = [] }) {
   return (
     <Section title="Cannot be monitored" count={rows.length}
       hint="Live sites that refuse our fetches: a 403, a challenge page, or a 200 with nothing readable in it. The weekly monitor has no coverage of these, so their entries only change when somebody edits them by hand.">

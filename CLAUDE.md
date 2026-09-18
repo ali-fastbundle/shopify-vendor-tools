@@ -1273,6 +1273,22 @@ npm run build      # must compile
 
 Then check the homepage HTML actually contains tool names, not just a loading state.
 
+**Check `/admin` with something in the inbox, on every tab.** Run
+`node scripts/admin-smoke.mjs <session cookie>`. A 200 from an empty `/admin`
+proves almost nothing: `Inbox` returns early when there is nothing waiting, so
+the entire populated branch is unrendered, and only the default tab
+server-renders at all. That is exactly how a `ReferenceError: discovery is not
+defined` shipped with a clean build and a passing curl.
+
+**Every collection prop declares its own empty default**, in the signature, and
+`app/admin/page.js` loads its sources from one named list of
+`{ key, load, empty }`. It used to be three parallel lists kept in lockstep by
+counting positions, which is a thing that works until somebody appends to two of
+them. Most of these Redis keys postdate the first deployment, so a missing key
+is the normal early state and every panel has to render its empty case rather
+than throw. Do not guard an undefined variable at the point of use: an
+undefined prop is a wiring bug, and a `|| []` in the render hides it.
+
 **Check `/admin` returns 200, not just that it returns something.** It is `force-dynamic`,
 so `next build` never renders it and a missing component reference compiles cleanly and
 throws only at request time. That shipped a 500 to production once, and the check that

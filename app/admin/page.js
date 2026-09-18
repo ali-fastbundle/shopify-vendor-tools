@@ -21,7 +21,7 @@ export const metadata = { robots: { index: false, follow: false } };
  * against ADMIN_EMAILS, so an unauthorised request cannot pull data into the
  * render tree at all. Do not move a read above the check for convenience.
  */
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }) {
   const session = sessionFrom({ cookies: cookies(), headers: headers() });
 
   if (!session || !isAdmin(session.email)) {
@@ -45,53 +45,62 @@ export default async function AdminPage() {
    * into a 500 — which is precisely the failure that made this page useless
    * once already.
    */
-  const settled = await Promise.allSettled([
-    read(KEYS.suggestions, []),
-    getClaims(),
-    getSubscribers(),
-    read(KEYS.reports, []),
-    getAccounts(),
-    readStats(),
-    readMailLog(100),
-    getEntries(),
-    readDedupeLog(60),
-    readChangelog(120),
-    getMonitorState(),
-    read(KEYS.changesSeen, {}),
-    getInterest(),
-    read(KEYS.adminSeen, {}),
-    read(KEYS.changesApplied, {}),
-    getDiscovery(),
-    blockedEntries(),
-  ]);
-  const [suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog,
-    changelog, monitor, changesSeen, interest, adminSeen, appliedChanges, discovery, blocked] =
-    settled.map((r, i) => {
-      if (r.status === "fulfilled" && r.value != null) return r.value;
-      if (r.status === "rejected") console.error("[admin] read failed —", r.reason?.message || r.reason);
-      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, [], [], {}, {}, {}, {}, {}, { findings: [] }, []][i];
-    });
+  /*
+   * Every source, named once.
+   *
+   * This was three parallel lists: the reads, the destructured names, and a
+   * positional array of fallbacks. Keeping three lists in lockstep by counting
+   * positions is a thing that works until somebody appends to two of them,
+   * and then a panel silently receives the wrong default or undefined. One
+   * list of { key, load, empty } cannot drift, and adding a source is one
+   * entry rather than three edits in three places.
+   *
+   * `empty` matters more than it looks. Most of these keys postdate the first
+   * deployment, so on any store that has not seen the feature yet the read
+   * returns the fallback and the panel renders its empty state. A missing key
+   * is the normal early state, not an error.
+   */
+  const SOURCES = [
+    { key: "suggestions", load: () => read(KEYS.suggestions, []), empty: [] },
+    { key: "claims", load: () => getClaims(), empty: {} },
+    { key: "subscribers", load: () => getSubscribers(), empty: [] },
+    { key: "reports", load: () => read(KEYS.reports, []), empty: [] },
+    { key: "accounts", load: () => getAccounts(), empty: {} },
+    { key: "stats", load: () => readStats(), empty: { fields: {}, queries: [] } },
+    { key: "maillog", load: () => readMailLog(100), empty: [] },
+    { key: "entries", load: () => getEntries(), empty: {} },
+    { key: "dedupelog", load: () => readDedupeLog(60), empty: [] },
+    { key: "changelog", load: () => readChangelog(120), empty: [] },
+    { key: "monitor", load: () => getMonitorState(), empty: {} },
+    { key: "changesSeen", load: () => read(KEYS.changesSeen, {}), empty: {} },
+    { key: "interest", load: () => getInterest(), empty: {} },
+    { key: "adminSeen", load: () => read(KEYS.adminSeen, {}), empty: {} },
+    { key: "appliedChanges", load: () => read(KEYS.changesApplied, {}), empty: {} },
+    { key: "discovery", load: () => getDiscovery(), empty: { findings: [] } },
+    { key: "blocked", load: () => blockedEntries(), empty: [] },
+  ];
+
+  /*
+   * Settled rather than raced, so one store hiccup degrades a single panel
+   * instead of turning the whole console into a 500, which is precisely the
+   * failure that made this page useless once already.
+   */
+  const settled = await Promise.allSettled(SOURCES.map((s) => s.load()));
+  const data = Object.fromEntries(settled.map((r, i) => {
+    const { key, empty } = SOURCES[i];
+    if (r.status === "rejected") {
+      console.error(`[admin] read failed — ${key}:`, r.reason?.message || r.reason);
+      return [key, empty];
+    }
+    return [key, r.value ?? empty];
+  }));
 
   return (
     <AdminPanel
+      {...data}
       email={session.email}
-      suggestions={suggestions}
-      claims={claims}
-      subscribers={subscribers}
-      reports={reports}
-      accounts={accounts}
-      stats={stats}
-      maillog={maillog}
-      entries={entries}
-      dedupelog={dedupelog}
-      changelog={changelog}
-      monitor={monitor}
-      changesSeen={changesSeen}
-      interest={interest}
-      lastVisit={adminSeen?.[session.email] || ""}
-      appliedChanges={appliedChanges}
-      discovery={discovery}
-      blocked={blocked}
+      lastVisit={data.adminSeen?.[session.email] || ""}
+      initialTab={typeof searchParams?.tab === "string" ? searchParams.tab : "inbox"}
     />
   );
 }
