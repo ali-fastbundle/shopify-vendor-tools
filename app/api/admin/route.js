@@ -1,7 +1,7 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { read, write, KEYS } from "@/lib/store";
-import { getClaims, revokeClaim } from "@/lib/listings";
+import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind } from "@/lib/listings";
 import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
 import { TOOLS } from "@/lib/tools";
@@ -237,6 +237,69 @@ export async function POST(request) {
    * list. Nothing about the listing is touched either way, because the monitor
    * proposes and never edits.
    */
+  /*
+   * Apply a monitor proposal, in one click.
+   *
+   * The click is the approval: a person has read the field, the old value and
+   * the new one, which are all on the button. It writes an override, which is
+   * the same mechanism a vendor edit uses and inherits everything that makes
+   * that safe, and it records what it replaced so Undo can put it back exactly,
+   * including putting back "there was nothing here".
+   *
+   * `fieldKind` is re-checked here rather than trusted from the page. A
+   * protected field never gets a button in the UI, and it would still be
+   * refused if somebody posted one by hand.
+   */
+  if (action === "apply-change") {
+    const rows = await readChangelog(500);
+    const change = rows.find((r) => r.id === id);
+    if (!change) return new Response("Unknown change", { status: 400 });
+
+    const edit = change.edit || {};
+    if (edit.state !== "appliable" || fieldKind(edit.field) !== "appliable") {
+      return new Response(
+        `${edit.field || "That change"} is not a field the monitor may write. It needs a hand edit.`,
+        { status: 400 },
+      );
+    }
+
+    const { previous, error } = await applyFieldEdit(change.entryId, edit.field, edit.to, { by: session.email });
+    if (error) return new Response(error, { status: 400 });
+
+    const applied = await read(KEYS.changesApplied, {});
+    applied[id] = {
+      at: new Date().toISOString(), by: session.email,
+      toolId: change.entryId, field: edit.field, to: edit.to, previous,
+    };
+    await write(KEYS.changesApplied, applied);
+
+    /* Applying resolves it. Leaving it open would mean reading the same
+       proposal again next week and wondering whether it was done. */
+    const seen = await read(KEYS.changesSeen, {});
+    seen[id] = { at: new Date().toISOString().slice(0, 10), by: session.email, via: "applied" };
+    await write(KEYS.changesSeen, seen);
+
+    return Response.json({ applied, dismissed: seen });
+  }
+
+  if (action === "undo-change") {
+    const applied = await read(KEYS.changesApplied, {});
+    const record = applied[id];
+    if (!record) return new Response("That change was not applied.", { status: 400 });
+
+    await undoFieldEdit(record.toolId, record.field, record.previous);
+    delete applied[id];
+    await write(KEYS.changesApplied, applied);
+
+    /* Undoing reopens it: the proposal is live again and still wants a
+       decision. */
+    const seen = await read(KEYS.changesSeen, {});
+    delete seen[id];
+    await write(KEYS.changesSeen, seen);
+
+    return Response.json({ applied, dismissed: seen });
+  }
+
   if (action === "dismiss-change" || action === "reopen-change") {
     const rows = await readChangelog(500);
     if (!rows.some((r) => r.id === id)) return new Response("Unknown change", { status: 400 });

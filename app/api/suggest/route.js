@@ -27,7 +27,15 @@ const clean = (s, max) => String(s || "").replace(/\s+/g, " ").trim().slice(0, m
  * going out to anyone who called this route.
  */
 const publicOf = ({ email, also, draft, ...rest }) => rest;
-const publicList = (list) => list.filter((s) => s.approved !== false).map(publicOf);
+/*
+ * Out of scope rows are stored but not shown. They are a record of what people
+ * expect to find here, which is useful to an editor and confusing to a visitor:
+ * a list of merchant apps under a heading that says these are tools for app
+ * vendors reads as though we could not tell the difference.
+ */
+const publicList = (list) => list
+  .filter((s) => s.approved !== false && !s.outOfScope)
+  .map(publicOf);
 
 /*
  * MODERATE_SUGGESTIONS=true holds new entries back with approved:false, so they
@@ -91,7 +99,7 @@ export async function POST(request) {
   const catalogue = kind === "tool" ? await catalogueTools() : entriesOf(kind);
   const sameKind = suggestions.filter((s) => (s.kind || "tool") === kind);
 
-  const { kind: outcome, id: matchedId, decidedBy } =
+  const { kind: outcome, id: matchedId, decidedBy, audience, audienceReason, outOfScope } =
     await resolveSubmission(submission, { catalogue, suggestions: sameKind });
 
   /*
@@ -168,17 +176,43 @@ export async function POST(request) {
     ...submission,
     count: 1,
     approved: moderate ? false : true,
+    /*
+     * Recorded rather than refused. What people expect to find here is worth
+     * knowing: a run of merchant apps says the front page is not being read
+     * the way it is written.
+     */
+    ...(outOfScope ? { outOfScope: true, outOfScopeReason: audienceReason || "", audience } : {}),
   };
   const next = [entry, ...suggestions].slice(0, 500);
   await write(KEYS.suggestions, next);
 
+  /*
+   * The same event either way, carrying the verdict. The admin copy says no
+   * action is needed and the submitter's thank-you tells them the truth about
+   * where it will and will not appear, rather than the default "it goes in
+   * after a check", which would be a promise we are not going to keep.
+   */
   await sendEvent("suggestion", {
     origin: new URL(request.url).origin,
     name: entry.name, url: entry.url, why: entry.why, by: entry.by,
     email: entry.email, approved: entry.approved,
     kindLabel: kindOf(entry.kind).label,
     catLabel: entry.kind === "tool" ? (CATEGORIES.find((c) => c.id === entry.cat)?.label || entry.cat) : "",
+    outOfScope, outOfScopeReason: audienceReason || "",
   });
+
+  /*
+   * Out of scope still succeeds. They took the trouble to send it, the answer
+   * is a clear one, and an error would tell them the form is broken rather
+   * than that the directory is narrower than they thought.
+   */
+  if (outOfScope) {
+    return Response.json({
+      outOfScope: { name: entry.name, reason: audienceReason || "" },
+      decidedBy,
+      suggestions: publicList(next),
+    });
+  }
 
   return Response.json({ suggestions: publicList(next), decidedBy });
 }

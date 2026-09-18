@@ -436,18 +436,41 @@ people" in the `Facts` line on the card and the detail view, above one only. The
 admin queue sorts by it, so what the most people asked for is what gets reviewed
 first.
 
-**23. The weekly monitor proposes. It never edits.**
+**23. The monitor proposes a specific edit. A person applies it in one click.**
 `lib/monitor.js` fetches every published entry once a week, records a
-structured snapshot, and reports only material changes. It writes to
-`svt:changelog` and sends one email. It writes to **nothing else**: not
-`lib/tools.js`, not `svt:overrides`, not `svt:entries`.
+structured snapshot, reports only material changes, and for each one proposes a
+concrete edit: **which field, from what, to what**. Nothing is ever written
+without a click.
 
-This is invariant 21's rule applied to a second surface. A monitor that could
-edit a listing could quietly delete a caveat because the vendor stopped
-mentioning the thing it warns about, and `watch` is the field this directory
-exists for. `Update listing` on `/admin` opens the listing for a person; price,
-summary, description, URL and socials are editable there, and `watch`, `cat` and
-`ratings` remain a hand edit to the file.
+**`Apply` names the field and both values on the button**, because the click is
+the approval and everything needed to judge it has to be on the thing being
+clicked. It writes an override, the same mechanism a vendor edit uses, so it
+inherits what already makes that safe: the editorial file is untouched and one
+key delete undoes everything. `Undo` restores exactly what was there, including
+restoring "there was nothing here" by deleting the key rather than writing the
+file's value into an override.
+
+Sending an editor to a form to retype what the monitor already worked out is
+make-work, and make-work is how a weekly digest stops being read.
+
+**Three whitelists, and the difference between them is the point.**
+`EDITABLE` is what a *vendor* may change about themselves. `APPLIABLE` is what
+an *admin* may apply from a proposal, which is wider because the monitor is not
+an interested party: it adds `owner`, `linked`, `suite` and `dying`, the facts a
+vendor should not get to assert about themselves. `PROTECTED` is what no route
+may write: `watch`, `cat`, `verified`, `ratings`, `updated`, `id`, `name`.
+
+**A proposal touching a protected field gets no button, ever.** It renders as
+"needs a hand edit" with the reason stated rather than left as a missing
+affordance. A monitor that could rewrite a caveat because a vendor stopped
+mentioning the thing it warns about is the exact failure this arrangement
+exists to prevent. `mergedTools()` restating the protected fields is the
+enforcement; the list is the explanation.
+
+**"I could not map this" is a first-class answer.** Where the change does not
+land on one field the monitor says so and the row falls back to opening the
+entry. A guess would be a button claiming it will write something and then
+writing the wrong thing, which is worse than no button.
 
 **The snapshot is structured, never raw HTML.** Diffing HTML produces a diff
 every week and none of it means anything: session tokens, build hashes, rotating
@@ -549,6 +572,39 @@ that did not.
 - **Every section states its empty case in one line.**
 - The palette and type scale are the public site's, from `lib/tools.js`. There
   is no second design language here, and `components/Pill.jsx` is the badge.
+
+**26. Merchant-facing Shopify apps are out of scope, and saying so is the job.**
+People will suggest bundling apps, reviews apps, shipping apps. Those belong in
+the Shopify App Store. The submission is **accepted, stored, flagged and
+answered**, never refused: an error would tell somebody the form is broken
+rather than that the directory is narrower than they thought.
+
+**Classified on whose budget it comes out of, not on who appears on the site.**
+App Store Research has merchants all over it and recruits them by the thousand,
+but an app vendor pays for the calls, so it is in scope. A reviews app shows a
+widget to shoppers and is paid for by the merchant, so it is not. The question
+is always: whose money is this.
+
+It rides on the dedup call rather than costing a second one, since both
+questions need the same context and most submissions raise neither.
+
+**Only a confident "merchants" rejects.** "unclear", a low confidence, or no
+model at all all mean in scope. Wrongly turning somebody away is worse than an
+editor reading one extra row, and there is deliberately no string heuristic:
+"is this a merchant app" is a judgement, and a keyword version of it would
+reject anything with "bundle" in the name.
+
+**Out of scope is stored but not public** (`publicList` filters it) and lives in
+its own collapsed section in **Catalogue**, never the Inbox, because it needs no
+decision and would otherwise inflate the one count on that page that is supposed
+to mean there is work here. It is kept because what people arrive expecting to
+find is worth knowing: a run of them says the front page is not being read the
+way it is written.
+
+The thank-you email and the on-screen message both say plainly that it will not
+be listed and where it does belong. The default suggestion copy promises "it
+goes in after a check", and sending that would be a promise we are not going to
+keep.
 
 ## Layout
 

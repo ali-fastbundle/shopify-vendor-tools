@@ -50,7 +50,7 @@ const TABS = [
 
 export default function AdminPanel({
   email, suggestions, claims, subscribers, reports, accounts, stats, maillog,
-  entries, dedupelog, changelog, monitor, changesSeen, interest, lastVisit,
+  entries, dedupelog, changelog, monitor, changesSeen, interest, lastVisit, appliedChanges,
 }) {
   const [tab, setTab] = useState("inbox");
   const [rows, setRows] = useState(suggestions || []);
@@ -61,8 +61,13 @@ export default function AdminPanel({
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
 
-  const pending = rows.filter((s) => s.approved === false);
-  const reviewed = rows.filter((s) => s.approved !== false);
+  /* Out of scope never enters the queue: it needs no decision, it was answered
+     at submission time, and it would inflate the one count on this page that is
+     supposed to mean "there is work here". */
+  const outOfScopeRows = rows.filter((s) => s.outOfScope);
+  const inScope = rows.filter((s) => !s.outOfScope);
+  const pending = inScope.filter((s) => s.approved === false);
+  const reviewed = inScope.filter((s) => s.approved !== false);
   const openReports = reportRows.filter((r) => r.status === "open");
   const pendingClaims = Object.entries(claimRows).filter(([, c]) => c.status !== "verified");
   const verifiedClaims = Object.entries(claimRows).filter(([, c]) => c.status === "verified");
@@ -78,7 +83,7 @@ export default function AdminPanel({
   const byDemand = (a, b) => timesAsked(b) - timesAsked(a);
 
   const inboxCount = pending.length + openReports.length + pendingClaims.length + openChanges.length;
-  const catalogueCount = Object.keys(entryRows || {}).length
+  const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length;
   const counts = {
     inbox: inboxCount,
@@ -170,6 +175,7 @@ export default function AdminPanel({
             sinceVisit={sinceVisit}
             monitor={monitor}
             seen={seen}
+            appliedChanges={appliedChanges || {}}
             onSeen={setSeen}
             act={act}
             busy={busy}
@@ -185,6 +191,7 @@ export default function AdminPanel({
             onEntries={setEntryRows}
             onSuggestions={setRows}
             interest={interest || {}}
+            outOfScope={outOfScopeRows}
             act={act}
             busy={busy}
           />
@@ -215,7 +222,7 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, onSeen, act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, appliedChanges, onSeen, act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
   const openChanges = changes.filter((r) => !seen[r.id]);
   const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length;
@@ -275,18 +282,20 @@ function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, o
           : claims.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} />)}
       </Section>
 
-      <ChangeMonitor rows={changes} monitor={monitor} seen={seen} onSeen={onSeen} />
+      <ChangeMonitor rows={changes} monitor={monitor} seen={seen}
+        appliedChanges={appliedChanges} onSeen={onSeen} />
     </>
   );
 }
 
-function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, act, busy }) {
+function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, outOfScope, act, busy }) {
   return (
     <>
       <PublishingNote />
       <Drafts />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
+      <OutOfScope rows={outOfScope} />
       <Section title="Reviewed suggestions" count={reviewed.length}
         hint="Public on the site. Still suggestions, not listings. Sorted by how many people asked.">
         {reviewed.length === 0
@@ -1676,11 +1685,12 @@ const KIND_LABEL = {
    kind is how eight unrelated hues end up next to a spine that means something. */
 const LOUD = new Set(["wind-down", "acquisition", "dead-page", "free-tier", "pricing"]);
 
-function ChangeMonitor({ rows, monitor, seen, onSeen }) {
+function ChangeMonitor({ rows, monitor, seen, appliedChanges, onSeen }) {
   const [busy, setBusy] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
   const [dismissed, setDismissed] = useState(seen || {});
+  const [applied, setApplied] = useState(appliedChanges || {});
   const [showDone, setShowDone] = useState(false);
 
   const open = rows.filter((r) => !dismissed[r.id]);
@@ -1688,13 +1698,16 @@ function ChangeMonitor({ rows, monitor, seen, onSeen }) {
   const shown = showDone ? [...open, ...closed] : open;
 
   async function mark(id, action) {
-    setBusy(id);
+    setBusy(id); setResult("");
     try {
       const res = await fetch("/api/admin", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, id }),
       });
-      if (res.ok) { const d = await res.json(); setDismissed(d.dismissed || {}); onSeen?.(d.dismissed || {}); }
+      if (!res.ok) { setResult(await res.text()); return; }
+      const d = await res.json();
+      if (d.dismissed) { setDismissed(d.dismissed); onSeen?.(d.dismissed); }
+      if (d.applied) setApplied(d.applied);
     } finally { setBusy(""); }
   }
 
@@ -1769,34 +1782,155 @@ function ChangeMonitor({ rows, monitor, seen, onSeen }) {
 
               {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "76ch" }}>{r.why}</p>}
 
-              <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
-                {/* The deep link the sign-in return trip already uses: opens
-                    the directory with that listing's detail view open. */}
-                <a href={`/?tool=${encodeURIComponent(r.entryId)}`} target="_blank" rel="noopener noreferrer"
-                  style={{
-                    background: C.subtle, border: `1px solid ${C.line}`, color: C.text,
-                    borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
-                    textDecoration: "none", whiteSpace: "nowrap",
-                  }}>Update listing</a>
-                {r.url && (
-                  <a href={outbound(r.url)} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: F.xs, color: C.muted }}>{r.url.replace(/^https?:\/\//, "").slice(0, 60)}</a>
-                )}
-                {done
-                  ? <Btn onClick={() => mark(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
-                  : <ConfirmBtn onConfirm={() => mark(r.id, "dismiss-change")} busy={busy === r.id}>Dismiss</ConfirmBtn>}
-              </div>
+              <ChangeAction r={r} done={done} applied={applied[r.id]} busy={busy} onAct={mark} />
             </div>
           );
         })}
 
       <p style={{ fontSize: F.xs, color: C.dim, margin: "14px 0 4px", lineHeight: 1.55, maxWidth: "76ch" }}>
-        Update listing opens the entry on the site. Price, summary, description, URL and socials are
-        editable there. The <b style={{ color: C.muted }}>watch</b> note, the category and the external
-        ratings are not, by design: those are a hand edit to <code style={{ color: C.muted }}>lib/tools.js</code>,
-        and a monitor that could rewrite a caveat because a vendor stopped mentioning it is the exact
-        failure this arrangement exists to prevent.
+        Apply writes the field named on the button and nothing else, as an override, and Undo puts
+        back exactly what was there. The <b style={{ color: C.muted }}>watch</b> note, the category,
+        the verified flag and the external ratings never get a button: a monitor that could rewrite a
+        caveat because a vendor stopped mentioning it is the exact failure this arrangement exists to
+        prevent. Those, and anything the monitor could not map onto one field, open the entry instead.
       </p>
+    </Section>
+  );
+}
+
+/*
+ * What you can do about a proposed change, which depends entirely on which
+ * field it lands on.
+ *
+ *  appliable  one button that names the field, the old value and the new one,
+ *             and writes it. The click is the approval: everything a person
+ *             needs to judge it is on the button, so sending them to an editor
+ *             to retype what the monitor already worked out is make-work.
+ *  protected  no button, ever. watch, cat, verified and ratings are the fields
+ *             this directory's independence rests on, and the reason is stated
+ *             rather than left as a missing affordance.
+ *  unmapped   the monitor could not turn this into one field and says so. A
+ *             guess here would be a button claiming it will write something
+ *             and then writing the wrong thing.
+ */
+function ChangeAction({ r, done, applied, busy, onAct }) {
+  const edit = r.edit || { state: "unmapped" };
+  const openListing = (
+    <a href={`/?tool=${encodeURIComponent(r.entryId)}`} target="_blank" rel="noopener noreferrer"
+      style={{
+        background: C.subtle, border: `1px solid ${C.line}`, color: C.text,
+        borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
+        textDecoration: "none", whiteSpace: "nowrap",
+      }}>Open the listing</a>
+  );
+
+  const source = r.url && (
+    <a href={outbound(r.url)} target="_blank" rel="noopener noreferrer"
+      style={{ fontSize: F.xs, color: C.muted }}>{r.url.replace(/^https?:\/\//, "")}</a>
+  );
+
+  const shown = (v) => (v === "" || v === null || v === undefined ? "absent" : String(v));
+
+  return (
+    <div className="mt-2">
+      {edit.state === "appliable" && (
+        <div style={{
+          background: C.subtle, border: `1px solid ${C.edge}`, borderRadius: R.control,
+          padding: "8px 12px", marginBottom: S.sm,
+        }}>
+          <p className="tnum" style={{ fontSize: F.xs, color: C.muted, margin: 0, lineHeight: 1.6 }}>
+            <b style={{ color: C.text }}>{edit.field}</b>
+            {"  "}<span style={{ color: C.dim }}>from</span> {shown(edit.from)}
+            {"  "}<span style={{ color: C.dim }}>to</span>{" "}
+            <b style={{ color: C.text }}>{shown(edit.to)}</b>
+          </p>
+        </div>
+      )}
+
+      {edit.state === "protected" && (
+        <p style={{ fontSize: F.xs, color: C.warnInk, margin: `0 0 ${S.sm}px`, lineHeight: 1.55, maxWidth: "72ch" }}>
+          <b>Needs a hand edit.</b>{" "}
+          <span style={{ color: C.muted }}>
+            This proposes changing <b style={{ color: C.text }}>{edit.field}</b>, which the monitor is
+            never allowed to write. {edit.field === "watch"
+              ? "The caveat is the product, and a vendor quietly dropping the thing it warns about is not evidence the warning is wrong."
+              : "It is editorial rather than factual, so it is a judgement somebody makes while editing the file."}
+            {" "}Edit <code>lib/tools.js</code> and ship it.
+          </span>
+        </p>
+      )}
+
+      {edit.state === "unmapped" && (
+        <p style={{ fontSize: F.xs, color: C.dim, margin: `0 0 ${S.sm}px`, lineHeight: 1.55, maxWidth: "72ch" }}>
+          The monitor could not map this onto a single field{edit.field ? ` (it suggested "${edit.field}", which is not one we store)` : ""}.
+          Read it and decide.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        {applied ? (
+          <>
+            <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
+              Applied {String(applied.at || "").slice(0, 10)}
+            </span>
+            <Btn onClick={() => onAct(r.id, "undo-change")} busy={busy === r.id}>Undo</Btn>
+          </>
+        ) : edit.state === "appliable" ? (
+          <Btn onClick={() => onAct(r.id, "apply-change")} busy={busy === r.id} tone="go">
+            Apply: {edit.field} → {shown(edit.to).slice(0, 40)}
+          </Btn>
+        ) : null}
+
+        {openListing}
+        {source}
+
+        {!applied && (done
+          ? <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
+          : <ConfirmBtn onConfirm={() => onAct(r.id, "dismiss-change")} busy={busy === r.id}>Dismiss</ConfirmBtn>)}
+      </div>
+    </div>
+  );
+}
+
+/*
+ * Suggestions that are not what this directory is for.
+ *
+ * Collapsed, in Catalogue rather than Inbox, because they need no decision:
+ * the submitter has already been told, clearly and by name, that a merchant
+ * app belongs in the Shopify App Store. They are kept because what people
+ * arrive expecting to find is worth knowing, and a run of them would say the
+ * front page is not being read the way it is written.
+ */
+function OutOfScope({ rows }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Section title="Out of scope" count={rows.length}
+      hint="Merchant-facing Shopify apps, classified on whose budget they come out of. Stored, flagged, kept out of the public list, and answered at the time. No action needed.">
+      {rows.length === 0
+        ? <Empty>Nobody has suggested a merchant app.</Empty>
+        : (
+          <>
+            <button onClick={() => setOpen((v) => !v)} style={{
+              background: "none", border: 0, padding: "12px 0 0", cursor: "pointer",
+              fontFamily: "inherit", fontSize: F.sm, color: C.muted, textDecoration: "underline",
+            }}>{open ? "Hide" : `Show ${rows.length}`}</button>
+            {open && rows.map((s) => (
+              <Row key={s.id}
+                title={s.name}
+                tag={s.audience === "merchants" ? "merchant app" : s.audience || "out of scope"}
+                tagColor={C.dim}
+                body={<>
+                  {s.outOfScopeReason && <p style={{ margin: 0, lineHeight: 1.55 }}>{s.outOfScopeReason}</p>}
+                  {s.why && <p style={{ margin: "4px 0 0", lineHeight: 1.55, color: C.dim }}>They said: {s.why}</p>}
+                </>}
+                meta={<>
+                  {s.by} · {s.date}
+                  {s.url && <> · <a href={outbound(s.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
+                </>}
+              />
+            ))}
+          </>
+        )}
     </Section>
   );
 }

@@ -59,13 +59,14 @@ export default async function AdminPage() {
     read(KEYS.changesSeen, {}),
     getInterest(),
     read(KEYS.adminSeen, {}),
+    read(KEYS.changesApplied, {}),
   ]);
   const [suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog,
-    changelog, monitor, changesSeen, interest, adminSeen] =
+    changelog, monitor, changesSeen, interest, adminSeen, appliedChanges] =
     settled.map((r, i) => {
       if (r.status === "fulfilled" && r.value != null) return r.value;
       if (r.status === "rejected") console.error("[admin] read failed —", r.reason?.message || r.reason);
-      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, [], [], {}, {}, {}, {}][i];
+      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, [], [], {}, {}, {}, {}, {}][i];
     });
 
   return (
@@ -85,6 +86,7 @@ export default async function AdminPage() {
       changesSeen={changesSeen}
       interest={interest}
       lastVisit={adminSeen?.[session.email] || ""}
+      appliedChanges={appliedChanges}
     />
   );
 }
