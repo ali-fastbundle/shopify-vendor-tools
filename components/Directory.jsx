@@ -1390,6 +1390,41 @@ function Facts({ tool }) {
 }
 
 /*
+ * The price line, which absorbs the free plan.
+ *
+ * "Free plan" was a badge sitting next to a price that usually already said
+ * so: "Free, Pro $49/mo", "Free tier, then $49 / $149 / $349", "Free under $5k
+ * MRR, then $25 / $99". Two elements carrying one fact, and the badge was the
+ * one with a border around it.
+ *
+ * So the badge is gone and the sentence is completed only where the price does
+ * not already say it. Where it does, this returns the price untouched, which is
+ * most of the catalogue. A `dying` tool is left alone as well, because its
+ * price field tends to describe the wind-down rather than a tier and "Free,
+ * then winding down" is not a sentence anybody meant to write.
+ */
+function priceLine(tool) {
+  const price = String(tool.price || "").trim();
+  if (!tool.free || tool.dying) return price;
+  if (/free/i.test(price)) return price;
+  if (!price || /^not published$/i.test(price)) return "Free plan, paid tiers not published";
+  return `Free, then ${price.charAt(0).toLowerCase()}${price.slice(1)}`;
+}
+
+/*
+ * The card, rebuilt around one question: which of these thirty do I open.
+ *
+ * It had accumulated a badge per feature until it carried fifteen elements,
+ * none of them ranked. Everything that answers a question you only ask *after*
+ * choosing is now in the detail view, which already rendered every one of them:
+ * suite membership, shared ownership, claimed, unverified, "not Shopify-only",
+ * external scores, social links and the vote buttons. Nothing was moved, only
+ * stopped from being in both places.
+ *
+ * What is left is what you scan: the mark, the name, the category, what it
+ * does, what it costs, what people rate it, and the control that puts it in a
+ * comparison. Four lines, one weight each, and a footer.
+ *
  * `onOpen(rating)` — called with nothing to just open the tool, and with a
  * number when the person clicked a star, which opens the review form with that
  * rating already picked. Liking a tool never needed a second screen; rating
@@ -1404,21 +1439,17 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
     }}>
       <div style={{ height: 3, background: col }} />
       <div className="flex flex-col p-4" style={{ flex: 1 }}>
+
         <div className="flex items-start" style={{ gap: S.md }}>
           <Logo tool={tool} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="flex items-baseline flex-wrap" style={{ gap: S.sm }}>
-              {/* Called with no argument on purpose: onOpen's first argument is
-                  a star rating, and a click event is not one. */}
               {/*
-                * An anchor, not a button, and the href is real.
-                *
-                * Clicking still opens the modal, which is the faster way to
-                * browse. But a crawler needs an <a href> to follow and a person
-                * needs something to copy, middle-click or open in a tab, and a
-                * button gave them none of that. preventDefault only fires for a
-                * plain left click, so modifier-clicks and middle-clicks go to
-                * the page as they should.
+                * An anchor, not a button, and the href is real. Clicking still
+                * opens the modal, which is the faster way to browse, but a
+                * crawler needs an <a href> to follow and a person needs
+                * something to copy or middle-click. preventDefault fires only
+                * for a plain left click.
                 */}
               <a href={`/tools/${tool.id}`}
                 onClick={(e) => {
@@ -1430,77 +1461,75 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
                   fontSize: F.lg, fontWeight: 700, color: C.text, letterSpacing: TRACK.tight,
                   textDecoration: "none",
                 }}>{tool.name}</a>
+              {/* The one badge left, and the one invariant B allows: a status
+                  warning about the product rather than a label on it. It is
+                  also the only thing here that tells you not to bother. */}
               {tool.dying && <Pill tone="warn">winding down</Pill>}
-              <NotShopifyOnly tool={tool} />
             </div>
             <p style={{ fontSize: F.xs, color: ink(col), marginTop: 2 }}>{catOf(tool.cat).label}</p>
           </div>
-          <button
-            onClick={onPick}
-            disabled={pickFull}
-            aria-pressed={picked}
-            title={pickFull ? "Four tools maximum" : picked ? "Remove from comparison" : "Add to comparison"}
-            style={{
-              flexShrink: 0, width: 22, height: 22, borderRadius: R.control, padding: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: picked ? C.accent : "transparent",
-              border: `1px solid ${picked ? C.accent : C.line}`,
-              color: picked ? C.onAccent : C.dim,
-              cursor: pickFull ? "not-allowed" : "pointer",
-              opacity: pickFull ? 0.4 : 1,
-              fontSize: F.xs, fontWeight: 800, lineHeight: 1, fontFamily: "inherit",
-            }}
-          >
-            {picked ? <Check size={13} weight="bold" /> : <Plus size={13} weight="bold" />}
-          </button>
         </div>
 
-        {/* The most useful line on the card, so it is set in the text colour
-            rather than the muted one it used to share with the metadata. */}
         <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.5, flex: 1, marginTop: S.md }}>{tool.one}</p>
 
+        {/* One line, one weight, and it now carries the free plan too. */}
+        <p className="tnum" style={{ fontSize: F.sm, fontWeight: 700, color: C.text, marginTop: S.md }}>
+          {priceLine(tool)}
+        </p>
+
         {/*
-          * Price, then the facts.
+          * The footer: what people think, then where to go.
           *
-          * These were six outlined pills. Once they all went neutral the row
-          * became six identical grey capsules, which is a lot of chrome to say
-          * "$49, free tier, unverified" - the border was drawing more attention
-          * than the words inside it. Same facts, set as type, with the price
-          * given the weight it earns and the rest reading as one line.
+          * Two rows rather than a scatter, each with a left and a right and
+          * nothing in the middle. Rating and votes are both the community
+          * answering; Visit site and Compare are both things you do next.
           */}
-        <div className="flex flex-wrap items-baseline" style={{ gap: S.sm, marginTop: S.md }}>
-          <span className="tnum" style={{ fontSize: F.sm, fontWeight: 700, color: C.text }}>{tool.price}</span>
-          <Facts tool={tool} />
-        </div>
-
-        <div className="flex items-center justify-between" style={{
-          borderTop: `1px solid ${C.line}`, gap: S.sm, marginTop: S.md, paddingTop: S.md,
-        }}>
-          {/* min-height reserves the row before the vote and review tallies
-              arrive from /api/data, so the card does not reflow under the
-              pointer a beat after it paints. */}
-          <div className="flex items-center" style={{ gap: S.sm, minHeight: 26 }}>
-            <Stars value={Math.round(avg)} onPick={(n) => onOpen(n)}
-              title={`Rate ${tool.name}`} />
-            {reviewCount > 0 && (
-              <button onClick={() => onOpen()} className="tnum" style={{
-                background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
-                fontSize: F.xs, color: C.dim,
-              }}>{reviewCount} {reviewCount === 1 ? "review" : "reviews"}</button>
-            )}
+        <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
+          <div className="flex items-center justify-between" style={{ gap: S.sm }}>
+            {/* min-height reserves the row before the vote and review tallies
+                arrive from /api/data, so the card does not reflow under the
+                pointer a beat after it paints. */}
+            <div className="flex items-center" style={{ gap: S.sm, minHeight: 26 }}>
+              <Stars value={Math.round(avg)} onPick={(n) => onOpen(n)} title={`Rate ${tool.name}`} />
+              {reviewCount > 0 && (
+                <button onClick={() => onOpen()} className="tnum" style={{
+                  background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+                  fontSize: F.xs, color: C.dim,
+                }}>{reviewCount} {reviewCount === 1 ? "review" : "reviews"}</button>
+              )}
+            </div>
+            <div className="flex items-center" style={{ gap: S.xs }}>
+              <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} />
+              <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
+            </div>
           </div>
-          <div className="flex items-center" style={{ gap: S.xs }}>
-            <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} />
-            <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
-          </div>
-        </div>
 
-        {/* One trailing row, not three. External scores sit beside the links
-            because they are both "somewhere else you can read about this". */}
-        <div className="flex flex-wrap items-center" style={{ gap: S.md, marginTop: S.md }}>
-          <ExternalRatings ratings={tool.ratings} />
-          <Social social={tool.social} />
-          <span style={{ marginLeft: "auto" }}><VisitSite url={tool.url} /></span>
+          <div className="flex items-center justify-between" style={{ gap: S.sm, marginTop: S.sm }}>
+            <VisitSite url={tool.url} />
+            {/* Selected-for-comparison is one of green's three jobs, per colour
+                invariant C. It says "Compare" rather than showing a bare plus:
+                it has the width for a word here, and a word does not need a
+                tooltip to explain it. */}
+            <button
+              onClick={onPick}
+              disabled={pickFull}
+              aria-pressed={picked}
+              title={pickFull ? "Four tools maximum" : picked ? "Remove from comparison" : "Add to comparison"}
+              className="press flex items-center"
+              style={{
+                flexShrink: 0, gap: S.xs, borderRadius: R.control, padding: "4px 8px",
+                background: picked ? C.accent : "transparent",
+                border: `1px solid ${picked ? C.accent : C.line}`,
+                color: picked ? C.onAccent : C.muted,
+                cursor: pickFull ? "not-allowed" : "pointer",
+                opacity: pickFull ? 0.4 : 1,
+                fontSize: F.xs, fontWeight: 600, lineHeight: 1, fontFamily: "inherit",
+              }}
+            >
+              {picked ? <Check size={12} weight="bold" /> : <Plus size={12} weight="bold" />}
+              <span>Compare</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
