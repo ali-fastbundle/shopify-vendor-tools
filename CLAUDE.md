@@ -515,6 +515,24 @@ it is for. `watch` is the caveat someone would want before paying: a conflict of
 interest, a coverage gap, a claim the vendor cannot back up. If a tool has no honest
 caveat, look harder before writing "none".
 
+**Shared ownership is always disclosed, and it belongs in `watch` only where the
+products overlap or compete.** The disclosure itself is the neutral ownership field:
+`linked`, `owner` or `suite`, which `Facts` renders as one line of muted type and the
+compare table renders as a row. That states it as fact, which is what it is. Moving it
+into `watch` makes it a warning, and a warning needs something to warn about.
+
+It usually has one. AppJubilee and StoreCensus are the same company and AppJubilee
+publishes comparisons against rivals, so the shared owner is the reason not to read those
+as two sources. AppstorePulse is built by the maker of a bundle app, so anyone competing
+in bundles would be handing over their keyword strategy. In each of those, the conflict
+is the caveat.
+
+App Store Research and ShopExperts are the same owner and do not compete with each other
+or with you: a research panel and an expert marketplace. There, `linked` says it and
+`watch` covers the real caveats, which are the incentive structure and who pays to be
+listed. A `watch` opening with a fact that is already on the card, stated neutrally, one
+line up, trains people to skim the field that matters most.
+
 State what is verified and what is not. `verified: true` means the vendor's own site was
 read directly. Anything sourced from search results or a third party is `verified:
 false` and renders an "unverified" badge.
