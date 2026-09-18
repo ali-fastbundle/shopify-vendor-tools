@@ -4,6 +4,7 @@ import { reportKindOf } from "@/lib/tools";
 import { catalogueTools } from "@/lib/entries";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 import { sendEvent } from "@/lib/mail";
+import { tally } from "@/lib/tallies";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,7 @@ export async function POST(request) {
 
   const reports = await read(KEYS.reports, []);
   await write(KEYS.reports, [entry, ...reports].slice(0, 500));
+  await tally("reports:received");
 
   await sendEvent("report", {
     origin: new URL(request.url).origin,

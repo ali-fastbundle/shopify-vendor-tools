@@ -125,7 +125,11 @@ function Logo({ tool, size = 34 }) {
   return (
     <img
       src={step === "logo" ? tool.logo : `https://www.google.com/s2/favicons?domain=${tool.domain}&sz=128`}
-      alt=""
+      /* Names the thing rather than announcing that it is an image. It was
+         empty, which is right for pure decoration and wrong here: the mark is
+         the only thing identifying the tool in a row of cards to somebody
+         using a screen reader, and it is what a crawler reads for the entity. */
+      alt={`${tool.name} logo`}
       /* Intrinsic size and lazy decoding: 24 marks arriving at their own pace
          used to nudge the card they landed in. The box is reserved now. */
       width={size}
@@ -1297,11 +1301,16 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
                       {/* The spine, turned on its side. Same job as on a card. */}
                       <span aria-hidden="true" style={{ width: 3, height: 20, borderRadius: 2, background: col, flexShrink: 0 }} />
                       <Logo tool={t} size={20} />
-                      <button onClick={() => onOpen(t.id)} style={{
-                        background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
-                        fontSize: F.md, fontWeight: 700, color: C.text, textAlign: "left",
-                        letterSpacing: TRACK.tight,
-                      }}>{t.name}</button>
+                      <a href={`/tools/${t.id}`}
+                        onClick={(e) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                          e.preventDefault();
+                          onOpen(t.id);
+                        }}
+                        style={{
+                          fontSize: F.md, fontWeight: 700, color: C.text, textDecoration: "none",
+                          letterSpacing: TRACK.tight,
+                        }}>{t.name}</a>
                       {t.dying && <Pill tone="warn">winding down</Pill>}
                       <NotShopifyOnly tool={t} />
                     </div>
@@ -1393,10 +1402,26 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
             <div className="flex items-baseline flex-wrap" style={{ gap: S.sm }}>
               {/* Called with no argument on purpose: onOpen's first argument is
                   a star rating, and a click event is not one. */}
-              <button onClick={() => onOpen()} style={{
-                background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
-                fontSize: F.lg, fontWeight: 700, color: C.text, letterSpacing: TRACK.tight, textAlign: "left",
-              }}>{tool.name}</button>
+              {/*
+                * An anchor, not a button, and the href is real.
+                *
+                * Clicking still opens the modal, which is the faster way to
+                * browse. But a crawler needs an <a href> to follow and a person
+                * needs something to copy, middle-click or open in a tab, and a
+                * button gave them none of that. preventDefault only fires for a
+                * plain left click, so modifier-clicks and middle-clicks go to
+                * the page as they should.
+                */}
+              <a href={`/tools/${tool.id}`}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                  e.preventDefault();
+                  onOpen();
+                }}
+                style={{
+                  fontSize: F.lg, fontWeight: 700, color: C.text, letterSpacing: TRACK.tight,
+                  textDecoration: "none",
+                }}>{tool.name}</a>
               {tool.dying && <Pill tone="warn">winding down</Pill>}
               <NotShopifyOnly tool={tool} />
             </div>
@@ -1542,7 +1567,12 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
           <Logo tool={tool} size={46} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>{tool.name}</h2>
-            <p style={{ fontSize: F.sm, color: ink(col), marginTop: S.xs }}>{catOf(tool.cat).label}</p>
+            <p style={{ fontSize: F.sm, color: ink(col), marginTop: S.xs }}>
+              {catOf(tool.cat).label}
+              <a href={`/tools/${tool.id}`} style={{ color: C.dim, marginLeft: S.sm, fontSize: F.xs }}>
+                permalink
+              </a>
+            </p>
           </div>
           <CloseButton onClose={onClose} />
         </div>

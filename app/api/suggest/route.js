@@ -6,6 +6,7 @@ import { catalogueTools } from "@/lib/entries";
 import { resolveSubmission } from "@/lib/dedup";
 import { mergeDuplicate, timesAsked } from "@/lib/suggestions";
 import { addInterest } from "@/lib/interest";
+import { tally, tallyMany } from "@/lib/tallies";
 import { sendEvent } from "@/lib/mail";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 
@@ -34,7 +35,7 @@ const publicOf = ({ email, also, draft, ...rest }) => rest;
  * vendors reads as though we could not tell the difference.
  */
 const publicList = (list) => list
-  .filter((s) => s.approved !== false && !s.outOfScope)
+  .filter((s) => s.approved !== false && !s.outOfScope && !s.status)
   .map(publicOf);
 
 /*
@@ -112,6 +113,7 @@ export async function POST(request) {
   if (outcome === "tool") {
     const listed = catalogue.find((t) => t.id === matchedId);
     if (listed) {
+      await tallyMany(["suggestions:received", "suggestions:listed"]);
       const count = await addInterest(listed.id, submission);
       return Response.json({
         alreadyListed: { id: listed.id, name: listed.name, url: listed.url, kind, count },
@@ -130,6 +132,7 @@ export async function POST(request) {
   if (outcome === "suggestion") {
     const duplicate = suggestions.find((s) => s.id === matchedId);
     if (duplicate) {
+      await tallyMany(["suggestions:received", "suggestions:duplicate"]);
       const merged = mergeDuplicate(duplicate, submission);
       const next = suggestions.map((s) => (s.id === duplicate.id ? merged : s));
       await write(KEYS.suggestions, next);
@@ -185,6 +188,9 @@ export async function POST(request) {
   };
   const next = [entry, ...suggestions].slice(0, 500);
   await write(KEYS.suggestions, next);
+  await tallyMany(outOfScope
+    ? ["suggestions:received", "suggestions:outofscope"]
+    : ["suggestions:received"]);
 
   /*
    * The same event either way, carrying the verdict. The admin copy says no

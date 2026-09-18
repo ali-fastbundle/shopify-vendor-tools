@@ -28,7 +28,9 @@ export async function GET(request) {
     read(KEYS.reviews, {}),
     read(KEYS.suggestions, []),
   ]);
-  const visible = (suggestions || []).filter((s) => s.approved !== false).map(publicSuggestion);
+  const visible = (suggestions || [])
+    .filter((s) => s.approved !== false && !s.outOfScope && !s.status)
+    .map(publicSuggestion);
   return Response.json({
     votes,
     reviews: publicReviews(reviews, session?.email || ""),

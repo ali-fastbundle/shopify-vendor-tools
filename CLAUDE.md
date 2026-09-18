@@ -606,6 +606,85 @@ be listed and where it does belong. The default suggestion copy promises "it
 goes in after a check", and sending that would be a promise we are not going to
 keep.
 
+**27. Nothing in a queue is ever destroyed.**
+Deleting a suggestion sets `status: "deleted"` with a timestamp, the admin who
+did it and an optional reason. Dismissing a report stamps it the same way.
+Nothing is spliced out of an array, ever, because the row is the only record
+that somebody once asked for a thing, and removing it means "what have people
+suggested" can only be answered about whatever nobody threw away.
+
+Deleted rows leave every working list: the queue, the public list, `/api/data`,
+and every count of what is waiting. They live in a collapsed **Deleted** section
+in Catalogue with a **Restore** that puts one back exactly as it was.
+
+**The counts are never derived from the list.** `lib/tallies.js` increments a
+counter in `svt:stats` at the moment each thing happens: received, published,
+out of scope, deleted, folded into a duplicate, already listed, and the report
+equivalents. A total computed from what is currently stored reads like a total
+and means "the survivors", and the 500-row cap alone guarantees they diverge.
+They are incremented with `HINCRBY`, so two submissions at once cannot lose
+each other.
+
+Pending is the deliberate exception and is labelled as the live figure.
+Received minus everything since would drift the moment two counters got out of
+step, and it would go negative rather than merely wrong.
+
+**28. Every tool has a real URL, and it works with JavaScript off.**
+`/tools/[id]`, server-rendered, with its own title, description, canonical and
+JSON-LD. The whole catalogue used to live at one address behind a modal, which
+meant Google had one page to rank for thirty products and a model quoting us had
+nothing to cite. The modal stays for browsing; the card title is now an anchor
+with a real `href` that calls `preventDefault` only on a plain left click, so
+middle-click and modifier-click go to the page.
+
+**`components/ToolPage.jsx` has no client state on purpose** and deliberately
+does not reuse the modal. The modal votes, opens a review form and carries a
+session; this has to be complete in the first response for a crawler that will
+never run our JavaScript, and reusing a component whose content arrives after
+hydration is the quickest way to fail at that. Adding a `useState` to that file
+is the bug this shape prevents.
+
+**Descriptions are per tool, never the site description.** `toolDescription()`
+builds one from `one`, the category and the price. Thirty pages sharing a
+description is thirty pages treated as one.
+
+**Every tool page links to related tools**, by shared owner first, then
+category, then the rest. A page nothing links to is found once from the sitemap
+and quietly dropped, and modal-only browsing produced nothing but orphans.
+
+**29. Structured data says only what is true.**
+`lib/seo.js` is the one place it is built, because the same facts have to agree
+across the homepage graph, each tool page, the sitemap and llms.txt.
+
+- **`aggregateRating` only where a review exists.** `ratingOf()` returns null
+  otherwise and callers spread it, so absent is the default. A zero
+  `ratingCount` is invalid and Google flags it, but the better reason is that a
+  directory claiming ratings it does not have is the thing this site exists not
+  to be.
+- **`offers` is omitted rather than faked.** Our `price` is prose. Free tiers
+  get a real `Offer` at 0; a price with a figure in it gets an `AggregateOffer`
+  with `lowPrice`; prose we cannot read gets **no offers key at all**. An entity
+  without offers is merely not eligible for a price rich result. An entity with
+  a wrong price is a wrong price, and that is the number that gets quoted back
+  at you. The first version emitted a priceless `Offer` on nine tools, which is
+  invalid; `scripts/validate-jsonld.mjs` caught it and now guards it.
+- Run `node scripts/validate-jsonld.mjs <url>` before shipping a change to the
+  graph. It checks what the Rich Results Test checks, so the paste into Google
+  is a confirmation rather than a discovery.
+
+**30. The site is written to be quoted.**
+`robots.js` names GPTBot, ClaudeBot, PerplexityBot, Google-Extended and the rest
+and allows them explicitly. Silence would permit them too, but the point is that
+it is a decision: the value here is the caveat nobody else writes down, and a
+model repeating it with attribution is what this is for.
+
+`/llms.txt` is the directory as plain text: what it is, who maintains it, the
+boundary, the categories, and every tool with its one-liner and URL. It
+deliberately **omits the `watch` notes**. They are the most valuable thing here
+and the most context-dependent, and a caveat quoted without the entry around it
+stops being a note about a product at a date and becomes a flat accusation about
+a company. Every line points at the tool page, which carries it in full.
+
 ## Layout
 
 | Path | Role |
@@ -626,6 +705,11 @@ keep.
 | `lib/research.js` | Fetches a vendor's own pages and drafts an entry from them |
 | `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, the strict diff |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
+| `lib/tallies.js` | Running counts that outlive the rows they count |
+| `lib/seo.js` | The JSON-LD graph, per-tool descriptions, and the related-tool links |
+| `components/ToolPage.jsx` | One tool at its own URL, server-rendered, no client state |
+| `app/tools/[id]` | The per-tool route. Title, description, canonical and graph per entry |
+| `app/sitemap.js` `app/robots.js` `app/llms.txt` | What crawlers and models read |
 | `lib/entries.js` | Entries published from the admin queue, and `catalogueTools()`, the catalogue everything validates against |
 | `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, and the only thing that strips an address off either |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |

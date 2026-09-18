@@ -7,6 +7,7 @@ import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_COMMUNITIES } from "@/lib/communities";
 import { drafted } from "@/lib/drafts";
 import { timesAsked } from "@/lib/suggestions";
+import { TALLIES, pendingCount } from "@/lib/tallies";
 import { Pill } from "./Pill";
 import { ThemeToggle } from "./Theme";
 
@@ -64,8 +65,10 @@ export default function AdminPanel({
   /* Out of scope never enters the queue: it needs no decision, it was answered
      at submission time, and it would inflate the one count on this page that is
      supposed to mean "there is work here". */
-  const outOfScopeRows = rows.filter((s) => s.outOfScope);
-  const inScope = rows.filter((s) => !s.outOfScope);
+  const deletedRows = rows.filter((s) => s.status === "deleted");
+  const live = rows.filter((s) => s.status !== "deleted");
+  const outOfScopeRows = live.filter((s) => s.outOfScope);
+  const inScope = live.filter((s) => !s.outOfScope);
   const pending = inScope.filter((s) => s.approved === false);
   const reviewed = inScope.filter((s) => s.approved !== false);
   const openReports = reportRows.filter((r) => r.status === "open");
@@ -83,7 +86,7 @@ export default function AdminPanel({
   const byDemand = (a, b) => timesAsked(b) - timesAsked(a);
 
   const inboxCount = pending.length + openReports.length + pendingClaims.length + openChanges.length;
-  const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length
+  const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length;
   const counts = {
     inbox: inboxCount,
@@ -192,6 +195,9 @@ export default function AdminPanel({
             onSuggestions={setRows}
             interest={interest || {}}
             outOfScope={outOfScopeRows}
+            deleted={deletedRows}
+            stats={stats}
+            allSuggestions={rows}
             act={act}
             busy={busy}
           />
@@ -288,14 +294,16 @@ function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, a
   );
 }
 
-function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, outOfScope, act, busy }) {
+function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, outOfScope, deleted, stats, allSuggestions, act, busy }) {
   return (
     <>
+      <Tallies stats={stats} rows={allSuggestions} />
       <PublishingNote />
       <Drafts />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
       <OutOfScope rows={outOfScope} />
+      <Deleted rows={deleted} act={act} busy={busy} />
       <Section title="Reviewed suggestions" count={reviewed.length}
         hint="Public on the site. Still suggestions, not listings. Sorted by how many people asked.">
         {reviewed.length === 0
@@ -1927,6 +1935,111 @@ function OutOfScope({ rows }) {
                   {s.by} · {s.date}
                   {s.url && <> · <a href={outbound(s.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
                 </>}
+              />
+            ))}
+          </>
+        )}
+    </Section>
+  );
+}
+
+/*
+ * The counts, at the top of the tab that is about what the directory holds.
+ *
+ * Every figure but one is a counter incremented when the thing happened, read
+ * from svt:stats. None is derived from the current list, because the list is
+ * where these go to die: a row deleted, capped off the end of 500 or folded
+ * into a duplicate takes its own history with it, and a total computed from
+ * what is left reads like a total while meaning "the survivors".
+ *
+ * Pending is the exception and is labelled as such. Received minus everything
+ * since would drift the moment two counters got out of step, and it would go
+ * negative rather than merely wrong.
+ */
+function Tallies({ stats, rows }) {
+  const fields = stats?.fields || {};
+  const figures = TALLIES.map(([key, label]) => [label, Number(fields[key]) || 0]);
+  const pending = pendingCount(rows || []);
+  const anything = figures.some(([, n]) => n > 0);
+
+  return (
+    <section className="pb-10">
+      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+        <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>Counts</h2>
+      </div>
+      <p style={{ fontSize: F.sm, color: C.muted, margin: "4px 0 0", maxWidth: "72ch", lineHeight: 1.55 }}>
+        Incremented when each thing happened, never recounted from the list. They are allowed to
+        disagree with what is on screen, and when they do these are the ones telling the truth.
+      </p>
+      <div className="mt-3" style={{
+        background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg,
+      }}>
+        {!anything && (
+          <p style={{ fontSize: F.sm, color: C.dim, margin: "0 0 12px", lineHeight: 1.55 }}>
+            Nothing counted yet. These start from zero rather than from the rows already stored, so
+            anything that happened before this existed is not in them.
+          </p>
+        )}
+        <div className="flex flex-wrap" style={{ gap: S["2xl"] }}>
+          <div>
+            <p className="tnum" style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, color: pending ? C.accentInk : C.text }}>{pending}</p>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>pending now</p>
+          </div>
+          {figures.map(([label, n]) => (
+            <div key={label}>
+              <p className="tnum" style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, color: n ? C.text : C.dim }}>{n}</p>
+              <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>{label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/*
+ * Deleted, not gone.
+ *
+ * Deleting used to remove the row, which meant the only record that somebody
+ * had ever asked for a thing went with it. These keep their text, their
+ * submitter and their reasons, and Restore puts one back in the queue exactly
+ * as it was.
+ */
+function Deleted({ rows, act, busy }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Section title="Deleted" count={rows.length}
+      hint="Marked deleted rather than removed. They are out of the queue, out of the public list and out of every count of what is waiting, and they are still here.">
+      {rows.length === 0
+        ? <Empty>Nothing has been deleted.</Empty>
+        : (
+          <>
+            <button onClick={() => setOpen((v) => !v)} style={{
+              background: "none", border: 0, padding: "12px 0 0", cursor: "pointer",
+              fontFamily: "inherit", fontSize: F.sm, color: C.muted, textDecoration: "underline",
+            }}>{open ? "Hide" : `Show ${rows.length}`}</button>
+            {open && rows.map((s) => (
+              <Row key={s.id}
+                title={s.name}
+                tag={kindOf(s.kind).label}
+                tagColor={C.dim}
+                dim
+                body={<>
+                  {s.why && <p style={{ margin: 0, lineHeight: 1.55 }}>{s.why}</p>}
+                  {s.deletedReason && (
+                    <p style={{ margin: "4px 0 0", lineHeight: 1.55, color: C.dim }}>
+                      Deleted because: {s.deletedReason}
+                    </p>
+                  )}
+                </>}
+                meta={<>
+                  suggested by {s.by} · {s.date}
+                  {s.deletedAt && <> · deleted {String(s.deletedAt).slice(0, 10)}{s.deletedBy ? ` by ${s.deletedBy}` : ""}</>}
+                </>}
+                actions={
+                  <Btn onClick={() => act("restore-suggestion", s.id)}
+                    busy={busy === "restore-suggestion" + s.id} tone="go">Restore</Btn>
+                }
               />
             ))}
           </>

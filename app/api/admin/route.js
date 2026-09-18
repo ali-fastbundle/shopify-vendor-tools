@@ -8,6 +8,7 @@ import { TOOLS } from "@/lib/tools";
 import { timesAsked } from "@/lib/suggestions";
 import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
+import { tally } from "@/lib/tallies";
 
 export const dynamic = "force-dynamic";
 
@@ -128,15 +129,42 @@ export async function POST(request) {
    * still accepted for the same reason — a client on an older page load should
    * not get an error for pressing the same button.
    */
-  if (action === "mark-reviewed" || action === "approve-suggestion" || action === "delete-suggestion") {
+  if (action === "mark-reviewed" || action === "approve-suggestion"
+    || action === "delete-suggestion" || action === "restore-suggestion") {
     const suggestions = await read(KEYS.suggestions, []);
     if (!suggestions.some((s) => s.id === id)) {
       return new Response("Unknown suggestion", { status: 400 });
     }
-    const next = action === "delete-suggestion"
-      ? suggestions.filter((s) => s.id !== id)
-      : suggestions.map((s) => (s.id === id ? { ...s, approved: true, reviewedAt: new Date().toISOString().slice(0, 10) } : s));
+
+    /*
+     * Deleting marks, it does not remove.
+     *
+     * The row is the only record that somebody once asked for this, and a
+     * deletion took that with it: the queue got shorter and the history got
+     * shorter with it, so "what have people suggested" could only ever be
+     * answered about the things nobody had thrown away. A status and a
+     * timestamp cost nothing and the row stays readable.
+     */
+    const now = new Date().toISOString();
+    const next = suggestions.map((s) => {
+      if (s.id !== id) return s;
+      if (action === "delete-suggestion") {
+        return {
+          ...s,
+          status: "deleted",
+          deletedAt: now,
+          deletedBy: session.email,
+          deletedReason: typeof body.reason === "string" ? body.reason.slice(0, 300) : "",
+        };
+      }
+      if (action === "restore-suggestion") {
+        const { status, deletedAt, deletedBy, deletedReason, ...rest } = s;
+        return rest;
+      }
+      return { ...s, approved: true, reviewedAt: now.slice(0, 10) };
+    });
     await write(KEYS.suggestions, next);
+    if (action === "delete-suggestion") await tally("suggestions:deleted");
     return Response.json({ suggestions: next });
   }
 
@@ -189,6 +217,7 @@ export async function POST(request) {
      * turned out to be right.
      */
     if (!suggestion.publishedId) {
+      await tally("suggestions:published");
       await carryInterest(saved.id, {
         count: timesAsked(suggestion),
         people: [
@@ -324,8 +353,14 @@ export async function POST(request) {
      * enough that keeping them costs nothing.
      */
     const status = action === "resolve-report" ? "resolved" : "dismissed";
-    const next = reports.map((r) => (r.id === id ? { ...r, status, closedAt: new Date().toISOString().slice(0, 10) } : r));
+    const next = reports.map((r) => (r.id === id ? {
+      ...r, status,
+      closedAt: new Date().toISOString().slice(0, 10),
+      closedBy: session.email,
+      closedReason: typeof body.reason === "string" ? body.reason.slice(0, 300) : "",
+    } : r));
     await write(KEYS.reports, next);
+    await tally(status === "resolved" ? "reports:resolved" : "reports:dismissed");
     return Response.json({ reports: next });
   }
 
