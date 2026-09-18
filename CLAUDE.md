@@ -769,18 +769,56 @@ finding can rightly need two of them:
 A pricing move is usually both: the feed records that it happened, the listing
 says what is true now.
 
-**Feed entries are written by a person, every time.** Publishing opens an editor
-pre-filled with the monitor's summary, and nothing reaches the feed until
-somebody has rewritten it. The pre-fill exists to give you something to cut
-down, not something to accept. `sanitiseEntry` refuses an em-dash outright,
-because this is the one place text goes from an admin form straight onto a
-public page.
+**Feed entries are written by a person, every time.** `Publish to feed` calls
+`/api/admin/announce` first, which drafts a line and writes nothing, then opens
+the editor on the draft. Nothing reaches the feed until somebody has read it and
+pressed a second button. `sanitiseEntry` refuses an em-dash outright, because
+this is the one place text goes from an admin form straight onto a public page.
 
-**`/changes` is the part of the site that moves weekly**, which makes it what a
+The draft is not the monitor's summary, which is written in a different register
+and was the old pre-fill. The monitor addresses an editor deciding whether
+something matters; the feed is read by somebody who uses the tool and wants to
+know what it costs now. `lib/announce.js` holds the prompt, and most of its
+length is spent preventing one failure: a model handed a price change will write
+about strategy. "Raised the Starter tier to $79" is observable, "raised prices as
+it moves upmarket" is invented, and a directory whose whole value is that it does
+not make things up cannot publish the second.
+
+**The voice examples are lifted from the catalogue, not written for the prompt.**
+`houseVoice()` reads real `one` and `watch` lines out of `TOOLS`, so the examples
+cannot drift from the site they are meant to match. Telling a model "plain,
+factual, no marketing" returns marketing with the adjectives taken out; showing
+it eight real lines returns the rhythm. It looks up ids and silently skips any it
+cannot find, so `scripts/announce-test.mjs` asserts every example is really in
+`lib/tools.js`. Renaming a tool would otherwise empty the prompt and only show up
+as drafts quietly getting worse.
+
+**The editor shows the claim beside the draft**, not under it and not a click
+away: the observed values, the before and after, the confidence and the source
+link. A generated sentence reads as finished whether or not it is true, so the
+evidence for it has to be in the same glance. That panel renders from the row the
+page already has rather than from the drafting response, so it is there when the
+model is down and the textarea opens empty. A failed draft never blocks somebody
+writing two sentences themselves.
+
+The em-dash is also stripped in code after the model returns, along with the
+spaces around it. The prompt forbids it twice, and a rule stated in a prompt is a
+request rather than a guarantee.
+
+**`/changes` is one chronological stream across every tool**, newest first, and
+it is the primary view: linked from the main nav beside the directory, not a
+per-tool sub-page. Filters narrow it by tool and by category; they do not change
+what it is. It is the part of the site that moves weekly, which makes it what a
 crawler comes back for and what a returning visitor has a reason to open. It is
 in the sitemap with its `lastModified` taken from the newest entry rather than
 the build date. Each tool's own entries also render on its detail modal and its
 `/tools/[id]` page.
+
+**RSS lives at `/changes/rss`**, declared through `alternates.types` on the page
+so a reader finds it without being told. It is the one surface here that a person
+never looks at while it is being written, so escaping is not cosmetic: `&` is
+escaped before `<` and `>` or the others get double-escaped, and dates are RFC
+822 rather than the ISO the rest of the codebase uses.
 
 **The weekly email is built from the feed.** "Three changes this week" with
 links is a better reason to open an email than a new listing, which happens
@@ -799,6 +837,7 @@ days; a person still writes the sentence around it and presses send.
 | `lib/mail.js` | The event matrix and `sendEvent()`. The only caller of Resend |
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, and the `published()` filter every catalogue passes through |
+| `lib/announce.js` | The announcement prompt and the house-voice examples. Drafts, never publishes |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists. Client-safe, so no model import |
