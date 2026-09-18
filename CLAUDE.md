@@ -481,7 +481,23 @@ tiers and figures, the headline claim, stated scale numbers, named integrations,
 status signals, whether each page resolves) and the diff happens between two
 small objects.
 
-**Strictness is the feature.** Only eight kinds count, they are listed in the
+**Availability is observed, never asked.** Whether a URL resolves is a status
+code we have, so the software decides it and `dead-page` is absent from the
+kinds a model may return. Asking cost us a false alarm: the snapshot prompt
+requested a `pages` map including a pricing page that was never fetched, because
+no entry declared a `pricingUrl`, and the model filled the gap with "dead". A
+live page with four pricing tiers was reported gone at 0.9. The prompt now lists
+exactly which pages were fetched and forbids saying anything about the others.
+
+**A dead page takes two runs.** One failed fetch is a timeout, a deploy, a WAF
+having a moment or our own network. The first failure is recorded as
+"unreachable this run" at **0.3**; only a failure that repeats becomes a
+dead-page claim, at **0.75**. Confidence on an availability finding is a
+statement about how many times it has been verified, not about how certain the
+sentence sounds. The streak lives on the snapshot record, and one good read
+clears it.
+
+**Strictness is the feature.** Only seven kinds count, they are listed in the
 compare prompt along with what explicitly does not (copy edits, blog posts,
 design changes, a few percent of drift), a change under `0.6` confidence is
 dropped, and an unknown kind is dropped. An empty result is the expected answer
@@ -490,7 +506,9 @@ most weeks.
 **Silence is an output.** Nothing is emailed on a quiet week. An empty digest
 every Monday is how a digest becomes something people filter into a folder.
 
-**Politeness.** A descriptive user agent naming the site and the purpose,
+**Politeness.** A browser-shaped user agent with the bot token and URL on the
+end, because a bare bot string gets a challenge page or a 403 from plenty of
+WAFs and that reads to us as a dead site,
 `robots.txt` parsed and obeyed per origin and cached for the run, three entries
 at a time across different domains with a pause between waves, and a 12s
 timeout. Per-domain concurrency is 1 by construction.
