@@ -189,6 +189,35 @@ Approving a suggestion in `/admin` publishes the suggestion, not a listing. Turn
 into a tool is still a hand edit to `lib/tools.js`; give that entry an `updated` of the
 day it goes in and the site-wide date moves on its own.
 
+**17. A repeat suggestion increments a row. It never creates one.**
+`lib/suggestions.js` matches a submission before it is stored, against the
+published catalogue for its kind and against the suggestions already filed.
+Wappalyzer was suggested by several different people and every one of them got
+their own row, so the only fact worth knowing, that more than one person wanted
+it, was invisible because it was spread across rows nobody counted.
+
+- **Already listed** answers with the entry and stores nothing. The useful reply
+  is the link, and `/admin` should not collect queue items for things a visitor
+  could already be reading.
+- **Already suggested** increments `count`, appends the submitter to `also`, and
+  leaves the original row's name, URL, category and `why` alone: those are what
+  an editor has already read, and a later submitter's spelling does not overwrite
+  them.
+- Matching is against the **published** list. A drafted entry does not answer
+  "already listed", because it is not listed, and somebody asking for something
+  already in draft is exactly the demand signal that makes it worth finishing.
+
+Names match loosely and domains match exactly, but **a domain only decides it on
+its own when one entry lives there**. Marmeto has three listings on marmeto.com
+and Mantle has two on heymantle.com; on those a URL does not identify a product,
+and a domain-only match would tell somebody suggesting Orbit that Elevate is
+already listed. Anything else falls through to the queue, which is the right
+answer anyway.
+
+`also` carries submitter addresses, so it is stripped alongside `email` on every
+public read. `/admin` sorts by `timesAsked()` and shows the count as a neutral
+pill, because being able to see demand is the entire point of counting it.
+
 **19. `shopifyExclusive: false` marks a general tool. There is no `true`.**
 Nearly everything in the catalogue exists for the Shopify ecosystem and nothing
 else, so a badge saying so would sit on every card and carry no information. The
@@ -221,6 +250,7 @@ the informative label is the positive one.
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, and the `published()` filter every catalogue passes through |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
+| `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
 | `lib/email.js` | The HTML/text shell, `reply_to`, and the Resend transport |

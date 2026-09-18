@@ -733,12 +733,28 @@ export default function Directory({ tools: initialTools }) {
     });
   }
 
-  function addSuggestion(s) {
-    const ns = [{ ...s, id: Date.now().toString(36), date: new Date().toISOString().slice(0, 10) }, ...suggestions];
-    setSuggestions(ns);
-    post("/api/suggest", s).then((r) => {
-      if (r && r.suggestions) setSuggestions(r.suggestions);
-    });
+  /*
+   * Not optimistic, unlike voting.
+   *
+   * A submission can be answered with "already listed" and stored nowhere, or
+   * folded into a row that already exists. Prepending a row and then taking it
+   * away again is a worse answer than waiting a moment for the real one.
+   */
+  async function addSuggestion(s) {
+    try {
+      const res = await fetch("/api/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(s),
+      });
+      if (!res.ok) return { ok: false, error: await res.text() };
+      const d = await res.json();
+      if (Array.isArray(d.suggestions)) setSuggestions(d.suggestions);
+      setErr("");
+      return { ok: true, alreadyListed: d.alreadyListed || null, duplicate: d.duplicate || null };
+    } catch {
+      return { ok: false, error: "Could not reach the server." };
+    }
   }
 
   const avg = (id) => {
@@ -1077,6 +1093,7 @@ export default function Directory({ tools: initialTools }) {
           initialKind={typeof showSuggest === "string" ? showSuggest : showSuggest.kind}
           initialWhy={typeof showSuggest === "string" ? "" : showSuggest.why}
           onAdd={addSuggestion}
+          onOpenTool={openTool}
           onClose={() => setShowSuggest(null)}
         />
       )}
@@ -1920,7 +1937,7 @@ function Subscribe() {
   );
 }
 
-function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClose }) {
+function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpenTool, onClose }) {
   const [kind, setKind] = useState(kindOf(initialKind).id);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
@@ -1928,19 +1945,34 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
   const [why, setWhy] = useState(initialWhy);
   const [by, setBy] = useState("");
   const [byEmail, setByEmail] = useState("");
-  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  /*
+   * Three outcomes, not one. A submission can be filed, it can turn out to be
+   * something already in the directory, or it can be the fourth person to ask
+   * for the same thing. Answering all three with "Added. Thank you." is how
+   * people ended up suggesting Wappalyzer over and over: nothing they were
+   * told distinguished a new row from a repeat.
+   */
+  const [result, setResult] = useState(null);
   const field = {
     background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
     padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit", width: "100%",
   };
-  const submit = () => {
-    if (!name.trim()) return;
-    onAdd({
+  const submit = async () => {
+    if (!name.trim() || busy) return;
+    setBusy(true); setResult(null);
+    const res = await onAdd({
       kind, name: name.trim(), url: url.trim(), cat, why: why.trim(),
       by: by.trim() || "Anonymous", email: byEmail.trim(),
     });
-    setName(""); setUrl(""); setWhy(""); setDone(true);
-    setTimeout(() => setDone(false), 2600);
+    setBusy(false);
+    if (!res?.ok) { setResult({ error: res?.error || "That did not save." }); return; }
+    setResult(res.alreadyListed ? { listed: res.alreadyListed }
+      : res.duplicate ? { duplicate: res.duplicate }
+        : { added: true });
+    /* An already-listed answer keeps what they typed, so they can correct a
+       near-miss rather than retype it. The other two are finished with. */
+    if (!res.alreadyListed) { setName(""); setUrl(""); setWhy(""); }
   };
   return (
     <Shell onClose={onClose} width={880}>
@@ -1997,13 +2029,13 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
               <p style={{ fontSize: F.xs, color: C.dim, margin: "0px 0 0", lineHeight: 1.5 }}>
                 An email only gets you a note when this is looked at. It is not added to the mailing list.
               </p>
-              <button onClick={submit} disabled={!name.trim()} className="press" style={{
-                alignSelf: "flex-start", background: name.trim() ? C.accent : C.subtle,
-                color: name.trim() ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
+              <button onClick={submit} disabled={!name.trim() || busy} className="press" style={{
+                alignSelf: "flex-start", background: name.trim() && !busy ? C.accent : C.subtle,
+                color: name.trim() && !busy ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
                 padding: "12px 20px", fontSize: F.md, fontWeight: 700,
-                cursor: name.trim() ? "pointer" : "default", fontFamily: "inherit",
-              }}>Add suggestion</button>
-              {done && <p style={{ fontSize: F.xs, color: C.accentInk }}>Added. Thank you.</p>}
+                cursor: name.trim() && !busy ? "pointer" : "default", fontFamily: "inherit",
+              }}>{busy ? "Checking…" : "Add suggestion"}</button>
+              <SuggestResult result={result} onOpenTool={onOpenTool} onClose={onClose} />
             </div>
           </div>
 
@@ -2040,5 +2072,52 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
         </div>
       </div>
     </Shell>
+  );
+}
+
+/*
+ * What happened to a submission, in the submitter's terms.
+ *
+ * Already listed is the useful one: the answer they wanted is the link, and
+ * they were about to wait for an editor to send it to them. Opening the
+ * listing from here rather than linking out keeps them on the page they are
+ * already looking at, and closes the form behind them.
+ */
+function SuggestResult({ result, onOpenTool, onClose }) {
+  if (!result) return null;
+  if (result.error) {
+    return <p style={{ fontSize: F.xs, color: C.badInk, margin: 0 }}>{result.error}</p>;
+  }
+  if (result.added) {
+    return <p style={{ fontSize: F.xs, color: C.accentInk, margin: 0 }}>Added. Thank you.</p>;
+  }
+  if (result.duplicate) {
+    const { name, count } = result.duplicate;
+    return (
+      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "52ch" }}>
+        <b style={{ color: C.text }}>{name}</b> was already on the list, so this went on the entry
+        that is there rather than starting a second one. <b style={{ color: C.text }}>{count}</b>{" "}
+        people have asked for it now, and that number is the part we act on.
+      </p>
+    );
+  }
+  const { listed } = result;
+  return (
+    <div>
+      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "52ch" }}>
+        <b style={{ color: C.text }}>{listed.name}</b> is already in the directory, so nothing was
+        filed. If you meant something else, change the name or the URL and send it again.
+      </p>
+      <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
+        {listed.kind === "tool" && onOpenTool ? (
+          <button onClick={() => { onClose(); onOpenTool(listed.id); }} className="press" style={{
+            background: C.text, color: C.bg, border: 0, borderRadius: R.control,
+            padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+          }}>Read the {listed.name} entry</button>
+        ) : (
+          listed.url && <VisitSite url={listed.url} size={F.sm}>Go to {listed.name}</VisitSite>
+        )}
+      </div>
+    </div>
   );
 }

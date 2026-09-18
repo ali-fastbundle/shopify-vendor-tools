@@ -5,6 +5,7 @@ import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { drafted } from "@/lib/drafts";
+import { timesAsked } from "@/lib/suggestions";
 import { Pill } from "./Pill";
 import { ThemeToggle } from "./Theme";
 
@@ -22,6 +23,8 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
 
   const pending = rows.filter((s) => s.approved === false);
   const approved = rows.filter((s) => s.approved !== false);
+  /* Most asked first: the whole point of counting is to be able to see it. */
+  const byDemand = (a, b) => timesAsked(b) - timesAsked(a);
 
   // `tag` separates two buttons that post the same action for the same row,
   // so only the one actually clicked shows as busy.
@@ -72,7 +75,7 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
         >
           {pending.length === 0
             ? <Empty>Nothing waiting. With MODERATE_SUGGESTIONS unset, suggestions go live on submit and never land here.</Empty>
-            : pending.map((s) => (
+            : [...pending].sort(byDemand).map((s) => (
               <SuggestionRow key={s.id} s={s}>
                 <Btn onClick={() => act("approve-suggestion", s.id)}
                   busy={busy === "approve-suggestion" + s.id} tone="go">Approve</Btn>
@@ -85,7 +88,7 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
         <Section title="Approved suggestions" count={approved.length} hint="Public now. Read-only here.">
           {approved.length === 0
             ? <Empty>No suggestions yet.</Empty>
-            : approved.map((s) => <SuggestionRow key={s.id} s={s} />)}
+            : [...approved].sort(byDemand).map((s) => <SuggestionRow key={s.id} s={s} />)}
         </Section>
 
         <ClaimsTable
@@ -249,6 +252,8 @@ function Empty({ children }) {
 
 function SuggestionRow({ s, children }) {
   const k = kindOf(s.kind);
+  const asked = timesAsked(s);
+  const also = Array.isArray(s.also) ? s.also : [];
   return (
     <div style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0" }}>
       <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
@@ -257,13 +262,28 @@ function SuggestionRow({ s, children }) {
         {(!s.kind || s.kind === "tool") && (
           <span style={{ fontSize: F.xs, color: ink(catOf(s.cat).color) }}>{catOf(s.cat).label}</span>
         )}
+        {/* The reason duplicates are folded together rather than filed
+            separately: one row, and a number on it you can sort by. */}
+        {asked > 1 && <Pill>asked {asked}×</Pill>}
       </div>
       {s.why && <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: "4px 0 0", maxWidth: "72ch" }}>{s.why}</p>}
       <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0" }}>
         {s.by} · {s.date}
+        {s.lastAsked && s.lastAsked !== s.date ? ` · last asked ${s.lastAsked}` : ""}
         {s.url && <> · <a href={outbound(s.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
       </p>
-      {children && <div className="flex mt-2" style={{ gap: S.sm }}>{children}</div>}
+      {also.length > 0 && (
+        <div style={{ margin: "8px 0 0", paddingLeft: S.md, borderLeft: `2px solid ${C.line}` }}>
+          {also.map((a, i) => (
+            <p key={i} style={{ fontSize: F.xs, color: C.dim, margin: i ? "6px 0 0" : 0, lineHeight: 1.5, maxWidth: "72ch" }}>
+              <b style={{ color: C.muted }}>{a.by || "Anonymous"}</b> · {a.date}
+              {a.email ? ` · ${a.email}` : ""}
+              {a.why ? ` — ${a.why}` : ""}
+            </p>
+          ))}
+        </div>
+      )}
+      {children && <div className="flex flex-wrap mt-2" style={{ gap: S.sm }}>{children}</div>}
     </div>
   );
 }
