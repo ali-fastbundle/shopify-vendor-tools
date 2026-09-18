@@ -6,6 +6,7 @@ import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
 import { TOOLS } from "@/lib/tools";
 import { catalogueTools } from "@/lib/entries";
+import { dismissFinding, restoreFinding, getDiscovery } from "@/lib/discovery";
 import { timesAsked, findListed, findDuplicate, normaliseDomain } from "@/lib/suggestions";
 import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
@@ -203,6 +204,34 @@ export async function POST(request) {
   if (action === "sweep-ownership") {
     const { cleared, count } = await sweepOwnership({ by: session.email });
     return Response.json({ cleared, count });
+  }
+
+  /*
+   * Decline a discovered name, or put one back.
+   *
+   * Above the id check, because a finding has no id: discovery groups by a
+   * normalised name and that is what the dismissed set is keyed on, so the two
+   * cannot drift.
+   *
+   * Soft, like every other removal in this codebase. The reason is the point:
+   * "general B2B contact platform, not a Shopify tool" is worth more in six
+   * months than the name quietly being absent, and it is what stops the same
+   * question being researched twice.
+   */
+  if (action === "dismiss-discovery" || action === "restore-discovery") {
+    if (action === "restore-discovery") {
+      const res = await restoreFinding(String(body.key || ""));
+      if (res.error) return new Response(res.error, { status: 400 });
+      return Response.json(await getDiscovery());
+    }
+    const res = await dismissFinding({
+      name: String(body.name || ""),
+      url: String(body.url || ""),
+      reason: String(body.reason || "").slice(0, 120),
+      by: session.email,
+    });
+    if (res.error) return new Response(res.error, { status: 400 });
+    return Response.json(await getDiscovery());
   }
 
   if (!id || typeof id !== "string") return new Response("Missing id", { status: 400 });

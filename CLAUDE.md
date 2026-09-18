@@ -630,6 +630,52 @@ fetches the homepage plus whatever an entry declares. Guessing at `/pricing`
 would produce a dead-page alert every week for every vendor who does not have
 one, which is exactly the crying-wolf failure this is built to avoid.
 
+**33. A discovered name carries a URL, or says why it does not.**
+Every finding read "no URL given on the page" and `Research and draft` then
+failed on click. The cause was not the model: `textOf` strips tags before a page
+is handed over, so every `href` was gone before anything could read it. The one
+thing a `/vs` page reliably does was the one thing the fetch destroyed, and it
+looked from outside like a model being unhelpful.
+
+Three sources now, in order, and **which one answered is recorded**:
+
+- **`found`** from a link on the page. `anchorsOf` keeps the anchors before
+  `textOf` runs, and `linkForName` matches a name to a link in code after the
+  model has had its go. Deterministic and free.
+- **`resolved`** from `resolveDomains`, one batched call asking the model for
+  the official domain of names nothing linked to. This is the only place
+  discovery uses what a model knows rather than what a page says, so it is
+  labelled differently in the admin. A guessed domain that looks like a found
+  one sends somebody to research the wrong company.
+- **Neither**, in which case `Research and draft` is **disabled with a sentence
+  saying why**, rather than left to fail on click and spend a model call
+  learning there was nothing to fetch.
+
+**Outbound means a different registrable domain, not a different origin.** The
+first version checked origin, which keeps `blog.vendor.com` and
+`docs.vendor.com`, so the prompt filled with the publisher's own Blog and
+Documentation links. Social, app stores and review sites are dropped too: none
+of them is ever the competitor's own site.
+
+**Expect most URLs to be `resolved` rather than `found`.** Vendors name
+competitors on comparison pages and mostly do not link to them, which is
+ordinary SEO rather than an oversight. AppJubilee's `/compare` links only to
+appjubilee.io. The link path is still right, because it is free and exact where
+it fires; it is just not the common case.
+
+**Declining a name is permanent, and the reason is the point.**
+`svt:discovery:dismissed` is keyed on the same normalised name `runDiscovery`
+groups by, so the two cannot drift. It is filtered **on read as well as on
+write**: filtering only at run time would leave a dismissed name in the list
+until the next monthly run, which is up to a month of it still being there after
+somebody pressed Dismiss.
+
+Soft, like every other removal here. The stored finding is kept, `Restore` puts
+it straight back, and the record holds who declined it, when and why. The reason
+is what stops the same question being researched twice by somebody who was not
+there the first time, so the three that need no research are one-click buttons:
+out of scope, already listed under another name, defunct.
+
 **24. Suggesting something already listed succeeds. It is counted, not refused.**
 It used to be a dead end: the submitter got told it was already there and
 nothing was recorded, which threw away the one thing the submission was evidence
@@ -1547,6 +1593,7 @@ node scripts/feed-independence.mjs   # publishing does not apply, applying does 
 node scripts/discovery-promote.mjs   # a lead becomes one suggestion, and never a public one
 node scripts/ownership-test.mjs      # vacuous owners: merge, render and sweep
 node scripts/updates-count.mjs       # "new since your last visit", including the first visit
+node scripts/discovery-urls.mjs      # anchor capture against real markup, and the dismissed set
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>

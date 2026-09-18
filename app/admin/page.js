@@ -78,7 +78,7 @@ export default async function AdminPage({ searchParams }) {
     { key: "interest", load: () => getInterest(), empty: {} },
     { key: "adminSeen", load: () => read(KEYS.adminSeen, {}), empty: {} },
     { key: "appliedChanges", load: () => read(KEYS.changesApplied, {}), empty: {} },
-    { key: "discovery", load: () => getDiscovery(), empty: { findings: [] } },
+    { key: "discovery", load: () => getDiscovery(), empty: { findings: [], dismissed: [] } },
     { key: "blocked", load: () => blockedEntries(), empty: [] },
     { key: "publishedChanges", load: () => read(KEYS.changesPublished, {}), empty: {} },
     { key: "feed", load: () => feedEntries({ limit: 60 }), empty: [] },

@@ -711,15 +711,24 @@ function Row({ title, tag, tagColor, badges, meta, body, actions, footer, dim })
   );
 }
 
-function Btn({ onClick, busy, tone, children }) {
+/*
+ * `disabled` is separate from `busy` on purpose. Busy means this is happening;
+ * disabled means it cannot, and the two should not look the same, because a
+ * button that looks like it is working when it will never work is worse than
+ * one that is plainly off. A disabled button always has a sentence next to it
+ * saying why.
+ */
+function Btn({ onClick, busy, tone, disabled, children, title }) {
   const color = tone === "go" ? "#00E08A" : tone === "stop" ? "#FF6B8A" : "";
+  const off = busy || disabled;
   return (
-    <button onClick={onClick} disabled={busy} style={{
-      background: busy ? C.subtle : color ? color + "1E" : "transparent",
-      color: busy ? C.dim : color ? ink(color) : C.muted,
-      border: `1px solid ${color ? color + "44" : C.edge}`, borderRadius: R.control,
+    <button onClick={onClick} disabled={off} title={title} style={{
+      background: busy ? C.subtle : disabled ? "transparent" : color ? color + "1E" : "transparent",
+      color: off ? C.dim : color ? ink(color) : C.muted,
+      border: `1px solid ${disabled ? C.line : color ? color + "44" : C.edge}`, borderRadius: R.control,
       padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
-      cursor: busy ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+      cursor: off ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+      opacity: disabled ? 0.55 : 1,
     }}>{busy ? "…" : children}</button>
   );
 }
@@ -2753,8 +2762,26 @@ function Deleted({ rows = [], act, busy }) {
  * name somebody typed into the form differ only in how they arrived, and every
  * step after that is the same work.
  */
+/*
+ * The three answers that need no research.
+ *
+ * A name off a comparison page is usually declined for one of these, and the
+ * reason is obvious from the name: Apollo.io is a general B2B contact platform,
+ * and a product already assessed does not need assessing again. Making each one
+ * a button means declining costs a click rather than a decision, which is what
+ * keeps the list short enough to stay worth reading.
+ */
+const DISMISS_REASONS = [
+  ["Out of scope", "Not a tool for Shopify app vendors"],
+  ["Already listed", "Already in the directory under another name"],
+  ["Defunct", "No longer trading"],
+];
+
 function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) {
-  const findings = discovery?.findings || [];
+  const [state, setState] = useState(discovery);
+  const findings = state?.findings || [];
+  const dismissed = state?.dismissed || [];
+  const [arming, setArming] = useState("");
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
@@ -2779,6 +2806,25 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
   const [promoted, setPromoted] = useState({});
   const [working, setWorking] = useState("");
   const [errors, setErrors] = useState({});
+
+  async function decide(action, payload, label) {
+    setWorking(label);
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, ...payload }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        setErrors((e) => ({ ...e, [label]: msg }));
+        return;
+      }
+      setState(await res.json());
+      setArming("");
+    } catch {
+      setErrors((e) => ({ ...e, [label]: "Could not reach the server." }));
+    } finally { setWorking(""); }
+  }
 
   async function researchFinding(f) {
     setWorking(f.name);
@@ -2858,8 +2904,19 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
                   )}
                 </>}
                 meta={f.url
-                  ? <a href={outbound(f.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{f.url.replace(/^https?:\/\//, "")}</a>
-                  : "no URL given on the page"}
+                  ? <>
+                      <a href={outbound(f.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>
+                        {f.url.replace(/^https?:\/\//, "")}
+                      </a>
+                      {/* Found means a link on the page pointed here. Resolved
+                          means the model was asked for the domain by name and
+                          nothing on the page confirmed it. Different amounts of
+                          trust, so they are labelled differently. */}
+                      {f.urlSource === "resolved" && (
+                        <span style={{ color: C.warnInk }}> · domain resolved from the name, not linked</span>
+                      )}
+                    </>
+                  : "no link on the page and no domain resolved"}
                 footer={
                   promoted[f.name]
                     ? <DraftPanel s={promoted[f.name]} onSuggestions={onSuggestions} onEntries={onEntries} />
@@ -2868,17 +2925,53 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
                           Already in the suggestion queue. It is in the Inbox with its draft.
                         </p>
                       : <div className="mt-2">
-                          <Btn onClick={() => researchFinding(f)} busy={working === f.name} tone="go">
-                            Research and draft
-                          </Btn>
+                          <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+                            {/*
+                              * Disabled rather than allowed to fail on click.
+                              * Research fetches the vendor's own pages, so with
+                              * no URL there is nothing to fetch and pressing it
+                              * spent a model call to learn that.
+                              */}
+                            <Btn onClick={() => researchFinding(f)} busy={working === f.name}
+                              tone={f.url ? "go" : undefined} disabled={!f.url}
+                              title={f.url ? "" : "No URL to read"}>
+                              Research and draft
+                            </Btn>
+                            {arming === f.name ? (
+                              <>
+                                <span style={{ fontSize: F.xs, color: C.dim }}>Why?</span>
+                                {DISMISS_REASONS.map(([label, reason]) => (
+                                  <Btn key={label} busy={working === `d:${f.name}`}
+                                    onClick={() => decide("dismiss-discovery",
+                                      { name: f.name, url: f.url, reason }, `d:${f.name}`)}>
+                                    {label}
+                                  </Btn>
+                                ))}
+                                <Btn onClick={() => decide("dismiss-discovery",
+                                  { name: f.name, url: f.url, reason: "" }, `d:${f.name}`)}>
+                                  No reason
+                                </Btn>
+                                <Btn onClick={() => setArming("")}>Cancel</Btn>
+                              </>
+                            ) : (
+                              <Btn onClick={() => setArming(f.name)}>Dismiss</Btn>
+                            )}
+                          </div>
                           {!f.url && (
-                            <span style={{ fontSize: F.xs, color: C.dim, marginLeft: S.sm }}>
-                              No URL on the page it came from, so there is nothing to read. Find it first.
-                            </span>
+                            <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5, maxWidth: "70ch" }}>
+                              Nothing linked to it and the domain could not be resolved from the name,
+                              so there is no site to read. Find the URL and add it as a suggestion by
+                              hand, or dismiss it.
+                            </p>
                           )}
                           {errors[f.name] && (
                             <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>
                               {errors[f.name]}
+                            </p>
+                          )}
+                          {errors[`d:${f.name}`] && (
+                            <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>
+                              {errors[`d:${f.name}`]}
                             </p>
                           )}
                         </div>
@@ -2893,6 +2986,38 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
             )}
           </>
         )}
+
+      {/*
+        * What was turned down, and why. Collapsed, because it only grows and
+        * nothing in it needs a decision, but kept visible because the reason is
+        * the part worth having: it is what stops the same name being researched
+        * again in six months by somebody who was not here the first time.
+        */}
+      <Collapsible title="Dismissed" count={dismissed.length}
+        hint="Names an editor turned down. They do not come back on later runs. Restore puts one back in the list above.">
+        {dismissed.length === 0
+          ? <Empty>Nothing turned down yet.</Empty>
+          : dismissed.map((d) => (
+            <Row key={d.key}
+              title={d.name}
+              dim
+              badges={d.reason ? <Pill>{d.reason}</Pill> : null}
+              meta={<>
+                {d.url
+                  ? <a href={outbound(d.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>
+                      {d.url.replace(/^https?:\/\//, "")}
+                    </a>
+                  : "no URL"}
+                {d.by ? ` · ${d.by}` : ""}
+                {d.at ? ` · ${String(d.at).slice(0, 10)}` : ""}
+              </>}
+              actions={
+                <Btn onClick={() => decide("restore-discovery", { key: d.key }, `r:${d.key}`)}
+                  busy={working === `r:${d.key}`}>Restore</Btn>
+              }
+            />
+          ))}
+      </Collapsible>
     </Section>
   );
 }
