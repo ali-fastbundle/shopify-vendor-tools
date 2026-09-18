@@ -300,6 +300,23 @@ const ownershipOf = (t) =>
       : t.owner ? `Built by ${t.owner}`
         : "Independent";
 
+/*
+ * The one badge a tool can carry besides "winding down".
+ *
+ * A tool is written as `shopifyExclusive: false` or the field is absent; there
+ * is no `true`. Nearly everything in this catalogue exists for the Shopify
+ * ecosystem and nothing else, so a badge saying so would sit on every card and
+ * mean nothing. The badge that carries information is the one on the handful
+ * of general tools an app vendor still reaches for, because that is the fact
+ * you would otherwise find out on the pricing page.
+ *
+ * Neutral, like every other attribute badge. It is a note about scope, not a
+ * warning: PartnerStack is not worse for being built for B2B SaaS at large,
+ * it is just not built for this.
+ */
+const NotShopifyOnly = ({ tool }) =>
+  tool.shopifyExclusive === false ? <Pill>not Shopify-only</Pill> : null;
+
 /* The mark for each network in SOCIALS. A key with no icon here renders
    nothing, so adding a network to the list without a mark degrades to an
    absent link rather than to a broken one. */
@@ -828,7 +845,7 @@ export default function Directory({ tools: initialTools }) {
                 {HEADLINE}
               </h1>
               <p style={{ fontSize: F.lg, color: C.muted, maxWidth: "48ch", lineHeight: 1.5, margin: `${S.md}px 0 0` }}>
-                Every tool built specifically for the people who build Shopify apps.
+                Every tool the people who build Shopify apps actually reach for.
                 Open directory, community rated.
               </p>
               <div className="flex flex-wrap items-center tnum" style={{ gap: S.lg, fontSize: F.sm, color: C.muted, marginTop: S.lg }}>
@@ -1203,6 +1220,7 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
                         letterSpacing: TRACK.tight,
                       }}>{t.name}</button>
                       {t.dying && <Pill tone="warn">winding down</Pill>}
+                      <NotShopifyOnly tool={t} />
                     </div>
                   </td>
                   <td style={{ ...cell, fontSize: F.xs, color: ink(col) }}>{catOf(t.cat).label}</td>
@@ -1293,6 +1311,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
                 fontSize: F.lg, fontWeight: 700, color: C.text, letterSpacing: TRACK.tight, textAlign: "left",
               }}>{tool.name}</button>
               {tool.dying && <Pill tone="warn">winding down</Pill>}
+              <NotShopifyOnly tool={tool} />
             </div>
             <p style={{ fontSize: F.xs, color: ink(col), marginTop: 2 }}>{catOf(tool.cat).label}</p>
           </div>
@@ -1439,6 +1458,7 @@ function DetailModal({ tool, onClose, reviews, onReview, avg, votes, myVote, onV
           <span className="tnum" style={{ fontSize: F.md, fontWeight: 700, color: C.text }}>{tool.price}</span>
           <Facts tool={tool} />
           {tool.dying && <Pill tone="warn">winding down</Pill>}
+          <NotShopifyOnly tool={tool} />
         </div>
 
         <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
@@ -1662,6 +1682,9 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
    */
   const anyRatings = list.some((t) => t.ratings?.length);
   const anySocial = list.some((t) => Object.values(t.social || {}).some(Boolean));
+  /* Same rule as the ratings row: only worth asking if one of them answers
+     differently. A column of "Shopify only" four times over says nothing. */
+  const anyGeneral = list.some((t) => t.shopifyExclusive === false);
   const rowsSpec = [
     ["Category", (t) => catOf(t.cat).label],
     ["What it does", (t) => t.one],
@@ -1680,6 +1703,9 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
       const v = votes[t.id] || { up: 0, down: 0 };
       return `${v.up} up, ${v.down} down`;
     }],
+    ...(anyGeneral ? [["Scope", (t) => (t.shopifyExclusive === false
+      ? "General tool, not Shopify-only"
+      : "Shopify only")]] : []),
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
     ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
     ["Ownership", ownershipOf],
@@ -1988,8 +2014,8 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onClos
             {suggestions.length === 0 ? (
               <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, maxWidth: "44ch" }}>
                 Nothing yet. Known gaps: the email and lifecycle layer Mantle also covered, anything
-                aimed at agencies rather than app vendors, and good general tools that are not
-                Shopify-exclusive, which this first pass deliberately left out.
+                aimed at agencies rather than app vendors, and general tools an app vendor really
+                does reach for, which get listed and badged rather than left out.
               </p>
             ) : (
               <div className="mt-3 flex flex-col">

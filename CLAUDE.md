@@ -189,6 +189,25 @@ Approving a suggestion in `/admin` publishes the suggestion, not a listing. Turn
 into a tool is still a hand edit to `lib/tools.js`; give that entry an `updated` of the
 day it goes in and the site-wide date moves on its own.
 
+**19. `shopifyExclusive: false` marks a general tool. There is no `true`.**
+Nearly everything in the catalogue exists for the Shopify ecosystem and nothing
+else, so a badge saying so would sit on every card and carry no information. The
+badge that carries information is the one on the handful of general tools an app
+vendor still genuinely reaches for, and it renders as a neutral "not Shopify-only"
+`Pill` next to the name, on the card, the list row and the detail view. The
+compare table adds a Scope row only when one of the tools being compared answers
+differently.
+
+It is a **label, not a gate**. What gets listed is still judged on whether an app
+vendor has a real use for it, and a general tool has to clear a higher bar to be
+worth the row: its `watch` should say plainly what it does not know about
+Shopify. PartnerStack is listed and badged. Do not read this as an invitation to
+list general tools generally.
+
+Not to be confused with `shopifySpecific` on a newsletter, which runs the other
+way round and for the same reason: there, most entries are not about Shopify, so
+the informative label is the positive one.
+
 ## Layout
 
 | Path | Role |
@@ -316,13 +335,20 @@ the palette shown as a legend, which is the same job.
 **B. Every other badge is a neutral outline.** `C.edge` border, `C.muted` text, no
 fill. It lives in `components/Pill.jsx` and is imported, never re-declared: a second copy
 of those eight lines is how a neutral badge ends up neutral in one place and not in
-another. Free plan, unverified, suite membership, same-owner, by-owner, claimed, price
-and "Shopify-specific" are *attributes*, not categories — giving each its own hue put five
+another. Free plan, unverified, suite membership, same-owner, by-owner, claimed, price,
+"Shopify-specific" and "not Shopify-only" are *attributes*, not categories — giving each its own hue put five
 unrelated colours beside a spine whose colour means something and drained the meaning
 out of all of them. `Pill` takes no colour any more; it only takes `tone`.
 
 The single exception is `tone="warn"` on "winding down". That is a status warning about
 the product, not a label on it, and it is allowed to be seen.
+
+Two attributes stay badges rather than joining the `Facts` line, and both for the same
+reason: they are statements about *scope*, not facts about the product. "Shopify-specific"
+on a newsletter and "not Shopify-only" on a tool say which directory the thing belongs to
+rather than what it costs or who owns it, and both are absent from nearly every entry, so
+neither can stack up into a row of grey capsules. Anything that is true of most entries
+belongs in `Facts`.
 
 **C. Green is the action colour and nothing else.** Buttons that do something, the
 selected-for-comparison state, an owned listing. It is not the free-plan colour: green
@@ -690,9 +716,12 @@ check will silently run against a stale build.
 
 ## What not to do without asking
 
-- Add a tool that is not Shopify-exclusive. That boundary is deliberate; general tools
-  like Wappalyzer, BuiltWith, PartnerStack and mobile ASO platforms were removed on
-  purpose.
+- Add a general tool. Shopify-only is still the default and the bar: a general tool is
+  listed only where an app vendor genuinely reaches for it and nothing native covers the
+  job, and it carries `shopifyExclusive: false` and a `watch` saying what it does not know
+  about Shopify. PartnerStack is listed on that basis. Wappalyzer, BuiltWith and the
+  mobile ASO platforms are still out, and adding one is a decision to check first, not a
+  precedent this creates.
 - Add affiliate links or sponsored placement. The footer promises neither exists.
 - Fabricate a social profile URL. Only link profiles published on the vendor's own site;
   otherwise leave `social` empty, and it renders nothing at all.

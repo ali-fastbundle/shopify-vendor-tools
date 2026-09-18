@@ -23,7 +23,7 @@ const inter = Inter({
 
 const title = "The app vendor's toolkit | watchfor.tools";
 const description =
-  "Every tool built specifically for the people who build Shopify apps. Rankings, store data, revenue analytics, partner programs. Open directory, community rated.";
+  "Every tool built for the people who build Shopify apps, and the few general ones worth leaving for. Rankings, store data, revenue analytics, partner programs. Open directory, community rated.";
 
 /*
  * Messengers and social platforms cache an OG image against its URL and hold it
