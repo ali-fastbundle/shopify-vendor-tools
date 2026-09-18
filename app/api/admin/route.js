@@ -5,9 +5,11 @@ import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind } from
 import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
 import { TOOLS } from "@/lib/tools";
+import { catalogueTools } from "@/lib/entries";
 import { timesAsked } from "@/lib/suggestions";
 import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
+import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry } from "@/lib/feed";
 import { tally } from "@/lib/tallies";
 
 export const dynamic = "force-dynamic";
@@ -279,6 +281,55 @@ export async function POST(request) {
    * protected field never gets a button in the UI, and it would still be
    * refused if somebody posted one by hand.
    */
+  /*
+   * Publish a finding to the public changes feed.
+   *
+   * The default destination for most findings, and deliberately independent of
+   * apply: a pricing move is both news worth dating and a listing worth
+   * correcting, and being made to choose meant one of the two was always lost.
+   * Dismissing is also independent, so publishing does not quietly mark the
+   * listing question answered.
+   *
+   * `headline` comes from the admin's editor, never from the monitor. The form
+   * opens pre-filled with the model's summary and nothing reaches the feed
+   * until somebody has rewritten it, because a feed that reads like machine
+   * output teaches people the site is machine output.
+   */
+  if (action === "publish-to-feed") {
+    const rows = await readChangelog(500);
+    const change = rows.find((r) => r.id === id);
+    if (!change) return new Response("Unknown change", { status: 400 });
+
+    const tools = await catalogueTools();
+    const tool = tools.find((t) => t.id === change.entryId);
+    if (!tool) return new Response("That change is about a tool that is no longer listed.", { status: 400 });
+
+    const { entry, error } = sanitiseFeedEntry({
+      headline: body.headline,
+      sourceUrl: body.sourceUrl || change.url || tool.url,
+      kind: change.kind,
+    });
+    if (error) return new Response(error, { status: 400 });
+
+    const saved = await addFeedEntry(entry, { tool, changeId: id, publishedBy: session.email });
+
+    const published = await read(KEYS.changesPublished, {});
+    published[id] = { feedId: saved.id, at: saved.at, by: session.email, headline: saved.headline };
+    await write(KEYS.changesPublished, published);
+
+    return Response.json({ published, feedEntry: saved });
+  }
+
+  if (action === "unpublish-from-feed") {
+    const published = await read(KEYS.changesPublished, {});
+    const record = published[id];
+    if (!record) return new Response("That change was not published.", { status: 400 });
+    await removeFeedEntry(record.feedId, { by: session.email });
+    delete published[id];
+    await write(KEYS.changesPublished, published);
+    return Response.json({ published });
+  }
+
   if (action === "apply-change") {
     const rows = await readChangelog(500);
     const change = rows.find((r) => r.id === id);

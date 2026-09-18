@@ -11,6 +11,7 @@ import { readDedupeLog } from "@/lib/dedup";
 import { readChangelog, getMonitorState, blockedEntries } from "@/lib/monitor";
 import { getInterest } from "@/lib/interest";
 import { getDiscovery } from "@/lib/discovery";
+import { feedEntries } from "@/lib/feed";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -78,6 +79,8 @@ export default async function AdminPage({ searchParams }) {
     { key: "appliedChanges", load: () => read(KEYS.changesApplied, {}), empty: {} },
     { key: "discovery", load: () => getDiscovery(), empty: { findings: [] } },
     { key: "blocked", load: () => blockedEntries(), empty: [] },
+    { key: "publishedChanges", load: () => read(KEYS.changesPublished, {}), empty: {} },
+    { key: "feed", load: () => feedEntries({ limit: 60 }), empty: [] },
   ];
 
   /*

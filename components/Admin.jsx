@@ -78,6 +78,8 @@ export default function AdminPanel({
   appliedChanges = {},
   discovery = { findings: [] },
   blocked = [],
+  publishedChanges = {},
+  feed = [],
   initialTab = "inbox",
 }) {
   /*
@@ -225,6 +227,7 @@ export default function AdminPanel({
             monitor={monitor}
             seen={seen}
             appliedChanges={appliedChanges || {}}
+            publishedChanges={publishedChanges || {}}
             discovery={discovery}
             onSeen={setSeen}
             act={act}
@@ -257,6 +260,7 @@ export default function AdminPanel({
             claims={claimRows}
             verified={verifiedClaims}
             subscribers={subscribers || []}
+            feed={feed}
             act={act}
             busy={busy}
           />
@@ -276,7 +280,7 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, discovery = { findings: [] }, onSeen, act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, discovery = { findings: [] }, onSeen, act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
   const openChanges = changes.filter((r) => !seen[r.id]);
   const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length;
@@ -337,7 +341,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
       </Section>
 
       <ChangeMonitor rows={changes} monitor={monitor} seen={seen}
-        appliedChanges={appliedChanges} onSeen={onSeen} />
+        appliedChanges={appliedChanges} publishedChanges={publishedChanges} onSeen={onSeen} />
 
       <Discovered discovery={discovery} />
     </>
@@ -371,7 +375,7 @@ function Catalogue({ reviewed = [], entries = {}, onEntries, onSuggestions, inte
   );
 }
 
-function People({ accounts = {}, claims = {}, verified = [], subscribers = [], act, busy }) {
+function People({ accounts = {}, claims = {}, verified = [], subscribers = [], feed = [], act, busy }) {
   return (
     <>
       <Section
@@ -385,7 +389,7 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], a
       </Section>
       <Accounts accounts={accounts} claims={claims} />
       <Subscribers list={subscribers} />
-      <Compose count={subscribers.length} />
+      <Compose count={subscribers.length} feed={feed} />
     </>
   );
 }
@@ -967,7 +971,19 @@ function SuggestionRow({ s, children, footer }) {
  * list again, which is why the result reports its own numbers rather than
  * assuming this one.
  */
-function Compose({ count }) {
+/*
+ * The weekly email, and the reason there is anything to send.
+ *
+ * "Three changes this week" with links is a better reason to open an email
+ * than "a new tool was listed", which happens rarely and which nobody
+ * subscribed for. The feed is what moves weekly, so the draft is built from
+ * it.
+ *
+ * Pre-filled, never sent automatically. The same rule the feed itself follows:
+ * a machine assembles the list, a person writes the sentence around it and
+ * presses send.
+ */
+function Compose({ count, feed = [] }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState("");
@@ -976,6 +992,26 @@ function Compose({ count }) {
   const [err, setErr] = useState("");
 
   const ready = Boolean(subject.trim() && body.trim());
+
+  /* The last seven days of the feed, which is what a weekly email is about. */
+  const week = feed.filter((f) => {
+    const t = Date.parse(f.at || "");
+    return Number.isFinite(t) && Date.now() - t < 8 * 24 * 60 * 60 * 1000;
+  });
+
+  function draftFromFeed() {
+    if (!week.length) return;
+    const n = week.length;
+    setSubject(`${n} change${n === 1 ? "" : "s"} across the directory this week`);
+    setBody([
+      `${n} thing${n === 1 ? "" : "s"} changed in the tools this directory tracks this week.`,
+      "",
+      ...week.map((f) => `${f.toolName}: ${f.headline}\n  https://watchfor.tools/tools/${f.toolId}`),
+      "",
+      "All of it, dated and in order: https://watchfor.tools/changes",
+    ].join("\n"));
+    setConfirming(false);
+  }
 
   async function send(test) {
     setBusy(test ? "test" : "send"); setErr(""); setResult(null);
@@ -1029,6 +1065,15 @@ function Compose({ count }) {
 
         {!confirming ? (
           <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+            <button onClick={draftFromFeed} disabled={!week.length} style={{
+              background: C.subtle, border: `1px solid ${C.line}`,
+              color: week.length ? C.text : C.dim, borderRadius: R.control, padding: "8px 16px",
+              fontSize: F.sm, fontWeight: 600, cursor: week.length ? "pointer" : "default",
+              fontFamily: "inherit",
+            }}>
+              {week.length ? `Draft from this week (${week.length})` : "Nothing on the feed this week"}
+            </button>
+
             <button onClick={() => send(true)} disabled={!ready || Boolean(busy)} style={{
               background: C.subtle, border: `1px solid ${C.line}`,
               color: ready ? C.text : C.dim, borderRadius: R.control, padding: "8px 16px",
@@ -1744,29 +1789,37 @@ const KIND_LABEL = {
    kind is how eight unrelated hues end up next to a spine that means something. */
 const LOUD = new Set(["wind-down", "acquisition", "dead-page", "free-tier", "pricing"]);
 
-function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}, onSeen }) {
+function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, onSeen }) {
   const [busy, setBusy] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
   const [dismissed, setDismissed] = useState(seen || {});
   const [applied, setApplied] = useState(appliedChanges || {});
+  const [published, setPublished] = useState(publishedChanges || {});
   const [showDone, setShowDone] = useState(false);
 
   const open = rows.filter((r) => !dismissed[r.id]);
   const closed = rows.filter((r) => dismissed[r.id]);
   const shown = showDone ? [...open, ...closed] : open;
 
-  async function mark(id, action) {
+  async function mark(id, action, extra = {}) {
     setBusy(id); setResult("");
     try {
       const res = await fetch("/api/admin", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, id }),
+        body: JSON.stringify({ action, id, ...extra }),
       });
-      if (!res.ok) { setResult(await res.text()); return; }
+      if (!res.ok) {
+        const text = await res.text();
+        setResult(text);
+        /* Handed back so the feed editor can show it beside the field rather
+           than only at the top of the section. */
+        return { error: text };
+      }
       const d = await res.json();
       if (d.dismissed) { setDismissed(d.dismissed); onSeen?.(d.dismissed); }
       if (d.applied) setApplied(d.applied);
+      if (d.published) setPublished(d.published);
     } finally { setBusy(""); }
   }
 
@@ -1841,12 +1894,17 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
 
               {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "76ch" }}>{r.why}</p>}
 
-              <ChangeAction r={r} done={done} applied={applied[r.id]} busy={busy} onAct={mark} />
+              <ChangeAction r={r} done={done} applied={applied[r.id]}
+                published={published[r.id]} busy={busy} onAct={mark} />
             </div>
           );
         })}
 
       <p style={{ fontSize: F.xs, color: C.dim, margin: "14px 0 4px", lineHeight: 1.55, maxWidth: "76ch" }}>
+        Most findings belong on the feed, not in the listing: a new feature or an integration is
+        news, and a listing that grows a sentence every week has stopped being a description.
+        Update the listing only when the change alters what the tool fundamentally is or costs.
+        You can do both, and on a pricing move you usually should.
         Apply writes the field named on the button and nothing else, as an override, and Undo puts
         back exactly what was there. The <b style={{ color: C.muted }}>watch</b> note, the category,
         the verified flag and the external ratings never get a button: a monitor that could rewrite a
@@ -1872,12 +1930,16 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
  *             guess here would be a button claiming it will write something
  *             and then writing the wrong thing.
  */
-function ChangeAction({ r, done, applied, busy, onAct }) {
+function ChangeAction({ r, done, applied, published, busy, onAct }) {
   const edit = r.edit || { state: "unmapped" };
+  const [writing, setWriting] = useState(false);
+  const [headline, setHeadline] = useState(r.what || "");
+  const [err, setErr] = useState("");
+
   const openListing = (
-    <a href={`/?tool=${encodeURIComponent(r.entryId)}`} target="_blank" rel="noopener noreferrer"
+    <a href={`/tools/${encodeURIComponent(r.entryId)}`} target="_blank" rel="noopener noreferrer"
       style={{
-        background: C.subtle, border: `1px solid ${C.line}`, color: C.text,
+        background: "transparent", border: `1px solid ${C.edge}`, color: C.muted,
         borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
         textDecoration: "none", whiteSpace: "nowrap",
       }}>Open the listing</a>
@@ -1889,6 +1951,13 @@ function ChangeAction({ r, done, applied, busy, onAct }) {
   );
 
   const shown = (v) => (v === "" || v === null || v === undefined ? "absent" : String(v));
+
+  async function publish() {
+    setErr("");
+    const res = await onAct(r.id, "publish-to-feed", { headline, sourceUrl: r.url });
+    if (res?.error) { setErr(res.error); return; }
+    setWriting(false);
+  }
 
   return (
     <div className="mt-2">
@@ -1922,28 +1991,77 @@ function ChangeAction({ r, done, applied, busy, onAct }) {
       {edit.state === "unmapped" && (
         <p style={{ fontSize: F.xs, color: C.dim, margin: `0 0 ${S.sm}px`, lineHeight: 1.55, maxWidth: "72ch" }}>
           The monitor could not map this onto a single field{edit.field ? ` (it suggested "${edit.field}", which is not one we store)` : ""}.
-          Read it and decide.
+          It may still be worth publishing to the feed.
         </p>
       )}
 
+      {/*
+        * The feed editor. Pre-filled with the monitor's sentence and never
+        * submitted as-is by accident: the point of opening it is that somebody
+        * rewrites the line in the site's own voice before it is public.
+        */}
+      {writing && (
+        <div style={{
+          background: C.raised, border: `1px solid ${C.accentEdge}`, borderRadius: R.card,
+          padding: S.lg, marginBottom: S.sm,
+        }}>
+          <label style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, display: "block", marginBottom: 4 }}>
+            What changed, in one or two sentences
+          </label>
+          <textarea value={headline} onChange={(e) => setHeadline(e.target.value)} rows={3}
+            style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
+          <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "70ch" }}>
+            This goes on <a href="/changes" target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>/changes</a> and
+            on the tool&apos;s own page, under today&apos;s date, with a link to the source. House voice:
+            plain, specific, no marketing, and no em-dash. It is pre-filled with the monitor&apos;s
+            wording so you have something to cut down, not something to accept.
+          </p>
+          <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
+            <Btn onClick={publish} busy={busy === r.id} tone="go">Publish to feed</Btn>
+            <Btn onClick={() => { setWriting(false); setErr(""); }}>Cancel</Btn>
+          </div>
+          {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0" }}>{err}</p>}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        {/*
+          * Three destinations, and the feed is first because it is where most
+          * findings belong. A new integration is news; it is not a change to
+          * what the tool is, and forcing it into the listing is how a
+          * description turns into an undated changelog.
+          */}
+        {published ? (
+          <>
+            <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
+              On the feed {String(published.at || "").slice(0, 10)}
+            </span>
+            <ConfirmBtn onConfirm={() => onAct(r.id, "unpublish-from-feed")} busy={busy === r.id}
+              confirm="Remove">Remove from feed</ConfirmBtn>
+          </>
+        ) : !writing && (
+          <Btn onClick={() => { setWriting(true); setHeadline(r.what || ""); }} tone="go">
+            Publish to feed
+          </Btn>
+        )}
+
         {applied ? (
           <>
             <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
-              Applied {String(applied.at || "").slice(0, 10)}
+              Listing updated {String(applied.at || "").slice(0, 10)}
             </span>
             <Btn onClick={() => onAct(r.id, "undo-change")} busy={busy === r.id}>Undo</Btn>
           </>
         ) : edit.state === "appliable" ? (
-          <Btn onClick={() => onAct(r.id, "apply-change")} busy={busy === r.id} tone="go">
-            Apply: {edit.field} → {shown(edit.to).slice(0, 40)}
+          <Btn onClick={() => onAct(r.id, "apply-change")} busy={busy === r.id}>
+            Update listing: {edit.field} → {shown(edit.to).slice(0, 34)}
           </Btn>
         ) : null}
 
         {openListing}
         {source}
 
-        {!applied && (done
+        {!applied && !published && (done
           ? <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
           : <ConfirmBtn onConfirm={() => onAct(r.id, "dismiss-change")} busy={busy === r.id}>Dismiss</ConfirmBtn>)}
       </div>

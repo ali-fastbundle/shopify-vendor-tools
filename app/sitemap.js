@@ -1,6 +1,7 @@
 import { mergedTools } from "@/lib/listings";
 import { LAST_UPDATED_ISO } from "@/lib/tools";
 import { SITE } from "@/lib/seo";
+import { feedEntries } from "@/lib/feed";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
  * published list.
  */
 export default async function sitemap() {
-  const tools = await mergedTools();
+  const [tools, changes] = await Promise.all([mergedTools(), feedEntries({ limit: 1 })]);
 
   return [
     {
@@ -26,6 +27,15 @@ export default async function sitemap() {
       lastModified: new Date(LAST_UPDATED_ISO || Date.now()),
       changeFrequency: "weekly",
       priority: 1,
+    },
+    {
+      /* The page that actually moves. Its lastModified is the newest entry on
+         it rather than the build date, so a crawler that checks it weekly is
+         told the truth about whether there is anything new. */
+      url: `${SITE}/changes`,
+      lastModified: new Date(changes[0]?.at || LAST_UPDATED_ISO || Date.now()),
+      changeFrequency: "weekly",
+      priority: 0.9,
     },
     ...tools.map((t) => ({
       url: `${SITE}/tools/${t.id}`,

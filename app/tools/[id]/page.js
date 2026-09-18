@@ -7,6 +7,7 @@ import { outbound } from "@/lib/outbound";
 import {
   SITE, toolUrl, toolDescription, toolGraph, relatedTools, logoAlt, ratingOf,
 } from "@/lib/seo";
+import { feedEntries } from "@/lib/feed";
 import ToolPage from "@/components/ToolPage";
 
 export const dynamic = "force-dynamic";
@@ -26,13 +27,14 @@ export const dynamic = "force-dynamic";
  */
 
 async function load(id) {
-  const [tools, storedReviews] = await Promise.all([
+  const [tools, storedReviews, changes] = await Promise.all([
     mergedTools(),
     read(KEYS.reviews, {}),
+    feedEntries({ limit: 12, toolId: id }),
   ]);
   const tool = tools.find((t) => t.id === id);
   if (!tool) return null;
-  return { tool, tools, reviews: publicReviews(storedReviews) };
+  return { tool, tools, reviews: publicReviews(storedReviews), changes };
 }
 
 export async function generateMetadata({ params }) {
@@ -62,7 +64,7 @@ export async function generateMetadata({ params }) {
 export default async function Page({ params }) {
   const found = await load(params.id);
   if (!found) notFound();
-  const { tool, tools, reviews } = found;
+  const { tool, tools, reviews, changes } = found;
 
   const related = relatedTools(tool, tools);
   const toolReviews = reviews[tool.id] || [];
@@ -82,6 +84,7 @@ export default async function Page({ params }) {
         related={related}
         reviews={toolReviews}
         rating={ratingOf(tool.id, reviews)}
+        changes={changes}
         lastUpdated={LAST_UPDATED}
       />
     </>

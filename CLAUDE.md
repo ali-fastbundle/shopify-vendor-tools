@@ -728,6 +728,44 @@ and the most context-dependent, and a caveat quoted without the entry around it
 stops being a note about a product at a date and becomes a flat accusation about
 a company. Every line points at the tool page, which carries it in full.
 
+**31. A listing describes what a tool is. The feed records what changed.**
+They are different jobs and they were being done by one field. Every monitor
+finding used to have two destinations, the listing or the bin, so "added a
+Slack integration" had to be crammed into `note` or thrown away. **A listing
+that grows every week has stopped being a listing** and become an undated
+changelog nobody reads to the end of.
+
+So a finding has three destinations, and they are independent because one
+finding can rightly need two of them:
+
+- **Publish to feed**, the default and the right home for most findings: a new
+  feature, an integration, a rebrand, a pricing move. News, dated, in order.
+- **Update listing**, only when the change alters what the tool fundamentally
+  is or costs: the headline price, a free tier appearing or disappearing, a
+  wind-down, a category shift. This is the field-level Apply from invariant 23.
+- **Dismiss**, for noise. Soft, like everything else that removes something.
+
+A pricing move is usually both: the feed records that it happened, the listing
+says what is true now.
+
+**Feed entries are written by a person, every time.** Publishing opens an editor
+pre-filled with the monitor's summary, and nothing reaches the feed until
+somebody has rewritten it. The pre-fill exists to give you something to cut
+down, not something to accept. `sanitiseEntry` refuses an em-dash outright,
+because this is the one place text goes from an admin form straight onto a
+public page.
+
+**`/changes` is the part of the site that moves weekly**, which makes it what a
+crawler comes back for and what a returning visitor has a reason to open. It is
+in the sitemap with its `lastModified` taken from the newest entry rather than
+the build date. Each tool's own entries also render on its detail modal and its
+`/tools/[id]` page.
+
+**The weekly email is built from the feed.** "Three changes this week" with
+links is a better reason to open an email than a new listing, which happens
+rarely and which nobody subscribed for. `Compose` drafts from the last seven
+days; a person still writes the sentence around it and presses send.
+
 ## Layout
 
 | Path | Role |
@@ -748,6 +786,8 @@ a company. Every line points at the tool page, which carries it in full.
 | `lib/research.js` | Fetches a vendor's own pages and drafts an entry from them |
 | `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, the strict diff |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
+| `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
+| `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
 | `lib/tallies.js` | Running counts that outlive the rows they count |
 | `lib/seo.js` | The JSON-LD graph, per-tool descriptions, and the related-tool links |
 | `components/ToolPage.jsx` | One tool at its own URL, server-rendered, no client state |

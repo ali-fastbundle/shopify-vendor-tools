@@ -9,7 +9,7 @@ import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
 import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
 
@@ -643,7 +643,7 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools }) {
+export default function Directory({ tools: initialTools, feed = [] }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
   const [votes, setVotes] = useState({});
@@ -1086,6 +1086,7 @@ export default function Directory({ tools: initialTools }) {
                   style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
               : AUTHOR}
             {". "}
+            <a href="/changes" style={{ color: C.muted }}>What changed</a>{" · "}
             watchfor.tools is an independent directory. Not affiliated with, endorsed by, or sponsored by
             Shopify. Shopify is a trademark of Shopify Inc.
             No tool here paid to be listed and none of the links are affiliate links.
@@ -1148,6 +1149,7 @@ export default function Directory({ tools: initialTools }) {
           reviews={reviews[detail] || []}
           onReview={(a, r, x) => addReview(detail, a, r, x)}
           onHelpful={(reviewId) => markHelpful(detail, reviewId)}
+          changes={feed.filter((f) => f.toolId === detail).slice(0, 5)}
           avg={avg(detail)}
           votes={votes[detail] || { up: 0, down: 0 }}
           myVote={mine[detail] || 0}
@@ -1551,7 +1553,7 @@ function Shell({ children, onClose, width = 860 }) {
   );
 }
 
-function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
+function DetailModal({ tool, onClose, reviews, onReview, onHelpful, changes = [], avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
   const col = catOf(tool.cat).color;
   /*
    * Most helpful first, most recent to break a tie. The comparator lives in
@@ -1617,6 +1619,28 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
             <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
           </div>
         </div>
+
+        {/* What happened, as opposed to what it is. The note above describes
+            the tool; these are dated events, and keeping them apart is why the
+            note does not grow a line every week. */}
+        {changes.length > 0 && (
+          <div className="mt-5">
+            <p style={{ fontSize: F.xs, color: C.dim, margin: 0, fontWeight: 600 }}>Recent changes</p>
+            <div className="mt-2">
+              {changes.map((c) => (
+                <div key={c.id} style={{ borderTop: `1px solid ${C.line}`, padding: "10px 0" }}>
+                  <span style={{ fontSize: F.xs, color: C.dim }}>{formatDay(c.date)}</span>
+                  <p style={{ fontSize: F.md, lineHeight: 1.55, color: C.muted, margin: "2px 0 0", maxWidth: "64ch" }}>
+                    {c.headline}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0" }}>
+              <a href="/changes" style={{ color: C.muted }}>Every change across the directory</a>
+            </p>
+          </div>
+        )}
 
         <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools} />
 
