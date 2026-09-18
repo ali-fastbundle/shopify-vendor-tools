@@ -9,6 +9,7 @@ import { getAccounts } from "@/lib/accounts";
 import { getEntries } from "@/lib/entries";
 import { readDedupeLog } from "@/lib/dedup";
 import { readChangelog, getMonitorState } from "@/lib/monitor";
+import { getInterest } from "@/lib/interest";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -56,13 +57,15 @@ export default async function AdminPage() {
     readChangelog(120),
     getMonitorState(),
     read(KEYS.changesSeen, {}),
+    getInterest(),
+    read(KEYS.adminSeen, {}),
   ]);
   const [suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog,
-    changelog, monitor, changesSeen] =
+    changelog, monitor, changesSeen, interest, adminSeen] =
     settled.map((r, i) => {
       if (r.status === "fulfilled" && r.value != null) return r.value;
       if (r.status === "rejected") console.error("[admin] read failed —", r.reason?.message || r.reason);
-      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, [], [], {}, {}][i];
+      return [[], {}, [], [], {}, { fields: {}, queries: [] }, [], {}, [], [], {}, {}, {}, {}][i];
     });
 
   return (
@@ -80,6 +83,8 @@ export default async function AdminPage() {
       changelog={changelog}
       monitor={monitor}
       changesSeen={changesSeen}
+      interest={interest}
+      lastVisit={adminSeen?.[session.email] || ""}
     />
   );
 }

@@ -1350,9 +1350,10 @@ function Facts({ tool }) {
     tool.suite && `part of ${tool.suite}`,
     tool.linked && `same owner as ${tool.linked}`,
     tool.owner && `by ${tool.owner}`,
-    /* Only above one. "Suggested by 1 person" is how everything got here and
-       says nothing; the number is only information once it is demand. */
-    tool.suggestedBy > 1 && `suggested by ${tool.suggestedBy} people`,
+    /* Two or more only. "Suggested by 1 person" is how everything got here and
+       says nothing about this one; the number is information once it is
+       demand rather than provenance. Counted in lib/interest.js. */
+    tool.suggestedBy >= 2 && `suggested by ${tool.suggestedBy} people`,
     tool.claimed && "claimed",
     !tool.verified && "unverified",
   ].filter(Boolean);
@@ -2361,8 +2362,14 @@ function SuggestResult({ result, onOpenTool, onClose }) {
   return (
     <div>
       <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "52ch" }}>
-        <b style={{ color: C.text }}>{listed.name}</b> is already in the directory, so nothing was
-        filed. If you meant something else, change the name or the URL and send it again.
+        <b style={{ color: C.text }}>{listed.name}</b> is already in the directory, so there was
+        nothing to add. Thank you for it anyway: asking is recorded even when the answer is a link,
+        {listed.count >= 2
+          ? <> and <b style={{ color: C.text }}>{listed.count}</b> people have now asked for this one.</>
+          : <> and what people go looking for tells us what is hard to find.</>}
+      </p>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "52ch" }}>
+        If you meant something else, change the name or the URL and send it again.
       </p>
       <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
         {listed.kind === "tool" && onOpenTool ? (

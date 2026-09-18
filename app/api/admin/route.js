@@ -7,6 +7,7 @@ import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries
 import { TOOLS } from "@/lib/tools";
 import { timesAsked } from "@/lib/suggestions";
 import { readChangelog } from "@/lib/monitor";
+import { carryInterest, getInterest } from "@/lib/interest";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,19 @@ export async function POST(request) {
     });
   }
 
+  /*
+   * Stamp the inbox as read. Posted by the console on mount, after the server
+   * render has already handed it the previous value, so "new since your last
+   * visit" is computed against the visit before this one rather than against
+   * the moment the page finished loading.
+   */
+  if (action === "seen-inbox") {
+    const seen = await read(KEYS.adminSeen, {});
+    seen[session.email] = new Date().toISOString();
+    await write(KEYS.adminSeen, seen);
+    return Response.json({ seenAt: seen[session.email] });
+  }
+
   if (!id || typeof id !== "string") return new Response("Missing id", { status: 400 });
 
   /*
@@ -164,6 +178,25 @@ export async function POST(request) {
       suggestedBy: timesAsked(suggestion),
       draftedBy: incoming.researchedBy || "",
     });
+
+    /*
+     * Carry the demand across at the moment of publication, and only when this
+     * suggestion has not already been published once: the count is additive,
+     * so republishing to fix a typo must not double it.
+     *
+     * Without this the people who asked for something before it existed are
+     * erased the moment it starts existing, which is exactly when their asking
+     * turned out to be right.
+     */
+    if (!suggestion.publishedId) {
+      await carryInterest(saved.id, {
+        count: timesAsked(suggestion),
+        people: [
+          { by: suggestion.by, why: suggestion.why, email: suggestion.email, date: suggestion.date },
+          ...(Array.isArray(suggestion.also) ? suggestion.also : []),
+        ],
+      });
+    }
 
     const nextSuggestions = suggestions.map((s) => (s.id === id
       ? { ...s, approved: true, publishedId: saved.id, publishedAt: saved.publishedAt, draft: incoming }

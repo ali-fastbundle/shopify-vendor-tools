@@ -5,6 +5,7 @@ import { entriesOf } from "@/lib/sections";
 import { catalogueTools } from "@/lib/entries";
 import { resolveSubmission } from "@/lib/dedup";
 import { mergeDuplicate, timesAsked } from "@/lib/suggestions";
+import { addInterest } from "@/lib/interest";
 import { sendEvent } from "@/lib/mail";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 
@@ -74,15 +75,18 @@ export async function POST(request) {
     await resolveSubmission(submission, { catalogue, suggestions: sameKind });
 
   /*
-   * Already in the directory. Nothing is stored: the useful answer is the
-   * link, and /admin should not collect queue items for things a visitor could
-   * already be reading.
+   * Already in the directory. No queue row is created, because the useful
+   * answer is the link rather than a task for an editor. But the asking is
+   * recorded: somebody went looking for this and did not find it, and the
+   * fourth person to do that is saying something about the tool and something
+   * about our own navigation. See lib/interest.js.
    */
   if (outcome === "tool") {
     const listed = catalogue.find((t) => t.id === matchedId);
     if (listed) {
+      const count = await addInterest(listed.id, submission);
       return Response.json({
-        alreadyListed: { id: listed.id, name: listed.name, url: listed.url, kind },
+        alreadyListed: { id: listed.id, name: listed.name, url: listed.url, kind, count },
         decidedBy,
         suggestions: publicList(suggestions),
       });

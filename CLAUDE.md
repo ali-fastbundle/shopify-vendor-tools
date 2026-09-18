@@ -478,6 +478,54 @@ fetches the homepage plus whatever an entry declares. Guessing at `/pricing`
 would produce a dead-page alert every week for every vendor who does not have
 one, which is exactly the crying-wolf failure this is built to avoid.
 
+**24. Suggesting something already listed succeeds. It is counted, not refused.**
+It used to be a dead end: the submitter got told it was already there and
+nothing was recorded, which threw away the one thing the submission was evidence
+of. Somebody went looking for this, did not find it easily, and cared enough to
+type it in. The fourth person to do that is saying something about the tool and
+something about our own navigation.
+
+The counter lives in `svt:interest`, **never in `lib/tools.js`** — invariant 4,
+and a number that moves whenever a stranger fills in a form is the opposite of
+editorial. `mergedTools()` reads it the same way it reads vendor overrides, so a
+hand-written entry and a published one both get it.
+
+- **Two or more to show.** "Suggested by 1 person" is how everything got here
+  and says nothing about this one. It renders in the `Facts` line, so it is type
+  rather than a badge (invariant G).
+- **Publication carries the count across.** `carryInterest` runs on the first
+  publish of a suggestion, so the people who asked for something before it
+  existed are not erased at the moment it starts existing, which is exactly when
+  their asking turned out to be right. It is additive and skipped on a
+  re-publish, so fixing a typo does not double it.
+- **The reasons are kept and shown on `/admin`.** Somebody explaining why a
+  listed tool matters is editorial input, and it keeps arriving long after the
+  entry is written.
+- `people` carries addresses, so it is stripped on every public read exactly
+  like a suggestion's `also`. The count is public; who asked is not.
+
+**25. `/admin` is four tabs, ordered by whether there is anything to do.**
+Inbox, Catalogue, People, System. It had grown to thirteen headings in one
+column, and finding the two that needed a decision meant scrolling past eleven
+that did not.
+
+- **Inbox is the default and the only tab with a deadline**: suggestions to
+  review (sorted by interest), open reports, claims to check, and monitor alerts.
+  Its count is in the tab label, so "is there anything for me" is answered
+  without clicking. **When it is empty it says so in one line** rather than
+  rendering four empty panels, which is the state it is in most days.
+- **One `Row` for every list, on every tab.** Title, one coloured tag, neutral
+  badges, a grey meta line, body, actions, optional footer. Before this each
+  panel had invented its own arrangement and no two were alike. Adding a panel
+  means using `Row`, not writing a twelfth layout.
+- **Every destructive action is a `ConfirmBtn`.** Revoke, delete, dismiss and
+  unpublish are all one click from something unrecoverable, and they used to look
+  identical to Resolve. It arms rather than opening a modal, and disarms itself
+  after four seconds so a half-press is not a trap for the next click.
+- **Every section states its empty case in one line.**
+- The palette and type scale are the public site's, from `lib/tools.js`. There
+  is no second design language here, and `components/Pill.jsx` is the badge.
+
 ## Layout
 
 | Path | Role |
@@ -497,6 +545,7 @@ one, which is exactly the crying-wolf failure this is built to avoid.
 | `lib/model.js` | The provider chain. The only reader of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
 | `lib/research.js` | Fetches a vendor's own pages and drafts an entry from them |
 | `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, the strict diff |
+| `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/entries.js` | Entries published from the admin queue, and `catalogueTools()`, the catalogue everything validates against |
 | `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, and the only thing that strips an address off either |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |

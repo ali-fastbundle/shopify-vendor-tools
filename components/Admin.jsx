@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
@@ -11,11 +11,48 @@ import { Pill } from "./Pill";
 import { ThemeToggle } from "./Theme";
 
 /*
- * Admin console. The server component above this has already checked
- * ADMIN_EMAILS — this is the view, not the gate, and every button posts to
- * /api/admin which re-checks on its own.
+ * Admin console.
+ *
+ * The server component above this has already checked ADMIN_EMAILS. This is the
+ * view, not the gate, and every button posts to /api/admin which re-checks on
+ * its own.
+ *
+ * ------------------------------------------------------------------
+ *  Four tabs, ordered by whether there is anything to do
+ * ------------------------------------------------------------------
+ * This page grew one panel at a time until it was thirteen headings in a
+ * column and the only way to find the two things that needed a decision was to
+ * scroll past eleven that did not. The order now is: what is waiting on you,
+ * what the directory contains, who the people are, and how the machinery is
+ * doing.
+ *
+ * Inbox is first and is the default because it is the only tab with a deadline.
+ * Its count is in the tab label so the answer to "is there anything for me" is
+ * visible without clicking, and when it is zero it says so in one line rather
+ * than rendering four empty panels.
+ *
+ * Every list on every tab is the same `Row`. Before this, each panel had
+ * invented its own arrangement of a bold name, a coloured word and a grey date,
+ * and no two were quite alike. Every destructive button is a `ConfirmBtn`,
+ * because revoking a claim and dismissing a report are both one click from a
+ * thing you cannot get back.
+ *
+ * The palette and the type scale are the public site's, from lib/tools.js.
+ * There is no second design language here.
  */
-export default function AdminPanel({ email, suggestions, claims, subscribers, reports, accounts, stats, maillog, entries, dedupelog, changelog, monitor, changesSeen }) {
+
+const TABS = [
+  ["inbox", "Inbox"],
+  ["catalogue", "Catalogue"],
+  ["people", "People"],
+  ["system", "System"],
+];
+
+export default function AdminPanel({
+  email, suggestions, claims, subscribers, reports, accounts, stats, maillog,
+  entries, dedupelog, changelog, monitor, changesSeen, interest, lastVisit,
+}) {
+  const [tab, setTab] = useState("inbox");
   const [rows, setRows] = useState(suggestions || []);
   const [claimRows, setClaimRows] = useState(claims || {});
   const [reportRows, setReportRows] = useState(reports || []);
@@ -25,9 +62,38 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
   const [err, setErr] = useState("");
 
   const pending = rows.filter((s) => s.approved === false);
-  const approved = rows.filter((s) => s.approved !== false);
-  /* Most asked first: the whole point of counting is to be able to see it. */
+  const reviewed = rows.filter((s) => s.approved !== false);
+  const openReports = reportRows.filter((r) => r.status === "open");
+  const pendingClaims = Object.entries(claimRows).filter(([, c]) => c.status !== "verified");
+  const verifiedClaims = Object.entries(claimRows).filter(([, c]) => c.status === "verified");
+
+  const openChanges = (changelog || []).filter((r) => !seen[r.id]);
+  /* "Since your last visit" is computed against the value the server rendered
+     with, which is the visit before this one: the stamp below updates after. */
+  const sinceVisit = lastVisit
+    ? openChanges.filter((r) => String(r.at || "") > String(lastVisit))
+    : openChanges;
+
+  /* Most asked first, everywhere a queue is shown. Demand decides order. */
   const byDemand = (a, b) => timesAsked(b) - timesAsked(a);
+
+  const inboxCount = pending.length + openReports.length + pendingClaims.length + openChanges.length;
+  const catalogueCount = Object.keys(entryRows || {}).length
+    + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length;
+  const counts = {
+    inbox: inboxCount,
+    catalogue: catalogueCount,
+    people: Object.keys(accounts || {}).length,
+    system: 0,
+  };
+
+  /* Stamp the visit once, after the render that used the old value. */
+  useEffect(() => {
+    fetch("/api/admin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "seen-inbox" }),
+    }).catch(() => {});
+  }, []);
 
   // `tag` separates two buttons that post the same action for the same row,
   // so only the one actually clicked shows as busy.
@@ -44,6 +110,7 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
       if (d.suggestions) setRows(d.suggestions);
       if (d.claims) setClaimRows(d.claims);
       if (d.reports) setReportRows(d.reports);
+      if (d.entries) setEntryRows(d.entries);
     } catch {
       setErr("Could not reach the server.");
     } finally {
@@ -54,7 +121,7 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
   return (
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
       <div className="mx-auto px-5" style={{ maxWidth: 1140 }}>
-        <header className="pt-8 pb-6">
+        <header className="pt-8" style={{ paddingBottom: S.lg }}>
           <div className="flex flex-wrap items-baseline justify-between" style={{ gap: S.md }}>
             <h1 style={{ fontSize: F.display, fontWeight: 800, letterSpacing: TRACK.tighter, margin: 0 }}>Admin</h1>
             <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
@@ -69,76 +136,74 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
           )}
         </header>
 
-        <ChangeMonitor rows={changelog || []} monitor={monitor} seen={seen} onSeen={setSeen} />
+        <nav className="flex flex-wrap" style={{
+          gap: S.xs, borderBottom: `1px solid ${C.line}`, marginBottom: S["2xl"],
+        }}>
+          {TABS.map(([id, label]) => {
+            const on = tab === id;
+            const n = counts[id];
+            return (
+              <button key={id} onClick={() => setTab(id)} aria-current={on ? "page" : undefined}
+                style={{
+                  background: "none", border: 0, borderBottom: `2px solid ${on ? C.accent : "transparent"}`,
+                  padding: "8px 14px", marginBottom: -1, cursor: "pointer", fontFamily: "inherit",
+                  fontSize: F.md, fontWeight: on ? 700 : 500, color: on ? C.text : C.muted,
+                }}>
+                {label}
+                {n > 0 && (
+                  <span className="tnum" style={{
+                    marginLeft: S.sm, fontSize: F.xs, fontWeight: 700,
+                    color: id === "inbox" && n > 0 ? C.accentInk : C.dim,
+                  }}>{n}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
 
-        <Drafts />
+        {tab === "inbox" && (
+          <Inbox
+            pending={[...pending].sort(byDemand)}
+            reports={reportRows}
+            claims={pendingClaims}
+            changes={changelog || []}
+            sinceVisit={sinceVisit}
+            monitor={monitor}
+            seen={seen}
+            onSeen={setSeen}
+            act={act}
+            busy={busy}
+            onSuggestions={setRows}
+            onEntries={setEntryRows}
+          />
+        )}
 
-        <PublishingNote />
+        {tab === "catalogue" && (
+          <Catalogue
+            reviewed={[...reviewed].sort(byDemand)}
+            entries={entryRows}
+            onEntries={setEntryRows}
+            onSuggestions={setRows}
+            interest={interest || {}}
+            act={act}
+            busy={busy}
+          />
+        )}
 
-        <Section
-          title="Waiting to be reviewed"
-          count={pending.length}
-          hint="Held back by MODERATE_SUGGESTIONS: stored, but not served by /api/data. Mark reviewed clears that hold and makes the row public. It does not create a listing."
-        >
-          {pending.length === 0
-            ? <Empty>Nothing waiting. With MODERATE_SUGGESTIONS unset, suggestions go public on submit and never land here.</Empty>
-            : [...pending].sort(byDemand).map((s) => (
-              <SuggestionRow key={s.id} s={s}
-                footer={<DraftPanel s={s} onSuggestions={setRows} onEntries={setEntryRows} />}>
-                <Btn onClick={() => act("mark-reviewed", s.id)}
-                  busy={busy === "mark-reviewed" + s.id} tone="go">Mark reviewed</Btn>
-                <Btn onClick={() => act("delete-suggestion", s.id)}
-                  busy={busy === "delete-suggestion" + s.id} tone="stop">Delete</Btn>
-              </SuggestionRow>
-            ))}
-        </Section>
+        {tab === "people" && (
+          <People
+            accounts={accounts || {}}
+            claims={claimRows}
+            verified={verifiedClaims}
+            subscribers={subscribers || []}
+            act={act}
+            busy={busy}
+          />
+        )}
 
-        <Section title="Reviewed" count={approved.length}
-          hint="Public on the site. Still suggestions, not listings. Sorted by how many people have asked.">
-          {approved.length === 0
-            ? <Empty>No suggestions yet.</Empty>
-            : [...approved].sort(byDemand).map((s) => (
-              <SuggestionRow key={s.id} s={s}
-                footer={<DraftPanel s={s} onSuggestions={setRows} onEntries={setEntryRows} />}>
-                <Btn onClick={() => act("delete-suggestion", s.id)}
-                  busy={busy === "delete-suggestion" + s.id} tone="stop">Delete</Btn>
-              </SuggestionRow>
-            ))}
-        </Section>
-
-        <PublishedEntries entries={entryRows} onEntries={setEntryRows} />
-
-        <DedupeLog rows={dedupelog || []} />
-
-        <ClaimsTable
-          title="Verified claims"
-          hint="These addresses can edit their listing. Revoke access drops the claim and leaves the published copy as the vendor left it; revoke and revert content also restores the editorial original."
-          rows={Object.entries(claimRows).filter(([, c]) => c.status === "verified")}
-          act={act} busy={busy} verified
-          empty="No verified claims yet."
-        />
-
-        <ClaimsTable
-          title="Pending claims"
-          hint="Started but not proved. They have a token to publish on their own domain; nothing is editable until they do."
-          rows={Object.entries(claimRows).filter(([, c]) => c.status !== "verified")}
-          act={act} busy={busy}
-          empty="Nothing pending."
-        />
-
-        <Accounts accounts={accounts || {}} claims={claimRows} />
-
-        <Stats stats={stats || { fields: {}, queries: [] }} />
-
-        <MailLog rows={maillog || []} />
-
-        <NotificationTest />
-
-        <Reports rows={reportRows} act={act} busy={busy} />
-
-        <Subscribers list={subscribers || []} />
-
-        <Compose count={(subscribers || []).length} />
+        {tab === "system" && (
+          <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []} />
+        )}
 
         <div style={{ height: 60 }} />
       </div>
@@ -146,8 +211,342 @@ export default function AdminPanel({ email, suggestions, claims, subscribers, re
   );
 }
 
-const cell = { padding: "12px 12px 12px 0", borderBottom: `1px solid ${C.line}`, verticalAlign: "top" };
+/* ================================================================== */
+/*  Tabs                                                               */
+/* ================================================================== */
 
+function Inbox({ pending, reports, claims, changes, sinceVisit, monitor, seen, onSeen, act, busy, onSuggestions, onEntries }) {
+  const openReports = reports.filter((r) => r.status === "open");
+  const openChanges = changes.filter((r) => !seen[r.id]);
+  const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length;
+
+  if (nothing) {
+    return (
+      <section className="pb-10">
+        <p style={{ fontSize: F.lg, color: C.muted, margin: 0, lineHeight: 1.6, maxWidth: "62ch" }}>
+          Nothing is waiting on you. No suggestions to review, no open reports, no claims to check,
+          and no listing changes since your last visit.
+        </p>
+        <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "62ch" }}>
+          The Catalogue tab has the drafts and what is published. The monitor runs on Mondays.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <>
+      {sinceVisit.length > 0 && (
+        <p style={{
+          fontSize: F.sm, color: C.accentInk, margin: `0 0 ${S["2xl"]}px`,
+          lineHeight: 1.6, fontWeight: 600,
+        }}>
+          {sinceVisit.length} listing change{sinceVisit.length === 1 ? "" : "s"} since your last visit.
+        </p>
+      )}
+
+      <Section
+        title="Suggestions to review"
+        count={pending.length}
+        hint="Sorted by how many people asked. Mark reviewed clears the moderation hold so the row is public; it does not create a listing. Research and draft writes one for you to check."
+      >
+        {pending.length === 0
+          ? <Empty>Nothing waiting. With MODERATE_SUGGESTIONS unset, suggestions go public on submit and never land here.</Empty>
+          : pending.map((s) => (
+            <SuggestionRow key={s.id} s={s}
+              footer={<DraftPanel s={s} onSuggestions={onSuggestions} onEntries={onEntries} />}>
+              <Btn onClick={() => act("mark-reviewed", s.id)}
+                busy={busy === "mark-reviewed" + s.id} tone="go">Mark reviewed</Btn>
+              <ConfirmBtn onConfirm={() => act("delete-suggestion", s.id)}
+                busy={busy === "delete-suggestion" + s.id}>Delete</ConfirmBtn>
+            </SuggestionRow>
+          ))}
+      </Section>
+
+      <OpenReports rows={reports} act={act} busy={busy} />
+
+      <Section
+        title="Claims to check"
+        count={claims.length}
+        hint="Started but not proved. They have a token to publish on their own domain; nothing is editable until they do."
+      >
+        {claims.length === 0
+          ? <Empty>No claims waiting.</Empty>
+          : claims.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} />)}
+      </Section>
+
+      <ChangeMonitor rows={changes} monitor={monitor} seen={seen} onSeen={onSeen} />
+    </>
+  );
+}
+
+function Catalogue({ reviewed, entries, onEntries, onSuggestions, interest, act, busy }) {
+  return (
+    <>
+      <PublishingNote />
+      <Drafts />
+      <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
+      <Interest interest={interest} entries={entries} />
+      <Section title="Reviewed suggestions" count={reviewed.length}
+        hint="Public on the site. Still suggestions, not listings. Sorted by how many people asked.">
+        {reviewed.length === 0
+          ? <Empty>No suggestions yet.</Empty>
+          : reviewed.map((s) => (
+            <SuggestionRow key={s.id} s={s}
+              footer={<DraftPanel s={s} onSuggestions={onSuggestions} onEntries={onEntries} />}>
+              <ConfirmBtn onConfirm={() => act("delete-suggestion", s.id)}
+                busy={busy === "delete-suggestion" + s.id}>Delete</ConfirmBtn>
+            </SuggestionRow>
+          ))}
+      </Section>
+    </>
+  );
+}
+
+function People({ accounts, claims, verified, subscribers, act, busy }) {
+  return (
+    <>
+      <Section
+        title="Verified claims"
+        count={verified.length}
+        hint="These addresses can edit their listing. Revoke access drops the claim and leaves the published copy as the vendor left it; revoke and revert also restores the editorial original."
+      >
+        {verified.length === 0
+          ? <Empty>No verified claims yet.</Empty>
+          : verified.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} verified />)}
+      </Section>
+      <Accounts accounts={accounts} claims={claims} />
+      <Subscribers list={subscribers} />
+      <Compose count={subscribers.length} />
+    </>
+  );
+}
+
+function System({ stats, maillog, dedupelog }) {
+  return (
+    <>
+      <MailLog rows={maillog} />
+      <NotificationTest />
+      <Stats stats={stats || { fields: {}, queries: [] }} />
+      <DedupeLog rows={dedupelog} />
+    </>
+  );
+}
+
+/* ================================================================== */
+/*  The primitives every list uses                                     */
+/* ================================================================== */
+
+function Section({ title, count, hint, children }) {
+  return (
+    <section className="pb-10">
+      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+        <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
+        {count !== "" && count !== undefined && (
+          <span className="tnum" style={{ fontSize: F.sm, color: C.dim }}>{count}</span>
+        )}
+      </div>
+      {hint && <p style={{ fontSize: F.sm, color: C.muted, margin: "4px 0 0", maxWidth: "72ch", lineHeight: 1.55 }}>{hint}</p>}
+      <div className="mt-3" style={{
+        background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: "4px 16px 8px",
+      }}>{children}</div>
+    </section>
+  );
+}
+
+/* Every section states its empty case in one line. */
+function Empty({ children }) {
+  return <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: "16px 0" }}>{children}</p>;
+}
+
+/*
+ * The one row.
+ *
+ * title    what the thing is called
+ * badges   short neutral labels, the Pill from the public site
+ * tag      one coloured word: the category, the report kind, the change kind
+ * meta     the grey line: dates, addresses, ids
+ * body     prose the row is about
+ * actions  buttons
+ * footer   anything that expands underneath, like a draft editor
+ * dim      closed, dismissed or resolved rows, which stay rather than vanish
+ */
+function Row({ title, tag, tagColor, badges, meta, body, actions, footer, dim }) {
+  return (
+    <div style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0", opacity: dim ? 0.55 : 1 }}>
+      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+        <span style={{ fontSize: F.lg, fontWeight: 700 }}>{title}</span>
+        {tag && <span style={{ fontSize: F.xs, color: tagColor || C.muted }}>{tag}</span>}
+        {badges}
+      </div>
+      {body && (
+        <div style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: "4px 0 0", maxWidth: "76ch" }}>
+          {body}
+        </div>
+      )}
+      {meta && <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0", lineHeight: 1.5 }}>{meta}</p>}
+      {actions && <div className="flex flex-wrap mt-2" style={{ gap: S.sm }}>{actions}</div>}
+      {footer}
+    </div>
+  );
+}
+
+function Btn({ onClick, busy, tone, children }) {
+  const color = tone === "go" ? "#00E08A" : tone === "stop" ? "#FF6B8A" : "";
+  return (
+    <button onClick={onClick} disabled={busy} style={{
+      background: busy ? C.subtle : color ? color + "1E" : "transparent",
+      color: busy ? C.dim : color ? ink(color) : C.muted,
+      border: `1px solid ${color ? color + "44" : C.edge}`, borderRadius: R.control,
+      padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
+      cursor: busy ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+    }}>{busy ? "…" : children}</button>
+  );
+}
+
+/*
+ * Destructive actions ask once.
+ *
+ * Revoking a claim, deleting a suggestion, unpublishing an entry and dismissing
+ * a change are all one click from something you cannot get back, and they sat
+ * next to ordinary buttons looking identical. Arming rather than a modal: the
+ * row stays readable, and it disarms itself after four seconds so a half-press
+ * left on screen is not a trap for the next click.
+ */
+function ConfirmBtn({ onConfirm, busy, children, confirm = "Sure?" }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return undefined;
+    const t = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(t);
+  }, [armed]);
+
+  if (busy) return <Btn busy tone="stop">{children}</Btn>;
+
+  return armed ? (
+    <span className="inline-flex" style={{ gap: S.xs }}>
+      <button onClick={() => { setArmed(false); onConfirm(); }} style={{
+        background: "#FF6B8A", color: C.onAccent, border: 0, borderRadius: R.control,
+        padding: "4px 12px", fontSize: F.xs, fontWeight: 700, cursor: "pointer",
+        fontFamily: "inherit", whiteSpace: "nowrap",
+      }}>{confirm}</button>
+      <button onClick={() => setArmed(false)} style={{
+        background: "transparent", border: `1px solid ${C.edge}`, color: C.dim,
+        borderRadius: R.control, padding: "4px 10px", fontSize: F.xs, fontWeight: 600,
+        cursor: "pointer", fontFamily: "inherit",
+      }}>No</button>
+    </span>
+  ) : (
+    <Btn onClick={() => setArmed(true)} tone="stop">{children}</Btn>
+  );
+}
+
+/* ================================================================== */
+/*  Rows shared by more than one tab                                   */
+/* ================================================================== */
+
+function ClaimRow({ toolId, c, act, busy, verified }) {
+  const tool = ALL_TOOLS.find((t) => t.id === toolId);
+  const method = c.method === "email-domain" ? "email domain"
+    : c.method === "domain" ? "published token" : "not proved yet";
+  return (
+    <Row
+      title={tool ? tool.name : toolId}
+      tag={tool ? catOf(tool.cat).label : ""}
+      tagColor={tool ? ink(catOf(tool.cat).color) : C.muted}
+      meta={<>
+        <a href={`mailto:${c.email}`} style={{ color: C.muted }}>{c.email}</a>
+        {" · "}{method}
+        {" · "}{(verified ? c.verifiedAt : c.startedAt) || "no date"}
+      </>}
+      actions={verified ? <>
+        <ConfirmBtn onConfirm={() => act("revoke-claim", toolId, { revertContent: false }, "access")}
+          busy={busy === "revoke-claimaccess" + toolId} confirm="Revoke">Revoke access</ConfirmBtn>
+        <ConfirmBtn onConfirm={() => act("revoke-claim", toolId, { revertContent: true }, "revert")}
+          busy={busy === "revoke-claimrevert" + toolId} confirm="Revoke and revert">Revoke and revert content</ConfirmBtn>
+      </> : null}
+    />
+  );
+}
+
+function OpenReports({ rows, act, busy }) {
+  const open = rows.filter((r) => r.status === "open");
+  const closed = rows.filter((r) => r.status !== "open");
+  return (
+    <Section title="Reports and corrections" count={open.length}
+      hint="Sent by visitors without signing in. Nothing is applied automatically: make the change yourself, then resolve. A submitted social profile only goes in once it is published on the company's own site.">
+      {rows.length === 0 ? <Empty>Nothing reported.</Empty> : [...open, ...closed].map((r) => {
+        const tool = ALL_TOOLS.find((t) => t.id === r.toolId);
+        const kind = reportKindOf(r.kind);
+        const isOpen = r.status === "open";
+        return (
+          <Row key={r.id}
+            title={tool ? tool.name : r.toolName || r.toolId}
+            tag={kind ? kind.label : r.kind}
+            tagColor={ink("#FFB020")}
+            badges={!isOpen && <Pill>{r.status}{r.closedAt ? ` ${r.closedAt}` : ""}</Pill>}
+            body={r.value || null}
+            meta={<>
+              {r.date}
+              {" · "}
+              {r.email ? <a href={`mailto:${r.email}`} style={{ color: C.muted }}>{r.email}</a> : "no email given"}
+            </>}
+            dim={!isOpen}
+            actions={isOpen ? <>
+              <Btn onClick={() => act("resolve-report", r.id, {}, "res")}
+                busy={busy === "resolve-reportres" + r.id} tone="go">Resolve</Btn>
+              <ConfirmBtn onConfirm={() => act("dismiss-report", r.id, {}, "dis")}
+                busy={busy === "dismiss-reportdis" + r.id}>Dismiss</ConfirmBtn>
+            </> : null}
+          />
+        );
+      })}
+    </Section>
+  );
+}
+
+/*
+ * Who asked for something that is already listed, and why.
+ *
+ * Counted in lib/interest.js rather than in the file. The reasons are the point
+ * as much as the number: somebody explaining why a listed tool matters to them
+ * is editorial input, and it keeps arriving long after the entry is written.
+ */
+function Interest({ interest, entries }) {
+  const rows = Object.entries(interest || {})
+    .map(([id, v]) => ({ id, count: Number(v?.count) || 0, people: Array.isArray(v?.people) ? v.people : [] }))
+    .filter((r) => r.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  const nameOf = (id) =>
+    ALL_TOOLS.find((t) => t.id === id)?.name || entries?.[id]?.name || id;
+
+  return (
+    <Section title="Interest in listed tools" count={rows.length}
+      hint="People who suggested something already in the catalogue. Nothing was filed, they were sent the link, and the asking was counted. Shown on the card from two upwards.">
+      {rows.length === 0
+        ? <Empty>Nobody has suggested a tool that is already listed.</Empty>
+        : rows.map((r) => (
+          <Row key={r.id}
+            title={nameOf(r.id)}
+            badges={<Pill>suggested by {r.count}</Pill>}
+            meta={r.count >= 2 ? "Showing on the card." : "Not shown on the card: one person is not a signal."}
+            body={r.people.length ? (
+              <div className="flex flex-col" style={{ gap: 6 }}>
+                {r.people.slice().reverse().map((p, i) => (
+                  <p key={i} style={{ margin: 0, lineHeight: 1.55 }}>
+                    <b style={{ color: C.text }}>{p.by || "Anonymous"}</b>
+                    <span style={{ color: C.dim }}> · {p.date}{p.email ? ` · ${p.email}` : ""}</span>
+                    {p.why ? <><br />{p.why}</> : null}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+          />
+        ))}
+    </Section>
+  );
+}
 /* ------------------------------------------------------------------ */
 /*  What the buttons above actually do                                 */
 /*                                                                     */
@@ -379,6 +778,14 @@ function Drafts() {
   const rows = SOURCES.flatMap(({ kind, entries }) =>
     drafted(entries).map((entry) => ({ kind, entry })));
 
+  /* Grouped by type, because "what is half written" is usually asked about one
+     kind at a time: the newsletters are a batch, the communities are a batch. */
+  const byKind = SOURCES.map(({ kind }) => ({
+    kind,
+    label: kindOf(kind).label,
+    items: rows.filter((r) => r.kind === kind),
+  })).filter((g) => g.items.length);
+
   return (
     <Section
       title="Drafts"
@@ -387,89 +794,71 @@ function Drafts() {
     >
       {rows.length === 0
         ? <Empty>Nothing in progress. An entry becomes a draft by carrying `draft: true`.</Empty>
-        : rows.map(({ kind, entry }) => {
-          const k = kindOf(kind);
-          const facts = Object.entries(entry)
-            .filter(([key, v]) => !SKIP.includes(key) && factValue(v) !== "");
-          return (
-            <div key={`${kind}:${entry.id}`} style={{ borderTop: `1px solid ${C.line}`, padding: "16px 0" }}>
-              <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                <span style={{ fontSize: F.lg, fontWeight: 700 }}>{entry.name}</span>
-                <span style={{ fontSize: F.xs, color: ink(k.color) }}>{k.label}</span>
-                <span style={{ fontSize: F.xs, color: C.dim }}>{entry.id}</span>
-                {/* A positive tag. Absent means nothing is rendered: a
-                    publication that is not about Shopify is not thereby worse,
-                    and a "not Shopify-specific" note would read as one. */}
-                {entry.shopifySpecific && <Pill>Shopify-specific</Pill>}
-              </div>
-
-              {entry.one && (
-                <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "72ch" }}>
-                  {entry.one}
-                </p>
-              )}
-
-              <dl className="drafts-facts" style={{ margin: `${S.md}px 0 0` }}>
-                {facts.map(([key, v]) => (
-                  <React.Fragment key={key}>
-                    <dt style={{ fontSize: F.xs, color: C.dim, fontWeight: 600 }}>{key}</dt>
-                    <dd style={{ fontSize: F.xs, color: C.muted, margin: 0, wordBreak: "break-word" }}>
-                      {factValue(v)}
-                    </dd>
-                  </React.Fragment>
-                ))}
-              </dl>
-
-              {entry.note && (
-                <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "76ch" }}>
-                  {entry.note}
-                </p>
-              )}
-              {entry.watch && (
-                <p style={{ fontSize: F.sm, color: C.muted, margin: "8px 0 0", lineHeight: 1.6, maxWidth: "76ch" }}>
-                  <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
-                </p>
-              )}
-              {!entry.watch && (
-                <p style={{ fontSize: F.sm, color: C.badInk, margin: "8px 0 0" }}>
-                  No watch note. Not publishable without one.
-                </p>
-              )}
-            </div>
-          );
-        })}
+        : byKind.map((group) => (
+          <div key={group.kind}>
+            <p style={{
+              fontSize: F.xs, color: ink(kindOf(group.kind).color), fontWeight: 700,
+              margin: `${S.lg}px 0 0`, textTransform: "uppercase", letterSpacing: "0.04em",
+            }}>{group.label} · {group.items.length}</p>
+            {group.items.map(({ kind, entry }) => {
+              const facts = Object.entries(entry)
+                .filter(([key, v]) => !SKIP.includes(key) && factValue(v) !== "");
+              return (
+                <Row key={`${kind}:${entry.id}`}
+                  title={entry.name}
+                  badges={<>
+                    <span style={{ fontSize: F.xs, color: C.dim }}>{entry.id}</span>
+                    {/* A positive tag. Absent means nothing is rendered: a
+                        publication that is not about Shopify is not thereby
+                        worse, and a "not Shopify-specific" note would read as
+                        one. */}
+                    {entry.shopifySpecific && <Pill>Shopify-specific</Pill>}
+                    {!entry.watch && <Pill tone="warn">no watch note</Pill>}
+                  </>}
+                  body={<>
+                    {entry.one && <p style={{ color: C.text, margin: 0, lineHeight: 1.5 }}>{entry.one}</p>}
+                    <dl className="drafts-facts" style={{ margin: `${S.md}px 0 0` }}>
+                      {facts.map(([key, v]) => (
+                        <React.Fragment key={key}>
+                          <dt style={{ fontSize: F.xs, color: C.dim, fontWeight: 600 }}>{key}</dt>
+                          <dd style={{ fontSize: F.xs, color: C.muted, margin: 0, wordBreak: "break-word" }}>
+                            {factValue(v)}
+                          </dd>
+                        </React.Fragment>
+                      ))}
+                    </dl>
+                    {entry.note && (
+                      <p style={{ margin: `${S.md}px 0 0`, lineHeight: 1.6 }}>{entry.note}</p>
+                    )}
+                    {entry.watch
+                      ? <p style={{ margin: "8px 0 0", lineHeight: 1.6 }}>
+                        <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
+                      </p>
+                      : <p style={{ color: C.badInk, margin: "8px 0 0" }}>
+                        No watch note. Not publishable without one.
+                      </p>}
+                  </>}
+                />
+              );
+            })}
+          </div>
+        ))}
     </Section>
   );
 }
 
-function Section({ title, count, hint, children }) {
-  return (
-    <section className="pb-10">
-      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-        <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
-        <span style={{ fontSize: F.sm, color: C.dim }}>{count}</span>
-      </div>
-      {hint && <p style={{ fontSize: F.sm, color: C.muted, margin: "4px 0 0", maxWidth: "72ch", lineHeight: 1.55 }}>{hint}</p>}
-      <div className="mt-3" style={{
-        background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: "4px 16px 8px",
-      }}>{children}</div>
-    </section>
-  );
-}
 
-function Empty({ children }) {
-  return <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: "16px 0" }}>{children}</p>;
-}
 
 function SuggestionRow({ s, children, footer }) {
   const k = kindOf(s.kind);
   const asked = timesAsked(s);
   const also = Array.isArray(s.also) ? s.also : [];
   return (
-    <div style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0" }}>
-      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-        <span style={{ fontSize: F.lg, fontWeight: 700 }}>{s.name}</span>
-        <span style={{ fontSize: F.xs, color: ink(k.color) }}>{k.label}</span>
+    <Row
+      title={s.name}
+      tag={k.label}
+      tagColor={ink(k.color)}
+      badges={<>
         {(!s.kind || s.kind === "tool") && (
           <span style={{ fontSize: F.xs, color: ink(catOf(s.cat).color) }}>{catOf(s.cat).label}</span>
         )}
@@ -477,42 +866,32 @@ function SuggestionRow({ s, children, footer }) {
             separately: one row, and a number on it you can sort by. */}
         {asked > 1 && <Pill>suggested by {asked} people</Pill>}
         {s.publishedId && <Pill>published as {s.publishedId}</Pill>}
-      </div>
-      {s.why && <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: "4px 0 0", maxWidth: "72ch" }}>{s.why}</p>}
-      <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0" }}>
+      </>}
+      body={<>
+        {s.why && <p style={{ margin: 0, lineHeight: 1.55 }}>{s.why}</p>}
+        {also.length > 0 && (
+          <div style={{ margin: "8px 0 0", paddingLeft: S.md, borderLeft: `2px solid ${C.line}` }}>
+            {also.map((a, i) => (
+              <p key={i} style={{ fontSize: F.xs, color: C.dim, margin: i ? "6px 0 0" : 0, lineHeight: 1.5 }}>
+                <b style={{ color: C.muted }}>{a.by || "Anonymous"}</b> · {a.date}
+                {a.email ? ` · ${a.email}` : ""}
+                {a.why ? ` — ${a.why}` : ""}
+              </p>
+            ))}
+          </div>
+        )}
+      </>}
+      meta={<>
         {s.by} · {s.date}
         {s.lastAsked && s.lastAsked !== s.date ? ` · last asked ${s.lastAsked}` : ""}
         {s.url && <> · <a href={outbound(s.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{s.url.replace(/^https?:\/\//, "")}</a></>}
-      </p>
-      {also.length > 0 && (
-        <div style={{ margin: "8px 0 0", paddingLeft: S.md, borderLeft: `2px solid ${C.line}` }}>
-          {also.map((a, i) => (
-            <p key={i} style={{ fontSize: F.xs, color: C.dim, margin: i ? "6px 0 0" : 0, lineHeight: 1.5, maxWidth: "72ch" }}>
-              <b style={{ color: C.muted }}>{a.by || "Anonymous"}</b> · {a.date}
-              {a.email ? ` · ${a.email}` : ""}
-              {a.why ? ` — ${a.why}` : ""}
-            </p>
-          ))}
-        </div>
-      )}
-      {children && <div className="flex flex-wrap mt-2" style={{ gap: S.sm }}>{children}</div>}
-      {footer}
-    </div>
+      </>}
+      actions={children}
+      footer={footer}
+    />
   );
 }
 
-function Btn({ onClick, busy, tone, children }) {
-  const color = tone === "go" ? "#00E08A" : "#FF6B8A";
-  return (
-    <button onClick={onClick} disabled={busy} style={{
-      background: busy ? C.subtle : color + "1E",
-      color: busy ? C.dim : ink(color),
-      border: `1px solid ${color}44`, borderRadius: R.control,
-      padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
-      cursor: busy ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-    }}>{busy ? "…" : children}</button>
-  );
-}
 
 /*
  * Compose and send. The count in the confirmation comes from the server render,
@@ -655,57 +1034,6 @@ function Compose({ count }) {
  * than act(), because the useful answer here is a diagnostic string, not a
  * refreshed list of rows.
  */
-/*
- * One table, two states. Verified claims are the ones that grant edit rights,
- * so they get their own heading rather than a status pill buried in a mixed
- * list; pending ones are a different question (has this vendor published the
- * token yet) and read better apart.
- */
-function ClaimsTable({ title, hint, rows, act, busy, verified, empty }) {
-  return (
-    <Section title={title} count={rows.length} hint={hint}>
-      {rows.length === 0 ? <Empty>{empty}</Empty> : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.sm, minWidth: 640 }}>
-            <thead>
-              <tr style={{ textAlign: "left", color: C.dim }}>
-                {["Tool", "Email", "Method", verified ? "Verified" : "Started", ""].map((h) => (
-                  <th key={h} style={{ fontWeight: 600, padding: "8px 12px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(([toolId, c]) => {
-                const tool = ALL_TOOLS.find((t) => t.id === toolId);
-                return (
-                  <tr key={toolId}>
-                    <td style={cell}>
-                      <span style={{ fontWeight: 600 }}>{tool ? tool.name : toolId}</span>
-                      {tool && <span style={{ color: ink(catOf(tool.cat).color), marginLeft: S.sm, fontSize: F.xs }}>{catOf(tool.cat).label}</span>}
-                    </td>
-                    <td style={{ ...cell, color: C.muted }}>{c.email}</td>
-                    <td style={{ ...cell, color: C.muted }}>
-                      {c.method === "email-domain" ? "email domain" : c.method === "domain" ? "published token" : "—"}
-                    </td>
-                    <td style={{ ...cell, color: C.dim }}>{(verified ? c.verifiedAt : c.startedAt) || "—"}</td>
-                    <td style={{ ...cell, textAlign: "right" }}>
-                      <div className="flex flex-wrap justify-end" style={{ gap: S.sm }}>
-                        <Btn onClick={() => act("revoke-claim", toolId, { revertContent: false }, "access")}
-                          busy={busy === "revoke-claimaccess" + toolId} tone="stop">Revoke access</Btn>
-                        <Btn onClick={() => act("revoke-claim", toolId, { revertContent: true }, "revert")}
-                          busy={busy === "revoke-claimrevert" + toolId} tone="stop">Revoke and revert content</Btn>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Section>
-  );
-}
 
 const when = (iso) => {
   if (!iso) return "—";
@@ -720,41 +1048,37 @@ const when = (iso) => {
  * who owns what.
  */
 function Accounts({ accounts, claims }) {
-  const rows = Object.values(accounts).sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
+  const [q, setQ] = useState("");
+  const all = Object.values(accounts).sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)));
+  const rows = q.trim()
+    ? all.filter((a) => a.email.toLowerCase().includes(q.trim().toLowerCase()))
+    : all;
   const claimedBy = (email) => Object.entries(claims)
     .filter(([, c]) => c.email === email && c.status === "verified")
     .map(([toolId]) => (ALL_TOOLS.find((t) => t.id === toolId)?.name) || toolId);
 
   return (
-    <Section title="Accounts" count={rows.length}
-      hint="Created on first sign-in. Email, first seen and last seen — no IP, no user agent, no page history. The sign-in copy promises exactly this, so adding a field here means changing that copy too.">
-      {rows.length === 0 ? <Empty>Nobody has signed in yet.</Empty> : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.sm, minWidth: 620 }}>
-            <thead>
-              <tr style={{ textAlign: "left", color: C.dim }}>
-                {["Email", "First seen", "Last seen", "Claimed"].map((h) => (
-                  <th key={h} style={{ fontWeight: 600, padding: "8px 12px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a) => {
-                const owns = claimedBy(a.email);
-                return (
-                  <tr key={a.email}>
-                    <td style={cell}><a href={`mailto:${a.email}`} style={{ color: C.text }}>{a.email}</a></td>
-                    <td style={{ ...cell, color: C.dim }}>{when(a.firstSeen)}</td>
-                    <td style={{ ...cell, color: C.muted }}>{when(a.lastSeen)}</td>
-                    <td style={{ ...cell, color: owns.length ? C.text : C.dim }}>
-                      {owns.length ? owns.join(", ") : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+    <Section title="Accounts" count={all.length}
+      hint="Created on first sign-in. Email, first seen and last seen, and nothing else: no IP, no user agent, no page history. The sign-in copy promises exactly this, so adding a field here means changing that copy in the same commit.">
+      {all.length === 0 ? <Empty>Nobody has signed in yet.</Empty> : (
+        <>
+          {all.length > 8 && (
+            <div style={{ padding: "12px 0 0" }}>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by address"
+                style={{ ...FIELD, maxWidth: 320 }} />
+            </div>
+          )}
+          {rows.length === 0 ? <Empty>No address matches “{q}”.</Empty> : rows.map((a) => {
+            const owns = claimedBy(a.email);
+            return (
+              <Row key={a.email}
+                title={<a href={`mailto:${a.email}`} style={{ color: C.text, textDecoration: "none" }}>{a.email}</a>}
+                badges={owns.length ? <Pill>claims {owns.join(", ")}</Pill> : null}
+                meta={`first seen ${when(a.firstSeen)} · last seen ${when(a.lastSeen)}`}
+              />
+            );
+          })}
+        </>
       )}
     </Section>
   );
@@ -859,49 +1183,39 @@ function MailLog({ rows }) {
   const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
   const failed24 = rows.filter((r) => !r.ok && Date.parse(r.at || "") >= dayAgo).length;
   const failedAll = rows.filter((r) => !r.ok).length;
+  const [failsOnly, setFailsOnly] = useState(false);
+  const shown = failsOnly ? rows.filter((r) => !r.ok) : rows;
 
   return (
     <Section title="Mail log" count={rows.length}
-      hint="Last 100 sends, newest first, from svt:maillog. Every attempt is recorded whether it worked or not — a send that leaves no row here never happened.">
-      <div className="flex flex-wrap" style={{ gap: S["2xl"], padding: "12px 0 8px" }}>
+      hint="Last 100 sends, newest first, from svt:maillog. Every attempt is recorded whether it worked or not: a send that leaves no row here never happened.">
+      <div className="flex flex-wrap items-center" style={{ gap: S["2xl"], padding: "12px 0 8px" }}>
         <div>
-          <p style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, color: failed24 ? C.badInk : C.text }}>{failed24}</p>
+          <p className="tnum" style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, color: failed24 ? C.badInk : C.text }}>{failed24}</p>
           <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>failures in 24h</p>
         </div>
         <div>
-          <p style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, color: failedAll ? ink("#FFB020") : C.text }}>{failedAll}</p>
+          <p className="tnum" style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, color: failedAll ? ink("#FFB020") : C.text }}>{failedAll}</p>
           <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>failures shown</p>
         </div>
+        {failedAll > 0 && (
+          <Btn onClick={() => setFailsOnly((v) => !v)}>{failsOnly ? "Show all" : "Failures only"}</Btn>
+        )}
       </div>
 
-      {rows.length === 0 ? <Empty>Nothing sent yet.</Empty> : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.sm, minWidth: 680 }}>
-            <thead>
-              <tr style={{ textAlign: "left", color: C.dim }}>
-                {["When", "Event", "To", "Result"].map((h) => (
-                  <th key={h} style={{ fontWeight: 600, padding: "8px 12px 8px 0", borderBottom: `1px solid ${C.line}` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={`${r.at}-${i}`}>
-                  <td style={{ ...cell, color: C.dim, whiteSpace: "nowrap" }}>{String(r.at || "").slice(0, 16).replace("T", " ")}</td>
-                  <td style={cell}>{r.event}</td>
-                  <td style={{ ...cell, color: C.muted }}>
-                    <span style={{ color: ink(r.cls === "admin" ? "#4CC9F0" : "#B08CFF") }}>{r.cls}</span>
-                    <span style={{ color: C.dim, marginLeft: S.sm }}>{r.to}</span>
-                  </td>
-                  <td style={{ ...cell, color: r.ok ? C.accentInk : C.badInk, wordBreak: "break-word" }}>
-                    {r.ok ? "ok" : `failed — ${r.error || "unknown"}`}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {shown.length === 0
+        ? <Empty>{failsOnly ? "No failures in the last 100 sends." : "Nothing sent yet."}</Empty>
+        : shown.map((r, i) => (
+          <Row key={`${r.at}-${i}`}
+            title={r.event}
+            tag={r.cls}
+            tagColor={ink(r.cls === "admin" ? "#4CC9F0" : "#B08CFF")}
+            badges={r.ok ? null : <Pill tone="warn">failed</Pill>}
+            body={r.ok ? null : <span style={{ color: C.badInk, wordBreak: "break-word" }}>{r.error || "unknown error"}</span>}
+            meta={`${String(r.at || "").slice(0, 16).replace("T", " ")} · ${r.to}`}
+            dim={r.ok && failsOnly === false && false}
+          />
+        ))}
     </Section>
   );
 }
@@ -976,53 +1290,6 @@ function NotificationTest() {
   );
 }
 
-function Reports({ rows, act, busy }) {
-  const open = rows.filter((r) => r.status === "open");
-  const closed = rows.filter((r) => r.status !== "open");
-  return (
-    <Section title="Reported problems" count={open.length}
-      hint="Sent by visitors without signing in. Nothing is applied automatically — edit lib/tools.js yourself, then resolve. A submitted social profile only goes in once it is published on the company's own site.">
-      {rows.length === 0 ? <Empty>Nothing reported.</Empty> : (
-        <div className="flex flex-col" style={{ gap: 2 }}>
-          {[...open, ...closed].map((r) => {
-            const tool = ALL_TOOLS.find((t) => t.id === r.toolId);
-            const kind = reportKindOf(r.kind);
-            const isOpen = r.status === "open";
-            return (
-              <div key={r.id} style={{
-                borderTop: `1px solid ${C.line}`, padding: "12px 0",
-                opacity: isOpen ? 1 : 0.55,
-              }}>
-                <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                  <span style={{ fontWeight: 600 }}>{tool ? tool.name : r.toolName || r.toolId}</span>
-                  <span style={{ fontSize: F.xs, color: ink("#FFB020") }}>{kind ? kind.label : r.kind}</span>
-                  <span style={{ fontSize: F.xs, color: C.dim }}>{r.date}</span>
-                  {!isOpen && (
-                    <Pill>{r.status}{r.closedAt ? ` ${r.closedAt}` : ""}</Pill>
-                  )}
-                </div>
-                {r.value && (
-                  <p style={{ fontSize: F.sm, color: C.muted, margin: "4px 0 0", lineHeight: 1.5, wordBreak: "break-word" }}>{r.value}</p>
-                )}
-                <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0" }}>
-                  {r.email ? <a href={`mailto:${r.email}`} style={{ color: C.muted }}>{r.email}</a> : "No email given"}
-                </p>
-                {isOpen && (
-                  <div className="flex flex-wrap mt-2" style={{ gap: S.sm }}>
-                    <Btn onClick={() => act("resolve-report", r.id, {}, "res")}
-                      busy={busy === "resolve-reportres" + r.id} tone="go">Resolve</Btn>
-                    <Btn onClick={() => act("dismiss-report", r.id, {}, "dis")}
-                      busy={busy === "dismiss-reportdis" + r.id} tone="stop">Dismiss</Btn>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </Section>
-  );
-}
 
 function Subscribers({ list }) {
   const [copied, setCopied] = useState("");
@@ -1289,8 +1556,16 @@ function DraftPanel({ s, onSuggestions, onEntries }) {
 /* Published from the queue, and live right now. Separate from the file, which
    is what git reviews; this is what Redis holds. */
 function PublishedEntries({ entries, onEntries }) {
-  const rows = Object.values(entries || {});
+  const all = Object.values(entries || {});
+  const [q, setQ] = useState("");
   const [busy, setBusy] = useState("");
+
+  const rows = useMemo(() => {
+    const n = q.trim().toLowerCase();
+    if (!n) return all;
+    return all.filter((e) => [e.name, e.id, e.domain, e.one, catOf(e.cat).label]
+      .some((v) => String(v || "").toLowerCase().includes(n)));
+  }, [all, q]);
 
   async function unpublish(id) {
     setBusy(id);
@@ -1306,31 +1581,49 @@ function PublishedEntries({ entries, onEntries }) {
   return (
     <Section
       title="Published from the queue"
-      count={rows.length}
+      count={all.length}
       hint="Live on the site now, stored in svt:entries rather than in lib/tools.js, because a Vercel filesystem is read only at runtime. Promote anything worth keeping into the file with Copy as entry stub: the file is what git reviews, this is not."
     >
-      {rows.length === 0
+      {all.length > 3 && (
+        <div style={{ padding: "12px 0 0" }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder="Search published entries"
+            style={{ ...FIELD, maxWidth: 320 }} />
+        </div>
+      )}
+
+      {all.length === 0
         ? <Empty>Nothing published this way yet. Everything on the site comes from lib/tools.js.</Empty>
-        : rows.map((e) => (
-          <div key={e.id} style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0" }}>
-            <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-              <span style={{ fontSize: F.lg, fontWeight: 700 }}>{e.name}</span>
-              <span style={{ fontSize: F.xs, color: ink(catOf(e.cat).color) }}>{catOf(e.cat).label}</span>
-              <span style={{ fontSize: F.xs, color: C.dim }}>{e.id}</span>
-              {e.suggestedBy > 1 && <Pill>suggested by {e.suggestedBy}</Pill>}
-              {e.shopifyExclusive === false && <Pill>not Shopify-only</Pill>}
-            </div>
-            <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.5 }}>{e.one}</p>
-            <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0" }}>
-              published {e.publishedAt} by {e.publishedBy}
-              {e.draftedBy ? ` · drafted by ${e.draftedBy}` : ""}
-              {e.unconfirmed?.length ? ` · ${e.unconfirmed.length} unverified claim${e.unconfirmed.length === 1 ? "" : "s"}` : ""}
-            </p>
-            <div className="flex mt-2" style={{ gap: S.sm }}>
-              <Btn onClick={() => unpublish(e.id)} busy={busy === e.id} tone="stop">Unpublish</Btn>
-            </div>
-          </div>
-        ))}
+        : rows.length === 0
+          ? <Empty>Nothing matches “{q}”.</Empty>
+          : rows.map((e) => (
+            <Row key={e.id}
+              title={e.name}
+              tag={catOf(e.cat).label}
+              tagColor={ink(catOf(e.cat).color)}
+              badges={<>
+                <span style={{ fontSize: F.xs, color: C.dim }}>{e.id}</span>
+                {e.suggestedBy > 1 && <Pill>suggested by {e.suggestedBy}</Pill>}
+                {e.shopifyExclusive === false && <Pill>not Shopify-only</Pill>}
+              </>}
+              body={e.one}
+              meta={<>
+                published {e.publishedAt} by {e.publishedBy}
+                {e.draftedBy ? ` · drafted by ${e.draftedBy}` : ""}
+                {e.unconfirmed?.length ? ` · ${e.unconfirmed.length} unverified claim${e.unconfirmed.length === 1 ? "" : "s"}` : ""}
+              </>}
+              actions={<>
+                <a href={`/?tool=${encodeURIComponent(e.id)}`} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    background: "transparent", border: `1px solid ${C.edge}`, color: C.muted,
+                    borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
+                    textDecoration: "none", whiteSpace: "nowrap",
+                  }}>View on the site</a>
+                <ConfirmBtn onConfirm={() => unpublish(e.id)} busy={busy === e.id}
+                  confirm="Unpublish">Unpublish</ConfirmBtn>
+              </>}
+            />
+          ))}
     </Section>
   );
 }
@@ -1347,21 +1640,16 @@ function DedupeLog({ rows }) {
       {rows.length === 0
         ? <Empty>No submissions since this log started.</Empty>
         : rows.map((r, i) => (
-          <div key={i} style={{ borderTop: `1px solid ${C.line}`, padding: "10px 0" }}>
-            <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-              <span style={{ fontSize: F.sm, fontWeight: 600 }}>{r.submitted?.name}</span>
-              <span style={{ fontSize: F.xs, color: r.outcome === "none" ? C.dim : ink("#FFB020") }}>
-                {r.outcome === "none" ? "stored as new" : `merged into ${r.outcome} ${r.matchedId}`}
-              </span>
-              <span style={{ fontSize: F.xs, color: C.dim }}>by {r.decidedBy}</span>
-              <span style={{ fontSize: F.xs, color: C.dim }}>{String(r.at || "").slice(0, 16).replace("T", " ")}</span>
-            </div>
-            <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0", lineHeight: 1.5, maxWidth: "76ch" }}>
-              {r.model?.unavailable
-                ? `model unavailable: ${r.model.unavailable}`
-                : `${r.model?.provider} said ${r.model?.said || "none"}${r.model?.id ? ` (${r.model.id})` : ""} at ${r.model?.confidence}${r.model?.reason ? `: ${r.model.reason}` : ""}${r.model?.dropped ? ` · ignored, ${r.model.dropped}` : ""}`}
-            </p>
-          </div>
+          <Row key={i}
+            title={r.submitted?.name || "(no name)"}
+            tag={r.outcome === "none" ? "stored as new" : `merged into ${r.outcome} ${r.matchedId}`}
+            tagColor={r.outcome === "none" ? C.dim : ink("#FFB020")}
+            badges={<Pill>{r.decidedBy}</Pill>}
+            body={r.model?.unavailable
+              ? `Model unavailable: ${r.model.unavailable}`
+              : `${r.model?.provider} said ${r.model?.said || "none"}${r.model?.id ? ` (${r.model.id})` : ""} at ${r.model?.confidence}${r.model?.reason ? `: ${r.model.reason}` : ""}${r.model?.dropped ? ` · ignored, ${r.model.dropped}` : ""}`}
+            meta={String(r.at || "").slice(0, 16).replace("T", " ")}
+          />
         ))}
     </Section>
   );
@@ -1496,7 +1784,7 @@ function ChangeMonitor({ rows, monitor, seen, onSeen }) {
                 )}
                 {done
                   ? <Btn onClick={() => mark(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
-                  : <Btn onClick={() => mark(r.id, "dismiss-change")} busy={busy === r.id} tone="stop">Dismiss</Btn>}
+                  : <ConfirmBtn onConfirm={() => mark(r.id, "dismiss-change")} busy={busy === r.id}>Dismiss</ConfirmBtn>}
               </div>
             </div>
           );
