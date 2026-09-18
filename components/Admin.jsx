@@ -353,7 +353,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
       <ChangeMonitor rows={changes} monitor={monitor} seen={seen}
         appliedChanges={appliedChanges} publishedChanges={publishedChanges} onSeen={onSeen} />
 
-      <Discovered discovery={discovery} />
+      <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
     </>
   );
 }
@@ -2691,7 +2691,17 @@ function Deleted({ rows = [], act, busy }) {
  * is marketing, three unrelated vendors all positioning against the same thing
  * is a gap in the catalogue.
  */
-function Discovered({ discovery = { findings: [] } }) {
+/*
+ * A discovered competitor becomes a suggestion, and then it is a suggestion.
+ *
+ * The button promotes the finding into the queue and runs the existing research
+ * pass on it, and what comes back is rendered by the same `DraftPanel` the
+ * Suggestions section uses. There is deliberately no second research path, no
+ * second draft editor and no second publish: a name off a comparison page and a
+ * name somebody typed into the form differ only in how they arrived, and every
+ * step after that is the same work.
+ */
+function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) {
   const findings = discovery?.findings || [];
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
@@ -2709,13 +2719,62 @@ function Discovered({ discovery = { findings: [] } }) {
     } finally { setRunning(false); }
   }
 
+  /*
+   * Promoted rows, held here so the draft appears under the finding that
+   * produced it. The server also stamps `promotedTo` on the stored finding, so
+   * this survives a reload; this state is only what the current page has done.
+   */
+  const [promoted, setPromoted] = useState({});
+  const [working, setWorking] = useState("");
+  const [errors, setErrors] = useState({});
+
+  async function researchFinding(f) {
+    setWorking(f.name);
+    setErrors((e) => ({ ...e, [f.name]: "" }));
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "promote-discovery",
+          name: f.name, url: f.url, namedBy: f.namedBy, contexts: f.contexts,
+        }),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        setErrors((e) => ({ ...e, [f.name]: msg }));
+        return;
+      }
+      const d = await res.json();
+      if (d.suggestions) onSuggestions?.(d.suggestions);
+
+      /* Straight on to the research, so one click does what it says. The row
+         exists either way, so a failure here leaves something to retry rather
+         than nothing. */
+      const r = await fetch("/api/admin/research", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: d.suggestion.id }),
+      });
+      if (!r.ok) {
+        const msg = await r.text();
+        setErrors((e) => ({ ...e, [f.name]: `${msg} It is in the inbox as a suggestion either way.` }));
+        setPromoted((m) => ({ ...m, [f.name]: d.suggestion }));
+        return;
+      }
+      const researched = await r.json();
+      if (researched.suggestions) onSuggestions?.(researched.suggestions);
+      setPromoted((m) => ({ ...m, [f.name]: { ...d.suggestion, draft: researched.draft } }));
+    } catch {
+      setErrors((e) => ({ ...e, [f.name]: "Could not reach the server." }));
+    } finally { setWorking(""); }
+  }
+
   const shown = open ? findings : findings.slice(0, 8);
 
   return (
     <Section
       title="Discovered competitors"
       count={findings.length}
-      hint="Products named on listed vendors' own comparison pages that are not in the directory. These are leads, not alerts: each one needs somebody to read the site before it becomes an entry. Nothing here is added automatically."
+      hint="Products named on listed vendors' own comparison pages that are not in the directory. Research and draft moves one into the suggestion queue and writes an entry for you to check. Nothing is published without your click."
     >
       <div className="flex flex-wrap items-center" style={{ gap: S.md, padding: "12px 0" }}>
         <Btn onClick={runNow} busy={running} tone="go">Run discovery now</Btn>
@@ -2749,6 +2808,29 @@ function Discovered({ discovery = { findings: [] } }) {
                 meta={f.url
                   ? <a href={outbound(f.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{f.url.replace(/^https?:\/\//, "")}</a>
                   : "no URL given on the page"}
+                footer={
+                  promoted[f.name]
+                    ? <DraftPanel s={promoted[f.name]} onSuggestions={onSuggestions} onEntries={onEntries} />
+                    : f.promotedTo
+                      ? <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5 }}>
+                          Already in the suggestion queue. It is in the Inbox with its draft.
+                        </p>
+                      : <div className="mt-2">
+                          <Btn onClick={() => researchFinding(f)} busy={working === f.name} tone="go">
+                            Research and draft
+                          </Btn>
+                          {!f.url && (
+                            <span style={{ fontSize: F.xs, color: C.dim, marginLeft: S.sm }}>
+                              No URL on the page it came from, so there is nothing to read. Find it first.
+                            </span>
+                          )}
+                          {errors[f.name] && (
+                            <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>
+                              {errors[f.name]}
+                            </p>
+                          )}
+                        </div>
+                }
               />
             ))}
             {findings.length > 8 && (

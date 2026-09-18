@@ -6,7 +6,7 @@ import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
 import { TOOLS } from "@/lib/tools";
 import { catalogueTools } from "@/lib/entries";
-import { timesAsked } from "@/lib/suggestions";
+import { timesAsked, findListed, findDuplicate, normaliseDomain } from "@/lib/suggestions";
 import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
 import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry } from "@/lib/feed";
@@ -105,6 +105,92 @@ export async function POST(request) {
     seen[session.email] = new Date().toISOString();
     await write(KEYS.adminSeen, seen);
     return Response.json({ seenAt: seen[session.email] });
+  }
+
+  /*
+   * Promote a discovered competitor into the suggestion queue.
+   *
+   * Above the id check, because this mints the id rather than acting on one.
+   *
+   * A discovery finding and a suggestion are the same thing arriving by
+   * different doors: a name, a URL, and a reason to think it belongs here.
+   * Everything after that point is identical, so this creates a suggestion row
+   * and stops. Research, the draft editor, approve-and-publish, the entry stub
+   * and the tallies are the pipeline that already exists, unchanged and with no
+   * second copy to keep in step.
+   *
+   * What differs is only the provenance, so that is what is recorded: `via`
+   * says where the name came from and `namedBy` says which vendors' comparison
+   * pages it was lifted off, which is the evidence for looking at it at all.
+   */
+  if (action === "promote-discovery") {
+    const name = String(body.name || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const url = String(body.url || "").trim().slice(0, 300);
+    if (!name) return new Response("That finding has no name.", { status: 400 });
+    if (url && !/^https?:\/\//i.test(url)) return new Response("That finding's URL is not http.", { status: 400 });
+
+    const submission = { name, url, domain: normaliseDomain(url) };
+
+    /* Already in the directory. Discovery filters these out when it runs, so
+       this is a finding that went stale because the entry was added since. */
+    const listed = findListed(submission, await catalogueTools());
+    if (listed) {
+      return new Response(`${listed.name} is already in the directory.`, { status: 400 });
+    }
+
+    const suggestions = await read(KEYS.suggestions, []);
+
+    /*
+     * Idempotent on purpose. Two admins on the same list, or one double click,
+     * should land on the row that exists rather than making a second one. The
+     * existing row is returned so the caller can research it exactly as if it
+     * had just been created.
+     */
+    const existing = findDuplicate(submission, suggestions.filter((r) => !r.status));
+    if (existing) return Response.json({ suggestions, suggestion: existing, alreadyQueued: true });
+
+    const entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name, url, domain: submission.domain,
+      kind: "tool",
+      by: "competitor discovery",
+      why: Array.isArray(body.contexts) && body.contexts.length
+        ? body.contexts.join(" · ").slice(0, 600)
+        : `Named as a competitor by ${(body.namedBy || []).join(", ") || "a listed vendor"}.`,
+      at: new Date().toISOString(),
+      count: 1,
+      via: "discovery",
+      namedBy: Array.isArray(body.namedBy) ? body.namedBy.slice(0, 12) : [],
+      /*
+       * Held regardless of MODERATE_SUGGESTIONS. Every other row in this queue
+       * is something a person asked for, and the public list is captioned that
+       * way. Ours is a lead we generated, and serving it as a community
+       * suggestion would be a small lie told automatically. `publicList` drops
+       * `via: "discovery"` as well, so this does not rest on one flag.
+       */
+      approved: false,
+      promotedBy: session.email,
+    };
+
+    await write(KEYS.suggestions, [entry, ...suggestions].slice(0, 500));
+
+    /*
+     * Marked on the discovery state so the list stops offering it. Findings
+     * have no id, so this uses the same key runDiscovery groups them under.
+     */
+    try {
+      const state = await read("svt:discovery", { findings: [] });
+      const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+      state.findings = (state.findings || []).map((f) =>
+        f.name.toLowerCase().replace(/[^a-z0-9]/g, "") === key
+          ? { ...f, promotedTo: entry.id, promotedAt: entry.at }
+          : f);
+      await write("svt:discovery", state);
+    } catch { /* the suggestion is the point; the bookkeeping is not worth failing over */ }
+
+    await tally("suggestions:discovered");
+
+    return Response.json({ suggestions: [entry, ...suggestions].slice(0, 500), suggestion: entry });
   }
 
   if (!id || typeof id !== "string") return new Response("Missing id", { status: 400 });

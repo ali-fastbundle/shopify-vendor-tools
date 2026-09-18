@@ -33,9 +33,14 @@ const publicOf = ({ email, also, draft, ...rest }) => rest;
  * expect to find here, which is useful to an editor and confusing to a visitor:
  * a list of merchant apps under a heading that says these are tools for app
  * vendors reads as though we could not tell the difference.
+ *
+ * Discovery rows are dropped for a different reason. This list is captioned as
+ * what people have asked for, and a name we lifted off a competitor's own
+ * comparison page is not that. It is held by `approved: false` as well; this is
+ * the half that does not depend on MODERATE_SUGGESTIONS being set.
  */
 const publicList = (list) => list
-  .filter((s) => s.approved !== false && !s.outOfScope && !s.status)
+  .filter((s) => s.approved !== false && !s.outOfScope && !s.status && s.via !== "discovery")
   .map(publicOf);
 
 /*
