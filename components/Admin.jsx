@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
+import { ALL_COMMUNITIES } from "@/lib/communities";
 import { drafted } from "@/lib/drafts";
 import { timesAsked } from "@/lib/suggestions";
 import { Pill } from "./Pill";
@@ -326,8 +327,6 @@ function CopyStub({ s }) {
 }
 
 
-
-
 /* ------------------------------------------------------------------ */
 /*  Drafts                                                             */
 /*                                                                     */
@@ -344,6 +343,7 @@ function CopyStub({ s }) {
 const SOURCES = [
   { kind: "tool", entries: ALL_TOOLS },
   { kind: "newsletter", entries: ALL_NEWSLETTERS },
+  { kind: "group", entries: ALL_COMMUNITIES },
 ];
 
 /*

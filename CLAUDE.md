@@ -340,8 +340,9 @@ the informative label is the positive one.
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, and the `published()` filter every catalogue passes through |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
-| `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, and the only thing that strips an address off either |
+| `lib/communities.js` | The groups and communities catalogue, and its own shape again |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists |
+| `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, and the only thing that strips an address off either |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
 | `lib/email.js` | The HTML/text shell, `reply_to`, and the Resend transport |
@@ -609,8 +610,12 @@ Opening a section means: write its entries, drop their `draft` flags, and set
 disappears on its own. Colours are reused from `CATEGORIES` so the palette stays closed —
 do not add a new accent for a new kind.
 
-**A section gets its own file and its own shape.** `lib/newsletters.js` is the first one,
-and it is deliberately not the tool shape with different words in it. A tool is judged on
+**A section gets its own file and its own shape.** `lib/newsletters.js` is the first one
+and `lib/communities.js` the second, and neither is the tool shape with different words
+in it. A community is judged on who is actually in the room, which is why it carries
+`platform`, `entry` and `audience` and no `cat`: the fee is rarely the barrier, and most
+Shopify community is merchant or agency shaped, so an app vendor reading the label can
+waste a month finding that out. A tool is judged on
 what it does, what it costs and who owns it; a newsletter is judged on whether it is still
 going, how often, how long for, who writes it and what they sell on the side. Forcing one
 through the other means a `price` on something free and a `cat` from a list that does not
