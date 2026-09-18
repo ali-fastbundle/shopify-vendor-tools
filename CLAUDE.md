@@ -820,6 +820,38 @@ The sign-in copy in `components/Account.jsx` states exactly what is kept. It is 
 promise, so **if you add a field to an account record, change that sentence in the same
 commit.**
 
+## Definition of done
+
+Work is not done until it is on `origin/main`. Every task ends the same way:
+build, commit, push, then verify against `origin/main` and the live site, and
+report the deployed commit hash.
+
+A clean local tree is not the finish line. The work exists for people who are not
+sitting at this machine, and until it is pushed none of them can reach it,
+including Vercel, which builds what the remote has and nothing else.
+
+**A "pushed" claim has to be backed by `git log origin/main`**, or
+`git ls-remote origin refs/heads/main` for the remote's own answer. The local
+branch is not evidence, and neither is `git push` printing a range: that says
+what was sent, not what the remote kept. Fetch, compare the two hashes, then
+report one.
+
+This is not hypothetical. A session reported its work complete with 15 modified
+files sitting uncommitted, so Vercel had nothing to build and the site served
+none of it. The work was finished in every sense except the one that counts.
+
+**Where the live check cannot close the loop, say so rather than implying it
+did.** A draft changes nothing a visitor can reach, so an unchanged site is both
+the correct outcome and exactly what a deploy that never ran would look like; the
+two are indistinguishable from outside, and the response headers carry no commit
+sha. Report the hash on `origin/main`, report that the site is unchanged and
+serving, and name the gap. Closing it takes the Vercel dashboard or `/admin`, not
+a more confident sentence.
+
+The build gate below is the first step of this, not a separate ritual. A push of
+something that does not compile is worse than no push, because the previous
+deployment was working.
+
 ## Before committing
 
 ```
