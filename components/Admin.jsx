@@ -46,6 +46,10 @@ const TABS = [
   ["inbox", "Inbox"],
   ["catalogue", "Catalogue"],
   ["people", "People"],
+  /* Audience is not system health. Tool opens, matcher queries and interest
+     counts say what visitors are doing, which is a different question from
+     whether anything is broken, and mixing them made both harder to read. */
+  ["audience", "Audience"],
   ["system", "System"],
 ];
 
@@ -80,6 +84,7 @@ export default function AdminPanel({
   blocked = [],
   publishedChanges = {},
   feed = [],
+  health = null,
   initialTab = "inbox",
 }) {
   /*
@@ -266,8 +271,13 @@ export default function AdminPanel({
           />
         )}
 
+        {tab === "audience" && (
+          <Audience stats={stats} interest={interest || {}} entries={entryRows} />
+        )}
+
         {tab === "system" && (
-          <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []} />
+          <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []}
+            health={health} blocked={blocked || []} changelog={changelog || []} />
         )}
 
         <div style={{ height: 60 }} />
@@ -356,7 +366,10 @@ function Catalogue({ reviewed = [], entries = {}, onEntries, onSuggestions, inte
       <Drafts />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
-      <CannotMonitor rows={blocked} />
+      <Collapsible title="Cannot be monitored" count={blocked.length}
+        hint="Live sites that refuse our fetches: a 403, a challenge page, or a 200 with nothing readable in it. The monitor has no coverage of these, so their entries only change when somebody edits them by hand.">
+        <CannotMonitor rows={blocked} />
+      </Collapsible>
       <OutOfScope rows={outOfScope} />
       <Deleted rows={deleted} act={act} busy={busy} />
       <Section title="Reviewed suggestions" count={reviewed.length}
@@ -394,13 +407,205 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], f
   );
 }
 
-function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [] }) {
+/*
+ * "Is anything broken?"
+ *
+ * That is the only question this tab exists to answer, and it used to take
+ * scrolling past five open panels to work it out. The strip answers it in one
+ * screen; everything under it is closed until something in the strip says to
+ * look. A dumping ground with the diagnosis buried in it is a tab people stop
+ * opening.
+ */
+function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], health, blocked = [], changelog = [] }) {
   return (
     <>
-      <MailLog rows={maillog} />
-      <NotificationTest />
-      <Stats stats={stats || { fields: {}, queries: [] }} />
-      <DedupeLog rows={dedupelog} />
+      <StatusStrip health={health} maillog={maillog} blocked={blocked} />
+
+      <Collapsible title="Mail log" count={maillog.length}
+        openWhen={maillog.some((r) => !r.ok)}
+        hint="Every send attempt, newest first. A send that leaves no row here never happened.">
+        <MailLog rows={maillog} />
+      </Collapsible>
+
+      <Collapsible title="Test an event" count=""
+        hint="Fires a real send through the same dispatcher the routes use, with dummy data, to your address only.">
+        <NotificationTest />
+      </Collapsible>
+
+      <Collapsible title="Cannot be monitored" count={blocked.length}
+        hint="Live sites that refuse our fetches. The monitor has no coverage of these.">
+        <CannotMonitor rows={blocked} />
+      </Collapsible>
+
+      <Collapsible title="Dedup decisions" count={dedupelog.length}
+        hint="Every submission, what it was matched to, and what decided it.">
+        <DedupeLog rows={dedupelog} />
+      </Collapsible>
+
+      <Collapsible title="Changelog archive" count={changelog.length}
+        hint="Every monitor finding ever recorded, including the handled ones. The Inbox shows what is still open.">
+        <ChangelogArchive rows={changelog} />
+      </Collapsible>
+    </>
+  );
+}
+
+/*
+ * Green, or a number.
+ *
+ * Deliberately not a dashboard. Each line is a thing that can be wrong and the
+ * consequence of it being wrong, because "RESEND_API_KEY missing" is a fact and
+ * "no email is being sent, including sign-in links" is the thing to act on.
+ */
+function StatusStrip({ health, maillog = [], blocked = [] }) {
+  if (!health) {
+    return (
+      <section className="pb-6">
+        <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55 }}>
+          Health could not be read. The store may be unreachable, which is itself the answer.
+        </p>
+      </section>
+    );
+  }
+
+  const { store, env = [], mailFailures, monitor = {}, discovery = {}, cron = {} } = health;
+  const stale = (iso, days) => !iso || (Date.now() - Date.parse(iso)) > days * 24 * 60 * 60 * 1000;
+
+  const lines = [
+    {
+      label: "Store",
+      bad: !store.ok,
+      warn: store.store === "memory",
+      value: store.ok
+        ? (store.store === "memory" ? "in memory" : `redis, ${store.ms}ms`)
+        : "unreachable",
+      note: store.ok ? (store.note || "") : store.error,
+    },
+    {
+      label: "Mail",
+      bad: mailFailures > 0,
+      value: mailFailures ? `${mailFailures} failed in 24h` : "no failures in 24h",
+      note: mailFailures ? "Open the mail log below." : "",
+    },
+    {
+      label: "Monitor",
+      bad: stale(monitor.at, 9),
+      value: monitor.at
+        ? `${String(monitor.at).slice(0, 10)} · ${monitor.checked}/${monitor.total} checked · ${monitor.changes} found`
+        : "never run",
+      note: stale(monitor.at, 9) ? "More than nine days ago. The weekly cron may not be firing." : (monitor.stopped || ""),
+    },
+    {
+      label: "Discovery",
+      bad: false,
+      warn: stale(discovery.at, 40),
+      value: discovery.at ? `${String(discovery.at).slice(0, 10)} · ${discovery.found} names` : "never run",
+      note: stale(discovery.at, 40) ? "Monthly, so this is only odd past about six weeks." : "",
+    },
+    {
+      label: "Cron",
+      bad: false,
+      warn: !cron.monitor,
+      value: cron.monitor
+        ? `monitor ${String(cron.monitor.at).slice(0, 10)} by ${cron.monitor.by}`
+        : "no recorded fire",
+      note: cron.monitor ? "" : "Nothing has invoked it since this started recording.",
+    },
+    {
+      label: "Coverage",
+      bad: false,
+      warn: blocked.length > 0,
+      value: blocked.length ? `${blocked.length} site${blocked.length === 1 ? "" : "s"} block us` : "every site readable",
+      note: "",
+    },
+  ];
+
+  const problems = lines.filter((l) => l.bad).length + env.length;
+
+  return (
+    <section className="pb-10">
+      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+        <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>Status</h2>
+        <span style={{ fontSize: F.sm, color: problems ? C.badInk : C.accentInk, fontWeight: 600 }}>
+          {problems ? `${problems} thing${problems === 1 ? "" : "s"} to look at` : "nothing broken"}
+        </span>
+      </div>
+
+      <div className="mt-3" style={{
+        background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: "4px 16px",
+      }}>
+        {lines.map((l) => (
+          <div key={l.label} style={{ borderTop: `1px solid ${C.line}`, padding: "10px 0" }}>
+            <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+              <span aria-hidden="true" style={{
+                width: 8, height: 8, borderRadius: 999, flexShrink: 0,
+                background: l.bad ? C.badInk : l.warn ? C.warnInk : C.accent,
+              }} />
+              <span style={{ fontSize: F.sm, fontWeight: 600, width: 88 }}>{l.label}</span>
+              <span className="tnum" style={{ fontSize: F.sm, color: l.bad ? C.badInk : C.muted }}>{l.value}</span>
+            </div>
+            {l.note && (
+              <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0 20px", lineHeight: 1.5, maxWidth: "70ch" }}>{l.note}</p>
+            )}
+          </div>
+        ))}
+
+        <div style={{ borderTop: `1px solid ${C.line}`, padding: "10px 0" }}>
+          <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+            <span aria-hidden="true" style={{
+              width: 8, height: 8, borderRadius: 999, flexShrink: 0,
+              background: env.length ? C.badInk : C.accent,
+            }} />
+            <span style={{ fontSize: F.sm, fontWeight: 600, width: 88 }}>Env</span>
+            <span style={{ fontSize: F.sm, color: env.length ? C.badInk : C.muted }}>
+              {env.length ? `${env.length} missing` : "everything set"}
+            </span>
+          </div>
+          {env.map((e) => (
+            <p key={e.name} style={{ fontSize: F.xs, color: C.muted, margin: "4px 0 0 20px", lineHeight: 1.5, maxWidth: "70ch" }}>
+              <b style={{ color: C.badInk }}>{e.name}</b> {e.breaks}
+            </p>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/*
+ * Audience, not health. What visitors are doing, kept away from what is
+ * broken so neither has to be read through the other.
+ */
+function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {} }) {
+  return (
+    <>
+      <Stats stats={stats} />
+      <Interest interest={interest} entries={entries} />
+    </>
+  );
+}
+
+/* Every finding ever, for when the question is "did we already see this". */
+function ChangelogArchive({ rows = [] }) {
+  const [limit, setLimit] = useState(20);
+  if (!rows.length) return <Empty>No findings recorded yet.</Empty>;
+  return (
+    <>
+      {rows.slice(0, limit).map((r) => (
+        <Row key={r.id}
+          title={r.entryName}
+          tag={KIND_LABEL[r.kind] || r.kind}
+          tagColor={LOUD.has(r.kind) ? C.warnInk : C.muted}
+          body={r.what}
+          meta={`${String(r.at || "").slice(0, 10)} · confidence ${r.confidence}`}
+        />
+      ))}
+      {rows.length > limit && (
+        <button onClick={() => setLimit((n) => n + 40)} style={{
+          background: "none", border: 0, padding: "12px 0", cursor: "pointer",
+          fontFamily: "inherit", fontSize: F.sm, color: C.muted, textDecoration: "underline",
+        }}>Show more ({rows.length - limit} left)</button>
+      )}
     </>
   );
 }
@@ -422,6 +627,48 @@ function Section({ title, count, hint, children }) {
       <div className="mt-3" style={{
         background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: "4px 16px 8px",
       }}>{children}</div>
+    </section>
+  );
+}
+
+/*
+ * A section that starts shut.
+ *
+ * The house rule, and the reason this page stopped being readable twice: **any
+ * list that can exceed about ten rows is collapsed by default, with a count in
+ * its header.** The count is the part you read; the rows are the part you open
+ * when the count says something. A page of open panels answers "what happened"
+ * and buries "what needs me", which is the wrong way round for a console
+ * somebody opens on a Monday.
+ *
+ * `openWhen` lets a section insist on being open when it actually matters, so
+ * a thing with nothing in it stays shut and a thing on fire does not.
+ */
+function Collapsible({ title, count, hint, openWhen = false, children }) {
+  const [open, setOpen] = useState(openWhen);
+  return (
+    <section className="pb-6">
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open}
+        className="flex flex-wrap items-baseline" style={{
+          gap: S.sm, background: "none", border: 0, padding: 0, width: "100%",
+          cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+        }}>
+        <span aria-hidden="true" style={{
+          fontSize: F.xs, color: C.dim, width: 10, display: "inline-block",
+        }}>{open ? "\u25be" : "\u25b8"}</span>
+        <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
+        {count !== "" && count !== undefined && (
+          <span className="tnum" style={{ fontSize: F.sm, color: Number(count) > 0 ? C.muted : C.dim }}>{count}</span>
+        )}
+      </button>
+      {open && (
+        <>
+          {hint && <p style={{ fontSize: F.sm, color: C.muted, margin: "4px 0 0", maxWidth: "72ch", lineHeight: 1.55 }}>{hint}</p>}
+          <div className="mt-3" style={{
+            background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: "4px 16px 8px",
+          }}>{children}</div>
+        </>
+      )}
     </section>
   );
 }
@@ -1297,11 +1544,13 @@ function MailLog({ rows = [] }) {
   const failed24 = rows.filter((r) => !r.ok && Date.parse(r.at || "") >= dayAgo).length;
   const failedAll = rows.filter((r) => !r.ok).length;
   const [failsOnly, setFailsOnly] = useState(false);
-  const shown = failsOnly ? rows.filter((r) => !r.ok) : rows;
+  /* Twenty is enough to see a pattern. A hundred rows of "ok" is a wall. */
+  const [limit, setLimit] = useState(20);
+  const filtered = failsOnly ? rows.filter((r) => !r.ok) : rows;
+  const shown = filtered.slice(0, limit);
 
   return (
-    <Section title="Mail log" count={rows.length}
-      hint="Last 100 sends, newest first, from svt:maillog. Every attempt is recorded whether it worked or not: a send that leaves no row here never happened.">
+    <>
       <div className="flex flex-wrap items-center" style={{ gap: S["2xl"], padding: "12px 0 8px" }}>
         <div>
           <p className="tnum" style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, color: failed24 ? C.badInk : C.text }}>{failed24}</p>
@@ -1329,7 +1578,13 @@ function MailLog({ rows = [] }) {
             dim={r.ok && failsOnly === false && false}
           />
         ))}
-    </Section>
+      {filtered.length > limit && (
+        <button onClick={() => setLimit((n) => n + 40)} style={{
+          background: "none", border: 0, padding: "12px 0", cursor: "pointer",
+          fontFamily: "inherit", fontSize: F.sm, color: C.muted, textDecoration: "underline",
+        }}>Show more ({filtered.length - limit} left)</button>
+      )}
+    </>
   );
 }
 
@@ -1366,8 +1621,7 @@ function NotificationTest() {
   };
 
   return (
-    <Section title="Test an event" count=""
-      hint="Fires a real send through the same dispatcher the routes use, with dummy data, to your address only — including the copy a user would get, so nothing reaches a real vendor.">
+    <>
       <div className="flex flex-wrap items-center" style={{ gap: S.md, padding: "12px 0 4px" }}>
         <select value={event} onChange={(e) => { setEvent(e.target.value); setResult(null); }} style={{ ...field, width: 210 }}>
           {MAIL_EVENTS.map(([id, label]) => (
@@ -1399,7 +1653,7 @@ function NotificationTest() {
           )}
         </div>
       )}
-    </Section>
+    </>
   );
 }
 
@@ -1744,27 +1998,22 @@ function PublishedEntries({ entries = {}, onEntries }) {
 /* Why a submission was merged, or was not. The only destructive outcome in the
    suggestion pipeline is a merge, so it is the one that has to be answerable. */
 function DedupeLog({ rows = [] }) {
+  if (!rows.length) return <Empty>No submissions since this log started.</Empty>;
   return (
-    <Section
-      title="Dedup decisions"
-      count={rows.length}
-      hint="Every submission, what it was matched to, and what decided it. `model` means the model was confident enough; `strings` means it was unavailable or unsure and name and domain matching decided instead."
-    >
-      {rows.length === 0
-        ? <Empty>No submissions since this log started.</Empty>
-        : rows.map((r, i) => (
-          <Row key={i}
-            title={r.submitted?.name || "(no name)"}
-            tag={r.outcome === "none" ? "stored as new" : `merged into ${r.outcome} ${r.matchedId}`}
-            tagColor={r.outcome === "none" ? C.dim : ink("#FFB020")}
-            badges={<Pill>{r.decidedBy}</Pill>}
-            body={r.model?.unavailable
-              ? `Model unavailable: ${r.model.unavailable}`
-              : `${r.model?.provider} said ${r.model?.said || "none"}${r.model?.id ? ` (${r.model.id})` : ""} at ${r.model?.confidence}${r.model?.reason ? `: ${r.model.reason}` : ""}${r.model?.dropped ? ` · ignored, ${r.model.dropped}` : ""}`}
-            meta={String(r.at || "").slice(0, 16).replace("T", " ")}
-          />
-        ))}
-    </Section>
+    <>
+      {rows.map((r, i) => (
+        <Row key={i}
+          title={r.submitted?.name || "(no name)"}
+          tag={r.outcome === "none" ? "stored as new" : `merged into ${r.outcome} ${r.matchedId}`}
+          tagColor={r.outcome === "none" ? C.dim : ink("#FFB020")}
+          badges={<Pill>{r.decidedBy}</Pill>}
+          body={r.model?.unavailable
+            ? `Model unavailable: ${r.model.unavailable}`
+            : `${r.model?.provider} said ${r.model?.said || "none"}${r.model?.id ? ` (${r.model.id})` : ""} at ${r.model?.confidence}${r.model?.reason ? `: ${r.model.reason}` : ""}${r.model?.dropped ? ` \u00b7 ignored, ${r.model.dropped}` : ""}`}
+          meta={String(r.at || "").slice(0, 16).replace("T", " ")}
+        />
+      ))}
+    </>
   );
 }
 
@@ -1796,11 +2045,12 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
   const [dismissed, setDismissed] = useState(seen || {});
   const [applied, setApplied] = useState(appliedChanges || {});
   const [published, setPublished] = useState(publishedChanges || {});
-  const [showDone, setShowDone] = useState(false);
+  const [openTool, setOpenTool] = useState("");
+  const [showEarlier, setShowEarlier] = useState(false);
 
-  const open = rows.filter((r) => !dismissed[r.id]);
-  const closed = rows.filter((r) => dismissed[r.id]);
-  const shown = showDone ? [...open, ...closed] : open;
+  /* A change is handled once it has a destination: on the feed, in the
+     listing, or explicitly dismissed. Handled ones leave the Inbox. */
+  const handled = (r) => Boolean(dismissed[r.id] || applied[r.id] || published[r.id]);
 
   async function mark(id, action, extra = {}) {
     setBusy(id); setResult("");
@@ -1812,14 +2062,16 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
       if (!res.ok) {
         const text = await res.text();
         setResult(text);
-        /* Handed back so the feed editor can show it beside the field rather
-           than only at the top of the section. */
         return { error: text };
       }
       const d = await res.json();
       if (d.dismissed) { setDismissed(d.dismissed); onSeen?.(d.dismissed); }
       if (d.applied) setApplied(d.applied);
       if (d.published) setPublished(d.published);
+      return d;
+    } catch {
+      setResult("Could not reach the server.");
+      return { error: "Could not reach the server." };
     } finally { setBusy(""); }
   }
 
@@ -1829,89 +2081,209 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
       const res = await fetch("/api/cron/monitor", { method: "POST" });
       if (!res.ok) { setResult(await res.text()); return; }
       const d = await res.json();
-      setResult(`Checked ${d.checked} of ${d.total} in ${Math.round(d.tookMs / 1000)}s. ${d.changes} change${d.changes === 1 ? "" : "s"}.${d.emailed ? " Digest sent." : " Nothing emailed, which is the usual answer."}${d.stopped ? ` Stopped early: ${d.stopped}.` : ""} Reload to see them.`);
+      setResult(`Checked ${d.checked} of ${d.total} in ${Math.round(d.tookMs / 1000)}s. ${d.changes} change${d.changes === 1 ? "" : "s"}.${d.emailed ? " Digest sent." : " Nothing emailed, which is the usual answer."} Reload to see them.`);
     } catch {
       setResult("Could not reach the server.");
     } finally { setRunning(false); }
   }
 
+  /*
+   * The Inbox holds this run. Anything older that was never handled is real
+   * but is not this week's work, so it moves to Earlier rather than padding
+   * the thing you opened the page to read.
+   */
+  /*
+   * The latest run, exactly: every row from one sweep shares a single `at`,
+   * stamped once in runMonitor.
+   *
+   * This was the run's *day* at first, which looks equivalent and is not: run
+   * the monitor three times in an afternoon and every row from all three
+   * collapses into "current", which put 90 changes in the Inbox instead of the
+   * 8 the last sweep actually found. The whole point of the cap is that the
+   * Inbox holds one run.
+   */
+  const latestRun = rows.length ? rows.reduce((a, r) => (r.at > a ? r.at : a), "") : "";
+
+  const open = rows.filter((r) => !handled(r));
+  const current = open.filter((r) => r.at === latestRun);
+  const earlier = open.filter((r) => r.at !== latestRun);
+
+  /* Grouped by tool, because a tool's weekly changes usually share a verdict
+     and reading them together is how you notice that. */
+  const group = (list) => {
+    const by = new Map();
+    for (const r of list) {
+      const g = by.get(r.entryId) || { id: r.entryId, name: r.entryName, rows: [] };
+      g.rows.push(r);
+      by.set(r.entryId, g);
+    }
+    return [...by.values()].map((g) => ({
+      ...g,
+      newest: g.rows.reduce((a, r) => (r.at > a ? r.at : a), ""),
+      /* A tool wanting a decision outranks one that is merely recent. */
+      needsDecision: g.rows.some((r) => r.editListing),
+    })).sort((a, b) =>
+      Number(b.needsDecision) - Number(a.needsDecision) || String(b.newest).localeCompare(String(a.newest)));
+  };
+
+  const groups = group(current);
+  const earlierGroups = group(earlier);
+  const sinceVisitCount = current.length;
+
   return (
     <Section
       title="Listing changes"
       count={open.length}
-      hint="Proposed by the weekly monitor, newest first. Nothing here has been applied: the monitor reads the vendor's pages and reports, it never edits a listing. Update listing opens the entry so you make the change yourself."
+      hint="Proposed by the weekly monitor, grouped by tool. Nothing here has been applied: most belong on the feed, a few in the listing, the rest are noise."
     >
       <div className="flex flex-wrap items-center" style={{ gap: S.md, padding: "12px 0" }}>
         <Btn onClick={runNow} busy={running} tone="go">Run the monitor now</Btn>
         <span style={{ fontSize: F.xs, color: C.dim }}>
           {monitor?.lastRunAt
-            ? `Last run ${String(monitor.lastRunAt).slice(0, 16).replace("T", " ")} · checked ${monitor.lastChecked || 0} of ${monitor.lastTotal || 0} · ${monitor.lastCount || 0} change${monitor.lastCount === 1 ? "" : "s"}`
-            : "Never run. Weekly on Mondays once the cron is live."}
+            ? `Last run ${String(monitor.lastRunAt).slice(0, 16).replace("T", " ")} · checked ${monitor.lastChecked || 0} of ${monitor.lastTotal || 0}`
+            : "Never run. Weekly on Mondays."}
         </span>
-        {closed.length > 0 && (
-          <button onClick={() => setShowDone((v) => !v)} style={{
-            background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
-            fontSize: F.xs, color: C.dim, textDecoration: "underline",
-          }}>{showDone ? "hide" : "show"} {closed.length} dismissed</button>
-        )}
       </div>
+
+      {/*
+        * The one line that is usually the whole answer. If it says nothing is
+        * waiting, there is no reason to open anything below it.
+        */}
+      <p style={{
+        fontSize: F.md, color: sinceVisitCount ? C.text : C.muted, margin: "0 0 12px",
+        lineHeight: 1.6, fontWeight: sinceVisitCount ? 600 : 400,
+      }}>
+        {sinceVisitCount
+          ? `${sinceVisitCount} change${sinceVisitCount === 1 ? "" : "s"} across ${groups.length} tool${groups.length === 1 ? "" : "s"} in the latest run.`
+          : "Nothing from the latest run is waiting on you."}
+        {earlier.length > 0 && (
+          <span style={{ color: C.dim, fontWeight: 400 }}>
+            {" "}{earlier.length} older {earlier.length === 1 ? "one is" : "ones are"} still unhandled.
+          </span>
+        )}
+      </p>
 
       {result && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "0 0 12px", lineHeight: 1.55 }}>{result}</p>}
 
-      {monitor?.notes?.length > 0 && (
-        <p style={{ fontSize: F.xs, color: C.dim, margin: "0 0 12px", lineHeight: 1.55, maxWidth: "76ch" }}>
-          Last run also noted: {monitor.notes.join(" · ")}
-        </p>
+      {groups.length === 0
+        ? <Empty>Nothing from the latest run. Most weeks this is the correct answer.</Empty>
+        : groups.map((g) => (
+          <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
+            applied={applied} published={published} dismissed={dismissed} busy={busy} onAct={mark} />
+        ))}
+
+      {earlierGroups.length > 0 && (
+        <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
+          <button onClick={() => setShowEarlier((v) => !v)} style={{
+            background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+            fontSize: F.sm, color: C.muted, textDecoration: "underline",
+          }}>
+            {showEarlier ? "Hide" : `Earlier, still unhandled (${earlier.length} across ${earlierGroups.length} tools)`}
+          </button>
+          {showEarlier && earlierGroups.map((g) => (
+            <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
+              applied={applied} published={published} dismissed={dismissed} busy={busy} onAct={mark} />
+          ))}
+        </div>
       )}
 
-      {shown.length === 0
-        ? <Empty>Nothing proposed. Most weeks this is the correct answer, and an empty digest is not emailed.</Empty>
-        : shown.map((r) => {
-          const done = Boolean(dismissed[r.id]);
-          return (
-            <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, padding: "14px 0", opacity: done ? 0.55 : 1 }}>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "14px 0 4px", lineHeight: 1.55, maxWidth: "76ch" }}>
+        A tool disappears from here once every one of its changes has a destination. Publishing puts
+        it on the feed, applying corrects the listing, dismissing records that you looked. Most
+        findings belong on the feed: a listing that grows a sentence every week has stopped being a
+        listing.
+      </p>
+    </Section>
+  );
+}
+
+/*
+ * One tool's changes, collapsed to a line until you want them.
+ *
+ * The flat chronological list this replaces was the bulk of the Inbox and
+ * buried everything else in it, which is the failure mode of every list that
+ * outgrows its layout: it is not that the rows are wrong, it is that they
+ * crowd out the two things that needed a decision.
+ */
+function ToolChanges({ group, openTool, setOpenTool, applied, published, dismissed, busy, onAct }) {
+  const expanded = openTool === group.id;
+  const [batch, setBatch] = useState("");
+  const tool = ALL_TOOLS.find((t) => t.id === group.id);
+  const n = group.rows.length;
+
+  async function dismissAll() {
+    setBatch("dismiss");
+    for (const r of group.rows) {
+      if (!dismissed[r.id] && !applied[r.id] && !published[r.id]) await onAct(r.id, "dismiss-change");
+    }
+    setBatch("");
+  }
+
+  return (
+    <div style={{ borderTop: `1px solid ${C.line}` }}>
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm, padding: "12px 0" }}>
+        <button onClick={() => setOpenTool(expanded ? "" : group.id)} aria-expanded={expanded}
+          className="flex items-center" style={{
+            gap: S.sm, background: "none", border: 0, padding: 0, cursor: "pointer",
+            fontFamily: "inherit", flex: 1, minWidth: 0, textAlign: "left",
+          }}>
+          <span aria-hidden="true" style={{ fontSize: F.xs, color: C.dim, width: 10 }}>{expanded ? "\u25be" : "\u25b8"}</span>
+          {tool && <AdminLogo tool={tool} />}
+          <span style={{ fontSize: F.lg, fontWeight: 700 }}>{group.name}</span>
+          <span style={{ fontSize: F.sm, color: C.muted }}>
+            {n} change{n === 1 ? "" : "s"}
+          </span>
+          {group.needsDecision && <Pill tone="warn">listing may need editing</Pill>}
+        </button>
+
+        {/* A tool's weekly changes usually share a verdict, so the common one
+            is available without opening anything. Publishing is per change
+            because each needs a sentence written. */}
+        <ConfirmBtn onConfirm={dismissAll} busy={batch === "dismiss"} confirm={`Dismiss all ${n}`}>
+          Dismiss all
+        </ConfirmBtn>
+      </div>
+
+      {expanded && (
+        <div style={{ paddingBottom: S.md }}>
+          {group.rows.map((r) => (
+            <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0 4px", paddingLeft: S.lg }}>
               <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                <span style={{ fontSize: F.lg, fontWeight: 700 }}>{r.entryName}</span>
-                <span style={{
-                  fontSize: F.xs, fontWeight: 700,
-                  color: LOUD.has(r.kind) ? C.warnInk : C.muted,
-                }}>{KIND_LABEL[r.kind] || r.kind}</span>
-                {r.editListing && <Pill tone="warn">listing needs editing</Pill>}
-                <span style={{ fontSize: F.xs, color: C.dim }}>
-                  confidence {r.confidence} · {String(r.at || "").slice(0, 10)}
+                <span style={{ fontSize: F.xs, fontWeight: 700, color: LOUD.has(r.kind) ? C.warnInk : C.muted }}>
+                  {KIND_LABEL[r.kind] || r.kind}
                 </span>
+                <span style={{ fontSize: F.xs, color: C.dim }}>confidence {r.confidence} · {String(r.at || "").slice(0, 10)}</span>
               </div>
-
-              <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.55, maxWidth: "76ch" }}>{r.what}</p>
-
+              <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.55, maxWidth: "74ch" }}>{r.what}</p>
               {(r.old || r.new) && (
                 <p className="tnum" style={{ fontSize: F.sm, color: C.muted, margin: "6px 0 0", lineHeight: 1.55 }}>
                   <span style={{ color: C.dim }}>was</span> {r.old || "absent"}
-                  {"  "}<span style={{ color: C.dim }}>now</span>{" "}
-                  <b style={{ color: C.text }}>{r.new || "absent"}</b>
+                  {"  "}<span style={{ color: C.dim }}>now</span> <b style={{ color: C.text }}>{r.new || "absent"}</b>
                 </p>
               )}
-
-              {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "76ch" }}>{r.why}</p>}
-
-              <ChangeAction r={r} done={done} applied={applied[r.id]}
-                published={published[r.id]} busy={busy} onAct={mark} />
+              {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "74ch" }}>{r.why}</p>}
+              <ChangeAction r={r} done={Boolean(dismissed[r.id])} applied={applied[r.id]}
+                published={published[r.id]} busy={busy} onAct={onAct} />
             </div>
-          );
-        })}
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
-      <p style={{ fontSize: F.xs, color: C.dim, margin: "14px 0 4px", lineHeight: 1.55, maxWidth: "76ch" }}>
-        Most findings belong on the feed, not in the listing: a new feature or an integration is
-        news, and a listing that grows a sentence every week has stopped being a description.
-        Update the listing only when the change alters what the tool fundamentally is or costs.
-        You can do both, and on a pricing move you usually should.
-        Apply writes the field named on the button and nothing else, as an override, and Undo puts
-        back exactly what was there. The <b style={{ color: C.muted }}>watch</b> note, the category,
-        the verified flag and the external ratings never get a button: a monitor that could rewrite a
-        caveat because a vendor stopped mentioning it is the exact failure this arrangement exists to
-        prevent. Those, and anything the monitor could not map onto one field, open the entry instead.
-      </p>
-    </Section>
+/* The same mark the public site uses, at the size this list wants. */
+function AdminLogo({ tool, size = 22 }) {
+  const [failed, setFailed] = useState(false);
+  if (failed || !tool.domain) return null;
+  return (
+    <img src={tool.logo || `https://www.google.com/s2/favicons?domain=${tool.domain}&sz=64`}
+      alt="" width={size} height={size} loading="lazy" decoding="async"
+      onError={() => setFailed(true)}
+      style={{
+        width: size, height: size, borderRadius: R.control, flexShrink: 0,
+        background: "#FFFFFF", objectFit: "contain", padding: 2,
+      }} />
   );
 }
 
@@ -2318,27 +2690,25 @@ function Discovered({ discovery = { findings: [] } }) {
  * list without anybody tidying up.
  */
 function CannotMonitor({ rows = [] }) {
+  if (!rows.length) return <Empty>Every listed site lets the monitor read it.</Empty>;
   return (
-    <Section title="Cannot be monitored" count={rows.length}
-      hint="Live sites that refuse our fetches: a 403, a challenge page, or a 200 with nothing readable in it. The weekly monitor has no coverage of these, so their entries only change when somebody edits them by hand.">
-      {rows.length === 0
-        ? <Empty>Every listed site lets the monitor read it.</Empty>
-        : rows.map((b) => {
-          const tool = ALL_TOOLS.find((t) => t.id === b.id);
-          return (
-            <Row key={b.id}
-              title={tool ? tool.name : b.id}
-              tag={tool ? catOf(tool.cat).label : ""}
-              tagColor={tool ? ink(catOf(tool.cat).color) : C.muted}
-              badges={<Pill tone="warn">no coverage</Pill>}
-              body={b.why}
-              meta={<>
-                {b.since ? `blocked since ${String(b.since).slice(0, 10)}` : "blocked"}
-                {tool && <> · <a href={`/tools/${tool.id}`} style={{ color: C.muted }}>open the entry</a></>}
-              </>}
-            />
-          );
-        })}
-    </Section>
+    <>
+      {rows.map((b) => {
+        const tool = ALL_TOOLS.find((t) => t.id === b.id);
+        return (
+          <Row key={b.id}
+            title={tool ? tool.name : b.id}
+            tag={tool ? catOf(tool.cat).label : ""}
+            tagColor={tool ? ink(catOf(tool.cat).color) : C.muted}
+            badges={<Pill tone="warn">no coverage</Pill>}
+            body={b.why}
+            meta={<>
+              {b.since ? `blocked since ${String(b.since).slice(0, 10)}` : "blocked"}
+              {tool && <> {"\u00b7"} <a href={`/tools/${tool.id}`} style={{ color: C.muted }}>open the entry</a></>}
+            </>}
+          />
+        );
+      })}
+    </>
   );
 }

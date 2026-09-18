@@ -604,6 +604,27 @@ that did not.
   Its count is in the tab label, so "is there anything for me" is answered
   without clicking. **When it is empty it says so in one line** rather than
   rendering four empty panels, which is the state it is in most days.
+- **Any list that can exceed about ten rows is collapsed by default, with a
+  count in its header.** `Collapsible` does this. The count is the part you
+  read; the rows are what you open when the count says something. A page of
+  open panels answers "what happened" and buries "what needs me", and this
+  console has had to be rescued from that twice.
+- **The page answers "what needs me" first and "what happened" second.** That
+  ordering is the whole of the tab layout, and it is why audience data is not
+  in System and why the changelog archive is not in the Inbox.
+- **Changes are grouped by tool, not listed chronologically.** One collapsed
+  line per tool with a count, ordered by whether it needs a decision and then
+  by recency, under a single summary sentence that is usually the whole answer.
+  A tool leaves the Inbox once every one of its changes has a destination.
+- **The Inbox holds the latest run, matched on its exact timestamp.** Every row
+  from one sweep shares an `at` stamped once in `runMonitor`. Matching on the
+  *day* looks equivalent and is not: three runs in an afternoon collapse into
+  one, which put 90 changes in the Inbox instead of the 8 the last sweep found.
+  Older unhandled findings go to Earlier, collapsed.
+- **System answers "is anything broken" above the fold.** A status strip of
+  store, mail, monitor, discovery, cron, coverage and env, each green or a
+  number, each naming the consequence rather than the variable. Everything else
+  on that tab is shut until the strip says to look.
 - **One `Row` for every list, on every tab.** Title, one coloured tag, neutral
   badges, a grey meta line, body, actions, optional footer. Before this each
   panel had invented its own arrangement and no two were alike. Adding a panel

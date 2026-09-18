@@ -21,7 +21,7 @@
 
 const COOKIE = process.argv[2];
 const BASE = (process.argv[3] || "http://localhost:3000").replace(/\/$/, "");
-const TABS = ["", "?tab=catalogue", "?tab=people", "?tab=system"];
+const TABS = ["", "?tab=catalogue", "?tab=people", "?tab=audience", "?tab=system"];
 
 if (!COOKIE) {
   console.error("usage: node scripts/admin-smoke.mjs <svt_session cookie value> [baseUrl]");
@@ -73,6 +73,12 @@ const { body } = await admin("");
 for (const section of ["Suggestions to review", "Reports and corrections", "Claims to check", "Discovered competitors"]) {
   check(body.includes(section), section);
 }
+
+/* The System tab's whole job is answering "is anything broken" above the fold,
+   so its strip has to be there whether or not anything is wrong. */
+const sys = await admin("?tab=system");
+check(sys.body.includes("Status"), "System tab leads with the status strip");
+check(/nothing broken|things? to look at/.test(sys.body), "and states a verdict either way");
 
 console.log(`\n${failures ? `${failures} FAILED` : "all tabs render"}`);
 process.exit(failures ? 1 : 0);

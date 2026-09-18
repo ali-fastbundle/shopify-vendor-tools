@@ -12,6 +12,7 @@ import { readChangelog, getMonitorState, blockedEntries } from "@/lib/monitor";
 import { getInterest } from "@/lib/interest";
 import { getDiscovery } from "@/lib/discovery";
 import { feedEntries } from "@/lib/feed";
+import { health } from "@/lib/health";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -81,6 +82,7 @@ export default async function AdminPage({ searchParams }) {
     { key: "blocked", load: () => blockedEntries(), empty: [] },
     { key: "publishedChanges", load: () => read(KEYS.changesPublished, {}), empty: {} },
     { key: "feed", load: () => feedEntries({ limit: 60 }), empty: [] },
+    { key: "health", load: () => health(), empty: null },
   ];
 
   /*

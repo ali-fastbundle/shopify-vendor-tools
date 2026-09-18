@@ -3,6 +3,18 @@ import { catalogueTools } from "@/lib/entries";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { sendEvent } from "@/lib/mail";
 import { sessionFrom, isAdmin } from "@/lib/auth";
+import { read, write, KEYS } from "@/lib/store";
+
+/* So the admin health strip can say when this last fired and how it was
+   invoked. A cron that silently stopped running looks exactly like a quiet
+   week otherwise. */
+async function recordCronFire(path, by) {
+  try {
+    const last = await read(KEYS.cronLast, {});
+    last[path] = { at: new Date().toISOString(), by };
+    await write(KEYS.cronLast, last);
+  } catch { /* never fail the run over its own bookkeeping */ }
+}
 
 export const dynamic = "force-dynamic";
 /* ~30 entries at three at a time, each a fetch plus one or two model calls.
@@ -37,6 +49,7 @@ function authorised(request) {
 }
 
 async function sweep(request, by) {
+  await recordCronFire("monitor", by);
   const url = new URL(request.url);
   const limit = Math.max(0, Math.min(200, Number(url.searchParams.get("limit")) || 0));
 

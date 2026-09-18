@@ -2,6 +2,18 @@ import { runDiscovery, getDiscovery } from "@/lib/discovery";
 import { catalogueTools } from "@/lib/entries";
 import { configured } from "@/lib/model";
 import { sessionFrom, isAdmin } from "@/lib/auth";
+import { read, write, KEYS } from "@/lib/store";
+
+/* So the admin health strip can say when this last fired and how it was
+   invoked. A cron that silently stopped running looks exactly like a quiet
+   week otherwise. */
+async function recordCronFire(path, by) {
+  try {
+    const last = await read(KEYS.cronLast, {});
+    last[path] = { at: new Date().toISOString(), by };
+    await write(KEYS.cronLast, last);
+  } catch { /* never fail the run over its own bookkeeping */ }
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -30,6 +42,7 @@ function authorised(request) {
 }
 
 async function handle(request, by) {
+  await recordCronFire("discovery", by);
   const url = new URL(request.url);
 
   /* Read the last pass without running one. */
