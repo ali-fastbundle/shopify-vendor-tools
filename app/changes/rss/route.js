@@ -13,6 +13,13 @@ export const dynamic = "force-dynamic";
  * Full text in the description rather than a teaser. The entries are two
  * sentences; there is nothing to click through for, and a feed that withholds
  * its own content to drive traffic is the thing readers exist to escape.
+ *
+ * `link` is the entry's own address rather than the tool's. Every row on
+ * /changes carries an id now, so the fragment resolves to the entry with the
+ * dated list around it, which is the context that makes "raised Starter to $79"
+ * mean something. It used to point at the tool page because the fragment
+ * resolved to nothing, which is also why the guid claimed not to be a permalink
+ * when the string was one. Both are honest now.
  */
 
 const esc = (s) => String(s ?? "")
@@ -34,8 +41,8 @@ export async function GET() {
 
   const items = entries.map((e) => `    <item>
       <title>${esc(`${e.toolName}: ${e.headline.slice(0, 120)}`)}</title>
-      <link>${esc(`${SITE}/tools/${e.toolId}`)}</link>
-      <guid isPermaLink="false">${esc(`${SITE}/changes#${e.id}`)}</guid>
+      <link>${esc(`${SITE}/changes#${e.id}`)}</link>
+      <guid isPermaLink="true">${esc(`${SITE}/changes#${e.id}`)}</guid>
       <pubDate>${rfc822(e.at)}</pubDate>
       <category>${esc(catOf(e.cat).label)}</category>
       <description>${esc(e.headline)}${e.sourceUrl ? esc(` Source: ${e.sourceUrl}`) : ""}</description>

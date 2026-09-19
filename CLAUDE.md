@@ -814,6 +814,52 @@ nothing to cite. The modal stays for browsing; the card title is now an anchor
 with a real `href` that calls `preventDefault` only on a plain left click, so
 middle-click and modifier-click go to the page.
 
+**The address bar follows the modal.** Opening a tool pushes `/tools/<id>`,
+closing pops back to `/`, and browser back closes the modal rather than leaving
+the site. Until this, the thing on the screen had no address: it could not be
+sent to anybody, bookmarked or reloaded, and the page that already existed at
+that address was reachable only by knowing to middle-click a card title. A
+modal that cannot be linked is a modal that undoes the point of invariant 28.
+
+Next patches `pushState` and `replaceState` (`app-router.js`) to copy its own
+internal history state onto the new entry and update the canonical URL without
+navigating, which is exactly the arrangement wanted: the URL becomes
+`/tools/<id>`, the directory underneath is untouched, nothing is refetched, and
+our `svtTool` key rides along on the same entry.
+
+- **Closing goes back, it never pushes.** Both put the right address in the bar
+  and only one leaves a history that behaves: pushing would mean every open and
+  close added two entries, so somebody who browsed six tools has to press back
+  thirteen times to leave the page. The guard is that the current entry is one
+  we pushed, which is what makes `history.back()` safe to call: it means there
+  is an entry underneath and that entry is this page, so back can never walk
+  somebody off the site.
+- **The id lives on the history entry, not in a ref**, so forward reopens what
+  back closed, and it is checked against the catalogue before it opens anything
+  for the same reason the sign-in return is.
+- **The sign-in return strips its parameters before it opens the tool**, not
+  after. A `replaceState` afterwards would overwrite the entry the modal just
+  pushed and take the id off it. Order is the whole of it.
+- Every access is wrapped. A browser that refuses the History API should cost
+  somebody a shareable URL and nothing else.
+
+**The way to get the link is a control, not a word.** It said "permalink" in
+grey next to the category, which is four letters for people who already know
+what it means and invisible to everybody else, and following it opened a second
+copy of the page you were reading. `components/CopyLink.jsx` says what it does,
+puts the absolute URL on the clipboard and confirms in place by becoming
+"Copied" for two seconds. It lives in its own file for the reason `Pill` does:
+it is on the tool modal and on every entry in the feed, and the rule is that the
+control that gives you a link looks the same wherever a link is worth giving.
+
+It resolves `path` against the current origin **at click time**, so a preview
+deployment copies its own URL and nothing has to know the canonical host. Two
+clipboard paths, because `navigator.clipboard` needs a secure context and is
+absent on plain http; the deprecated textarea and `execCommand` fallback is what
+makes it work there. Discreet by construction: no fill, no accent, 12px muted
+type. Confirmed reads in `C.text`, not the accent, because green has three jobs
+and "something just happened" is not one of them.
+
 **`components/ToolPage.jsx` has no client state on purpose** and deliberately
 does not reuse the modal. The modal votes, opens a review form and carries a
 session; this has to be complete in the first response for a crawler that will
@@ -954,6 +1000,19 @@ keeps its own title, description and JSON-LD and stays the thing that updates
 weekly, so it cannot become a tab somebody has to know to press. Same pattern as
 a card title linking to `/tools/[id]`.
 
+**Every entry has an address of its own, and it is a fragment.** The feed is one
+stream across every tool, so an entry has no page to be the subject of and does
+not want one: what makes "Ranksy raised Starter to $79" worth reading is the
+dated list around it. So each row carries its `id` as an HTML id, the date is a
+real anchor to `/changes#<id>`, and a `CopyLink` sits beside it for everybody who
+does not know that a date in a feed is usually a permalink. The ids are in the
+server HTML, so a pasted fragment resolves with JavaScript off, and the filters
+default to all, so it never lands on a row that has been filtered away.
+
+RSS follows: an item's `link` is `/changes#<id>` rather than the tool page, and
+the guid says `isPermaLink="true"` because now it is one. It used to point at the
+tool page because the fragment resolved to nothing.
+
 **`FeedRows` in `components/ChangesFeed.jsx` is the shared body.** The page wraps
 it in a `<main>` with a heading; the tab drops it under the switcher. One
 implementation, because two would drift.
@@ -1026,6 +1085,7 @@ days; a person still writes the sentence around it and presses send.
 | `components/Account.jsx` | Sign-in, claiming, vendor edit form |
 | `components/Admin.jsx` | Admin console view. The gate is `app/admin/page.js` |
 | `components/Pill.jsx` | The neutral attribute badge, defined once because the rule is that it looks the same everywhere |
+| `components/CopyLink.jsx` | The copy-link control, defined once for the same reason. Resolves its path against the current origin at click time |
 | `components/Theme.jsx` | The pre-paint theme script and the Auto/Light/Dark toggle |
 | `app/globals.css` | Also holds `.masthead` and `.roadmap`, the two layouts that need a real breakpoint rather than an inline style |
 | `app/globals.css` | The two themes, as CSS variables, plus the handful of global base rules |

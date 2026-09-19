@@ -9,6 +9,7 @@ import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
 import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
+import CopyLink from "./CopyLink";
 import { FeedRows } from "./ChangesFeed";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
@@ -648,6 +649,38 @@ const stampSeen = () => {
   try { localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch { /* fine */ }
 };
 
+/*
+ * The address bar follows the modal.
+ *
+ * Opening a tool used to leave the URL reading watchfor.tools, so the thing on
+ * the screen had no address: it could not be linked, sent to somebody or
+ * bookmarked, and a reload dropped you back at the top of the grid. The tool
+ * page at /tools/[id] already existed and was reachable only by knowing to
+ * middle-click a card title.
+ *
+ * So opening pushes that path and closing pops it. Next patches pushState and
+ * replaceState (app-router.js) to copy its own internal history state onto the
+ * new entry and to update the canonical URL without navigating, which is
+ * exactly the arrangement wanted here: the URL becomes /tools/x, the directory
+ * underneath is untouched, and nothing is refetched. Our own key rides along
+ * on the same entry.
+ *
+ * Back closes the modal rather than leaving the site, because the entry it
+ * goes back to is the one the reader was already on. Forward reopens it, since
+ * the id is on the entry rather than in a variable.
+ *
+ * Every access is wrapped. A browser that refuses the History API should cost
+ * somebody a shareable URL and nothing else.
+ */
+const toolPath = (id) => `/tools/${id}`;
+
+/* The tool id on the current history entry, or null if this entry is not one
+   of ours. Null is also what a browser with no history state answers, which is
+   the same thing as far as anything here is concerned. */
+const historyToolId = () => {
+  try { return window.history.state?.svtTool || null; } catch { return null; }
+};
+
 const SORTS = {
   rating: { label: "Top rated", dir: "desc", value: (t, x) => x.avg(t.id) },
   votes: { label: "Most liked", dir: "desc", value: (t, x) => x.net(t.id) },
@@ -907,7 +940,55 @@ export default function Directory({ tools: initialTools, feed = [] }) {
     trackToolOpen(id); setDetail(id);
     setDetailRating(Number.isInteger(rating) ? rating : 0);
     setCompare(false);
+    /* Same tool already on the entry means this is a reopen from a popstate,
+       and pushing again would stack a duplicate somebody has to press back
+       through twice. */
+    try {
+      if (historyToolId() !== id) {
+        window.history.pushState({ svtTool: id }, "", toolPath(id));
+      }
+    } catch { /* no history API, no shareable URL, everything else unchanged */ }
   };
+
+  /*
+   * Closing goes back rather than pushing "/".
+   *
+   * Both put the right address in the bar; only one of them leaves a history
+   * that behaves. Pushing would mean every open and close added two entries,
+   * so somebody who browsed six tools has to press back thirteen times to
+   * leave the page. Going back is also what the reader has already been taught
+   * closing means, since back closes the modal.
+   *
+   * It is only safe to call because the guard is that the current entry is one
+   * we pushed, which means there is an entry underneath it and that entry is
+   * this page. Where we did not push, the address is corrected in place.
+   */
+  const closeTool = () => {
+    setDetail(null);
+    setDetailRating(0);
+    try {
+      if (historyToolId()) { window.history.back(); return; }
+      if (window.location.pathname.startsWith("/tools/")) {
+        window.history.replaceState({}, "", "/");
+      }
+    } catch { /* fine */ }
+  };
+
+  /*
+   * Back and forward, in both directions. The id lives on the history entry
+   * rather than in a ref, so forward reopens what back closed, and it is
+   * checked against the catalogue before it opens anything for the same reason
+   * the sign-in return is: an id off the URL is a string from outside.
+   */
+  useEffect(() => {
+    const onPop = () => {
+      const id = historyToolId();
+      if (id && tools.some((t) => t.id === id)) { setDetail(id); setDetailRating(0); }
+      else setDetail(null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [tools]);
 
   /*
    * Coming back from a sign-in link.
@@ -919,20 +1000,26 @@ export default function Directory({ tools: initialTools, feed = [] }) {
    * what makes this work even when the link is opened in a different tab.
    *
    * The id is checked against the catalogue before it opens anything, and both
-   * parameters are stripped afterwards: a refresh should not replay a sign-in,
-   * and the URL people copy out of the bar should not carry one.
+   * parameters are stripped first: a refresh should not replay a sign-in, and
+   * the URL people copy out of the bar should not carry one.
+   *
+   * Stripping before opening rather than after, because opening now pushes
+   * /tools/<id> and a replaceState afterwards would overwrite that entry and
+   * take the id off it with everything else. Order is the whole of it: the
+   * landing URL is cleaned in place, then the modal pushes its own address on
+   * top of a clean one.
    */
   useEffect(() => {
     let params;
     try { params = new URLSearchParams(window.location.search); } catch { return; }
     if (!params.has("tool") && !params.has("signin")) return;
     const id = params.get("tool");
-    if (id && (initialTools || TOOLS).some((t) => t.id === id)) openTool(id);
     params.delete("tool"); params.delete("signin");
     const rest = params.toString();
     try {
       window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
     } catch {}
+    if (id && (initialTools || TOOLS).some((t) => t.id === id)) openTool(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1273,7 +1360,7 @@ export default function Directory({ tools: initialTools, feed = [] }) {
           key={detail}
           tool={tools.find((t) => t.id === detail)}
           initialRating={detailRating}
-          onClose={() => setDetail(null)}
+          onClose={closeTool}
           reviews={reviews[detail] || []}
           onReview={(a, r, x) => addReview(detail, a, r, x)}
           onHelpful={(reviewId) => markHelpful(detail, reviewId)}
@@ -1730,11 +1817,18 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
           <Logo tool={tool} size={46} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>{tool.name}</h2>
-            <p style={{ fontSize: F.sm, color: ink(col), marginTop: S.xs }}>
-              {catOf(tool.cat).label}
-              <a href={`/tools/${tool.id}`} style={{ color: C.dim, marginLeft: S.sm, fontSize: F.xs }}>
-                permalink
-              </a>
+            {/*
+              * The category, and the address of what you are looking at.
+              *
+              * This said "permalink" in grey, which is a word for people who
+              * already know it means "the URL of this thing" and is invisible
+              * to everybody else. It is a control now: it says what it does,
+              * and doing it puts the link on the clipboard rather than opening
+              * a second copy of the page you are reading.
+              */}
+            <p className="flex flex-wrap items-baseline" style={{ fontSize: F.sm, color: ink(col), marginTop: S.xs, gap: S.md }}>
+              <span>{catOf(tool.cat).label}</span>
+              <CopyLink path={`/tools/${tool.id}`} title={`Copy a link to ${tool.name}`} />
             </p>
           </div>
           <CloseButton onClose={onClose} />

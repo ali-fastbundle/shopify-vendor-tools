@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import CopyLink from "./CopyLink";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, CATEGORIES, catOf, formatDay } from "@/lib/tools";
 
@@ -113,7 +114,22 @@ export function FeedRows({ entries = [], tools = [] }) {
               Nothing under that filter.
             </p>
           ) : rows.map((e) => (
-            <article key={e.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
+            /*
+             * Every entry has an address of its own.
+             *
+             * The feed is one stream across every tool, so an entry has no page
+             * to be the subject of and does not want one: what makes "Ranksy
+             * raised Starter to $79" worth reading is the dated list around it.
+             * An anchor on the row is the right granularity, and it is a real
+             * one in the server HTML, so it resolves for somebody arriving cold
+             * with JavaScript off. The filters default to all, so a pasted link
+             * never lands on a row that has been filtered away.
+             *
+             * scrollMarginTop so the row arrives below the top edge of the
+             * window rather than flush against it, where it reads as the first
+             * thing on the page rather than as one entry in a list.
+             */
+            <article key={e.id} id={e.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0`, scrollMarginTop: S.xl }}>
               <div className="flex items-start" style={{ gap: S.md }}>
                 {/* The spine, turned on its side. Same device as a list row on
                     the directory, and the same rule: category colour appears
@@ -130,9 +146,19 @@ export function FeedRows({ entries = [], tools = [] }) {
                     </a>
                     <span style={{ fontSize: F.xs, color: ink(catOf(e.cat).color) }}>{catOf(e.cat).label}</span>
                     {e.kind && <span style={{ fontSize: F.xs, color: C.dim }}>{KIND_LABEL[e.kind] || e.kind}</span>}
-                    <time dateTime={e.date} style={{ fontSize: F.xs, color: C.dim, marginLeft: "auto" }}>
-                      {formatDay(e.date)}
-                    </time>
+                    {/* The date is the permalink, which is the convention a
+                        feed already has and costs nothing to honour: same type,
+                        same colour, and a right click or a middle click now
+                        does something. The control beside it is for everybody
+                        who does not know that. */}
+                    <a href={`/changes#${e.id}`} title="Link to this entry"
+                      style={{ marginLeft: "auto", textDecoration: "none" }}>
+                      <time dateTime={e.date} style={{ fontSize: F.xs, color: C.dim }}>
+                        {formatDay(e.date)}
+                      </time>
+                    </a>
+                    <CopyLink path={`/changes#${e.id}`}
+                      title={`Copy a link to this ${e.toolName} update`} />
                   </div>
                   <p style={{ fontSize: F.md, lineHeight: 1.6, color: C.text, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
                     {e.headline}
