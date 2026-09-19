@@ -410,9 +410,9 @@ differently, and `llms.txt` carries it as a note.
 It is a **label, not a gate**. What gets listed is still judged on whether an app
 vendor has a real use for it, and a general tool has to clear a higher bar to be
 worth the row: its `watch` should say plainly what it does not know about
-Shopify. PartnerStack and BuiltWith are listed and badged, and each `watch` ends
-by naming the one job the native tools cannot do, which is what earns the row.
-Do not read this as an invitation to list general tools generally.
+Shopify. PartnerStack, BuiltWith and etailinsights are listed and badged, and each
+`watch` ends by naming the one job the native tools cannot do, which is what earns
+the row. Do not read this as an invitation to list general tools generally.
 
 Not to be confused with `shopifySpecific` on a newsletter, which runs the other
 way round and for the same reason: there, most entries are not about Shopify, so
@@ -1799,14 +1799,24 @@ check will silently run against a stale build.
 - Add a general tool. Shopify-only is still the default and the bar: a general tool is
   listed only where an app vendor genuinely reaches for it and nothing native covers the
   job, and it carries `shopifyExclusive: false` and a `watch` saying what it does not know
-  about Shopify. **Two are listed on that basis, and each names the thing the native
+  about Shopify. **Three are listed on that basis, and each names the thing the native
   tools cannot do.** PartnerStack, because an app vendor selling to agencies and
   enterprise partners at scale outgrows a link tracker. BuiltWith, because a
   Shopify-only database structurally cannot show you a merchant who is not on Shopify
-  yet, which is the migration conversation.
+  yet, which is the migration conversation. etailinsights, because its contacts are
+  attached to retail brands rather than to storefronts, which is the only thing it has
+  that Store Leads and StoreCensus do not.
+
+  **etailinsights is the weakest of the three and was added on request rather than on
+  the bar.** Its own `watch` says what is wrong with it: no published price, an order
+  form, and no demonstrable detection of individual Shopify apps, which is the question
+  this category exists to answer. If a general tool is ever removed for not earning its
+  row, it is this one. Recorded here rather than left to be rediscovered, because a
+  listing added on request and a listing added on the bar look identical six months
+  later.
 
   Wappalyzer and the mobile ASO platforms are still out. **Adding one is a decision to
-  check first, and the answer has twice been yes, which is not the same as the bar
+  check first, and the answer has three times been yes, which is not the same as the bar
   moving.** The test is whether the row names a job nothing native does, not whether the
   tool is good.
 - Add affiliate links or sponsored placement. The footer promises neither exists.
