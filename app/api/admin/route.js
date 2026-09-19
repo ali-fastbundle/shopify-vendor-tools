@@ -6,7 +6,8 @@ import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
 import { TOOLS } from "@/lib/tools";
 import { catalogueTools } from "@/lib/entries";
-import { dismissFinding, restoreFinding, getDiscovery } from "@/lib/discovery";
+import { dismissFinding, restoreFinding, getDiscovery, clearDiscovery, discoveryKey } from "@/lib/discovery";
+import { storeInventory, resetTestData, deleteRow } from "@/lib/inventory";
 import { timesAsked, findListed, findDuplicate, normaliseDomain } from "@/lib/suggestions";
 import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
@@ -79,7 +80,9 @@ export async function POST(request) {
       ] },
     }[event] || { email: me };
 
-    const result = await sendEvent(event, { ...dummy, origin, adminOverride: me });
+    /* Marked in the log, so clearing test sends later is exact rather than a
+       guess about which rows to your own address were real. */
+    const result = await sendEvent(event, { ...dummy, origin, adminOverride: me, test: true });
     return Response.json({
       test: {
         event,
@@ -106,6 +109,27 @@ export async function POST(request) {
     seen[session.email] = new Date().toISOString();
     await write(KEYS.adminSeen, seen);
     return Response.json({ seenAt: seen[session.email] });
+  }
+
+  /*
+   * Record which suggestion a finding became.
+   *
+   * Findings have no id of their own, so this matches on `discoveryKey`, the
+   * same normalised name runDiscovery groups them under, which is why the two
+   * cannot drift. It is provenance rather than a filter: what removes a
+   * promoted finding from the list is the live queue, checked on every render.
+   *
+   * Never fails the request. The suggestion is the point; this is the note in
+   * the margin.
+   */
+  async function stampPromoted(name, suggestionId, at) {
+    try {
+      const state = await read("svt:discovery", { findings: [] });
+      const key = discoveryKey(name);
+      state.findings = (state.findings || []).map((f) =>
+        discoveryKey(f.name) === key ? { ...f, promotedTo: suggestionId, promotedAt: at } : f);
+      await write("svt:discovery", state);
+    } catch { /* margin notes are not worth a 500 */ }
   }
 
   /*
@@ -148,7 +172,15 @@ export async function POST(request) {
      * had just been created.
      */
     const existing = findDuplicate(submission, suggestions.filter((r) => !r.status));
-    if (existing) return Response.json({ suggestions, suggestion: existing, alreadyQueued: true });
+    if (existing) {
+      /* Stamped here too. This used to return before the bookkeeping, so a
+         finding that matched a row somebody had already suggested never got
+         marked and sat on the discovery list for ever. The list filters on the
+         live queue now so the stamp is no longer what removes it, but a row
+         that says which suggestion it became is worth having either way. */
+      await stampPromoted(name, existing.id, existing.at || new Date().toISOString());
+      return Response.json({ suggestions, suggestion: existing, alreadyQueued: true });
+    }
 
     const entry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -175,19 +207,7 @@ export async function POST(request) {
 
     await write(KEYS.suggestions, [entry, ...suggestions].slice(0, 500));
 
-    /*
-     * Marked on the discovery state so the list stops offering it. Findings
-     * have no id, so this uses the same key runDiscovery groups them under.
-     */
-    try {
-      const state = await read("svt:discovery", { findings: [] });
-      const key = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      state.findings = (state.findings || []).map((f) =>
-        f.name.toLowerCase().replace(/[^a-z0-9]/g, "") === key
-          ? { ...f, promotedTo: entry.id, promotedAt: entry.at }
-          : f);
-      await write("svt:discovery", state);
-    } catch { /* the suggestion is the point; the bookkeeping is not worth failing over */ }
+    await stampPromoted(name, entry.id, entry.at);
 
     await tally("suggestions:discovered");
 
@@ -218,6 +238,44 @@ export async function POST(request) {
    * months than the name quietly being absent, and it is what stops the same
    * question being researched twice.
    */
+  /*
+   * Throw away the current findings without running a pass.
+   *
+   * The dismissed set lives under its own key and is untouched: those are
+   * decisions somebody made and clearing a stale list is not undoing them.
+   */
+  /*
+   * Housekeeping.
+   *
+   * Above the id check, because neither acts on a catalogue id.
+   *
+   * `reset-test-data` clears votes, reviews, subscribers and the mail log, and
+   * that list lives in lib/inventory.js rather than here so the button's own
+   * confirmation text and what it actually deletes are read from one place. It
+   * never touches the catalogue, vendor edits, published entries, claims, the
+   * monitor snapshots or the tallies. The snapshots especially: they are the
+   * baseline the next weekly diff is taken against, and a run with nothing to
+   * compare against reports every tool in the directory as changed.
+   *
+   * `delete-store-row` is four named targets, not a generic delete by key, so a
+   * wrong string in a request body cannot reach anything editorial.
+   */
+  if (action === "reset-test-data") {
+    const result = await resetTestData({ by: session.email });
+    return Response.json({ ...result, inventory: await storeInventory() });
+  }
+
+  if (action === "delete-store-row") {
+    const result = await deleteRow(String(body.target || ""), String(body.row || ""));
+    if (result.error) return new Response(result.error, { status: 400 });
+    return Response.json({ ...result, inventory: await storeInventory() });
+  }
+
+  if (action === "clear-discovery") {
+    const { cleared } = await clearDiscovery({ by: session.email });
+    return Response.json({ cleared, ...(await getDiscovery()) });
+  }
+
   if (action === "dismiss-discovery" || action === "restore-discovery") {
     if (action === "restore-discovery") {
       const res = await restoreFinding(String(body.key || ""));

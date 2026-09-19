@@ -85,6 +85,7 @@ export default function AdminPanel({
   publishedChanges = {},
   feed = [],
   health = null,
+  inventory = [],
   initialTab = "inbox",
 }) {
   /*
@@ -277,7 +278,8 @@ export default function AdminPanel({
 
         {tab === "system" && (
           <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []}
-            health={health} blocked={blocked || []} changelog={changelog || []} />
+            health={health} blocked={blocked || []} changelog={changelog || []}
+            inventory={inventory || []} />
         )}
 
         <div style={{ height: 60 }} />
@@ -295,17 +297,31 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
   const openChanges = changes.filter((r) => !seen[r.id]);
   const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length;
 
+  /*
+   * `nothing` is about deadlines, and discovery findings are not one: they are
+   * leads to work through whenever there is time, which is why they are absent
+   * from this check and from the count in the tab label.
+   *
+   * They are not absent from the page, though. The early return used to end
+   * before the Discovered panel, so on the ordinary day when nothing is
+   * actually waiting, the one list with anything in it was the one you could
+   * not reach. Either the panel belongs on this tab or it does not, and the
+   * answer cannot depend on whether something else happens to be open.
+   */
   if (nothing) {
     return (
-      <section className="pb-10">
-        <p style={{ fontSize: F.lg, color: C.muted, margin: 0, lineHeight: 1.6, maxWidth: "62ch" }}>
-          Nothing is waiting on you. No suggestions to review, no open reports, no claims to check,
-          and no listing changes since your last visit.
-        </p>
-        <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "62ch" }}>
-          The Catalogue tab has the drafts and what is published. The monitor runs on Mondays.
-        </p>
-      </section>
+      <>
+        <section className="pb-10">
+          <p style={{ fontSize: F.lg, color: C.muted, margin: 0, lineHeight: 1.6, maxWidth: "62ch" }}>
+            Nothing is waiting on you. No suggestions to review, no open reports, no claims to check,
+            and no listing changes since your last visit.
+          </p>
+          <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "62ch" }}>
+            The Catalogue tab has the drafts and what is published. The monitor runs on Mondays.
+          </p>
+        </section>
+        <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
+      </>
     );
   }
 
@@ -417,10 +433,12 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], f
  * look. A dumping ground with the diagnosis buried in it is a tab people stop
  * opening.
  */
-function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], health, blocked = [], changelog = [] }) {
+function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], health, blocked = [], changelog = [], inventory = [] }) {
   return (
     <>
       <StatusStrip health={health} maillog={maillog} blocked={blocked} />
+
+      <Housekeeping inventory={inventory} />
 
       <Collapsible title="Mail log" count={maillog.length}
         openWhen={maillog.some((r) => !r.ok)}
@@ -448,6 +466,164 @@ function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog =
         <ChangelogArchive rows={changelog} />
       </Collapsible>
     </>
+  );
+}
+
+/*
+ * What is in the store, and the two ways to take something out of it.
+ *
+ * Every other panel here shows one slice of the store shaped for a decision.
+ * None of them answers "what is actually in here", which is the question you
+ * have after six months of building the thing, when your own test account,
+ * your own test reviews and forty test emails to yourself are in the same rows
+ * as the real ones and you cannot see the real state through them.
+ *
+ * Read first, delete second. The counts are always shown; the rows are shown
+ * for any collection small enough to read, and each one you can delete has its
+ * own ConfirmBtn. **Nothing here guesses what is test data**, because nothing
+ * can: an address that looks like a test is somebody's address if it is not.
+ * The panel lists them and a person marks them.
+ *
+ * The reset is the blunt one, and it names exactly what it will delete on the
+ * confirmation rather than in a paragraph above it, because the click is the
+ * approval and everything needed to judge it has to be on the thing being
+ * clicked. That is invariant 23's rule about the monitor's Apply, and it is the
+ * same rule: a destructive button that says "Reset" is a button nobody can
+ * safely press.
+ *
+ * What it never touches is as much of the point as what it clears, and the
+ * reasons are not interchangeable. The catalogue and vendor edits, because
+ * deleting those is editing the directory. Claims, because a claim is a
+ * relationship somebody verified by email and there is already a deliberate
+ * two-button path for revoking one. The monitor snapshots, because a snapshot
+ * is the baseline the next diff is taken against, and a run with nothing to
+ * compare against reports every tool in the directory as changed, which is the
+ * one output guaranteed not to be read. The counters, because invariant 27 has
+ * them deliberately not derived from the rows so they survive the rows going.
+ */
+const DELETABLE = {
+  "svt:accounts": "account",
+  "svt:subscribers": "subscriber",
+  "svt:reviews": "review",
+  "svt:maillog": "mail",
+};
+
+const GROUPS = [
+  ["community", "What people did"],
+  ["queues", "Queues and leads"],
+  ["mail", "What we sent"],
+  ["protected", "Editorial and machinery, never cleared from here"],
+];
+
+function Housekeeping({ inventory = [] }) {
+  const [rows, setRows] = useState(inventory);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState("");
+
+  async function post(payload, label) {
+    setBusy(label); setErr("");
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) { setErr(await res.text()); return null; }
+      const d = await res.json();
+      if (Array.isArray(d.inventory)) setRows(d.inventory);
+      return d;
+    } catch {
+      setErr("Could not reach the server.");
+      return null;
+    } finally { setBusy(""); }
+  }
+
+  async function reset() {
+    const d = await post({ action: "reset-test-data" }, "reset");
+    if (!d) return;
+    const c = d.cleared || {};
+    setDone(`Cleared ${c.votes} vote rows, ${c.reviews} reviews, ${c.subscribers} subscribers and ${c.maillog} mail log rows.`);
+  }
+
+  const total = rows.reduce((n, r) => n + Math.max(0, r.count), 0);
+
+  return (
+    <Collapsible title="Store contents" count={total}
+      hint="Every key this application writes, what it holds, and how many rows. Small collections are listed in full. Read it before deleting anything.">
+
+      {GROUPS.map(([group, heading]) => {
+        const inGroup = rows.filter((r) => r.group === group);
+        if (!inGroup.length) return null;
+        return (
+          <div key={group} className="pb-2">
+            <p style={{ fontSize: F.xs, color: C.dim, fontWeight: 700, margin: "12px 0 0" }}>{heading}</p>
+            {inGroup.map((r) => (
+              <Row key={r.key}
+                title={r.label}
+                badges={<>
+                  <Pill>{r.count < 0 ? "unreadable" : `${r.count} ${r.count === 1 ? "row" : "rows"}`}</Pill>
+                  {r.reset && <Pill>cleared by reset</Pill>}
+                </>}
+                meta={<code style={{ fontSize: F.xs, color: C.dim }}>{r.key}</code>}
+                body={<>
+                  <p style={{ margin: 0, lineHeight: 1.55 }}>{r.holds}</p>
+                  {r.error && (
+                    <p style={{ margin: "4px 0 0", color: C.badInk }}>Could not be read: {r.error}</p>
+                  )}
+                  {/* Rule E: nothing renders for an empty collection. A count of
+                      zero on the badge has already said it. */}
+                  {r.rows.length > 0 && (
+                    <div className="mt-2">
+                      {r.rows.map((item) => (
+                        <div key={item.id} className="flex flex-wrap items-baseline"
+                          style={{ gap: S.sm, padding: "3px 0" }}>
+                          <span style={{ fontSize: F.sm, color: C.text }}>{item.label}</span>
+                          <span style={{ fontSize: F.xs, color: C.dim }}>{item.detail}</span>
+                          {item.test && <Pill>test send</Pill>}
+                          {DELETABLE[r.key] && (
+                            <ConfirmBtn confirm="Delete"
+                              busy={busy === `${r.key}:${item.id}`}
+                              onConfirm={() => post(
+                                { action: "delete-store-row", target: DELETABLE[r.key], row: item.id },
+                                `${r.key}:${item.id}`,
+                              )}>
+                              Delete
+                            </ConfirmBtn>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {r.truncated && (
+                    <p style={{ margin: "4px 0 0", color: C.dim, fontSize: F.xs }}>
+                      Too many to list here. The panel for this on its own tab is where to read them.
+                    </p>
+                  )}
+                </>}
+              />
+            ))}
+          </div>
+        );
+      })}
+
+      <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.lg, paddingTop: S.lg }}>
+        <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, maxWidth: "76ch", margin: 0 }}>
+          <b style={{ color: C.text }}>Reset test data</b> deletes every vote, every review, every
+          subscriber and the whole mail log. It does not touch the catalogue, vendor edits, published
+          entries, claims, suggestions, reports, the monitor snapshots or the counters. The snapshots
+          especially: without them the next weekly run has nothing to compare against and reports
+          every tool in the directory as changed.
+        </p>
+        <div className="flex flex-wrap items-center mt-3" style={{ gap: S.md }}>
+          <ConfirmBtn onConfirm={reset} busy={busy === "reset"}
+            confirm="Delete votes, reviews, subscribers and the mail log">
+            Reset test data
+          </ConfirmBtn>
+          {done && <span style={{ fontSize: F.xs, color: C.accentInk }}>{done}</span>}
+        </div>
+        {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0" }}>{err}</p>}
+      </div>
+    </Collapsible>
   );
 }
 
@@ -2876,12 +3052,36 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
     >
       <div className="flex flex-wrap items-center" style={{ gap: S.md, padding: "12px 0" }}>
         <Btn onClick={runNow} busy={running} tone="go">Run discovery now</Btn>
+        {/* Destructive, so it arms first, like every other removal here. It
+            throws away the findings and nothing else: the dismissed set is
+            under its own key and those are decisions, not stale data. */}
+        <ConfirmBtn onConfirm={() => decide("clear-discovery", {}, "clear")}
+          busy={working === "clear"} confirm="Clear the list">
+          Clear list
+        </ConfirmBtn>
         <span style={{ fontSize: F.xs, color: C.dim }}>
-          {discovery?.at
-            ? `Last pass ${String(discovery.at).slice(0, 16).replace("T", " ")} · read ${discovery.checked} sites · ${discovery.withPages} publish comparisons`
+          {state?.at
+            ? `Last pass ${String(state.at).slice(0, 16).replace("T", " ")} · read ${state.checked} sites · ${state.withPages} publish comparisons`
             : "Never run. Monthly, on the 1st, once the cron is live."}
         </span>
       </div>
+
+      {/*
+        * Why the list is shorter than the pass found. A list that shrank
+        * because the work got done reads exactly like one that shrank because
+        * the pass found nothing, and those are opposite pieces of news. Only
+        * above zero, so it is absent on the ordinary week.
+        */}
+      {(state?.listedSince > 0 || state?.queuedSince > 0) && (
+        <p style={{ fontSize: F.xs, color: C.dim, margin: "0 0 12px", lineHeight: 1.55 }}>
+          {[
+            state.listedSince > 0 && `${state.listedSince} since listed in the directory`,
+            state.queuedSince > 0 && `${state.queuedSince} now in the suggestion queue`,
+          ].filter(Boolean).join(" · ")}
+          {". Checked against the catalogue and the queue every time this page loads, so a name only "}
+          appears here while it is still nobody&apos;s.
+        </p>
+      )}
 
       {result && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "0 0 12px", lineHeight: 1.55 }}>{result}</p>}
 
@@ -2918,13 +3118,24 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
                     </>
                   : "no link on the page and no domain resolved"}
                 footer={
+                  /*
+                   * Two states, not three. A finding that has reached the queue
+                   * is gone from this list on the next render, so there is no
+                   * "already queued" row to write an affordance for: the draft
+                   * panel below is what the current page shows after the click,
+                   * and after a reload the item lives in the Inbox and nowhere
+                   * else.
+                   *
+                   * It used to be three, and the third one replaced the whole
+                   * action row. So every promoted finding stayed on the list
+                   * reading "Already in the suggestion queue" with no way to
+                   * remove it, which is how a console ends up with a Dismiss
+                   * button nobody can find: it was never missing, it was
+                   * behind a branch that had swallowed the page.
+                   */
                   promoted[f.name]
                     ? <DraftPanel s={promoted[f.name]} onSuggestions={onSuggestions} onEntries={onEntries} />
-                    : f.promotedTo
-                      ? <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5 }}>
-                          Already in the suggestion queue. It is in the Inbox with its draft.
-                        </p>
-                      : <div className="mt-2">
+                    : <div className="mt-2">
                           <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
                             {/*
                               * Disabled rather than allowed to fail on click.

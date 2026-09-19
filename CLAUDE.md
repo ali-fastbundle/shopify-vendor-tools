@@ -663,6 +663,47 @@ ordinary SEO rather than an oversight. AppJubilee's `/compare` links only to
 appjubilee.io. The link path is still right, because it is free and exact where
 it fires; it is just not the common case.
 
+**One item, one place, and the cross-reference runs on render.**
+A finding is worth showing only while all three are still true: it is not in the
+directory, nobody has put it in the suggestion queue, and nobody has declined it.
+`settled()` in `lib/discovery.js` is the one predicate that decides, and both
+`getDiscovery()` and `runDiscovery()` call it.
+
+The two used to disagree. A pass filtered against the catalogue as it stood that
+morning and the render filtered against nothing, so a finding was correct on the
+day it was written and then slowly stopped being. BuiltWith was named as a
+competitor, added to the directory a week later, and the list went on saying "not
+in the directory" for the rest of the month. **A cross-reference that only runs
+monthly is wrong most of the time.** Now the catalogue and the live queue are
+read on every render, so a name leaves the list the moment somebody deals with
+it, with nothing rerun.
+
+- **Promoting removes it from this list.** It is a suggestion now, and research,
+  the draft editor, the entry stub and publishing are all over there. The list
+  used to keep it and render "Already in the suggestion queue" in place of the
+  whole action row, which is how the console ended up with a Dismiss button
+  nobody could find: it was never missing, it was behind a branch that had
+  swallowed the page. Two states now, not three.
+- **The matching is `findListed` and `findDuplicate` from `lib/suggestions.js`**,
+  deliberately the same rule the suggestion form uses rather than a second copy.
+  A discovery finding and a suggestion are the same thing arriving by different
+  doors, so "is this already known" has to have one answer. Name, then a domain
+  when that domain has exactly one entry behind it, per invariant 17. For a
+  yes-or-no question the order of the two tests cannot change the result, only
+  which entry gets named as the reason.
+- **A deleted queue row does not count as queued.** Deleting one is how an
+  editor says this is not wanted, and the finding returning is the correct
+  consequence. Dismissing it is how you say it should stay gone, and that is
+  what the dismissed set is for.
+- **`listedSince` and `queuedSince` come back as counts**, and render as one
+  muted line above the list when either is above zero. A list that shrank
+  because the work got done reads exactly like one that shrank because the pass
+  found nothing, and those are opposite pieces of news.
+- **`Clear list` throws the findings away and nothing else.** The dismissed set
+  is a different key and is untouched: those are decisions somebody made, and
+  clearing a stale list is not undoing them. `at` is kept so the health strip
+  still reports when the last pass ran.
+
 **Declining a name is permanent, and the reason is the point.**
 `svt:discovery:dismissed` is keyed on the same normalised name `runDiscovery`
 groups by, so the two cannot drift. It is filtered **on read as well as on
@@ -749,6 +790,57 @@ that did not.
 - **Every section states its empty case in one line.**
 - The palette and type scale are the public site's, from `lib/tools.js`. There
   is no second design language here, and `components/Pill.jsx` is the badge.
+
+**34. The store can be read before it is written to, and the reset names what it deletes.**
+`lib/inventory.js` reports every key this application writes: what it holds, how
+many rows, and for anything small enough to read, the rows themselves. It renders
+as **Store contents** on the System tab.
+
+Every other panel here shows one slice of the store shaped for a decision. None
+of them answered "what is actually in here", which is the question you have after
+six months of building the thing, when your own test account, your own test
+reviews and forty test emails to yourself are in the same rows as the real ones
+and you cannot see the real state through them.
+
+**Nothing guesses what is test data**, because nothing can: an address that looks
+like a test is somebody's address if it is not. The panel lists rows and a person
+marks them, one `ConfirmBtn` at a time, and `deleteRow` takes four named targets
+rather than a key, so a wrong string in a request body cannot reach anything
+editorial.
+
+**A test send is recorded as one rather than inferred later.** `sendEvent` carries
+`test` through to the mail-log row, because a test and a real admin notification
+are otherwise identical on the wire: both go to the admin address. Without the
+flag, clearing test rows out of the log means guessing.
+
+**`Reset test data` clears votes, reviews, subscribers and the mail log.** The
+list lives in `lib/inventory.js`, so the confirmation text and what is actually
+deleted are read from one place, and the button names all four on the confirm
+rather than in a paragraph above it: the click is the approval, so everything
+needed to judge it has to be on the thing being clicked. That is invariant 23's
+rule about Apply, and it is the same rule.
+
+**What it never touches is as much of the point, and the reasons are not
+interchangeable:**
+
+- **The catalogue and vendor edits** (`svt:overrides`, `svt:entries`). Invariant
+  4: deleting those is editing the directory, which is not housekeeping.
+- **Claims** (`svt:claims`). A claim is a relationship somebody verified by
+  email, and there is already a deliberate two-button path for revoking one.
+- **Monitor snapshots** (`svt:snapshots`, `svt:monitor`). A snapshot is the
+  baseline the next diff is taken against. Delete them and the next run reports
+  every tool in the directory as changed, which is the one output guaranteed not
+  to be read, and it does not show up until the following Monday.
+- **The counters** (`svt:stats`). Invariant 27 has them deliberately not derived
+  from the rows so they survive the rows going. Resetting them to match a
+  cleared list is exactly the thing they exist not to do.
+- **Suggestions and reports**, which are queues with their own soft-delete.
+- **Accounts**, because a sign-in is not test data by default. The likely test
+  row there is one address the person running this recognises, and that is a
+  marking, not a sweep.
+
+Adding a store key means adding a row to `SHAPES` in the same commit, or it is a
+key nobody can see.
 
 **26. Merchant-facing Shopify apps are out of scope, and saying so is the job.**
 People will suggest bundling apps, reviews apps, shipping apps. Those belong in
@@ -1072,6 +1164,7 @@ days; a person still writes the sentence around it and presses send.
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
 | `lib/tallies.js` | Running counts that outlive the rows they count |
+| `lib/inventory.js` | Every store key, what it holds, and the only two ways to delete from it |
 | `lib/seo.js` | The JSON-LD graph, per-tool descriptions, and the related-tool links |
 | `components/ToolPage.jsx` | One tool at its own URL, server-rendered, no client state |
 | `app/tools/[id]` | The per-tool route. Title, description, canonical and graph per entry |
@@ -1654,6 +1747,8 @@ node scripts/discovery-promote.mjs   # a lead becomes one suggestion, and never 
 node scripts/ownership-test.mjs      # vacuous owners: merge, render and sweep
 node scripts/updates-count.mjs       # "new since your last visit", including the first visit
 node scripts/discovery-urls.mjs      # anchor capture against real markup, and the dismissed set
+node scripts/discovery-settled.mjs   # one item, one place: listed, queued or declined
+node scripts/housekeeping-test.mjs   # the reset clears four things and protects the snapshots
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>

@@ -29,7 +29,7 @@ for (const f of readdirSync(join(ROOT, "lib"))) {
 }
 const load = (f) => import(pathToFileURL(join(shim, f)).href);
 const { discoveryKey, dismissFinding, restoreFinding, getDismissed, getDiscovery,
-        anchorsOf, linkForName } = await load("discovery.js");
+        anchorsOf, linkForName, settled } = await load("discovery.js");
 const store = await load("store.js");
 
 let bad = 0;
@@ -105,7 +105,11 @@ console.log("\nthe dismissed set:");
     at: "2026-09-18T00:00:00.000Z", checked: 3, withPages: 2,
     findings: [
       { name: "Apollo.io", url: "https://apollo.io", count: 2, namedBy: ["A", "B"] },
-      { name: "Affilitrak", url: "", count: 1, namedBy: ["A"] },
+      /* A name that is not in the catalogue and is not going to be. getDiscovery
+         cross-references the live directory now, so a fixture named after
+         something we have since listed would be filtered out and the count
+         below would be testing the wrong thing. */
+      { name: "Bundlewright", url: "", count: 1, namedBy: ["A"] },
       { name: "Something Real", url: "https://real.invalid", count: 3, namedBy: ["A", "B", "C"] },
     ],
   });
@@ -125,9 +129,12 @@ console.log("\nthe dismissed set:");
   const raw = await store.read("svt:discovery", {});
   ok(raw.findings.length === 3, "the stored finding is kept, not destroyed");
 
-  /* The point of the set: a later run must not hand the name back. */
-  const src = readFileSync(join(ROOT, "lib", "discovery.js"), "utf8");
-  ok(/if \(dismissed\[key\]\) continue;/.test(src), "and runDiscovery skips it on the next pass");
+  /* The point of the set: a later run must not hand the name back. Asserted
+     through the predicate a run calls rather than by grepping the source, which
+     is what this used to do and which broke the moment the three filters were
+     folded into one function. */
+  ok(settled({ name: "Apollo.io", url: "https://apollo.io" }, { dismissed: await getDismissed() })?.how === "dismissed",
+    "and runDiscovery skips it on the next pass");
 
   await restoreFinding(discoveryKey("Apollo.io"));
   const back = await getDiscovery();
