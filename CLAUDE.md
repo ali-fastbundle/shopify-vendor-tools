@@ -1106,10 +1106,30 @@ and "something just happened" is not one of them.
 this listing` control, and it is an anchor to `/?tool=<id>`: the directory validates
 the id and opens the listing with `OwnerPanel` in it. The form itself cannot be here
 because claiming mints a token, checks a domain and carries a session, all of which
-is client state. Two states, because the wrong invitation is worse than none:
-unclaimed gets the invitation with the boundary stated up front, and claimed says
-the vendor maintains it already rather than inviting a claim that would 409. Before
-this the page offered one 12px grey line about rating and
+is client state.
+
+**Four states, keyed on who is looking**, because the wrong invitation is worse than
+none. An **admin** gets "Editing as admin" and an edit control, since they can edit
+any listing and are the one person who does not need asking whether it is theirs.
+The **verified owner** gets the same control. A listing **claimed by somebody else**
+says the vendor maintains it rather than inviting a claim that would 409. Everybody
+else gets the invitation, with the boundary stated up front.
+
+`viewer` is derived on the server from the session cookie, using the same
+`sessionFrom({ cookies: cookies(), headers: headers() })` idiom `/admin` uses, so
+the file stays a server component with no client state and the page is still whole
+in the first response. **It is an affordance and never a permission**, which is
+invariant 7's rule about `/admin` applied here: `/api/listing` re-derives the
+session and re-checks `ownsListing || isAdmin` on every write, and `mergedTools()`
+still restates the protected fields, so a forged prop buys nothing. Nothing
+admin-only is read or rendered either, so a signed-out crawler gets the public page.
+
+The boundary is stated to the admin too, because it applies to them: `sanitiseEdit`
+accepts the `EDITABLE` set only, whoever is asking. The category, the caveat and the
+external ratings are a hand edit to `lib/tools.js`, which is reviewable in git, and
+saying so beats letting an editor discover it by trying.
+
+Before this the page offered one 12px grey line about rating and
 reporting, which named none of the three things an owner arrives to do, so a vendor
 landing on their own entry from a search result had no visible route to it.
 

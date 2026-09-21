@@ -84,19 +84,70 @@ function Facts({ tool }) {
  * against the catalogue and opens as the listing with `OwnerPanel` inside it.
  * Same trick as the category label being an anchor rather than a filter chip.
  *
- * Two states, because the wrong invitation is worse than none. Claimed says
- * the vendor maintains it already, and what that covers, rather than inviting
- * a claim that would 409. Otherwise it is the invitation, with the boundary
- * stated up front: a vendor who reads "edit your listing" and then discovers
- * they cannot touch `watch` has been sold something.
+ * Four states, keyed on who is looking, because the wrong invitation is worse
+ * than none:
+ *
+ *   admin      can edit any listing and is the one person who does not need
+ *              asking "is this your tool?". That question was the only thing
+ *              this offered, so an editor arriving on an entry from a search
+ *              result had no route to the form at all.
+ *   owner      has verified the domain already, so it is an edit link rather
+ *              than a claim pitch.
+ *   claimed    by somebody else: says the vendor maintains it, rather than
+ *              inviting a claim that would 409.
+ *   otherwise  the invitation, with the boundary stated up front. A vendor who
+ *              reads "edit your listing" and then discovers they cannot touch
+ *              `watch` has been sold something.
+ *
+ * `viewer` is worked out on the server from the session cookie, so this stays
+ * a server component with no client state and the whole page is still in the
+ * first response. It is an affordance and never a permission: `/api/listing`
+ * re-derives the session and re-checks `ownsListing || isAdmin` on every
+ * write. Invariant 7.
  *
  * Dashed border and no fill, which is `OwnerPanel`'s own unclaimed treatment.
  * It is the same offer, so it looks like the same offer. No accent either:
  * green is the action colour and `Visit site` is the action on this page, so a
  * second green control would argue with the first.
  */
-function OwnerInvite({ tool }) {
+function OwnerInvite({ tool, viewer = {} }) {
   const href = `/?tool=${encodeURIComponent(tool.id)}`;
+
+  /*
+   * An editor or the verified owner gets a control, not a pitch. Accent edge
+   * rather than the dashed border, because that is exactly how `OwnerPanel`
+   * marks a listing you already control and the two surfaces should read as
+   * the same state.
+   */
+  if (viewer.admin || viewer.owns) {
+    return (
+      <div style={{
+        marginTop: S.xl, border: `1px solid ${C.accentEdge}`, borderRadius: R.card, padding: S.lg,
+      }}>
+        <p style={{ fontSize: F.md, fontWeight: 600, color: C.accentInk, margin: 0 }}>
+          {viewer.owns ? "You own this listing" : "Editing as admin"}
+        </p>
+        {/*
+          * The boundary holds for an admin too, and saying so beats letting
+          * them find out: `sanitiseEdit` accepts the EDITABLE set only, and
+          * `mergedTools()` restates the protected fields over any override.
+          * The category, the caveat and the external ratings move by editing
+          * lib/tools.js, which is reviewable in git. That is the design rather
+          * than a missing feature.
+          */}
+        <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
+          The summary, description, pricing, site URL and social links are editable here. The
+          category, the "watch for" note, the external ratings and the community reviews are not,
+          for anybody: those are a hand edit to the catalogue file.
+        </p>
+        <a href={href} style={{
+          display: "inline-block", marginTop: S.md,
+          background: C.accent, color: C.onAccent, borderRadius: R.control,
+          padding: "8px 16px", fontSize: F.sm, fontWeight: 700, textDecoration: "none",
+        }}>Edit this listing</a>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -135,7 +186,7 @@ function OwnerInvite({ tool }) {
   );
 }
 
-export default function ToolPage({ tool, related, reviews = [], rating, lastUpdated }) {
+export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated }) {
   const col = catOf(tool.cat).color;
   const socials = SOCIALS
     .map(({ key }) => [key, tool.social?.[key]])
@@ -263,7 +314,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, lastUpda
             {/* Two different readers, so two separate controls. The line above
                 is for a visitor, this is for whoever owns the thing. They were
                 one grey sentence that served the first and hid the second. */}
-            <OwnerInvite tool={tool} />
+            <OwnerInvite tool={tool} viewer={viewer} />
           </div>
         </article>
 
