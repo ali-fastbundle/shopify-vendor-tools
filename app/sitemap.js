@@ -1,5 +1,5 @@
 import { mergedTools } from "@/lib/listings";
-import { LAST_UPDATED_ISO } from "@/lib/tools";
+import { LAST_UPDATED_ISO, CATEGORIES, isInCat } from "@/lib/tools";
 import { SITE } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
 
@@ -37,6 +37,29 @@ export default async function sitemap() {
       changeFrequency: "weekly",
       priority: 0.9,
     },
+    {
+      url: `${SITE}/categories`,
+      lastModified: new Date(LAST_UPDATED_ISO || Date.now()),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    /*
+     * One entry per category, dated from the newest tool in it rather than
+     * from the build. A category whose tools have not moved in six months
+     * should tell a crawler that, and an empty one is still a real page that
+     * answers "is there anything here" with a sentence saying there is not.
+     */
+    ...CATEGORIES.map((c) => {
+      const inIt = tools.filter((t) => isInCat(t, c.id));
+      const newest = inIt.reduce(
+        (max, t) => (t.updated && t.updated > max ? t.updated : max), "");
+      return {
+        url: `${SITE}/categories/${c.id}`,
+        lastModified: new Date(newest || LAST_UPDATED_ISO || Date.now()),
+        changeFrequency: "monthly",
+        priority: 0.7,
+      };
+    }),
     ...tools.map((t) => ({
       url: `${SITE}/tools/${t.id}`,
       lastModified: new Date(t.updated || LAST_UPDATED_ISO || Date.now()),

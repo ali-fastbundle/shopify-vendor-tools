@@ -15,7 +15,8 @@ protect that, not for technical reasons.
 **1. `watch` is never editable by a vendor.**
 Every tool has a `watch` field: the honest caveat. Vendors who claim a listing can edit
 the summary, description, pricing and links. They cannot touch `watch`, `cat`,
-`verified`, `ratings` (the external scores), `updated`, community ratings or reviews.
+`alsoIn`, `verified`, `ratings` (the external scores), `updated`, `editorInterest`,
+community ratings or reviews.
 This is enforced server-side in `lib/listings.js` via
 the `EDITABLE` whitelist, and restated explicitly in `mergedTools()`. If you refactor
 that file, verify with:
@@ -525,7 +526,8 @@ make-work, and make-work is how a weekly digest stops being read.
 an *admin* may apply from a proposal, which is wider because the monitor is not
 an interested party: it adds `owner`, `linked`, `suite` and `dying`, the facts a
 vendor should not get to assert about themselves. `PROTECTED` is what no route
-may write: `watch`, `cat`, `verified`, `ratings`, `updated`, `id`, `name`.
+may write: `watch`, `cat`, `alsoIn`, `verified`, `ratings`, `updated`, `id`, `name`,
+`editorInterest`.
 
 **A proposal touching a protected field gets no button, ever.** It renders as
 "needs a hand edit" with the reason stated rather than left as a missing
@@ -842,6 +844,148 @@ interchangeable:**
 Adding a store key means adding a row to `SHAPES` in the same commit, or it is a
 key nobody can see.
 
+**35. An entry the editor has a commercial interest in is disclosed louder than a
+reader would think to ask.**
+The whole value of this site is that the caveat is written by somebody with nothing
+to gain. One entry is a company the person maintaining the directory runs, and the
+only honest way to list it is to make the exception impossible to miss.
+
+`editorInterest: true` in `lib/tools.js` is the flag. There is no `false`, for the
+same reason there is no `shopifyExclusive: true`: a badge on the other sixty entries
+saying "not the editor's" is noise everywhere to carry information in one place.
+`hasEditorInterest` and `EDITOR_INTEREST` in `lib/tools.js` are the single copies of
+the rule and of the wording.
+
+**This treatment applies to any entry the editor has a commercial interest in, no
+exceptions.** Owns it, is paid by it, holds equity in it, advises it for money,
+takes a referral fee from it. If the question "would a reader feel misled on
+finding this out" has any answer but a flat no, the flag goes on. It is not a
+judgement call about how large the interest is, and it is not waived because the
+entry is critical of its own subject: a critical review by an interested party is
+still an interested party's review. An entry that cannot carry the flag honestly
+does not go in the directory at all.
+
+**Six things follow from the flag, and they fail in different directions.**
+
+- **A warn badge on the card, the list row, the detail view, the tool page and
+  the category page**, reading "maintained by the editor". This is the second and
+  last exception to colour invariant B, and the only one that is a warning about
+  *us* rather than about a product. It cannot be neutral, it cannot be muted type
+  in the `Facts` line, and it cannot be detail-view only: a reader who does not
+  notice has been misled by the entry looking exactly like the other sixty.
+- **`watch` states it in the first person**, and states three things: that the
+  interest exists, that the assessment is therefore not neutral, and what the
+  reader should do about it. Then it carries on and says the checkable facts
+  anyway, at the standard the rest of the catalogue is held to. A disclosure that
+  replaces the caveat is a softer entry wearing a warning label.
+- **A disclosure block above `watch`** on the detail view and the tool page, in
+  the warning colour, saying the same thing in our voice rather than the editor's.
+  The badge is what makes somebody look; this is what they read, and it has to be
+  adjacent to the note whose independence it qualifies.
+- **The matcher will not recommend it.** `/api/match` filters it out before the
+  prompt is built, so the model never sees it, and validates the returned picks
+  against that same filtered list, so an invented or remembered id is dropped.
+  `localMatch` in `components/Directory.jsx` filters it too. **A rule that holds
+  on the model path and not on the keyword path behind it is not a rule**, because
+  invariant 20 guarantees that path runs. Excluded from *recommendation*, not from
+  the directory: it is in the grid, the search, the counts, the compare table and
+  its category page like anything else, because hiding it would be a second way
+  of not disclosing it.
+- **It cannot be claimed.** `/api/claim` answers 403 whatever the UI renders,
+  including from an address at the tool's own domain, which is the path that
+  verifies an ordinary claim outright. There is nobody for a claim to transfer it
+  to. `OwnerPanel` says so instead of rendering a form that cannot succeed.
+- **It is in `PROTECTED`.** No vendor edit, override or monitor proposal can set
+  it, clear it, or plant it on a competitor, and `mergedTools()` restates it. This
+  is the one field whose entire purpose is to be inconvenient to the person it
+  describes, so an override that could clear it would remove the disclosure from
+  the only entry that needs one.
+
+`sanitiseEntry` forces it absent, in both directions. It is a statement about the
+person maintaining the directory rather than about a tool, so nothing arriving over
+HTTP or out of a model gets to assert it: it is written by hand in `lib/tools.js`
+where somebody is on the hook for it in git.
+
+**It travels in `llms.txt`.** Anything reading that file is exactly the audience
+that would otherwise repeat the caveat as independent, which is the one thing this
+entry must never be quoted as.
+
+`scripts/editor-interest.mjs` covers all six, including the controls: that an
+ordinary listing is still claimable, and that an otherwise valid vendor edit still
+saves. A test that only proves nothing works proves nothing.
+
+**36. A tool has one primary category and may belong in others, and every category
+has a page.**
+`cat` is the primary and stays a single value, because three things read it as one:
+the spine colour, the category label under the name, and the "By category" sort.
+**Colour invariant A only holds while a tool has exactly one colour**, so the
+primary is the source for all three and `alsoIn` never touches any of them.
+
+`alsoIn` is the optional rest: an array of category ids the tool genuinely also
+belongs in. The suites were the case that forced it. Marmeto is billing analytics
+and partner programmes as well as a suite, Meridian is billing and ASO, and
+filtering to Analytics & billing hid both of the best answers in it. The counts
+were wrong in the direction that matters, too low.
+
+**Every consumer reads the helpers, never `t.cat`.** `catsOf`, `secondaryCats`,
+`isInCat` and `isPrimaryCat` in `lib/tools.js`. The risk this shape introduces is a
+tool that is in a category for the filter but not for the count, or on a page but
+not in its graph, and one set of helpers is what stops the grid, the chips, the
+category page, the sitemap and `llms.txt` disagreeing. An unknown id is dropped
+rather than rendered, and the primary is deduped out, so a hand edit repeating
+itself costs nothing.
+
+- **The grid filters on every category; the card still draws its primary.** Under a
+  secondary filter the card adds "also in {the filtered category}" in muted type,
+  and only then. Filtering to Support & CX and finding a card labelled "Ecosystem
+  suites" reads as a bug until it says why it is there, and that is rule J's bar
+  met rather than dodged: "a suite that also does this" against "a company that
+  only does this" is exactly what you are scanning for.
+- **The list row carries all of them**, because rows compare. The column still
+  sorts on the primary: a sort key with more than one value per row is not a sort
+  key.
+- **`llms.txt` lists a tool once, under its primary**, with an "also in" line.
+  Listing it twice would read to something counting the list as two products, and
+  the count at the top would then disagree with the body.
+- **`alsoIn` is in `PROTECTED`.** It is `cat` with more room, and filing yourself
+  into four more categories is the same act as changing your category.
+
+**`/categories/[id]` and `/categories`**, server rendered, each with its own title,
+description, canonical and JSON-LD, and every one of them in the sitemap with its
+`lastModified` taken from the newest tool in it. These existed only as a filter chip
+in a client component, which meant "store databases for Shopify app vendors" had no
+page to rank and nothing to cite. This is invariant 28 applied to categories, and
+the same reasoning: the chips are still the fast way to browse, this is the same set
+of tools at an address.
+
+- **`components/Categories.jsx` has no client state**, same contract as
+  `components/ToolPage.jsx` and for the same reason. It deliberately does not reuse
+  the directory's grid: that component votes, filters, sorts, opens a modal and
+  carries a session, and reusing it would trade the whole point of the page for a
+  card that looks the same.
+- **`findCat`, never `catOf`.** `catOf` falls back to the first category so a render
+  cannot crash on a bad id, which is right inside a render and exactly wrong in a
+  route: it would serve App Store ASO at a hundred misspelled URLs and let a
+  crawler index every one. `/categories/nonsense` is a 404.
+- **Secondary members are listed after the primary ones and marked**, with a link
+  to the category they lead with. "Why is Marmeto on the billing page" is answered
+  by "because it is a suite", one click away rather than absent.
+- **Every category page links to other category pages**, ranked by how many tools
+  they share, for the reason every tool page links to related tools: a page nothing
+  points at is found once from the sitemap and quietly dropped.
+- **The category label on every card, list row, detail view and tool page is a
+  real link to the page.** The tool page breadcrumb and the JSON-LD breadcrumb
+  both point there too. They pointed at `/#cat`, which landed on the directory and
+  set nothing, because the filter is client state.
+
+**Adding a category means adding its `--ink-` pair to both theme blocks in
+`globals.css`** in the same commit. `ink()` falls back to the hex, so forgetting
+degrades to an unreadable label on the light theme, which is the one failure `ink()`
+exists to hide and therefore the one nothing reports.
+`scripts/categories-test.mjs` asserts the pair exists for every category, that the
+counts agree across every consumer, and that the primary counts add up to the
+catalogue exactly once.
+
 **26. Merchant-facing Shopify apps are out of scope, and saying so is the job.**
 People will suggest bundling apps, reviews apps, shipping apps. Those belong in
 the Shopify App Store. The submission is **accepted, stored, flagged and
@@ -1144,7 +1288,7 @@ days; a person still writes the sentence around it and presses send.
 
 | Path | Role |
 |---|---|
-| `lib/tools.js` | Catalogue (`ALL_TOOLS` as written, `TOOLS` published), categories, design tokens (`C`, `S`, `R`, `F`, `TRACK`, `BAND`, `ink`), and `LAST_UPDATED` derived from it. Edit tools here only. |
+| `lib/tools.js` | Catalogue (`ALL_TOOLS` as written, `TOOLS` published), categories and the multi-category helpers (`catsOf`, `isInCat`, `isPrimaryCat`, `findCat`), `hasEditorInterest`, design tokens (`C`, `S`, `R`, `F`, `TRACK`, `BAND`, `ink`), and `LAST_UPDATED` derived from it. Edit tools here only. |
 | `lib/listings.js` | Claims, the editable whitelist, domain verification, merge logic |
 | `lib/auth.js` | HMAC session cookies, magic-link tokens, admin check |
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
@@ -1165,7 +1309,9 @@ days; a person still writes the sentence around it and presses send.
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
 | `lib/tallies.js` | Running counts that outlive the rows they count |
 | `lib/inventory.js` | Every store key, what it holds, and the only two ways to delete from it |
-| `lib/seo.js` | The JSON-LD graph, per-tool descriptions, and the related-tool links |
+| `lib/seo.js` | The JSON-LD graph, per-tool and per-category descriptions, and the related-tool and related-category links |
+| `components/Categories.jsx` | The category page and the category index, server-rendered, no client state |
+| `app/categories` `app/categories/[id]` | The category index and one page per category. Title, description, canonical and graph each |
 | `components/ToolPage.jsx` | One tool at its own URL, server-rendered, no client state |
 | `app/tools/[id]` | The per-tool route. Title, description, canonical and graph per entry |
 | `app/sitemap.js` `app/robots.js` `app/llms.txt` | What crawlers and models read |
@@ -1255,7 +1401,7 @@ follow.
 
 **Category colour is information, not decoration.** It identifies the category
 everywhere it appears, and the palette is closed — do not introduce an unrelated accent.
-The nine hues are picked against a near-black background and *none* of them clears
+The hues are picked against a near-black background and *none* of them clears
 4.5:1 on white, so a category colour set in type goes through `ink(hex)`, which returns
 the hue on dark and a darker twin of the same hue on light. Fills, borders and the bars
 in the wordmark keep the original hex. Adding a colour means adding its `--ink-` pair to
@@ -1275,7 +1421,8 @@ and the filter chips.
 
 - the spine — 3px across the top of a card, 4px across the top of the detail modal, and
   the same 3px turned on its side at the head of a list row or a matcher result
-- the category label set in `ink(colour)` directly under the tool name
+- the category label set in `ink(colour)` directly under the tool name, which is
+  also a real link to `/categories/<id>` (invariant 36)
 - the category filter chips, and the kind chips in the suggest modal, which are the
   same device
 
@@ -1291,8 +1438,14 @@ another. Free plan, unverified, suite membership, same-owner, by-owner, claimed,
 unrelated colours beside a spine whose colour means something and drained the meaning
 out of all of them. `Pill` takes no colour any more; it only takes `tone`.
 
-The single exception is `tone="warn"` on "winding down". That is a status warning about
-the product, not a label on it, and it is allowed to be seen.
+There are exactly two exceptions, both `tone="warn"`, and both are warnings rather
+than labels.
+
+"winding down" is a status warning about the product, and it is the only thing on a
+card that tells you not to bother. "maintained by the editor" is the mirror image:
+everything else on a card is a judgement made by somebody with nothing to gain, and
+there it is not true. See invariant 35. Neither is a category and neither is an
+attribute, which is why they are allowed to be seen and why there is no third one.
 
 Two attributes stay badges rather than joining the `Facts` line, and both for the same
 reason: they are statements about *scope*, not facts about the product. "Shopify-specific"
@@ -1350,8 +1503,15 @@ card had grown a badge per feature until it carried fifteen unranked elements.
 
 On the card: the mark, the name, the category, the one-line summary, the price,
 the community rating and review count, the votes, `Visit site`, and the compare
-control. Plus `winding down`, which is rule B's one allowed warn badge and the
-only thing on a card that tells you not to bother.
+control. Plus rule B's two allowed warn badges: `winding down`, the only thing on a
+card that tells you not to bother, and `maintained by the editor`, which says who
+wrote the caveat and is therefore the first thing bearing on whether to open it at
+all (invariant 35).
+
+Plus one thing that renders conditionally: under a *secondary* category filter, a
+muted "also in {that category}" after the category label. It is absent under "All"
+and under the tool's own category, so it never stacks up, and it answers the
+question the grid has just raised (invariant 36).
 
 Not on the card, because each was already rendered on the detail view and was
 being shown twice: suite membership, shared ownership, `by {owner}`, `suggested
@@ -1749,6 +1909,8 @@ node scripts/updates-count.mjs       # "new since your last visit", including th
 node scripts/discovery-urls.mjs      # anchor capture against real markup, and the dismissed set
 node scripts/discovery-settled.mjs   # one item, one place: listed, queued or declined
 node scripts/housekeeping-test.mjs   # the reset clears four things and protects the snapshots
+node scripts/editor-interest.mjs     # the editor's own entry: disclosed, unrecommendable, unclaimable
+node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>

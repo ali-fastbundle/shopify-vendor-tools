@@ -78,6 +78,7 @@
   --ink-ff9052: #FF9052;
   --ink-ffd166: #FFD166;
   --ink-7fd1f0: #7FD1F0;
+  --ink-8c9eff: #8C9EFF;
 }
 
 /*
@@ -136,6 +137,9 @@
   --ink-ff9052: #9A4300;
   --ink-ffd166: #7A5A00;
   --ink-7fd1f0: #18657E;
+  /* 5.69:1 on the page, 6.19:1 on a panel. The hue itself is 1.9:1 on white,
+     which is why every category colour has a twin here rather than a filter. */
+  --ink-8c9eff: #4453C9;
 }
 
 /* ==================================================================

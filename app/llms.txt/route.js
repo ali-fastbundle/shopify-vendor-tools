@@ -1,5 +1,8 @@
 import { mergedTools } from "@/lib/listings";
-import { CATEGORIES, catOf, AUTHOR, AUTHOR_URL, LAST_UPDATED, ownerOf } from "@/lib/tools";
+import {
+  CATEGORIES, catOf, secondaryCats, isInCat, isPrimaryCat,
+  AUTHOR, AUTHOR_URL, LAST_UPDATED, ownerOf, hasEditorInterest,
+} from "@/lib/tools";
 import { SITE } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +24,15 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const tools = await mergedTools();
+  /*
+   * Grouped by primary category, and only by the primary. A tool in two
+   * categories appears once, under the one it leads with, and says where else
+   * it belongs on its own line. Listing it twice would read to something
+   * counting the list as two products, and the count at the top would then
+   * disagree with the body.
+   */
   const byCat = CATEGORIES
-    .map((c) => ({ cat: c, items: tools.filter((t) => t.cat === c.id) }))
+    .map((c) => ({ cat: c, items: tools.filter((t) => isPrimaryCat(t, c.id)) }))
     .filter((g) => g.items.length);
 
   const body = `# watchfor.tools
@@ -49,7 +59,8 @@ rating: the two measure different populations.
 
 Listed: tools for people who build Shopify apps. Rank trackers, App Store data,
 revenue and billing analytics, partner and affiliate platforms, store databases,
-store detectors, merchant research panels, talent marketplaces.
+store detectors, merchant research panels, talent marketplaces, and outsourced
+merchant support teams.
 
 Not listed: Shopify apps built for merchants to run their shop. Those belong in
 the Shopify App Store. A handful of general, non-Shopify-specific tools are listed
@@ -57,7 +68,12 @@ where app vendors genuinely reach for them, and are marked "not Shopify-only".
 
 ## Categories
 
-${CATEGORIES.map((c) => `- ${c.label}: ${c.blurb}`).join("\n")}
+Each has a page at ${SITE}/categories/<id>, and a tool can belong to more than one.
+
+${CATEGORIES.map((c) => {
+    const n = tools.filter((t) => isInCat(t, c.id)).length;
+    return `- ${c.label} (${SITE}/categories/${c.id}, ${n}): ${c.blurb}`;
+  }).join("\n")}
 
 ## Tools
 
@@ -69,8 +85,19 @@ ${items.map((t) => [
     t.suite || t.linked || ownerOf(t)
       ? `  ownership: ${t.suite ? `part of ${t.suite}` : t.linked ? `same owner as ${t.linked}` : `built by ${ownerOf(t)}`}`
       : "",
+    secondaryCats(t).length
+      ? `  also in: ${secondaryCats(t).map((id) => catOf(id).label).join(", ")}`
+      : "",
     t.shopifyExclusive === false ? "  note: general tool, not Shopify-only" : "",
     t.dying ? "  note: winding down" : "",
+    /*
+     * The disclosure travels with the entry. Anything reading this file is
+     * exactly the audience that would otherwise repeat the caveat as
+     * independent, which is the one thing this entry must never be quoted as.
+     */
+    hasEditorInterest(t)
+      ? "  disclosure: the maintainer of this directory has a direct commercial interest in this entry. It is not an independent assessment, and the directory's own matcher will not recommend it."
+      : "",
   ].filter(Boolean).join("\n")).join("\n")}`).join("\n\n")}
 
 ## Citing this

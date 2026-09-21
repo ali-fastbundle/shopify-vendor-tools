@@ -1,7 +1,17 @@
 import React from "react";
 import { outbound } from "@/lib/outbound";
-import { C, S, R, F, TRACK, ink, catOf, socialLabel, SOCIALS, formatDay, ownerOf } from "@/lib/tools";
+import {
+  C, S, R, F, TRACK, ink, catOf, secondaryCats, socialLabel, SOCIALS,
+  formatDay, ownerOf, hasEditorInterest, EDITOR_INTEREST,
+} from "@/lib/tools";
 import { toolDescription, logoAlt } from "@/lib/seo";
+/*
+ * The only client component in this tree, and it holds no state: `Pill` marks
+ * a boundary and renders its span in the first response like anything else.
+ * Importing it rather than re-declaring the eight lines is colour invariant B's
+ * whole point, which is that this badge looks the same everywhere it appears.
+ */
+import { Pill } from "@/components/Pill";
 
 /*
  * One tool, at its own URL, rendered on the server.
@@ -70,7 +80,9 @@ export default function ToolPage({ tool, related, reviews = [], rating, lastUpda
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
           <span style={{ color: C.dim }}> / </span>
-          <a href={`/#${tool.cat}`} style={{ color: ink(col), textDecoration: "none" }}>
+          {/* The category page, not `/#cat`. That fragment landed on the
+              directory and set nothing, because the filter is client state. */}
+          <a href={`/categories/${tool.cat}`} style={{ color: ink(col), textDecoration: "none" }}>
             {catOf(tool.cat).label}
           </a>
           <span style={{ color: C.dim }}> / </span>
@@ -93,11 +105,35 @@ export default function ToolPage({ tool, related, reviews = [], rating, lastUpda
                   }} />
               )}
               <div style={{ minWidth: 0 }}>
-                <h1 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>
-                  {tool.name}
-                </h1>
-                <p style={{ fontSize: F.sm, color: ink(col), margin: `${S.xs}px 0 0` }}>
-                  {catOf(tool.cat).label}
+                <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+                  <h1 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>
+                    {tool.name}
+                  </h1>
+                  {tool.dying && <Pill tone="warn">winding down</Pill>}
+                  {hasEditorInterest(tool) && <Pill tone="warn">{EDITOR_INTEREST}</Pill>}
+                </div>
+                {/* Every category, each linking to its page. The primary keeps
+                    the colour; the rest follow in their own ink after "also
+                    in", so nothing has to explain which is which. */}
+                <p className="flex flex-wrap items-baseline" style={{ gap: S.sm, margin: `${S.xs}px 0 0` }}>
+                  <a href={`/categories/${tool.cat}`}
+                    style={{ fontSize: F.sm, color: ink(col), textDecoration: "none" }}>
+                    {catOf(tool.cat).label}
+                  </a>
+                  {secondaryCats(tool).length > 0 && (
+                    <span style={{ fontSize: F.xs, color: C.dim }}>
+                      {"also in "}
+                      {secondaryCats(tool).map((id, i) => (
+                        <React.Fragment key={id}>
+                          {i > 0 && ", "}
+                          <a href={`/categories/${id}`}
+                            style={{ color: ink(catOf(id).color), textDecoration: "none" }}>
+                            {catOf(id).label}
+                          </a>
+                        </React.Fragment>
+                      ))}
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -110,6 +146,24 @@ export default function ToolPage({ tool, related, reviews = [], rating, lastUpda
 
             <p style={{ fontSize: F.lg, lineHeight: 1.62, margin: `${S.xl}px 0 0` }}>{tool.note}</p>
 
+            {/*
+              * The disclosure, in the server HTML for the same reason the
+              * caveat is: this is the page a model cites, and a caveat quoted
+              * as independent when it is not is the one failure this entry
+              * cannot be allowed to cause.
+              */}
+            {hasEditorInterest(tool) && (
+              <p style={{
+                fontSize: F.sm, lineHeight: 1.55, margin: `${S.lg}px 0 0`, maxWidth: "68ch",
+                color: C.badInk, background: C.badSoft, border: `1px solid ${C.badEdge}`,
+                borderRadius: R.control, padding: S.md, fontWeight: 600,
+              }}>
+                Disclosure. The person who maintains this directory has a direct commercial
+                interest in {tool.name}, so the note below is not the independent judgement every
+                other entry here is. It is excluded from the matcher's recommendations and cannot
+                be claimed.
+              </p>
+            )}
             {/* The caveat, and the reason this directory exists. It is in the
                 server HTML because it is the part worth citing. */}
             <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.md}px 0 0`, color: C.muted }}>

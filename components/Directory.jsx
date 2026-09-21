@@ -11,7 +11,7 @@ import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
 import CopyLink from "./CopyLink";
 import { FeedRows } from "./ChangesFeed";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, secondaryCats, isInCat, isPrimaryCat, hasEditorInterest, EDITOR_INTEREST } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
 
@@ -324,6 +324,57 @@ const ownershipOf = (t) =>
 const NotShopifyOnly = ({ tool }) =>
   tool.shopifyExclusive === false ? <Pill>not Shopify-only</Pill> : null;
 
+/*
+ * The second and last exception to colour invariant B, and the only one that
+ * is a warning about *us* rather than about the product.
+ *
+ * "winding down" earned a warn badge because it is the one thing on a card
+ * that tells you not to bother. This earns one for the mirror-image reason:
+ * everything else on the card is a judgement made by somebody with nothing to
+ * gain, and here that is not true. A reader who does not notice has been
+ * misled by the entry looking exactly like the other sixty, so it cannot be
+ * neutral, it cannot be muted type in the `Facts` line, and it cannot be only
+ * on the detail view. `watch` says it in full; this is what makes somebody
+ * read `watch`.
+ *
+ * Rule J's bar for the card is whether it helps you choose which one to open,
+ * and who wrote the caveat is the first thing that bears on that.
+ */
+const EditorInterest = ({ tool }) =>
+  hasEditorInterest(tool) ? <Pill tone="warn">{EDITOR_INTEREST}</Pill> : null;
+
+/*
+ * Every category a tool is in, as links to the category pages.
+ *
+ * The primary keeps the colour and comes first, because that is the one the
+ * spine is drawn in and a second coloured label competing with it is how
+ * invariant A erodes. The rest follow after "also in", each in its own ink, so
+ * the line says which is which without a legend.
+ */
+function CategoryLinks({ tool, size = F.sm }) {
+  const [primary, ...rest] = catsOf(tool);
+  const col = catOf(primary).color;
+  return (
+    <>
+      <a href={`/categories/${primary}`} style={{ color: ink(col), textDecoration: "none", fontSize: size }}>
+        {catOf(primary).label}
+      </a>
+      {rest.length > 0 && (
+        <span style={{ fontSize: F.xs, color: C.dim }}>
+          {"also in "}
+          {rest.map((id, i) => (
+            <React.Fragment key={id}>
+              {i > 0 && ", "}
+              <a href={`/categories/${id}`}
+                style={{ color: ink(catOf(id).color), textDecoration: "none" }}>{catOf(id).label}</a>
+            </React.Fragment>
+          ))}
+        </span>
+      )}
+    </>
+  );
+}
+
 /* The mark for each network in SOCIALS. A key with no icon here renders
    nothing, so adding a network to the list without a mark degrades to an
    absent link rather than to a broken one. */
@@ -364,9 +415,17 @@ const EXAMPLES = [
   "I need App Store data my AI agent can query",
 ];
 
+/*
+ * The keyword fallback, which is the matcher when a model is unavailable.
+ *
+ * It filters editor-interest entries for the same reason the route does. A
+ * rule that holds on the model path and not on the path behind it is not a
+ * rule, it is a rule plus an outage away from being broken, and invariant 20
+ * guarantees this path runs.
+ */
 function localMatch(problem, tools = TOOLS) {
   const words = problem.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
-  return tools.map((t) => {
+  return tools.filter((t) => !hasEditorInterest(t)).map((t) => {
     const hay = (t.tags.join(" ") + " " + t.one + " " + t.note + " " + catOf(t.cat).label).toLowerCase();
     let score = 0;
     words.forEach((w) => {
@@ -397,6 +456,9 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
   const [result, setResult] = useState(null);
   const [editing, setEditing] = useState(true);
 
+  /* What the matcher may recommend. See invariant 35. */
+  const pool = useMemo(() => tools.filter((t) => !hasEditorInterest(t)), [tools]);
+
   /* The masthead drops to one column once there is an answer to show. */
   useEffect(() => { onAnswered?.(Boolean(result)); }, [result, onAnswered]);
 
@@ -413,10 +475,16 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
       });
       if (!res.ok) throw new Error("match failed");
       const parsed = await res.json();
-      const picks = (parsed.picks || []).filter((p) => tools.some((t) => t.id === p.id));
+      /*
+       * Validated against `pool`, not `tools`. The route already dropped these
+       * twice; this is the third, and it is the cheap one to keep because it
+       * costs a filter and covers a stale tab holding a response from before
+       * the flag existed.
+       */
+      const picks = (parsed.picks || []).filter((p) => pool.some((t) => t.id === p.id));
       setResult({ status: picks.length ? "ok" : "none", picks, note: parsed.note || "", query: q });
     } catch {
-      const picks = localMatch(q, tools);
+      const picks = localMatch(q, pool);
       setResult({ status: picks.length ? "fallback" : "failed", picks, note: "", query: q });
     }
     setBusy(false);
@@ -872,7 +940,14 @@ export default function Directory({ tools: initialTools, feed = [] }) {
   };
 
   const rows = useMemo(() => {
-    let list = tools.filter((t) => cat === "all" || t.cat === cat);
+    /*
+     * `isInCat`, not `t.cat === cat`. A tool with a secondary category appears
+     * under it as well, which is the whole point of `alsoIn`: filtering to
+     * Analytics & billing used to hide the two suites that are among the best
+     * answers in it. The card still draws its primary colour and its primary
+     * label, so the spine keeps meaning one thing.
+     */
+    let list = tools.filter((t) => cat === "all" || isInCat(t, cat));
     if (freeOnly) list = list.filter((t) => t.free);
     if (q.trim()) {
       const n = q.toLowerCase();
@@ -1168,7 +1243,7 @@ export default function Directory({ tools: initialTools, feed = [] }) {
             onClick={() => setCat("all")} label="All" count={tools.length} />
           {CATEGORIES.map((c) => (
             <FilterChip key={c.id} active={cat === c.id} color={c.color} onClick={() => setCat(c.id)}
-              label={c.label} count={tools.filter((t) => t.cat === c.id).length} />
+              label={c.label} count={tools.filter((t) => isInCat(t, c.id)).length} />
           ))}
         </div>
 
@@ -1275,6 +1350,7 @@ export default function Directory({ tools: initialTools, feed = [] }) {
                   votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
                   onVote={(d) => vote(t.id, d)} onOpen={(r) => openTool(t.id, r)}
                   picked={picked.includes(t.id)} onPick={() => toggle(t.id)}
+                  underCat={cat}
                   pickFull={picked.length >= 4 && !picked.includes(t.id)} />
               ))}
             </div>
@@ -1302,7 +1378,10 @@ export default function Directory({ tools: initialTools, feed = [] }) {
                   style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
               : AUTHOR}
             {". "}
+            {/* One middle dot on the line, per the dashes-and-dots rule, so the
+                second separator is a full stop rather than a second dot. */}
             <a href="/changes" style={{ color: C.muted }}>Recent updates</a>{" · "}
+            <a href="/categories" style={{ color: C.muted }}>Categories</a>{". "}
             watchfor.tools is an independent directory. Not affiliated with, endorsed by, or sponsored by
             Shopify. Shopify is a trademark of Shopify Inc.
             No tool here paid to be listed and none of the links are affiliate links.
@@ -1528,10 +1607,25 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
                           letterSpacing: TRACK.tight,
                         }}>{t.name}</a>
                       {t.dying && <Pill tone="warn">winding down</Pill>}
+                      <EditorInterest tool={t} />
                       <NotShopifyOnly tool={t} />
                     </div>
                   </td>
-                  <td style={{ ...cell, fontSize: F.xs, color: ink(col) }}>{catOf(t.cat).label}</td>
+                  {/* Rows compare, so this cell carries every category rather
+                      than just the sortable one. The column still sorts on the
+                      primary: a sort key with more than one value per row is
+                      not a sort key. */}
+                  <td style={{ ...cell, fontSize: F.xs }}>
+                    <a href={`/categories/${t.cat}`}
+                      style={{ color: ink(col), textDecoration: "none" }}>{catOf(t.cat).label}</a>
+                    {secondaryCats(t).map((id) => (
+                      <span key={id} className="block" style={{ color: C.dim, marginTop: 2 }}>
+                        {"also "}
+                        <a href={`/categories/${id}`}
+                          style={{ color: ink(catOf(id).color), textDecoration: "none" }}>{catOf(id).label}</a>
+                      </span>
+                    ))}
+                  </td>
                   <td style={{ ...cell, color: C.muted }}>{t.price}</td>
                   <td style={cell}>{t.free ? "Yes" : ""}</td>
                   <td style={cell}>
@@ -1643,8 +1737,20 @@ function priceLine(tool) {
  * rating already picked. Liking a tool never needed a second screen; rating
  * one should not either.
  */
-function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, onPick, pickFull }) {
+function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, onPick, pickFull, underCat = "all" }) {
   const col = catOf(tool.cat).color;
+  /*
+   * True when this card is in the grid because of a secondary category rather
+   * than its own. Only then is there anything to explain: under "All", or
+   * under its primary, the label already says what it is.
+   *
+   * It passes rule J's bar because it answers the question the grid has just
+   * raised. Filtering to Support & CX and finding a card labelled "Ecosystem
+   * suites" reads as a bug until it says why it is there, and "a suite that
+   * also does this" versus "a company that only does this" is exactly the
+   * difference you are scanning for.
+   */
+  const secondary = underCat !== "all" && !isPrimaryCat(tool, underCat);
   return (
     <div className="card flex flex-col" style={{
       background: C.panel, border: `1px solid ${picked ? C.accentEdge : C.line}`,
@@ -1678,8 +1784,21 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
                   warning about the product rather than a label on it. It is
                   also the only thing here that tells you not to bother. */}
               {tool.dying && <Pill tone="warn">winding down</Pill>}
+              {/* The other warn badge, and the reason it is on the card at all
+                  rather than only on the detail view. See EditorInterest. */}
+              <EditorInterest tool={tool} />
             </div>
-            <p style={{ fontSize: F.xs, color: ink(col), marginTop: 2 }}>{catOf(tool.cat).label}</p>
+            {/* A real link to the category page. The card title is an anchor
+                for the same reason: a crawler follows hrefs, and a filter chip
+                in a client component is not one. */}
+            <p style={{ fontSize: F.xs, marginTop: 2 }}>
+              <a href={`/categories/${tool.cat}`}
+                onClick={(e) => e.stopPropagation()}
+                style={{ color: ink(col), textDecoration: "none" }}>{catOf(tool.cat).label}</a>
+              {secondary && (
+                <span style={{ color: C.dim }}>{` · also in ${catOf(underCat).label}`}</span>
+              )}
+            </p>
           </div>
         </div>
 
@@ -1826,8 +1945,8 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
               * and doing it puts the link on the clipboard rather than opening
               * a second copy of the page you are reading.
               */}
-            <p className="flex flex-wrap items-baseline" style={{ fontSize: F.sm, color: ink(col), marginTop: S.xs, gap: S.md }}>
-              <span>{catOf(tool.cat).label}</span>
+            <p className="flex flex-wrap items-baseline" style={{ fontSize: F.sm, marginTop: S.xs, gap: S.md }}>
+              <CategoryLinks tool={tool} />
               <CopyLink path={`/tools/${tool.id}`} title={`Copy a link to ${tool.name}`} />
             </p>
           </div>
@@ -1838,10 +1957,28 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
           <span className="tnum" style={{ fontSize: F.md, fontWeight: 700, color: C.text }}>{tool.price}</span>
           <Facts tool={tool} />
           {tool.dying && <Pill tone="warn">winding down</Pill>}
+          <EditorInterest tool={tool} />
           <NotShopifyOnly tool={tool} />
         </div>
 
         <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
+        {/*
+          * Said once in the warn colour before the caveat rather than left to
+          * the badge alone. The badge is what makes somebody look; this is what
+          * they read, and it has to be adjacent to the note whose independence
+          * it qualifies rather than a scroll away.
+          */}
+        {hasEditorInterest(tool) && (
+          <p className="mt-3" style={{
+            fontSize: F.sm, lineHeight: 1.55, maxWidth: "68ch", color: C.badInk,
+            background: C.badSoft, border: `1px solid ${C.badEdge}`,
+            borderRadius: R.control, padding: S.md, fontWeight: 600,
+          }}>
+            Disclosure. The person who maintains this directory has a direct commercial interest in{" "}
+            {tool.name}, so the note below is not the independent judgement every other entry here
+            is. It is excluded from the matcher's recommendations and cannot be claimed.
+          </p>
+        )}
         <p className="mt-3" style={{ fontSize: F.md, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
           <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
         </p>
@@ -2242,7 +2379,9 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
      differently. A column of "Shopify only" four times over says nothing. */
   const anyGeneral = list.some((t) => t.shopifyExclusive === false);
   const rowsSpec = [
-    ["Category", (t) => catOf(t.cat).label],
+    /* Every category, primary first, because a compare table exists to show a
+       difference and "it also does billing" is one of the bigger ones. */
+    ["Category", (t) => catsOf(t).map((id) => catOf(id).label).join(", ")],
     ["What it does", (t) => t.one],
     ["Pricing", (t) => t.price],
     ["Free plan", (t) => (t.free ? "Yes" : "No")],
@@ -2263,6 +2402,11 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
       ? "General tool, not Shopify-only"
       : "Shopify only")]] : []),
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
+    /* Only when one of them answers yes, same rule as the ratings and scope
+       rows. Four rows of "No" says nothing and dilutes the one that says yes. */
+    ...(list.some(hasEditorInterest) ? [["Independence", (t) => (hasEditorInterest(t)
+      ? "The directory's editor has a commercial interest in this"
+      : "No interest declared")]] : []),
     ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
     ["Ownership", ownershipOf],
     ["Site", (t) => t.domain],
