@@ -67,6 +67,92 @@ function Facts({ tool }) {
   );
 }
 
+/*
+ * The way a vendor gets from this page to the form that edits it.
+ *
+ * The page had no affordance for that at all. Everything it offered was one
+ * 12px grey line reading "Rate it, review it or report a problem on the
+ * directory", which names none of the three things an owner arrives here to
+ * do: claim the listing, correct the copy, or find out they cannot. A vendor
+ * who lands on their own entry from a search result had no visible route to
+ * it and no reason to think one existed.
+ *
+ * The form itself cannot be here. `OwnerPanel` mints a claim token, checks a
+ * domain, carries a session and holds an edit form, all of which is client
+ * state, and this file has none on purpose (invariant 28). So this is a link,
+ * not a form: it points at `/?tool=<id>`, which the directory validates
+ * against the catalogue and opens as the listing with `OwnerPanel` inside it.
+ * Same trick as the category label being an anchor rather than a filter chip.
+ *
+ * Three states, because the wrong invitation is worse than none:
+ *
+ *   editor interest   says it cannot be claimed, and why. Invariant 35, and
+ *                     the same sentence OwnerPanel renders, so the two
+ *                     surfaces cannot end up saying different things about
+ *                     who controls an entry.
+ *   claimed           says the vendor maintains it already, and what that
+ *                     covers, rather than inviting a claim that would 409.
+ *   otherwise         the invitation, with the boundary stated up front: a
+ *                     vendor who reads "edit your listing" and then discovers
+ *                     they cannot touch `watch` has been sold something.
+ *
+ * Dashed border and no fill, which is `OwnerPanel`'s own unclaimed treatment.
+ * It is the same offer, so it looks like the same offer. No accent either:
+ * green is the action colour and `Visit site` is the action on this page, so a
+ * second green control would argue with the first.
+ */
+function OwnerInvite({ tool }) {
+  const href = `/?tool=${encodeURIComponent(tool.id)}`;
+
+  if (hasEditorInterest(tool)) {
+    return (
+      <p style={{
+        fontSize: F.sm, color: C.muted, lineHeight: 1.55,
+        margin: `${S.xl}px 0 0`, paddingTop: S.lg, borderTop: `1px solid ${C.line}`,
+      }}>
+        This listing cannot be claimed. The person who maintains this directory runs {tool.name}
+        {" "}and already controls it, which is why the entry says so on its face.
+      </p>
+    );
+  }
+
+  return (
+    <div style={{
+      marginTop: S.xl, border: `1px dashed ${C.line}`, borderRadius: R.card, padding: S.lg,
+    }}>
+      <p style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>
+        {tool.claimed ? `${tool.name} maintains this listing` : "Is this your tool?"}
+      </p>
+      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
+        {tool.claimed ? (
+          <>
+            The summary, description, pricing and links above are the vendor's. If you are the
+            vendor, open the listing to change them. The category, the "watch for" note and the
+            community ratings stay with the editors.
+          </>
+        ) : (
+          <>
+            Claim it and you can edit the summary, description, pricing, site and social links.
+            The category, the "watch for" note and the community ratings stay with the editors,
+            which is the point of the directory. Any email works: ownership is proved against the
+            site rather than the address you sign in with.
+          </>
+        )}
+      </p>
+      {/*
+        * `C.text` on `C.bg`, the neutral inversion, rather than the accent.
+        * It is a real destination, so it is an anchor, and it works with
+        * JavaScript off exactly like everything else on this page.
+        */}
+      <a href={href} style={{
+        display: "inline-block", marginTop: S.md,
+        background: C.text, color: C.bg, borderRadius: R.control,
+        padding: "8px 16px", fontSize: F.sm, fontWeight: 700, textDecoration: "none",
+      }}>{tool.claimed ? "Open the listing to edit it" : "Claim and edit this listing"}</a>
+    </div>
+  );
+}
+
 export default function ToolPage({ tool, related, reviews = [], rating, lastUpdated }) {
   const col = catOf(tool.cat).color;
   const socials = SOCIALS
@@ -210,6 +296,11 @@ export default function ToolPage({ tool, related, reviews = [], rating, lastUpda
                 Rate it, review it or report a problem on the directory
               </a>.
             </p>
+
+            {/* Two different readers, so two separate controls. The line above
+                is for a visitor, this is for whoever owns the thing. They were
+                one grey sentence that served the first and hid the second. */}
+            <OwnerInvite tool={tool} />
           </div>
         </article>
 

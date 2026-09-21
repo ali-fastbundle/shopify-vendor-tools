@@ -1096,6 +1096,17 @@ makes it work there. Discreet by construction: no fill, no accent, 12px muted
 type. Confirmed reads in `C.text`, not the accent, because green has three jobs
 and "something just happened" is not one of them.
 
+**The vendor's way in is a link, not a form.** The page carries a `Claim and edit
+this listing` control, and it is an anchor to `/?tool=<id>`: the directory validates
+the id and opens the listing with `OwnerPanel` in it. The form itself cannot be here
+because claiming mints a token, checks a domain and carries a session, all of which
+is client state. Three states, because the wrong invitation is worse than none:
+unclaimed gets the invitation with the boundary stated up front, claimed says the
+vendor maintains it already, and an `editorInterest` entry says it cannot be claimed
+(invariant 35). Before this the page offered one 12px grey line about rating and
+reporting, which named none of the three things an owner arrives to do, so a vendor
+landing on their own entry from a search result had no visible route to it.
+
 **`components/ToolPage.jsx` has no client state on purpose** and deliberately
 does not reuse the modal. The modal votes, opens a review form and carries a
 session; this has to be complete in the first response for a crawler that will

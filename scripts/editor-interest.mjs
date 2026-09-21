@@ -229,5 +229,29 @@ for (const [file, what] of [
 ok(EDITOR_INTEREST === "maintained by the editor",
   "one wording, shared by every badge", `"${EDITOR_INTEREST}"`);
 
+/* ------------------------------------------------------------------ */
+console.log("\nthe surfaces that must NOT invite a claim:");
+{
+  /*
+   * The tool page grew a "Claim and edit this listing" control, which is the
+   * one addition that could quietly contradict the 403. Order is the check:
+   * the editor-interest branch has to return before the invitation is built,
+   * so this asserts the guard appears first rather than merely appearing.
+   */
+  const src = readFileSync(join(ROOT, "components/ToolPage.jsx"), "utf8");
+  const invite = src.indexOf("Claim and edit this listing");
+  const guard = src.indexOf("if (hasEditorInterest(tool)) {");
+  ok(invite > 0, "the tool page does offer a claim control");
+  ok(guard > 0 && guard < invite,
+    "and the editor-interest branch returns before it, so the flagged entry never sees it");
+  ok(/cannot be claimed/.test(src), "the tool page says why instead");
+
+  const account = readFileSync(join(ROOT, "components/Account.jsx"), "utf8");
+  const aGuard = account.indexOf("if (hasEditorInterest(tool)) {");
+  const aForm = account.indexOf("Is this your tool?");
+  ok(aGuard > 0 && aForm > 0 && aGuard < aForm,
+    "OwnerPanel guards before its own claim form too");
+}
+
 console.log(`\n${bad ? `${bad} FAILED` : "all passed"}`);
 process.exit(bad ? 1 : 0);
