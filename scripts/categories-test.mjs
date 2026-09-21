@@ -243,5 +243,122 @@ for (const [file, what] of [
   ok(/alternates: \{ canonical/.test(src), "and the page declares its canonical");
 }
 
+/* ------------------------------------------------------------------ */
+/*
+ * Related tools, which is where half-built multi-category showed itself.
+ *
+ * The third tier used to be "the rest of the catalogue" labelled "also
+ * listed", sliced to fill eight rows, so a Support & CX page with two siblings
+ * rendered those two and then six App Store ASO tools. The label was true of
+ * every entry in the directory and therefore said nothing.
+ */
+console.log("\nrelated tools:");
+{
+  /* "" is a real answer: the row's own category label already said it. */
+  const LABELS = ["named as a direct competitor", "same owner", ""];
+  const isCatLabel = (w) => /^both in /.test(w);
+  let padded = 0;
+  for (const t of TOOLS) {
+    const rel = seo.relatedTools(t, TOOLS);
+    for (const { tool: r, why } of rel) {
+      if (!LABELS.includes(why) && !isCatLabel(why)) {
+        ok(false, `${t.name} -> ${r.name}: unrecognised label`, why); continue;
+      }
+      /* The assertion that matters: every row is related for a stated reason
+         that is actually true of the pair, rather than filling a slot. */
+      const related = (isCatLabel(why) || why === "")
+        ? catsOf(t).some((id) => isInCat(r, id))
+        : why === "same owner"
+          ? Boolean((t.linked && (r.name === t.linked || r.linked === t.name))
+            || (t.suite && r.suite === t.suite)
+            || (T.ownerOf(t) && T.ownerOf(r) === T.ownerOf(t)))
+          : (t.competes || []).includes(r.id) || (r.competes || []).includes(t.id);
+      if (!related) { ok(false, `${t.name} -> ${r.name} is not actually ${why}`); padded += 1; }
+      if (isCatLabel(why)) {
+        const named = why.replace("both in ", "");
+        const cat = CATEGORIES.find((c) => c.label === named);
+        if (!cat || !isInCat(t, cat.id) || !isInCat(r, cat.id)) {
+          ok(false, `${t.name} -> ${r.name}: label names ${named}, which they are not both in`);
+        }
+      }
+    }
+  }
+  ok(padded === 0, "no row is padding: every one is related for the reason it states");
+  ok(!JSON.stringify(TOOLS.map((t) => seo.relatedTools(t, TOOLS))).includes("also listed"),
+    'the meaningless "also listed" tier is gone');
+
+  /* Fewer than three genuine matches shows fewer, rather than reaching. */
+  const support = TOOLS.filter((t) => isInCat(t, "support"));
+  const apricot = TOOLS.find((t) => t.id === "apricotcx");
+  const rel = seo.relatedTools(apricot, TOOLS);
+  ok(rel.length === support.length - 1,
+    "a thin category shows only its real siblings rather than filling eight rows",
+    `${rel.length} rows for ${support.length} support tools`);
+  ok(rel.every(({ tool: r }) => isInCat(r, "support")),
+    "and every one of them is actually in the category");
+
+  /* A dying tool never leads a list, same rule as every order in the grid. */
+  for (const t of TOOLS) {
+    const rel = seo.relatedTools(t, TOOLS);
+    const firstDying = rel.findIndex(({ tool: r }) => r.dying);
+    if (firstDying >= 0) {
+      ok(rel.slice(firstDying).every(({ tool: r, why }) =>
+        r.dying || why !== rel[firstDying].why),
+      `${t.name}: a wind-down does not lead its tier`);
+    }
+  }
+
+  /* The competitor tier is the only one that may cross a category, and the
+     whole reason it exists. Mantle is the case. */
+  const mantle = TOOLS.find((t) => t.id === "mantle");
+  const mrel = seo.relatedTools(mantle, TOOLS);
+  ok(mrel.filter((r) => r.why === "named as a direct competitor").length >= 5,
+    "Mantle links to its replacements", `${mrel.filter((r) => r.why === "named as a direct competitor").length}`);
+  const crossCat = mrel.filter((r) => r.why === "named as a direct competitor"
+    && !catsOf(r.tool).some((id) => isInCat(mantle, id)));
+  ok(crossCat.length > 0,
+    "including ones sharing no category at all, which overlap cannot find",
+    crossCat.map((r) => r.tool.name).join(", "));
+  for (const id of mantle.competes) {
+    const back = seo.relatedTools(TOOLS.find((t) => t.id === id), TOOLS);
+    ok(back.some(({ tool: r }) => r.id === "mantle"),
+      `${id} links back to Mantle, so one declaration wires both pages`);
+  }
+}
+
+console.log("\nevery competes id is real:");
+{
+  const ids = new Set(TOOLS.map((t) => t.id));
+  for (const t of TOOLS) {
+    for (const id of t.competes || []) {
+      /* A typo here fails silently: the pair simply never links. */
+      ok(ids.has(id), `${t.name} names "${id}"`, ids.has(id) ? "" : "no such tool");
+      ok(id !== t.id, `${t.name} does not name itself`);
+    }
+  }
+  ok(TOOLS.every((t) => t.competes === undefined || Array.isArray(t.competes)),
+    "competes is always an array where present");
+}
+
+console.log("\nthe secondary categories, as assessed:");
+{
+  const by = Object.fromEntries(TOOLS.map((t) => [t.id, secondaryCats(t)]));
+  const expect = {
+    marmeto: ["biz", "partner"], meridian: ["biz", "aso"], bestappify: ["data"],
+    appstorepulse: ["biz"], ranksy: ["biz"], saasinsights: ["aso"],
+    letsmetrix: ["detect"], applora: ["aso"], ppspy: ["storedb"], elevate: ["partner"],
+  };
+  for (const [id, cats] of Object.entries(expect)) {
+    ok(JSON.stringify(by[id]) === JSON.stringify(cats),
+      `${id} spans ${cats.join(" + ")}`, `got ${JSON.stringify(by[id])}`);
+  }
+  /* Removed on assessment: you cannot hire a research participant. */
+  ok(by.appstoreresearch.length === 0,
+    "App Store Research is not filed under Talent & services");
+  /* A wind-down is deliberately not multiplied across the directory. */
+  ok(TOOLS.filter((t) => t.dying).every((t) => secondaryCats(t).length === 0),
+    "no dying tool carries a secondary category");
+}
+
 console.log(`\n${bad ? `${bad} FAILED` : "all passed"}`);
 process.exit(bad ? 1 : 0);

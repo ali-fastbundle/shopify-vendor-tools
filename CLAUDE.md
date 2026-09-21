@@ -16,7 +16,7 @@ protect that, not for technical reasons.
 Every tool has a `watch` field: the honest caveat. Vendors who claim a listing can edit
 the summary, description, pricing and links. They cannot touch `watch`, `cat`,
 `alsoIn`, `verified`, `ratings` (the external scores), `updated`, `noRecommend`,
-community ratings or reviews.
+`competes`, community ratings or reviews.
 This is enforced server-side in `lib/listings.js` via
 the `EDITABLE` whitelist, and restated explicitly in `mergedTools()`. If you refactor
 that file, verify with:
@@ -527,7 +527,7 @@ an *admin* may apply from a proposal, which is wider because the monitor is not
 an interested party: it adds `owner`, `linked`, `suite` and `dying`, the facts a
 vendor should not get to assert about themselves. `PROTECTED` is what no route
 may write: `watch`, `cat`, `alsoIn`, `verified`, `ratings`, `updated`, `id`, `name`,
-`noRecommend`.
+`noRecommend`, `competes`.
 
 **A proposal touching a protected field gets no button, ever.** It renders as
 "needs a hand edit" with the reason stated rather than left as a missing
@@ -964,6 +964,26 @@ of tools at an address.
   both point there too. They pointed at `/#cat`, which landed on the directory and
   set nothing, because the filter is client state.
 
+**File a secondary only where the entry's own `note` describes that category's
+core job**, not where it touches on it. The test is whether somebody shopping that
+shelf would genuinely consider it. Two calls worth recording, because a rejected
+candidate and one nobody thought of look identical later:
+
+- **App Store Research is not in Talent & services**, though an earlier pass filed
+  it there. That category is defined as freelance developers and expert
+  marketplaces, for hiring and for affiliate partnerships, and you cannot hire a
+  research participant to build anything. The real connection to ShopExperts is the
+  shared owner, which `linked` already states.
+- **StoreCensus has no secondary**, because outreach is not a category and does not
+  need to be. `storedb` is already "query the merchant universe by platform, apps
+  installed, revenue band and contacts", and Store Leads, CartInsight and
+  StoreInspect all push to a CRM too. A category that applied to most of another
+  category is a duplicate of it.
+- **A `dying` tool gets none.** Mantle was billing, affiliates and ASO, and filing
+  a wind-down into three categories spreads a dead product across the directory.
+  Its replacements are reachable through `competes` instead, which is the right
+  relationship anyway.
+
 **Adding a category means adding its `--ink-` pair to both theme blocks in
 `globals.css`** in the same commit. `ink()` falls back to the hex, so forgetting
 degrades to an unreadable label on the light theme, which is the one failure `ink()`
@@ -1104,9 +1124,36 @@ is the bug this shape prevents.
 builds one from `one`, the category and the price. Thirty pages sharing a
 description is thirty pages treated as one.
 
-**Every tool page links to related tools**, by shared owner first, then
-category, then the rest. A page nothing links to is found once from the sitemap
-and quietly dropped, and modal-only browsing produced nothing but orphans.
+**Every tool page links to related tools, and never to padding.** Three tiers,
+most specific first: a tool named in `competes`, a tool sharing an owner, a tool
+sharing any category. **Fewer than three genuine matches shows fewer, including
+none**, and an empty section renders nothing at all.
+
+The third tier used to be "the rest of the catalogue", labelled "also listed" and
+sliced to fill eight rows. That label is true of all sixty entries, so it said
+nothing, and on a thin category it swamped the real matches: Apricot CX showed its
+two Support & CX siblings and then six App Store ASO tools. A list padded to a
+length reads as a broken feature, which is exactly how it was reported.
+
+**`competes` is the only tier that may cross a category**, and that is what it is
+for. Mantle is winding down in Analytics & billing and four of the things replacing
+it are Partner & affiliate tools, so no amount of category overlap finds them,
+while "what do I move to" is the only question anybody opens that entry to ask. It
+is read symmetrically, so one declaration wires both pages, and it is written only
+where the catalogue's own prose already names the rivalry. It is in `PROTECTED`:
+naming your rivals decides whose page you appear on, so a vendor who could write it
+would put themselves on the page of every tool they lose deals to.
+
+**The label names the shared category, except where the row already does.** Every
+row prints the related tool's own primary category beside its name, so where that
+is also the shared one the label repeats it, word for word: "KivoSupport  Support &
+CX  both in Support & CX". The label is empty there and the row renders none. That
+was invisible to the tests and obvious on the page, which is the argument for
+opening it.
+
+`ownerOf` rather than `owner` in the same-owner tier, so two entries carrying a
+vacuous owner value cannot match each other on it (invariant 32). `dying` sorts
+last inside every tier, the same rule the grid follows.
 
 **29. Structured data says only what is true.**
 `lib/seo.js` is the one place it is built, because the same facts have to agree

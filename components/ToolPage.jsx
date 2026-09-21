@@ -313,7 +313,11 @@ export default function ToolPage({ tool, related, reviews = [], rating, lastUpda
                   <span style={{ fontSize: F.xs, color: ink(catOf(t.cat).color), marginLeft: S.sm }}>
                     {catOf(t.cat).label}
                   </span>
-                  <span style={{ fontSize: F.xs, color: C.dim, marginLeft: S.sm }}>{why}</span>
+                  {/* Empty where the category label above already says it.
+                      Rule E: when there is nothing to add, render nothing. */}
+                  {why && (
+                    <span style={{ fontSize: F.xs, color: C.dim, marginLeft: S.sm }}>{why}</span>
+                  )}
                   <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.5 }}>{t.one}</p>
                 </li>
               ))}
