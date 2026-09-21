@@ -1,4 +1,4 @@
-import { catOf, hasEditorInterest } from "@/lib/tools";
+import { catOf, recommendable } from "@/lib/tools";
 import { catalogueTools } from "@/lib/entries";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { askJson, configured } from "@/lib/model";
@@ -54,19 +54,17 @@ export async function POST(request) {
   /*
    * What the matcher is allowed to recommend.
    *
-   * Anything the editor has a commercial interest in comes out first, before
-   * the prompt is built, so the model is never shown it and cannot pick it.
-   * `clean` then validates against this same list rather than the full
-   * catalogue, so an id the model invented or remembered still cannot come
-   * back. Two defences in six lines, because the failure this prevents is the
-   * directory quietly recommending its own maintainer's company to somebody
-   * who came here for an independent answer. See invariant 35.
+   * Anything carrying `noRecommend` comes out before the prompt is built, so
+   * the model is never shown it and cannot pick it. `clean` then validates
+   * against this same list rather than the full catalogue, so an id the model
+   * invented or remembered still cannot come back either.
    *
    * Excluded from recommendation, not from the directory: the entry is in the
-   * grid, the search, the counts and its category page exactly like any other.
+   * grid, the search, the counts and its category page exactly like any other,
+   * and nothing about it is badged or annotated. See invariant 35.
    */
   const all = await catalogueTools();
-  const tools = all.filter((t) => !hasEditorInterest(t));
+  const tools = all.filter(recommendable);
   const catalogue = tools.filter((t) => !t.dying)
     .map((t) => `${t.id} | ${t.name} | ${catOf(t.cat).label} | ${t.price} | ${t.one} | tags: ${t.tags.join(", ")}`)
     .join("\n");

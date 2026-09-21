@@ -15,7 +15,7 @@ protect that, not for technical reasons.
 **1. `watch` is never editable by a vendor.**
 Every tool has a `watch` field: the honest caveat. Vendors who claim a listing can edit
 the summary, description, pricing and links. They cannot touch `watch`, `cat`,
-`alsoIn`, `verified`, `ratings` (the external scores), `updated`, `editorInterest`,
+`alsoIn`, `verified`, `ratings` (the external scores), `updated`, `noRecommend`,
 community ratings or reviews.
 This is enforced server-side in `lib/listings.js` via
 the `EDITABLE` whitelist, and restated explicitly in `mergedTools()`. If you refactor
@@ -527,7 +527,7 @@ an *admin* may apply from a proposal, which is wider because the monitor is not
 an interested party: it adds `owner`, `linked`, `suite` and `dying`, the facts a
 vendor should not get to assert about themselves. `PROTECTED` is what no route
 may write: `watch`, `cat`, `alsoIn`, `verified`, `ratings`, `updated`, `id`, `name`,
-`editorInterest`.
+`noRecommend`.
 
 **A proposal touching a protected field gets no button, ever.** It renders as
 "needs a hand edit" with the reason stated rather than left as a missing
@@ -844,75 +844,61 @@ interchangeable:**
 Adding a store key means adding a row to `SHAPES` in the same commit, or it is a
 key nobody can see.
 
-**35. An entry the editor has a commercial interest in is disclosed louder than a
-reader would think to ask.**
-The whole value of this site is that the caveat is written by somebody with nothing
-to gain. One entry is a company the person maintaining the directory runs, and the
-only honest way to list it is to make the exception impossible to miss.
+**35. A flag may describe what we do. It may never describe what somebody else is.**
+`noRecommend: true` keeps an entry out of the matcher's recommendations. That is
+its only consequence and it asserts nothing at all about the company: not a
+conflict, not a relationship, not a doubt about the product. `recommendable()` in
+`lib/tools.js` is the single copy of the rule. Absent means recommendable, which is
+every other entry.
 
-`editorInterest: true` in `lib/tools.js` is the flag. There is no `false`, for the
-same reason there is no `shopifyExclusive: true`: a badge on the other sixty entries
-saying "not the editor's" is noise everywhere to carry information in one place.
-`hasEditorInterest` and `EDITOR_INTEREST` in `lib/tools.js` are the single copies of
-the rule and of the wording.
+**This exists because the previous version of it published a false claim about a
+real company.** The field was called `editorInterest`, and on that one boolean hung
+a warn badge reading "maintained by the editor" on five surfaces, a disclosure
+paragraph in the warning colour on the detail view and the tool page, a line in
+`llms.txt`, a row in the compare table, a 403 from `/api/claim`, and a `watch`
+written in the first person. The premise was wrong. Every one of those said so, in
+our voice, on a public page, about a business with no connection to this directory.
 
-**This treatment applies to any entry the editor has a commercial interest in, no
-exceptions.** Owns it, is paid by it, holds equity in it, advises it for money,
-takes a referral fee from it. If the question "would a reader feel misled on
-finding this out" has any answer but a flat no, the flag goes on. It is not a
-judgement call about how large the interest is, and it is not waived because the
-entry is critical of its own subject: a critical review by an interested party is
-still an interested party's review. An entry that cannot carry the flag honestly
-does not go in the directory at all.
+The lesson is not "check the premise", though that too. It is that **a field whose
+name is a claim about somebody will publish that claim everywhere it is read**, and
+six components will render it faithfully without anybody deciding to say it again.
+One bad boolean is cheap to write and it went out in six places.
 
-**Six things follow from the flag, and they fail in different directions.**
+So the shape is now the other way round:
 
-- **A warn badge on the card, the list row, the detail view, the tool page and
-  the category page**, reading "maintained by the editor". This is the second and
-  last exception to colour invariant B, and the only one that is a warning about
-  *us* rather than about a product. It cannot be neutral, it cannot be muted type
-  in the `Facts` line, and it cannot be detail-view only: a reader who does not
-  notice has been misled by the entry looking exactly like the other sixty.
-- **`watch` states it in the first person**, and states three things: that the
-  interest exists, that the assessment is therefore not neutral, and what the
-  reader should do about it. Then it carries on and says the checkable facts
-  anyway, at the standard the rest of the catalogue is held to. A disclosure that
-  replaces the caveat is a softer entry wearing a warning label.
-- **A disclosure block above `watch`** on the detail view and the tool page, in
-  the warning colour, saying the same thing in our voice rather than the editor's.
-  The badge is what makes somebody look; this is what they read, and it has to be
-  adjacent to the note whose independence it qualifies.
-- **The matcher will not recommend it.** `/api/match` filters it out before the
-  prompt is built, so the model never sees it, and validates the returned picks
-  against that same filtered list, so an invented or remembered id is dropped.
-  `localMatch` in `components/Directory.jsx` filters it too. **A rule that holds
-  on the model path and not on the keyword path behind it is not a rule**, because
-  invariant 20 guarantees that path runs. Excluded from *recommendation*, not from
-  the directory: it is in the grid, the search, the counts, the compare table and
-  its category page like anything else, because hiding it would be a second way
-  of not disclosing it.
-- **It cannot be claimed.** `/api/claim` answers 403 whatever the UI renders,
-  including from an address at the tool's own domain, which is the path that
-  verifies an ordinary claim outright. There is nobody for a claim to transfer it
-  to. `OwnerPanel` says so instead of rendering a form that cannot succeed.
-- **It is in `PROTECTED`.** No vendor edit, override or monitor proposal can set
-  it, clear it, or plant it on a competitor, and `mergedTools()` restates it. This
-  is the one field whose entire purpose is to be inconvenient to the person it
-  describes, so an override that could clear it would remove the disclosure from
-  the only entry that needs one.
+- **Anything that needs saying about an entry is said in `watch` and `owner`, in
+  words.** Those are editorial fields, written once, by a person, who had to type
+  the sentence. That is the whole safeguard: a sentence somebody wrote on purpose
+  is a sentence somebody can be wrong about *once*, in one place, where a reader
+  can weigh it and where a correction is one edit.
+- **No badge, no disclosure block, no `llms.txt` note, no compare row.** If a
+  future entry needs a disclosure, it goes in `watch` as prose. Do not reintroduce
+  a rendered badge driven by a boolean without being asked for one specifically.
+- **A flagged entry is an ordinary listing in every other respect.** In the grid,
+  the search, the counts, its category page, the compare table, and claimable like
+  anything else. Excluding it from *recommendation* is the one thing; hiding it or
+  annotating it is not.
+- **It is in `PROTECTED`**, because it is a rule about our behaviour and a vendor
+  who could clear it would put themselves back into the matcher, while one who
+  could set it would take a rival out. `sanitiseEntry` forces it absent, so it can
+  only be written by hand in `lib/tools.js` where somebody is on the hook for it in
+  git.
+- **Both matcher paths honour it.** `/api/match` filters before the prompt is built
+  so the model never sees it, and validates the returned picks against that same
+  filtered list. `localMatch` in `components/Directory.jsx` filters too. **A rule
+  that holds on the model path and not on the keyword path behind it is not a
+  rule**, because invariant 20 guarantees that path runs.
 
-`sanitiseEntry` forces it absent, in both directions. It is a statement about the
-person maintaining the directory rather than about a tool, so nothing arriving over
-HTTP or out of a model gets to assert it: it is written by hand in `lib/tools.js`
-where somebody is on the hook for it in git.
+`scripts/matcher-exclusion.mjs` tests both halves, and the second half is the one
+that would have caught the bug: it asserts the *absence* of the badge, the
+disclosure copy, the first person in `watch`, and any claim of a relationship with
+the directory. A test that only checks the feature works cannot see a feature
+quietly growing a claim about a person.
 
-**It travels in `llms.txt`.** Anything reading that file is exactly the audience
-that would otherwise repeat the caveat as independent, which is the one thing this
-entry must never be quoted as.
-
-`scripts/editor-interest.mjs` covers all six, including the controls: that an
-ordinary listing is still claimable, and that an otherwise valid vendor edit still
-saves. A test that only proves nothing works proves nothing.
+It also checks house length, because the bad entry was about twice the length of
+anything else in the catalogue. A `note` of two to four sentences and a `watch` of
+one to three is the house, and an entry that runs to three times that is either
+explaining itself or apologising. Neither is what the field is for.
 
 **36. A tool has one primary category and may belong in others, and every category
 has a page.**
@@ -1100,10 +1086,10 @@ and "something just happened" is not one of them.
 this listing` control, and it is an anchor to `/?tool=<id>`: the directory validates
 the id and opens the listing with `OwnerPanel` in it. The form itself cannot be here
 because claiming mints a token, checks a domain and carries a session, all of which
-is client state. Three states, because the wrong invitation is worse than none:
-unclaimed gets the invitation with the boundary stated up front, claimed says the
-vendor maintains it already, and an `editorInterest` entry says it cannot be claimed
-(invariant 35). Before this the page offered one 12px grey line about rating and
+is client state. Two states, because the wrong invitation is worse than none:
+unclaimed gets the invitation with the boundary stated up front, and claimed says
+the vendor maintains it already rather than inviting a claim that would 409. Before
+this the page offered one 12px grey line about rating and
 reporting, which named none of the three things an owner arrives to do, so a vendor
 landing on their own entry from a search result had no visible route to it.
 
@@ -1299,7 +1285,7 @@ days; a person still writes the sentence around it and presses send.
 
 | Path | Role |
 |---|---|
-| `lib/tools.js` | Catalogue (`ALL_TOOLS` as written, `TOOLS` published), categories and the multi-category helpers (`catsOf`, `isInCat`, `isPrimaryCat`, `findCat`), `hasEditorInterest`, design tokens (`C`, `S`, `R`, `F`, `TRACK`, `BAND`, `ink`), and `LAST_UPDATED` derived from it. Edit tools here only. |
+| `lib/tools.js` | Catalogue (`ALL_TOOLS` as written, `TOOLS` published), categories and the multi-category helpers (`catsOf`, `isInCat`, `isPrimaryCat`, `findCat`), `recommendable`, design tokens (`C`, `S`, `R`, `F`, `TRACK`, `BAND`, `ink`), and `LAST_UPDATED` derived from it. Edit tools here only. |
 | `lib/listings.js` | Claims, the editable whitelist, domain verification, merge logic |
 | `lib/auth.js` | HMAC session cookies, magic-link tokens, admin check |
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
@@ -1449,14 +1435,14 @@ another. Free plan, unverified, suite membership, same-owner, by-owner, claimed,
 unrelated colours beside a spine whose colour means something and drained the meaning
 out of all of them. `Pill` takes no colour any more; it only takes `tone`.
 
-There are exactly two exceptions, both `tone="warn"`, and both are warnings rather
-than labels.
+The single exception is `tone="warn"` on "winding down". That is a status warning
+about the product, not a label on it, and it is allowed to be seen.
 
-"winding down" is a status warning about the product, and it is the only thing on a
-card that tells you not to bother. "maintained by the editor" is the mirror image:
-everything else on a card is a judgement made by somebody with nothing to gain, and
-there it is not true. See invariant 35. Neither is a category and neither is an
-attribute, which is why they are allowed to be seen and why there is no third one.
+There was briefly a second, "maintained by the editor", and it was removed along
+with the false premise it was built on. See invariant 35: the reason it is not
+coming back is not that the badge was ugly, it is that a rendered badge driven by a
+boolean says the same thing on every surface without anybody deciding to say it,
+which is how one wrong flag became six wrong statements.
 
 Two attributes stay badges rather than joining the `Facts` line, and both for the same
 reason: they are statements about *scope*, not facts about the product. "Shopify-specific"
@@ -1514,10 +1500,8 @@ card had grown a badge per feature until it carried fifteen unranked elements.
 
 On the card: the mark, the name, the category, the one-line summary, the price,
 the community rating and review count, the votes, `Visit site`, and the compare
-control. Plus rule B's two allowed warn badges: `winding down`, the only thing on a
-card that tells you not to bother, and `maintained by the editor`, which says who
-wrote the caveat and is therefore the first thing bearing on whether to open it at
-all (invariant 35).
+control. Plus `winding down`, which is rule B's one allowed warn badge and the
+only thing on a card that tells you not to bother.
 
 Plus one thing that renders conditionally: under a *secondary* category filter, a
 muted "also in {that category}" after the category label. It is absent under "All"
@@ -1920,7 +1904,7 @@ node scripts/updates-count.mjs       # "new since your last visit", including th
 node scripts/discovery-urls.mjs      # anchor capture against real markup, and the dismissed set
 node scripts/discovery-settled.mjs   # one item, one place: listed, queued or declined
 node scripts/housekeeping-test.mjs   # the reset clears four things and protects the snapshots
-node scripts/editor-interest.mjs     # the editor's own entry: disclosed, unrecommendable, unclaimable
+node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, and does nothing else
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server

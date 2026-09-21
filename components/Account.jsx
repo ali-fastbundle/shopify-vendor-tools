@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { C, S, R, F, SOCIALS, hasEditorInterest } from "@/lib/tools";
+import { C, S, R, F, SOCIALS } from "@/lib/tools";
 
 /* ------------------------------------------------------------------ */
 /*  Session hook                                                       */
@@ -234,21 +234,6 @@ export function AccountBar({ session, refresh }) {
 /* ------------------------------------------------------------------ */
 export function OwnerPanel({ tool, session, refresh, onTools }) {
   const owns = session.owned?.includes(tool.id) || session.admin;
-
-  /*
-   * Nothing to claim. The directory's editor already controls this one, so a
-   * claim has nobody to transfer it to and a form inviting one would be a form
-   * that cannot succeed. /api/claim answers 403 whatever this renders: the page
-   * not offering the button is the convenience, never the permission.
-   */
-  if (hasEditorInterest(tool)) {
-    return (
-      <p style={{ fontSize: F.sm, color: C.muted, marginTop: S.lg, lineHeight: 1.55 }}>
-        This listing cannot be claimed. The person who maintains this directory runs {tool.name}
-        {" "}and already controls it, which is why the entry says so on its face.
-      </p>
-    );
-  }
   // Signing in from the tool's own domain is itself proof, so that path skips publishing.
   const shortcut = rootOf(domainOfEmail(session.email)) === rootOf(tool.domain);
   const [claim, setClaim] = useState(null);

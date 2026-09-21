@@ -2,7 +2,7 @@ import React from "react";
 import { outbound } from "@/lib/outbound";
 import {
   C, S, R, F, TRACK, ink, catOf, secondaryCats, socialLabel, SOCIALS,
-  formatDay, ownerOf, hasEditorInterest, EDITOR_INTEREST,
+  formatDay, ownerOf,
 } from "@/lib/tools";
 import { toolDescription, logoAlt } from "@/lib/seo";
 /*
@@ -84,17 +84,11 @@ function Facts({ tool }) {
  * against the catalogue and opens as the listing with `OwnerPanel` inside it.
  * Same trick as the category label being an anchor rather than a filter chip.
  *
- * Three states, because the wrong invitation is worse than none:
- *
- *   editor interest   says it cannot be claimed, and why. Invariant 35, and
- *                     the same sentence OwnerPanel renders, so the two
- *                     surfaces cannot end up saying different things about
- *                     who controls an entry.
- *   claimed           says the vendor maintains it already, and what that
- *                     covers, rather than inviting a claim that would 409.
- *   otherwise         the invitation, with the boundary stated up front: a
- *                     vendor who reads "edit your listing" and then discovers
- *                     they cannot touch `watch` has been sold something.
+ * Two states, because the wrong invitation is worse than none. Claimed says
+ * the vendor maintains it already, and what that covers, rather than inviting
+ * a claim that would 409. Otherwise it is the invitation, with the boundary
+ * stated up front: a vendor who reads "edit your listing" and then discovers
+ * they cannot touch `watch` has been sold something.
  *
  * Dashed border and no fill, which is `OwnerPanel`'s own unclaimed treatment.
  * It is the same offer, so it looks like the same offer. No accent either:
@@ -103,18 +97,6 @@ function Facts({ tool }) {
  */
 function OwnerInvite({ tool }) {
   const href = `/?tool=${encodeURIComponent(tool.id)}`;
-
-  if (hasEditorInterest(tool)) {
-    return (
-      <p style={{
-        fontSize: F.sm, color: C.muted, lineHeight: 1.55,
-        margin: `${S.xl}px 0 0`, paddingTop: S.lg, borderTop: `1px solid ${C.line}`,
-      }}>
-        This listing cannot be claimed. The person who maintains this directory runs {tool.name}
-        {" "}and already controls it, which is why the entry says so on its face.
-      </p>
-    );
-  }
 
   return (
     <div style={{
@@ -196,7 +178,6 @@ export default function ToolPage({ tool, related, reviews = [], rating, lastUpda
                     {tool.name}
                   </h1>
                   {tool.dying && <Pill tone="warn">winding down</Pill>}
-                  {hasEditorInterest(tool) && <Pill tone="warn">{EDITOR_INTEREST}</Pill>}
                 </div>
                 {/* Every category, each linking to its page. The primary keeps
                     the colour; the rest follow in their own ink after "also
@@ -232,24 +213,6 @@ export default function ToolPage({ tool, related, reviews = [], rating, lastUpda
 
             <p style={{ fontSize: F.lg, lineHeight: 1.62, margin: `${S.xl}px 0 0` }}>{tool.note}</p>
 
-            {/*
-              * The disclosure, in the server HTML for the same reason the
-              * caveat is: this is the page a model cites, and a caveat quoted
-              * as independent when it is not is the one failure this entry
-              * cannot be allowed to cause.
-              */}
-            {hasEditorInterest(tool) && (
-              <p style={{
-                fontSize: F.sm, lineHeight: 1.55, margin: `${S.lg}px 0 0`, maxWidth: "68ch",
-                color: C.badInk, background: C.badSoft, border: `1px solid ${C.badEdge}`,
-                borderRadius: R.control, padding: S.md, fontWeight: 600,
-              }}>
-                Disclosure. The person who maintains this directory has a direct commercial
-                interest in {tool.name}, so the note below is not the independent judgement every
-                other entry here is. It is excluded from the matcher's recommendations and cannot
-                be claimed.
-              </p>
-            )}
             {/* The caveat, and the reason this directory exists. It is in the
                 server HTML because it is the part worth citing. */}
             <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.md}px 0 0`, color: C.muted }}>

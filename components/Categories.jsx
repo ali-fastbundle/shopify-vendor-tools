@@ -1,7 +1,7 @@
 import React from "react";
 import { outbound } from "@/lib/outbound";
 import {
-  C, S, R, F, TRACK, ink, catOf, ownerOf, hasEditorInterest, EDITOR_INTEREST,
+  C, S, R, F, TRACK, ink, catOf, ownerOf,
 } from "@/lib/tools";
 import { logoAlt } from "@/lib/seo";
 import { Pill } from "@/components/Pill";
@@ -96,7 +96,6 @@ function Member({ tool, primary }) {
               letterSpacing: TRACK.tight,
             }}>{tool.name}</a>
             {tool.dying && <Pill tone="warn">winding down</Pill>}
-            {hasEditorInterest(tool) && <Pill tone="warn">{EDITOR_INTEREST}</Pill>}
           </div>
 
           {/*

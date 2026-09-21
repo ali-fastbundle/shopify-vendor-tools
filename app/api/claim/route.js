@@ -1,5 +1,4 @@
 import { sessionFrom, domainOf, isAdmin } from "@/lib/auth";
-import { hasEditorInterest } from "@/lib/tools";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { catalogueTools } from "@/lib/entries";
 import { startClaim, checkDomain, markVerified, getClaims, VERIFY_PREFIX } from "@/lib/listings";
@@ -22,22 +21,6 @@ export async function POST(request) {
   const { toolId, action } = await request.json();
   const tool = (await catalogueTools()).find((t) => t.id === toolId);
   if (!tool) return new Response("Unknown tool", { status: 400 });
-
-  /*
-   * An entry the editor has a commercial interest in is already controlled by
-   * the person who maintains the directory, so there is nobody for a claim to
-   * transfer it to. Refused here rather than only hidden in the UI, for the
-   * reason invariant 7 gives about /admin: the page not offering a button is a
-   * convenience, never the permission. 403 rather than 404, because unlike an
-   * admin route this listing is public and there is nothing to be coy about.
-   */
-  if (hasEditorInterest(tool)) {
-    return new Response(
-      "This listing cannot be claimed. The directory's editor already controls it, "
-      + "which is stated on the entry.",
-      { status: 403 },
-    );
-  }
 
   const claims = await getClaims();
   const existing = claims[toolId];

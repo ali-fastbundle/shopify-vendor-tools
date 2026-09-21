@@ -11,7 +11,7 @@ import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
 import CopyLink from "./CopyLink";
 import { FeedRows } from "./ChangesFeed";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, secondaryCats, isInCat, isPrimaryCat, hasEditorInterest, EDITOR_INTEREST } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
 
@@ -324,24 +324,6 @@ const ownershipOf = (t) =>
 const NotShopifyOnly = ({ tool }) =>
   tool.shopifyExclusive === false ? <Pill>not Shopify-only</Pill> : null;
 
-/*
- * The second and last exception to colour invariant B, and the only one that
- * is a warning about *us* rather than about the product.
- *
- * "winding down" earned a warn badge because it is the one thing on a card
- * that tells you not to bother. This earns one for the mirror-image reason:
- * everything else on the card is a judgement made by somebody with nothing to
- * gain, and here that is not true. A reader who does not notice has been
- * misled by the entry looking exactly like the other sixty, so it cannot be
- * neutral, it cannot be muted type in the `Facts` line, and it cannot be only
- * on the detail view. `watch` says it in full; this is what makes somebody
- * read `watch`.
- *
- * Rule J's bar for the card is whether it helps you choose which one to open,
- * and who wrote the caveat is the first thing that bears on that.
- */
-const EditorInterest = ({ tool }) =>
-  hasEditorInterest(tool) ? <Pill tone="warn">{EDITOR_INTEREST}</Pill> : null;
 
 /*
  * Every category a tool is in, as links to the category pages.
@@ -418,14 +400,14 @@ const EXAMPLES = [
 /*
  * The keyword fallback, which is the matcher when a model is unavailable.
  *
- * It filters editor-interest entries for the same reason the route does. A
- * rule that holds on the model path and not on the path behind it is not a
- * rule, it is a rule plus an outage away from being broken, and invariant 20
- * guarantees this path runs.
+ * It honours `noRecommend` for the same reason the route does. A rule that
+ * holds on the model path and not on the path behind it is not a rule, it is a
+ * rule plus an outage away from being broken, and invariant 20 guarantees this
+ * path runs.
  */
 function localMatch(problem, tools = TOOLS) {
   const words = problem.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
-  return tools.filter((t) => !hasEditorInterest(t)).map((t) => {
+  return tools.filter(recommendable).map((t) => {
     const hay = (t.tags.join(" ") + " " + t.one + " " + t.note + " " + catOf(t.cat).label).toLowerCase();
     let score = 0;
     words.forEach((w) => {
@@ -457,7 +439,7 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
   const [editing, setEditing] = useState(true);
 
   /* What the matcher may recommend. See invariant 35. */
-  const pool = useMemo(() => tools.filter((t) => !hasEditorInterest(t)), [tools]);
+  const pool = useMemo(() => tools.filter(recommendable), [tools]);
 
   /* The masthead drops to one column once there is an answer to show. */
   useEffect(() => { onAnswered?.(Boolean(result)); }, [result, onAnswered]);
@@ -1607,7 +1589,6 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
                           letterSpacing: TRACK.tight,
                         }}>{t.name}</a>
                       {t.dying && <Pill tone="warn">winding down</Pill>}
-                      <EditorInterest tool={t} />
                       <NotShopifyOnly tool={t} />
                     </div>
                   </td>
@@ -1784,9 +1765,6 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
                   warning about the product rather than a label on it. It is
                   also the only thing here that tells you not to bother. */}
               {tool.dying && <Pill tone="warn">winding down</Pill>}
-              {/* The other warn badge, and the reason it is on the card at all
-                  rather than only on the detail view. See EditorInterest. */}
-              <EditorInterest tool={tool} />
             </div>
             {/* A real link to the category page. The card title is an anchor
                 for the same reason: a crawler follows hrefs, and a filter chip
@@ -1957,28 +1935,10 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
           <span className="tnum" style={{ fontSize: F.md, fontWeight: 700, color: C.text }}>{tool.price}</span>
           <Facts tool={tool} />
           {tool.dying && <Pill tone="warn">winding down</Pill>}
-          <EditorInterest tool={tool} />
           <NotShopifyOnly tool={tool} />
         </div>
 
         <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
-        {/*
-          * Said once in the warn colour before the caveat rather than left to
-          * the badge alone. The badge is what makes somebody look; this is what
-          * they read, and it has to be adjacent to the note whose independence
-          * it qualifies rather than a scroll away.
-          */}
-        {hasEditorInterest(tool) && (
-          <p className="mt-3" style={{
-            fontSize: F.sm, lineHeight: 1.55, maxWidth: "68ch", color: C.badInk,
-            background: C.badSoft, border: `1px solid ${C.badEdge}`,
-            borderRadius: R.control, padding: S.md, fontWeight: 600,
-          }}>
-            Disclosure. The person who maintains this directory has a direct commercial interest in{" "}
-            {tool.name}, so the note below is not the independent judgement every other entry here
-            is. It is excluded from the matcher's recommendations and cannot be claimed.
-          </p>
-        )}
         <p className="mt-3" style={{ fontSize: F.md, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
           <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
         </p>
@@ -2402,11 +2362,6 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
       ? "General tool, not Shopify-only"
       : "Shopify only")]] : []),
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
-    /* Only when one of them answers yes, same rule as the ratings and scope
-       rows. Four rows of "No" says nothing and dilutes the one that says yes. */
-    ...(list.some(hasEditorInterest) ? [["Independence", (t) => (hasEditorInterest(t)
-      ? "The directory's editor has a commercial interest in this"
-      : "No interest declared")]] : []),
     ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
     ["Ownership", ownershipOf],
     ["Site", (t) => t.domain],

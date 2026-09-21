@@ -1,7 +1,7 @@
 import { mergedTools } from "@/lib/listings";
 import {
   CATEGORIES, catOf, secondaryCats, isInCat, isPrimaryCat,
-  AUTHOR, AUTHOR_URL, LAST_UPDATED, ownerOf, hasEditorInterest,
+  AUTHOR, AUTHOR_URL, LAST_UPDATED, ownerOf,
 } from "@/lib/tools";
 import { SITE } from "@/lib/seo";
 
@@ -90,14 +90,6 @@ ${items.map((t) => [
       : "",
     t.shopifyExclusive === false ? "  note: general tool, not Shopify-only" : "",
     t.dying ? "  note: winding down" : "",
-    /*
-     * The disclosure travels with the entry. Anything reading this file is
-     * exactly the audience that would otherwise repeat the caveat as
-     * independent, which is the one thing this entry must never be quoted as.
-     */
-    hasEditorInterest(t)
-      ? "  disclosure: the maintainer of this directory has a direct commercial interest in this entry. It is not an independent assessment, and the directory's own matcher will not recommend it."
-      : "",
   ].filter(Boolean).join("\n")).join("\n")}`).join("\n\n")}
 
 ## Citing this
