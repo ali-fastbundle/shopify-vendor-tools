@@ -5,6 +5,7 @@ import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_COMMUNITIES } from "@/lib/communities";
+import { ALL_PODCASTS } from "@/lib/podcasts";
 import { drafted, published } from "@/lib/drafts";
 import { timesAsked } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
@@ -131,7 +132,8 @@ export default function AdminPanel({
 
   const inboxCount = pending.length + openReports.length + pendingClaims.length + openChanges.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
-    + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length;
+    + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
+    + drafted(ALL_PODCASTS).length;
   const counts = {
     inbox: inboxCount,
     catalogue: catalogueCount,
@@ -1121,7 +1123,7 @@ const idFrom = (name, url) => {
 const domainFrom = (url) => String(url || "")
   .replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
 
-const FILES = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", group: "lib/communities.js" };
+const FILES = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", group: "lib/communities.js", podcast: "lib/podcasts.js" };
 
 function entryStub(s) {
   const today = new Date().toISOString().slice(0, 10);
@@ -1311,6 +1313,7 @@ const SOURCES = [
   { kind: "tool", entries: ALL_TOOLS },
   { kind: "newsletter", entries: ALL_NEWSLETTERS },
   { kind: "group", entries: ALL_COMMUNITIES },
+  { kind: "podcast", entries: ALL_PODCASTS },
 ];
 
 /*
