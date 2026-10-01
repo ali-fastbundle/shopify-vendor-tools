@@ -1249,7 +1249,7 @@ export default function Directory({ tools: initialTools, feed = [] }) {
               border: `1px solid ${freeOnly ? C.text : C.line}`, borderRadius: R.control,
               padding: "8px 16px", fontSize: F.sm, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
             }} className="press">Free plan</button>
-          <select value={sort}
+          <select value={sort} aria-label="Sort tools by"
             onChange={(e) => { setSort(e.target.value); setDir(SORTS[e.target.value].dir); }}
             style={{
               background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
@@ -2075,7 +2075,8 @@ function ReportProblem({ tool }) {
       </div>
 
       <div className="flex flex-wrap items-start mt-3" style={{ gap: S.sm }}>
-        <select value={kind} onChange={(e) => { setKind(e.target.value); setErr(""); }}
+        <select value={kind} aria-label="Kind of problem"
+          onChange={(e) => { setKind(e.target.value); setErr(""); }}
           style={{ ...field, width: 210 }}>
           {REPORT_KINDS.map((k) => (
             <option key={k.id} value={k.id} style={{ background: C.panel }}>{k.label}</option>
@@ -2651,7 +2652,8 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
                 placeholder={kind === "tool" ? "Tool name" : "Name"} />
               <input style={field} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://" />
               {kind === "tool" && (
-                <select style={field} value={cat} onChange={(e) => setCat(e.target.value)}>
+                <select style={field} value={cat} aria-label="Category"
+                  onChange={(e) => setCat(e.target.value)}>
                   {CATEGORIES.map((c) => <option key={c.id} value={c.id} style={{ background: C.panel }}>{c.label}</option>)}
                 </select>
               )}
