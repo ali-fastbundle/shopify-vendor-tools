@@ -73,6 +73,26 @@ export async function POST(request) {
   if (url && !/^https?:\/\/[^\s]+\.[^\s]+$/.test(url)) {
     return new Response("That URL does not look right", { status: 400 });
   }
+  /*
+   * Reject an internal, loopback, private or metadata host at submission time.
+   * This is defence in depth: the real guard is safeFetch in lib/research.js,
+   * which also re-checks every redirect hop and resolves the name, but there is
+   * no reason to let such a URL sit in the queue waiting for an admin to click
+   * research on it. A blank host or a parse failure is left to the regex above.
+   */
+  if (url) {
+    try {
+      const h = new URL(url).hostname.replace(/^\[|\]$/g, "").toLowerCase();
+      const isPrivate =
+        h === "localhost" || h.endsWith(".localhost") || h.endsWith(".internal") ||
+        /^(0|10|127)\./.test(h) ||
+        /^169\.254\./.test(h) ||
+        /^192\.168\./.test(h) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+        h === "::1" || h.startsWith("fc") || h.startsWith("fd") || h.startsWith("fe8");
+      if (isPrivate) return new Response("That URL does not look right", { status: 400 });
+    } catch { return new Response("That URL does not look right", { status: 400 }); }
+  }
 
   const moderate = process.env.MODERATE_SUGGESTIONS === "true";
   const suggestions = await read(KEYS.suggestions, []);
