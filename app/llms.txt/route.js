@@ -3,7 +3,8 @@ import {
   CATEGORIES, catOf, secondaryCats, isInCat, isPrimaryCat,
   AUTHOR, AUTHOR_URL, LAST_UPDATED, ownerOf,
 } from "@/lib/tools";
-import { SITE } from "@/lib/seo";
+import { SITE, isForVendors } from "@/lib/seo";
+import { NEWSLETTERS } from "@/lib/newsletters";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,27 @@ ${items.map((t) => [
     t.shopifyExclusive === false ? "  note: general tool, not Shopify-only" : "",
     t.dying ? "  note: winding down" : "",
   ].filter(Boolean).join("\n")).join("\n")}`).join("\n\n")}
+
+## Newsletters
+
+Newsletters worth an app vendor's time. Two are about the Shopify platform
+itself; the rest are merchant-side media read sideways for demand signal. Each
+has a page at ${SITE}/newsletters/<id> carrying the full note and the "watch for"
+caveat, omitted here for the same reason the tool caveats are.
+
+### About the Shopify platform
+
+${NEWSLETTERS.filter(isForVendors).map((n) => [
+    `- [${n.name}](${SITE}/newsletters/${n.id}): ${n.one}`,
+    `  ${[n.cadence, n.issueCount ? `${n.issueCount} issues` : "", n.free ? "free" : ""].filter(Boolean).join(" | ")}${n.author || n.publisher ? ` | by ${n.author || n.publisher}` : ""}`,
+  ].join("\n")).join("\n")}
+
+### Merchant-side, read sideways
+
+${NEWSLETTERS.filter((n) => !isForVendors(n)).map((n) => [
+    `- [${n.name}](${SITE}/newsletters/${n.id}): ${n.one}`,
+    `  ${[n.cadence, n.issueCount ? `${n.issueCount} issues` : "", n.free ? "free" : ""].filter(Boolean).join(" | ")}${n.author || n.publisher ? ` | by ${n.author || n.publisher}` : ""}`,
+  ].join("\n")).join("\n")}
 
 ## Citing this
 

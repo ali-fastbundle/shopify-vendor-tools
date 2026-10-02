@@ -1,7 +1,7 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { catalogueTools } from "@/lib/entries";
-import { ownsListing, sanitiseEdit, saveEdit, mergedTools } from "@/lib/listings";
+import { listedEntity } from "@/lib/entries";
+import { ownsListing, sanitiseEdit, saveEdit, mergedTools, mergedNewsletters } from "@/lib/listings";
 import { sendEvent } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
@@ -20,8 +20,8 @@ export async function POST(request) {
   }
 
   const { toolId, edit } = await request.json();
-  const tool = (await catalogueTools()).find((t) => t.id === toolId);
-  if (!tool) return new Response("Unknown tool", { status: 400 });
+  const tool = await listedEntity(toolId);
+  if (!tool) return new Response("Unknown listing", { status: 400 });
 
   const owns = await ownsListing(toolId, session.email);
   if (!owns && !isAdmin(session.email)) {
@@ -40,5 +40,6 @@ export async function POST(request) {
     values: changed.map((f) => `${f}: ${typeof clean[f] === "object" ? JSON.stringify(clean[f]) : clean[f]}`),
   });
 
-  return Response.json({ tools: await mergedTools() });
+  const tools = tool.kind === "newsletter" ? await mergedNewsletters() : await mergedTools();
+  return Response.json({ tools });
 }

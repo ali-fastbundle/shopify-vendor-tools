@@ -1,6 +1,6 @@
 import { sessionFrom, domainOf, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { catalogueTools } from "@/lib/entries";
+import { listedEntity } from "@/lib/entries";
 import { startClaim, checkDomain, markVerified, getClaims, VERIFY_PREFIX } from "@/lib/listings";
 import { sendEvent } from "@/lib/mail";
 
@@ -19,8 +19,8 @@ export async function POST(request) {
   }
 
   const { toolId, action } = await request.json();
-  const tool = (await catalogueTools()).find((t) => t.id === toolId);
-  if (!tool) return new Response("Unknown tool", { status: 400 });
+  const tool = await listedEntity(toolId);
+  if (!tool) return new Response("Unknown listing", { status: 400 });
 
   const claims = await getClaims();
   const existing = claims[toolId];

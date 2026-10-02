@@ -1,7 +1,7 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { reportKindOf } from "@/lib/tools";
-import { catalogueTools } from "@/lib/entries";
+import { listedEntity } from "@/lib/entries";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 import { sendEvent } from "@/lib/mail";
 import { tally } from "@/lib/tallies";
@@ -32,8 +32,8 @@ export async function POST(request) {
   let body;
   try { body = await request.json(); } catch { body = {}; }
 
-  const tool = (await catalogueTools()).find((t) => t.id === body.toolId);
-  if (!tool) return new Response("Unknown tool", { status: 400 });
+  const tool = await listedEntity(body.toolId);
+  if (!tool) return new Response("Unknown listing", { status: 400 });
 
   const kind = reportKindOf(body.kind);
   if (!kind) return new Response("Pick what is wrong", { status: 400 });

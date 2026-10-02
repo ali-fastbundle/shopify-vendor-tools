@@ -748,7 +748,7 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools, feed = [] }) {
+export default function Directory({ tools: initialTools, feed = [], newsletterCount = 0 }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
   const [votes, setVotes] = useState({});
@@ -1138,6 +1138,11 @@ export default function Directory({ tools: initialTools, feed = [] }) {
               <div className="flex flex-wrap items-center tnum" style={{ gap: S.lg, fontSize: F.sm, color: C.muted, marginTop: S.lg }}>
                 <span><b style={{ color: C.text }}>{tools.length}</b> tools</span>
                 <span><b style={{ color: C.text }}>{CATEGORIES.length}</b> categories</span>
+                {newsletterCount > 0 && (
+                  <a href="/newsletters" style={{ color: C.muted, textDecoration: "none" }}>
+                    <b style={{ color: C.text }}>{newsletterCount}</b> newsletters
+                  </a>
+                )}
                 <span><b style={{ color: C.text }}>{loading ? "\u2026" : totalReviews}</b> community reviews</span>
                 <span style={{ color: C.dim }}>Updated {LAST_UPDATED}</span>
               </div>
@@ -1178,6 +1183,16 @@ export default function Directory({ tools: initialTools, feed = [] }) {
               borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
               cursor: "pointer", fontFamily: "inherit",
             }}>Directory</button>
+
+          {/* A real page, not an in-place view: a plain link to /newsletters,
+              never the selected state on this page because selecting it leaves
+              this page. Styled like the others in their unselected state. */}
+          <a href="/newsletters" className="press"
+            style={{
+              textDecoration: "none", background: "transparent", color: C.muted,
+              border: `1px solid ${C.line}`, borderRadius: R.control,
+              padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
+            }}>Newsletters</a>
 
           {/* An anchor rather than a button, because it goes somewhere real.
               aria-pressed matches the view toggle: neither this nor that

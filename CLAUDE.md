@@ -1691,7 +1691,8 @@ tool compare modal is untouched: the list is the pass where you work out which t
 ## Sections beyond tools
 
 `RESOURCE_KINDS` in `lib/tools.js` names every section: tools, newsletters, events,
-podcasts, YouTube, books, groups, accounts, influencers. Only `tool` has `live: true`.
+podcasts, YouTube, books, groups, accounts, influencers. `tool` and `newsletter` have
+`live: true`; the rest are roadmap cards.
 The roadmap renders every kind that is not open as a card that opens the suggest modal
 preselected to it, and `/api/suggest` validates `kind` against that list, defaulting to
 `tool` so suggestions stored before kinds existed still read.
@@ -1750,7 +1751,11 @@ satisfy the format is inventing a fact. `started` and `issueCount` are independe
 publication can have a countable run with no findable start date, or the reverse. Having
 both is what lets a reader check the run for gaps.
 
-Newsletters are not live. All five entries in the file are drafts.
+Newsletters are live: seven published entries in the file, the section opened on
+2026-10-02. They have their own pages at `/newsletters/[id]` and an index at
+`/newsletters`, and ratings, reviews, reports and claiming work the same as tools
+(the write routes validate newsletter ids through `isListedId`/`listedEntity`, and
+`mergedNewsletters()` is the newsletter equivalent of `mergedTools()`).
 
 ## Writing style for tool entries
 

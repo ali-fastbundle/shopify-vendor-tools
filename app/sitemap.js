@@ -1,4 +1,4 @@
-import { mergedTools } from "@/lib/listings";
+import { mergedTools, mergedNewsletters } from "@/lib/listings";
 import { LAST_UPDATED_ISO, CATEGORIES, isInCat } from "@/lib/tools";
 import { SITE } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
@@ -19,7 +19,9 @@ export const dynamic = "force-dynamic";
  * published list.
  */
 export default async function sitemap() {
-  const [tools, changes] = await Promise.all([mergedTools(), feedEntries({ limit: 1 })]);
+  const [tools, newsletters, changes] = await Promise.all([
+    mergedTools(), mergedNewsletters(), feedEntries({ limit: 1 }),
+  ]);
 
   return [
     {
@@ -65,6 +67,20 @@ export default async function sitemap() {
       lastModified: new Date(t.updated || LAST_UPDATED_ISO || Date.now()),
       changeFrequency: "monthly",
       priority: 0.8,
+    })),
+    {
+      url: `${SITE}/newsletters`,
+      lastModified: new Date(
+        newsletters.reduce((max, n) => (n.updated && n.updated > max ? n.updated : max), "")
+        || LAST_UPDATED_ISO || Date.now()),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    ...newsletters.map((n) => ({
+      url: `${SITE}/newsletters/${n.id}`,
+      lastModified: new Date(n.updated || LAST_UPDATED_ISO || Date.now()),
+      changeFrequency: "monthly",
+      priority: 0.6,
     })),
   ];
 }

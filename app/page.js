@@ -4,6 +4,7 @@ import { read, KEYS } from "@/lib/store";
 import { publicReviews } from "@/lib/reviews";
 import { homeGraph } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
+import { NEWSLETTERS } from "@/lib/newsletters";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export default async function Page() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeGraph(tools, reviews)) }}
       />
-      <Directory tools={tools} feed={feed} />
+      <Directory tools={tools} feed={feed} newsletterCount={NEWSLETTERS.length} />
     </>
   );
 }

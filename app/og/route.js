@@ -1,7 +1,8 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { ImageResponse } from "next/og";
-import { DARK, CATEGORIES, TOOLS, HEADLINE } from "@/lib/tools";
+import { DARK, CATEGORIES, HEADLINE } from "@/lib/tools";
+import { catalogueTools } from "@/lib/entries";
 
 /*
  * The share card, served from a route we name ourselves.
@@ -65,6 +66,10 @@ async function inter() {
 
 export async function GET() {
   const fonts = await inter();
+  /* The real published count, file plus anything published from the admin
+     queue, so the card agrees with the homepage. It read TOOLS.length (the file
+     alone) and showed 42 while the page showed 44. */
+  const toolCount = (await catalogueTools()).length;
 
   return new ImageResponse(
     (
@@ -102,7 +107,7 @@ export async function GET() {
             ))}
           </div>
           <div style={{ display: "flex", fontSize: 30, fontWeight: 500, color: DARK.muted }}>
-            {`${TOOLS.length} tools · ${CATEGORIES.length} categories`}
+            {`${toolCount} tools \u00b7 ${CATEGORIES.length} categories`}
           </div>
         </div>
       </div>
