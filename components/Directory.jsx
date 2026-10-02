@@ -1089,6 +1089,9 @@ export default function Directory({ tools: initialTools, feed = [] }) {
      * theme, and would have to be rewritten to describe the other.
      */
     <div style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+      {/* The first focusable element: past the masthead and chips to the grid,
+          for anyone on a keyboard. Hidden until focused. See .skip-link. */}
+      <a href="#main" className="skip-link">Skip to tools</a>
       {/* glow */}
       <div style={{
         position: "absolute", inset: "0 0 auto 0", height: 460, pointerEvents: "none",
@@ -1206,6 +1209,7 @@ export default function Directory({ tools: initialTools, feed = [] }) {
           </a>
         </div>
 
+        <main id="main" tabIndex={-1} style={{ outline: "none" }}>
         {view2 === "updates" ? (
           <div style={{ paddingBottom: BAND.desktop }}>
             <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.6, maxWidth: "62ch", margin: 0 }}>
@@ -1351,6 +1355,7 @@ export default function Directory({ tools: initialTools, feed = [] }) {
         )}
 
         <Roadmap onSuggest={setShowSuggest} />
+        </main>
 
         <footer style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.lg, paddingBottom: BAND.desktop }}>
           <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>

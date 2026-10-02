@@ -273,6 +273,32 @@ a:focus-visible,
 }
 
 /*
+ * Skip link. The first focusable element on the page and invisible until a
+ * keyboard user tabs to it, which keeps it out of a pointer user's way while
+ * giving somebody on a keyboard a way past the masthead and the filter chips
+ * to the grid. Green is the action colour (colour invariant C) and this is a
+ * navigation action, so it wears it. No transition: it belongs outside the
+ * no-preference block, and an instant show is the right behaviour anyway.
+ */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -56px;
+  z-index: 60;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #00E08A;
+  color: #06110D;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 8px;
+}
+
+/*
  * Motion here is feedback and nothing else: it answers a pointer, it never
  * asks for one. Nothing on this page moves on load, on scroll, or on a timer.
  *
