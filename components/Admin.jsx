@@ -11,6 +11,7 @@ import { drafted, published } from "@/lib/drafts";
 import { timesAsked } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
 import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
+import { effectiveConfidence, errorRates, CAP, VERIFICATION_LABEL } from "@/lib/findings";
 import { Pill } from "./Pill";
 import { ThemeToggle } from "./Theme";
 
@@ -88,6 +89,8 @@ export default function AdminPanel({
   publishedChanges = {},
   rewrittenChanges = {},
   rewriteLog = [],
+  monitorErrors = [],
+  verifiedChanges = {},
   feed = [],
   health = null,
   inventory = [],
@@ -241,6 +244,7 @@ export default function AdminPanel({
             appliedChanges={appliedChanges || {}}
             publishedChanges={publishedChanges || {}}
             rewrittenChanges={rewrittenChanges || {}}
+            verifiedChanges={verifiedChanges || {}}
             discovery={discovery}
             onSeen={setSeen}
             act={act}
@@ -285,6 +289,7 @@ export default function AdminPanel({
 
         {tab === "system" && (
           <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []} rewriteLog={rewriteLog || []}
+            monitorErrors={monitorErrors || []} verifiedChanges={verifiedChanges || {}}
             health={health} blocked={blocked || []} changelog={changelog || []}
             inventory={inventory || []} />
         )}
@@ -299,7 +304,7 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, discovery = { findings: [] }, onSeen, act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, discovery = { findings: [] }, onSeen, act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
   const openChanges = changes.filter((r) => !isHandled(r.id, seen, publishedChanges, appliedChanges));
   const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length;
@@ -375,7 +380,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
 
       <ChangeMonitor rows={changes} monitor={monitor} seen={seen}
         appliedChanges={appliedChanges} publishedChanges={publishedChanges}
-        rewrittenChanges={rewrittenChanges} onSeen={onSeen} />
+        rewrittenChanges={rewrittenChanges} verifiedChanges={verifiedChanges} onSeen={onSeen} />
 
       <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
     </>
@@ -441,7 +446,7 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], f
  * look. A dumping ground with the diagnosis buried in it is a tab people stop
  * opening.
  */
-function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], health, blocked = [], changelog = [], inventory = [] }) {
+function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, blocked = [], changelog = [], inventory = [] }) {
   return (
     <>
       <StatusStrip health={health} maillog={maillog} blocked={blocked} />
@@ -468,6 +473,11 @@ function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog =
         hint="Every submission, what it was matched to, and what decided it.">
         <DedupeLog rows={dedupelog} />
       </Collapsible>
+
+      <Section title="Monitor accuracy" count={monitorErrors.length}
+        hint="How often each kind of finding was marked wrong, over the findings still in the window. A finding marked wrong is the monitor misreading a page, not a finding that was merely not worth acting on.">
+        <MonitorAccuracy rows={changelog} errors={monitorErrors} verified={verifiedChanges} />
+      </Section>
 
       <Collapsible title="AI rewrites" count={rewriteLog.length}
         hint="Every description rewritten with AI, with the finding that prompted it, what the model proposed and what was saved. Newest first.">
@@ -2250,6 +2260,79 @@ function PublishedEntries({ entries = {}, onEntries }) {
 /* Why a submission was merged, or was not. The only destructive outcome in the
    suggestion pipeline is a merge, so it is the one that has to be answerable. */
 /*
+ * The monitor's error rate by finding type, stated rather than inferred. If
+ * pricing findings are wrong half the time it says so here, in a number, next
+ * to how many were confirmed by the following run. Then the mistakes
+ * themselves, with the reason each was marked, because those are what the
+ * compare prompt is now reading before it judges again.
+ */
+function MonitorAccuracy({ rows = [], errors = [], verified = {} }) {
+  const rates = errorRates(rows, errors, verified);
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  return (
+    <>
+      {rates.length === 0
+        ? <Empty>No findings in the window yet.</Empty>
+        : (
+          <div style={{ overflowX: "auto" }}>
+            <table className="tnum" style={{ borderCollapse: "collapse", fontSize: F.sm, minWidth: 420 }}>
+              <thead>
+                <tr style={{ color: C.dim, fontSize: F.xs, textAlign: "left" }}>
+                  {["Finding type", "Findings", "Marked wrong", "Error rate", "Confirmed next run"].map((h) => (
+                    <th key={h} style={{ padding: "6px 16px 6px 0", fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rates.map((g) => (
+                  <tr key={g.kind} style={{ borderTop: `1px solid ${C.line}` }}>
+                    <td style={{ padding: "6px 16px 6px 0", fontWeight: 600 }}>{KIND_LABEL[g.kind] || g.kind}</td>
+                    <td style={{ padding: "6px 16px 6px 0" }}>{g.findings}</td>
+                    <td style={{ padding: "6px 16px 6px 0" }}>{g.wrong}</td>
+                    <td style={{
+                      padding: "6px 16px 6px 0", fontWeight: 700,
+                      color: g.wrong && g.rate >= 0.25 ? C.warnInk : C.text,
+                    }}>{g.wrong ? pct(g.rate) : "0%"}</td>
+                    <td style={{ padding: "6px 16px 6px 0", color: C.muted }}>{g.confirmed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5, maxWidth: "76ch" }}>
+              Over the last {rows.length} findings. Confidence now means verification:{" "}
+              {Object.entries(CAP).map(([k, v], i) => `${i ? ", " : ""}${v} ${VERIFICATION_LABEL[k]}`).join("")}.
+            </p>
+          </div>
+        )}
+
+      <div style={{ marginTop: S.md }}>
+        {errors.length === 0
+          ? <Empty>Nothing has been marked wrong.</Empty>
+          : errors.slice(0, 30).map((e) => (
+            <Row key={e.id}
+              title={e.entryName || e.entryId}
+              tag={`${KIND_LABEL[e.kind] || e.kind} marked wrong`}
+              tagColor={C.warnInk}
+              badges={<>
+                {e.finding?.verification && <Pill>{e.finding.verification}</Pill>}
+                {e.pairId && <Pill>pair {e.pairId.slice(0, 8)}</Pill>}
+                {!e.pair && <Pill>no snapshot pair stored</Pill>}
+              </>}
+              body={<>
+                <span style={{ color: C.muted }}>Reported: </span>{e.finding?.what}
+                {(e.finding?.old || e.finding?.new) && <> (was {e.finding.old || "absent"}, now {e.finding.new || "absent"})</>}
+                {" "}at {e.finding?.confidence}{typeof e.finding?.modelConfidence === "number" ? `, model said ${e.finding.modelConfidence}` : ""}.
+                <br /><span style={{ color: C.muted }}>Why it was wrong: </span>{e.reason}
+              </>}
+              meta={`${String(e.at || "").slice(0, 16).replace("T", " ")} · ${e.by}`}
+            />
+          ))}
+      </div>
+    </>
+  );
+}
+
+/*
  * The audit trail for AI rewrites. A bad description is traced from here back
  * to the finding, the source page and the person who accepted it, and the row
  * says whether they saved the model's text or their own edit of it.
@@ -2352,7 +2435,7 @@ const isHandled = (id, seen = {}, published = {}, applied = {}) => Boolean(
   || (published[id] && !published[id].awaitsResolve)
   || (applied[id] && !applied[id].awaitsResolve));
 
-function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, onSeen }) {
+function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, onSeen }) {
   const [busy, setBusy] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
@@ -2484,7 +2567,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
         ? <Empty>Nothing from the latest run. Most weeks this is the correct answer.</Empty>
         : groups.map((g) => (
           <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
-            applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} busy={busy} onAct={mark} />
+            applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} verified={verifiedChanges} busy={busy} onAct={mark} />
         ))}
 
       {earlierGroups.length > 0 && (
@@ -2497,7 +2580,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
           </button>
           {showEarlier && earlierGroups.map((g) => (
             <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
-              applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} busy={busy} onAct={mark} />
+              applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} verified={verifiedChanges} busy={busy} onAct={mark} />
           ))}
         </div>
       )}
@@ -2521,7 +2604,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
  * outgrows its layout: it is not that the rows are wrong, it is that they
  * crowd out the two things that needed a decision.
  */
-function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritten, dismissed, busy, onAct }) {
+function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritten, dismissed, verified = {}, busy, onAct }) {
   const expanded = openTool === group.id;
   const [batch, setBatch] = useState("");
   const tool = ALL_TOOLS.find((t) => t.id === group.id);
@@ -2568,7 +2651,7 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
                 <span style={{ fontSize: F.xs, fontWeight: 700, color: LOUD.has(r.kind) ? C.warnInk : C.muted }}>
                   {KIND_LABEL[r.kind] || r.kind}
                 </span>
-                <span style={{ fontSize: F.xs, color: C.dim }}>confidence {r.confidence} · {String(r.at || "").slice(0, 10)}</span>
+                <ConfidenceLine r={r} verified={verified} />
               </div>
               <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.55, maxWidth: "74ch" }}>{r.what}</p>
               {(r.old || r.new) && (
@@ -2578,12 +2661,68 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
                 </p>
               )}
               {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "74ch" }}>{r.why}</p>}
-              <ChangeAction r={r} done={Boolean(dismissed[r.id])} applied={applied[r.id]}
+              <ChangeAction r={r} done={Boolean(dismissed[r.id])} seenRecord={dismissed[r.id]} applied={applied[r.id]}
                 published={published[r.id]} rewritten={rewritten[r.id]} busy={busy} onAct={onAct} />
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/*
+ * The number, and what it rests on. A confidence on its own reads as the
+ * model's certainty; this says how much has actually been verified, and keeps
+ * the model's own figure beside it for when the two disagree.
+ */
+function ConfidenceLine({ r, verified = {} }) {
+  const c = effectiveConfidence(r, verified);
+  const weak = c.value < CAP["single-run"];
+  return (
+    <span className="tnum" style={{ fontSize: F.xs, color: weak ? C.warnInk : C.dim }}>
+      confidence {c.value} · {c.label}
+      {typeof r.modelConfidence === "number" && r.modelConfidence !== c.value && (
+        <span style={{ color: C.dim }}> · model said {r.modelConfidence}</span>
+      )}
+      {" · "}{String(r.at || "").slice(0, 10)}
+    </span>
+  );
+}
+
+/*
+ * "The monitor was mistaken", as opposed to "not worth acting on". The reason
+ * is required and one line: it is what the next compare call reads as a
+ * negative example, and what the error rate on System is made of.
+ */
+function MarkWrong({ r, busy, onAct, hasDestinations }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [err, setErr] = useState("");
+  if (!open) return <Btn onClick={() => setOpen(true)}>Mark as wrong</Btn>;
+  const submit = async () => {
+    setErr("");
+    const res = await onAct(r.id, "mark-wrong", { reason });
+    if (res?.error) setErr(res.error);
+  };
+  return (
+    <div style={{ flexBasis: "100%", marginTop: S.sm }}>
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} autoFocus
+          onKeyDown={(e) => { if (e.key === "Enter" && reason.trim()) submit(); if (e.key === "Escape") setOpen(false); }}
+          aria-label="What the monitor got wrong"
+          placeholder="What it got wrong, in one line. e.g. annual prices are behind a toggle"
+          style={{ ...FIELD, flex: "1 1 320px", width: "auto" }} />
+        <Btn onClick={submit} busy={busy === r.id} tone="go" disabled={!reason.trim()}>Mark wrong</Btn>
+        <Btn onClick={() => { setOpen(false); setReason(""); }}>Cancel</Btn>
+      </div>
+      {hasDestinations && (
+        <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>
+          This resolves the finding but does not undo what was already done with it. Remove it from
+          updates or undo the listing change with their own buttons.
+        </p>
+      )}
+      {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "6px 0 0" }}>{err}</p>}
     </div>
   );
 }
@@ -2618,7 +2757,8 @@ function AdminLogo({ tool, size = 22 }) {
  *             guess here would be a button claiming it will write something
  *             and then writing the wrong thing.
  */
-function ChangeAction({ r, done, applied, published, rewritten, busy, onAct }) {
+function ChangeAction({ r, done, seenRecord, applied, published, rewritten, busy, onAct }) {
+  const wrong = seenRecord?.via === "wrong";
   const edit = r.edit || { state: "unmapped" };
   const [writing, setWriting] = useState(false);
   const [rewriting, setRewriting] = useState(false);
@@ -2779,7 +2919,9 @@ function ChangeAction({ r, done, applied, published, rewritten, busy, onAct }) {
                   <span style={{ color: C.dim }}>now</span> <b style={{ color: C.text }}>{r.new || "absent"}</b>
                 </p>
               )}
-              <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0" }}>confidence {r.confidence}</p>
+              <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0" }}>
+                confidence {effectiveConfidence(r).value} · {effectiveConfidence(r).label}
+              </p>
               {r.url && (
                 <p style={{ margin: "8px 0 0" }}>
                   <a href={outbound(r.url)} target="_blank" rel="noopener noreferrer"
@@ -2864,7 +3006,14 @@ function ChangeAction({ r, done, applied, published, rewritten, busy, onAct }) {
           * because "looked and did nothing" and "did something" should not be
           * indistinguishable afterwards.
           */}
-        {(applied || published || rewritten)
+        {wrong ? (
+          <>
+            <span style={{ fontSize: F.xs, color: C.warnInk, fontWeight: 700 }}>
+              Marked wrong: <span style={{ fontWeight: 400, color: C.muted }}>{seenRecord.reason}</span>
+            </span>
+            <Btn onClick={() => onAct(r.id, "unmark-wrong")} busy={busy === r.id}>Unmark</Btn>
+          </>
+        ) : (applied || published || rewritten)
           ? (done
             ? (
               <>
@@ -2876,6 +3025,10 @@ function ChangeAction({ r, done, applied, published, rewritten, busy, onAct }) {
           : (done
             ? <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
             : <ConfirmBtn onConfirm={() => onAct(r.id, "dismiss-change")} busy={busy === r.id}>Dismiss</ConfirmBtn>)}
+
+        {/* On every finding that is not already marked: being wrong is
+            independent of what was done with it. */}
+        {!wrong && <MarkWrong r={r} busy={busy} onAct={onAct} hasDestinations={Boolean(applied || published || rewritten)} />}
       </div>
     </div>
   );

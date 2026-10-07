@@ -1,6 +1,6 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { read, write, KEYS, pushCapped } from "@/lib/store";
+import { read, write, KEYS, pushCapped, readCapped, writeCapped } from "@/lib/store";
 import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind, sweepOwnership, mergedTools } from "@/lib/listings";
 import { sanitiseProposal } from "@/lib/rewrite";
 import { sendEvent, EVENTS, adminList } from "@/lib/mail";
@@ -676,6 +676,63 @@ export async function POST(request) {
     seen[id] = { at: new Date().toISOString().slice(0, 10), by: session.email, via: "resolved", destinations };
     await write(KEYS.changesSeen, seen);
     return Response.json({ dismissed: seen });
+  }
+
+  /*
+   * The monitor was mistaken, which is not the same as not worth acting on.
+   *
+   * Dismiss says "true, but not interesting". This says "the monitor read the
+   * page wrong", and it is worth more than a dismissal because it is evidence
+   * about the monitor rather than about the vendor. So it carries a required
+   * reason, and the record keeps the snapshot pair the finding came from: the
+   * next compare call sees recent mistakes as negative examples, the same
+   * finding is never produced again from the same pair, and /admin shows the
+   * error rate per finding type from these rows.
+   *
+   * It resolves the finding (it leaves the Inbox) but undoes nothing that was
+   * already done with it: a published entry or a listing edit is undone by its
+   * own button, deliberately, because those are separate decisions.
+   */
+  if (action === "mark-wrong") {
+    const reason = String(body.reason || "").replace(/\s+/g, " ").trim().slice(0, 200);
+    if (!reason) return new Response("Say in one line what the monitor got wrong.", { status: 400 });
+    const rows = await readChangelog(500);
+    const change = rows.find((r) => r.id === id);
+    if (!change) return new Response("Unknown change", { status: 400 });
+
+    const existing = await readCapped(KEYS.monitorErrors, 200);
+    if (existing.some((e) => e.changeId === id)) return new Response("Already marked wrong.", { status: 409 });
+
+    const pairs = await read(KEYS.monitorPairs, {});
+    const pair = change.pairId ? pairs[change.pairId] : null;
+    const at = new Date().toISOString();
+    await pushCapped(KEYS.monitorErrors, [{
+      id: `err-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      at, by: session.email, reason,
+      changeId: id, entryId: change.entryId, entryName: change.entryName, kind: change.kind,
+      finding: {
+        what: change.what, old: change.old, new: change.new, url: change.url,
+        confidence: change.confidence, modelConfidence: change.modelConfidence,
+        verification: change.verification, at: change.at,
+      },
+      pairId: change.pairId || null,
+      /* The evidence, inline, so the record survives the pair being pruned. */
+      pair: pair ? { before: pair.before, after: pair.after } : null,
+    }], 200);
+
+    const seen = await read(KEYS.changesSeen, {});
+    seen[id] = { at: at.slice(0, 10), by: session.email, via: "wrong", reason };
+    await write(KEYS.changesSeen, seen);
+    return Response.json({ dismissed: seen, errors: await readCapped(KEYS.monitorErrors, 200) });
+  }
+
+  if (action === "unmark-wrong") {
+    const errors = await readCapped(KEYS.monitorErrors, 200);
+    if (!errors.some((e) => e.changeId === id)) return new Response("That finding is not marked wrong.", { status: 400 });
+    await writeCapped(KEYS.monitorErrors, errors.filter((e) => e.changeId !== id), 200);
+    const seen = await read(KEYS.changesSeen, {});
+    if (seen[id]?.via === "wrong") { delete seen[id]; await write(KEYS.changesSeen, seen); }
+    return Response.json({ dismissed: seen, errors: await readCapped(KEYS.monitorErrors, 200) });
   }
 
   if (action === "dismiss-change" || action === "reopen-change") {

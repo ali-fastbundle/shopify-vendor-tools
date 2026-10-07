@@ -84,6 +84,8 @@ export default async function AdminPage({ searchParams }) {
     { key: "publishedChanges", load: () => read(KEYS.changesPublished, {}), empty: {} },
     { key: "rewrittenChanges", load: () => read(KEYS.changesRewritten, {}), empty: {} },
     { key: "rewriteLog", load: () => readCapped(KEYS.rewriteLog, 100), empty: [] },
+    { key: "monitorErrors", load: () => readCapped(KEYS.monitorErrors, 200), empty: [] },
+    { key: "verifiedChanges", load: () => read(KEYS.changesVerified, {}), empty: {} },
     { key: "feed", load: () => feedEntries({ limit: 60 }), empty: [] },
     { key: "health", load: () => health(), empty: null },
     { key: "inventory", load: () => storeInventory(), empty: [] },

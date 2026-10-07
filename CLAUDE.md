@@ -578,6 +578,47 @@ statement about how many times it has been verified, not about how certain the
 sentence sounds. The streak lives on the snapshot record, and one good read
 clears it.
 
+**Not observed is not removed, for values as for sites.** PPSPY was reported at
+0.9 as having removed annual pricing. Its pricing page has a Monthly/Yearly
+toggle with 30% off annual, and the annual figures render only after the toggle
+is clicked, so a static fetch saw monthly only and the model inferred a removal.
+`reconcileSnapshot` now carries anything captured last run and missing this run
+forward into the stored snapshot, marked as not observed and counted, and the
+compare prompt is told plainly that those values are not removed. Only a value
+missing on two consecutive *full* readings is offered as a removal candidate.
+A reading that differs only by what it failed to see is not a change and does
+not buy a compare call. A single scalar going blank is carried the same way.
+`cleanChanges` enforces it in code as well: a finding about a value that was
+merely unobserved is dropped whatever words the model chose.
+
+**A page with a billing toggle is partially observable.** `detectBillingToggle`
+reads the raw HTML before tags are stripped, because the evidence is in the
+markup: a monthly and an annual label close together, plus an interactive marker
+(onclick, a role, an aria state, a checkbox, a class named for a billing period)
+or an annual discount. On such a page absence never accumulates towards a
+removal, the snapshot prompt is told the text is one billing state, and any
+pricing or free-tier finding from it is capped at 0.4.
+
+**Confidence means verification, not how sure the model sounded.** Two findings
+were wrong at 0.9: AppJubilee's "dead" pricing page and PPSPY. The model's number
+is kept as `modelConfidence` and still gates what is reported at all, but what
+the editor sees is set by `calibrate` and `lib/findings.js`: 0.6 for anything
+read once, 0.4 from a toggle page, 0.75 for a value missing on two full readings,
+0.9 only when the following run reads the new state again (`confirmsFinding`,
+stored in `svt:changes:verified`), and 0.3 when it does not. Every finding shows
+its number with the reason for it and the model's own figure beside it.
+
+**Wrong is not dismissed.** Dismiss means not worth acting on. `Mark as wrong`
+means the monitor misread the page, takes a required one-line reason, and writes
+to `svt:monitor_errors` with the tool, the finding and the snapshot pair that
+produced it (`svt:monitor:pairs`, keyed by a hash of the pair, newest 300). Three
+consequences: the same finding kind is never reported again from the same pair
+(`suppressedKinds`); recent mistakes, this entry's own first, go into the compare
+prompt as negative examples; and System shows the error rate per finding type
+beside how many were confirmed by the next run, so a monitor that is wrong about
+pricing half the time says so in a number. Marking wrong resolves the finding
+but undoes nothing already done with it.
+
 **Non-findings are filtered in code, not just discouraged in the prompt.**
 `isNonFinding()` drops a change whose old and new values are the same once
 formatting is ignored, one whose value already appears in the entry we publish,
@@ -1416,7 +1457,8 @@ days; a person still writes the sentence around it and presses send.
 | `lib/research.js` | Fetches a vendor's own pages and drafts an entry from them |
 | `lib/rewrite.js` | Rewrites a listing's description to take in a monitor finding. Proposes, never saves |
 | `lib/sentencediff.js` | The sentence-level diff and length check the rewrite editor shows. Pure, client-safe |
-| `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, the strict diff |
+| `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, carry-forward of unobserved values, billing-toggle detection, the strict diff and calibration |
+| `lib/findings.js` | What a finding's confidence means, and the error rate per finding type. Pure, client-safe |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2074,6 +2116,7 @@ node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, an
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
 node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
+node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
