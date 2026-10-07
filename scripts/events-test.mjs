@@ -72,16 +72,30 @@ ok(unite.status === "past" && unite.discontinued, "Shopify Unite is past, not un
 console.log("\nthe sheet's unscheduled four:");
 const plan = agenda(EVENTS, T);
 const un = plan.unscheduled.map((e) => e.id);
-for (const id of ["dtc-dines-vancouver", "ecom-collab-club"]) ok(un.includes(id), `${id} is under Dates not announced`);
+ok(un.includes("ecom-collab-club"), "ecom-collab-club is under Dates not announced");
+const dtc = placeEvent(ALL_EVENTS.find((e) => e.id === "dtc-dines-vancouver"), T);
+ok(dtc.mode === "exact" && dtc.date === "2026-10-29" && dtc.status === "imminent",
+  "DTC Dines Vancouver is dated 29 October and imminent", `${dtc.date} ${dtc.status}`);
+ok(countdown(dtc, T) === "In 22 days", "with a countdown", countdown(dtc, T));
 for (const id of ["dotdigital-summit", "retailfest-connect"]) {
   const e = ALL_EVENTS.find((x) => x.id === id);
   ok(e.draft && placeEvent(e, T).mode === "unscheduled", `${id} is unverified, so a draft, and would be unscheduled`);
 }
 
+console.log("\nthe timeline:");
+const keys = plan.timeline.map((g) => g.key);
+ok(keys.join() === [...keys].sort().join(), "one run, oldest first");
+ok(plan.timeline.some((g) => g.items.some((e) => e.at.status === "past"))
+  && plan.timeline.some((g) => g.items.some((e) => e.at.status !== "past")),
+  "past and future share it: past events are not split out");
+ok(keys.includes("2022") && !keys.includes("2022-01"), "a year-only date groups under the year, not a made-up month");
+ok(plan.nowMonth === "2026-10", "it opens at this month");
+
 console.log("\nthe strip:");
 ok(plan.strip.length === 12 && plan.strip[0].month === "2026-10", "twelve months from this one");
 ok(plan.strip.every((m) => typeof m.unconfirmed === "number"), "unconfirmed counted apart");
 const sep = plan.strip.find((m) => m.month === "2027-09");
+ok(plan.strip[0].count === 1, "Oct 2026 counts DTC Dines");
 ok(sep.count === 3 && sep.unconfirmed === 2, "Sep 2027: three dated, two not confirmed", JSON.stringify(sep));
 
 console.log(bad ? `\n${bad} failed` : "\nall passed");

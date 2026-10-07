@@ -3,6 +3,7 @@ import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
 import { outbound } from "@/lib/outbound";
 import { countdown, RELEVANCE_LABEL, dayLabel } from "@/lib/events";
 import { Pill } from "@/components/Pill";
+import EventLogo from "@/components/EventLogo";
 
 /*
  * The pieces of an event that render the same on the index, in the modal and
@@ -17,10 +18,11 @@ import { Pill } from "@/components/Pill";
  * inversion, the same device as a selected state, because "this is the one to
  * act on" is a state.
  *
- * Certainty. An exact date sits in a solid outline. A month or a season sits
- * in a dashed one and says the organiser's own words. An inferred date says
- * "Not confirmed" in the box itself, so there is no reading of the row in
- * which it looks scheduled.
+ * Certainty. The month is the information, so it is set exactly like a
+ * confirmed day. An inferred date carries one quiet signal, "date TBC" on the
+ * bottom line of the box and on the row, and the whole explanation lives in
+ * the tooltip and the detail view. An approximate one shows the organiser's
+ * own words on the row.
  */
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -28,9 +30,13 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export function DateBlock({ e }) {
   const at = e.at;
   const past = at.status === "past";
-  const solid = at.mode === "exact";
   const tone = past ? C.dim : C.text;
+  const small = past ? C.dim : C.muted;
 
+  /* Three lines, every mode, and the middle one is always the information at
+     the same size and weight: the day for an exact date, the month for
+     anything less certain. The uncertainty is the quiet bottom line, never a
+     phrase broken across the box competing with the month. */
   let top = "", big = "", bottom = "";
   if (at.mode === "exact" && at.date) {
     const [, m, d] = at.date.split("-").map(Number);
@@ -41,32 +47,32 @@ export function DateBlock({ e }) {
       bottom = m2 === m ? `to ${d2}` : `to ${d2} ${MONTHS[m2 - 1]}`;
     } else bottom = at.weekday || "";
   } else if (at.mode === "approx") {
-    top = "Around";
+    top = at.month.slice(0, 4);
     big = e.datePrecision === "season" ? String(e.dateRaw || "").split(" ")[0] : MONTHS[Number(at.month.slice(5)) - 1];
-    bottom = at.month.slice(0, 4);
   } else if (at.mode === "year") {
     top = "Last held";
     big = at.year;
-    bottom = "";
   } else if (at.mode === "inferred") {
-    top = "Not";
+    top = at.month.slice(0, 4);
     big = MONTHS[Number(at.month.slice(5)) - 1];
-    bottom = "confirmed";
+    bottom = "date TBC";
   }
 
   return (
-    <div aria-hidden="true" className="tnum" style={{
+    /* The full story is the tooltip and the detail view; the box carries the
+       month and a hint. */
+    <div className="tnum" title={at.mode === "exact" ? undefined : at.label} style={{
       width: 72, minHeight: 64, flexShrink: 0, borderRadius: R.card,
-      border: `1px ${solid ? "solid" : "dashed"} ${past ? C.line : C.edge}`,
+      border: `1px solid ${past ? C.line : C.edge}`,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: `${S.xs}px 0`, textAlign: "center",
+      padding: `${S.xs}px 0`, textAlign: "center", whiteSpace: "nowrap",
     }}>
-      <span style={{ fontSize: F.xs, color: past ? C.dim : C.muted, lineHeight: 1.2 }}>{top}</span>
-      <span style={{
-        fontSize: solid ? F.xl : F.md, fontWeight: solid ? 800 : 600, color: solid ? tone : C.muted,
+      <span aria-hidden="true" style={{ fontSize: F.xs, color: small, lineHeight: 1.2, minHeight: "1.2em" }}>{top}</span>
+      <span aria-hidden="true" style={{
+        fontSize: big.length > 4 ? F.lg : F.xl, fontWeight: 800, color: tone,
         lineHeight: 1.2, letterSpacing: TRACK.tight,
       }}>{big}</span>
-      <span style={{ fontSize: F.xs, color: past ? C.dim : C.muted, lineHeight: 1.2 }}>{bottom}</span>
+      <span aria-hidden="true" style={{ fontSize: F.xs, color: small, lineHeight: 1.2, minHeight: "1.2em" }}>{bottom}</span>
     </div>
   );
 }
@@ -87,11 +93,11 @@ export const placeOf = (e) =>
   [e.city, e.country].filter((x) => x && !/^n\/a$/i.test(x)).filter((x, i, a) => a.indexOf(x) === i).join(", ");
 
 /*
- * One line of what and where. The date is already in the box, except where the
- * box cannot say it in full, which is the two cases a reader must not misread:
- * an approximate date in the organiser's words, and an inferred one.
+ * One line of when and where. An approximate date gives the organiser's words;
+ * an inferred one says "Date TBC" and nothing longer, with the last-held date
+ * in the tooltip and the detail view.
  */
-const whenLine = (e) => e.at.label;
+const whenLine = (e) => (e.at.mode === "inferred" ? "Date TBC" : e.at.label);
 
 export function EventRow({ e, today }) {
   const past = e.at.status === "past";
@@ -101,6 +107,7 @@ export function EventRow({ e, today }) {
       <DateBlock e={e} />
       <div style={{ minWidth: 0 }}>
         <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+          <EventLogo e={e} size={24} status={e.at.status} />
           {/* A real link to the event's page. A plain left click opens the
               modal instead (EventDialog); everything else, and every crawler,
               gets the page. */}
@@ -112,7 +119,8 @@ export function EventRow({ e, today }) {
           <Countdown e={e} today={today} />
           {e.at.discontinued && <Pill>discontinued</Pill>}
         </div>
-        <p style={{ fontSize: F.sm, color: past ? C.dim : C.muted, margin: `${S.xs}px 0 0` }}>
+        <p title={e.at.mode === "inferred" ? e.at.label : undefined}
+          style={{ fontSize: F.sm, color: past ? C.dim : C.muted, margin: `${S.xs}px 0 0` }}>
           {[whenLine(e), where].filter(Boolean).join(" · ")}
         </p>
         {e.one && (
@@ -162,6 +170,7 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
   return (
     <div>
       <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        <EventLogo e={e} size={40} status={at.status} />
         <Heading id={headingId} style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.15 }}>
           {e.name}
         </Heading>

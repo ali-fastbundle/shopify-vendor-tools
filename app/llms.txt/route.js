@@ -146,7 +146,7 @@ function eventsBlock() {
       `  ${[e.at.label, where].filter(Boolean).join(" | ")}`,
     ].join("\n");
   };
-  const ahead = plan.months.flatMap((g) => g.items);
+  const ahead = plan.timeline.flatMap((g) => g.items).filter((e) => e.at.status !== "past");
   return `## Events
 
 Conferences and meetups an app vendor might travel for. Dates are checked

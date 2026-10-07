@@ -22,7 +22,8 @@ export const metadata = {
 export default function Page() {
   const today = todayISO();
   const plan = agenda(EVENTS, today);
-  const upcoming = plan.months.flatMap((g) => g.items).filter((e) => e.at.mode === "exact");
+  const upcoming = plan.timeline.flatMap((g) => g.items)
+    .filter((e) => e.at.status !== "past" && e.at.mode === "exact");
 
   const graph = {
     "@context": "https://schema.org",

@@ -1364,7 +1364,8 @@ days; a person still writes the sentence around it and presses send.
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |
 | `lib/events.js` | The events catalogue, and `placeEvent`, the only place past, imminent and upcoming are decided |
-| `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and agenda), the shared row and body, and `/events/[id]` |
+| `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
+| `components/EventLogo.jsx` | An event's mark: hosted logo, favicon, then the status-coloured lettermark |
 | `components/SiteNav.jsx` | The four top-level views on the index pages that are not the directory |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists. Client-safe, so no model import |
 | `lib/dedup.js` | Model-first dedup with the string matching as fallback, and the verdict log |
@@ -1775,6 +1776,21 @@ default view.
 - **An agenda, not a month grid**, with a twelve-month count strip on top. Most
   events are one day in a scattered month, so a grid is mostly empty cells and
   unusable on a phone. The strip keeps what a grid is for, seeing busy months.
+- **One timeline, past included.** Past events stay in their own months,
+  receded (dim text, no fill, logo faded) and still clickable and linkable,
+  never split out into a separate list. The timeline is its own scroller that
+  opens at this month (`TimelineScroll`, instant, never smooth) with a "Today"
+  line, so the page itself never moves on load. A fragment in the URL wins.
+- **The month is the information, not the uncertainty.** An unconfirmed date's
+  box shows the month at the same size and weight as a confirmed day, and one
+  quiet "date TBC" line. Never a status phrase broken across the box. The full
+  "Date not confirmed, last held ..." is the tooltip and the detail view.
+- **Logos follow the tool chain**: `logo`, then the favicon of `domain`, then a
+  lettermark (`EventLogo`). `domain` is set by hand and never derived from
+  `url`, because an Eventbrite or Luma favicon is not the event's mark. A
+  favicon under 32px is the service's "unknown" globe and goes to the
+  lettermark. The lettermark is one initial below 32px and two above, coloured
+  by status like the rest of the row.
 - **Status is contrast, not hue.** Past is dimmed, upcoming is full text,
   imminent takes the neutral inversion. No category colour (invariant A), no
   green (C), no warn tone (B).

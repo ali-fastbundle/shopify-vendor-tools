@@ -3,6 +3,7 @@ import { C, S, R, F, TRACK } from "@/lib/tools";
 import { monthLabel, monthShort } from "@/lib/events";
 import { EventRow, placeOf } from "@/components/EventParts";
 import EventDialog from "@/components/EventDialog";
+import TimelineScroll from "@/components/TimelineScroll";
 import SiteNav from "@/components/SiteNav";
 
 /*
@@ -20,8 +21,9 @@ import SiteNav from "@/components/SiteNav";
  * strip at the top: the next twelve months with a count each, zeros included,
  * each non-empty month a link down to its section.
  *
- * Past events are behind a native <details>, closed: they are the record, not
- * the reason anybody opens this page. No JavaScript needed to open it.
+ * Past events stay on the timeline in their own months, receded: dimmed text,
+ * no fill, still clickable and linkable. The calendar is one run you scroll
+ * back through, opening at this month.
  */
 
 function Strip({ strip }) {
@@ -68,19 +70,69 @@ function Strip({ strip }) {
   );
 }
 
-const List = ({ items, today }) => (
-  <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-    {items.map((e) => <EventRow key={e.id} e={e} today={today} />)}
-  </ul>
+const formatToday = (iso) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} ${monthLabel(`${y}-${String(m).padStart(2, "0")}`)}`;
+};
+
+/* The line between what happened and what has not. One hairline and a date in
+   the text colour: a position, not a decoration. */
+const Today = ({ today }) => (
+  <li id="today" aria-label={`Today, ${formatToday(today)}`} className="tnum"
+    style={{ display: "flex", alignItems: "center", gap: S.sm, padding: `${S.sm}px 0`, fontSize: F.xs, fontWeight: 700, color: C.text }}>
+    <span>Today, {formatToday(today)}</span>
+    <span aria-hidden="true" style={{ flex: 1, height: 1, background: C.text, opacity: 0.6 }} />
+  </li>
 );
+
+/*
+ * Month groups, oldest first, with today's line inside them. The line goes
+ * before the first event that is not over yet, so an event on right now sits
+ * below it. If this month has no events, the line sits between the months
+ * either side, and opening the page lands on it either way.
+ */
+function Timeline({ timeline, today, nowMonth }) {
+  let placedToday = false;
+  const out = [];
+  for (const g of timeline) {
+    const monthKey = g.key.length === 7 ? g.key : null;
+    if (!placedToday && monthKey && monthKey > nowMonth) {
+      out.push(<ul key="today" style={{ listStyle: "none", padding: 0, margin: `${S.lg}px 0 0` }}><Today today={today} /></ul>);
+      placedToday = true;
+    }
+    const rows = [];
+    for (const e of g.items) {
+      if (!placedToday && e.at.status !== "past" && monthKey) {
+        rows.push(<Today key="today" today={today} />);
+        placedToday = true;
+      }
+      rows.push(<EventRow key={e.id} e={e} today={today} />);
+    }
+    const isNow = g.key === nowMonth;
+    const allPast = g.items.every((e) => e.at.status === "past");
+    out.push(
+      <div key={g.key} id={monthKey ? `m-${monthKey}` : `y-${g.key}`} data-now={isNow ? "" : undefined}
+        style={{ marginTop: S.lg }}>
+        {/* Sticky inside the scroller, so the month is always named. */}
+        <h3 style={{
+          position: "sticky", top: 0, zIndex: 1, background: C.bg,
+          fontSize: F.sm, fontWeight: 700, color: allPast ? C.dim : C.muted,
+          margin: 0, padding: `${S.sm}px 0 ${S.xs}px`, borderBottom: `1px solid ${C.line}`,
+        }}>{g.label}</h3>
+        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>{rows}</ul>
+      </div>,
+    );
+  }
+  if (!placedToday) out.push(<ul key="today" style={{ listStyle: "none", padding: 0, margin: `${S.lg}px 0 0` }}><Today today={today} /></ul>);
+  return out;
+}
 
 const H2 = ({ children, id }) => (
   <h2 id={id} style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{children}</h2>
 );
 
 export default function Events({ plan, events, lastUpdated }) {
-  const { today, strip, months, past, unscheduled } = plan;
-  const ahead = months.reduce((n, g) => n + g.items.length, 0);
+  const { today, strip, timeline, nowMonth, unscheduled } = plan;
 
   return (
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
@@ -100,21 +152,26 @@ export default function Events({ plan, events, lastUpdated }) {
 
         <Strip strip={strip} />
 
-        <section aria-labelledby="ahead" style={{ marginTop: S["3xl"] }}>
-          <H2 id="ahead">Coming up</H2>
-          {ahead === 0 && (
-            <p style={{ fontSize: F.md, color: C.muted, margin: `${S.sm}px 0 0` }}>
-              Nothing with a date in the next twelve months.
-            </p>
-          )}
-          {months.map((g) => (
-            <div key={g.month} id={`m-${g.month}`} style={{ marginTop: S.xl, scrollMarginTop: S.lg }}>
-              <h3 style={{ fontSize: F.sm, fontWeight: 700, color: C.muted, margin: 0, paddingBottom: S.xs, borderBottom: `1px solid ${C.line}` }}>
-                {monthLabel(g.month)}
-              </h3>
-              <List items={g.items} today={today} />
-            </div>
-          ))}
+        {/*
+          * One continuous timeline, past and future, in its own scroller that
+          * opens at this month (TimelineScroll). Past events stay in their
+          * months, receded rather than removed: scroll up to go back. The page
+          * itself never moves on load; only this box starts where it should.
+          * With scripting off it starts at the oldest month, which is the
+          * one honest default a server can give it.
+          */}
+        <section aria-labelledby="calendar" style={{ marginTop: S["3xl"] }}>
+          <H2 id="calendar">Calendar</H2>
+          <div id="event-timeline" role="region" aria-labelledby="calendar" tabIndex={0}
+            className="event-timeline"
+            style={{
+              marginTop: S.sm, borderTop: `1px solid ${C.line}`, borderBottom: `1px solid ${C.line}`,
+              outline: "none",
+            }}>
+            <Timeline timeline={timeline} today={today} nowMonth={nowMonth} />
+            <div style={{ height: S.lg }} />
+          </div>
+          <TimelineScroll />
         </section>
 
         {unscheduled.length > 0 && (
@@ -135,19 +192,6 @@ export default function Events({ plan, events, lastUpdated }) {
                 </li>
               ))}
             </ul>
-          </section>
-        )}
-
-        {past.length > 0 && (
-          <section style={{ marginTop: S["4xl"] }}>
-            <details>
-              <summary style={{ cursor: "pointer", fontSize: F.xl, fontWeight: 700, letterSpacing: TRACK.tight }}>
-                Past events <span className="tnum" style={{ color: C.muted, fontWeight: 500, fontSize: F.md }}>{past.length}</span>
-              </summary>
-              <div style={{ marginTop: S.sm }}>
-                <List items={past} today={today} />
-              </div>
-            </details>
           </section>
         )}
 
