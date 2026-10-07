@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { sessionFrom, isAdmin } from "@/lib/auth";
-import { read, readStats, readMailLog, KEYS } from "@/lib/store";
+import { read, readStats, readMailLog, readCapped, KEYS } from "@/lib/store";
 import { getClaims } from "@/lib/listings";
 import { getSubscribers } from "@/lib/subscribers";
 import { C, S, F } from "@/lib/tools";
@@ -82,6 +82,8 @@ export default async function AdminPage({ searchParams }) {
     { key: "discovery", load: () => getDiscovery(), empty: { findings: [], dismissed: [] } },
     { key: "blocked", load: () => blockedEntries(), empty: [] },
     { key: "publishedChanges", load: () => read(KEYS.changesPublished, {}), empty: {} },
+    { key: "rewrittenChanges", load: () => read(KEYS.changesRewritten, {}), empty: {} },
+    { key: "rewriteLog", load: () => readCapped(KEYS.rewriteLog, 100), empty: [] },
     { key: "feed", load: () => feedEntries({ limit: 60 }), empty: [] },
     { key: "health", load: () => health(), empty: null },
     { key: "inventory", load: () => storeInventory(), empty: [] },

@@ -1243,6 +1243,49 @@ about strategy. "Raised the Starter tier to $79" is observable, "raised prices a
 it moves upmarket" is invented, and a directory whose whole value is that it does
 not make things up cannot publish the second.
 
+**Rewrite with AI is the fourth destination, for findings that land on no one
+field.** "Added a Slack integration" is not a price or an owner, and before this
+the only way into the description was retyping the note by hand.
+`/api/admin/rewrite` is read-only, like `/api/admin/announce`: it reads the
+listing as a visitor sees it (`mergedTools`), the finding, and the source page
+(fetched only when it sits on the tool's own domain), and returns a proposal.
+Nothing saves until `apply-rewrite`, after a person has read a sentence-level
+diff of every field, old against new, edited the proposal if they wanted, and
+pressed a second button. A free-text steer goes to the model as the editor's
+instruction.
+
+- **Integrate, never append.** A new capability becomes a clause in an existing
+  sentence, never a sentence bolted onto the end, and the length is shown next
+  to every field with anything over 15 percent flagged as growing the listing.
+  If it cannot fit without growing, it is news, and the model is told to say so
+  and propose nothing. Invariant 31 is the reason: a listing that grows every
+  time something ships has stopped being a listing.
+- **It writes `one`, `note` and `price`, and nothing else.** Everything else the
+  model returns is dropped and the drop is shown. `watch`, `cat`, `verified`,
+  `ratings`, the rest of `PROTECTED` and ownership (`owner`, `linked`, `suite`)
+  are dropped as protected: a monitor-driven rewrite of a caveat is the failure
+  invariant 23 exists to prevent. `sanitiseProposal` in `lib/rewrite.js` is the
+  one copy of the rule, and the save action runs it again on whatever the
+  browser sends, so a protected field posted by hand is dropped the same way.
+  If the model thinks the caveat is now wrong it can say so in `flag`, which
+  renders as "needs a hand edit" and is never written.
+- **Every save is logged** to `svt:rewritelog` with the finding, its source URL,
+  the text before and after, the model's own proposal, whether the editor
+  changed it, the steer and the provider, and Undo is logged against the
+  rewrite it undid. System, AI rewrites. A bad description is traceable to the
+  sentence on a vendor's page that started it.
+- It saves through `applyFieldEdit`, the override a vendor edit and a one-click
+  apply use, so the file is untouched (invariant 4) and Undo is exact.
+
+**Destinations are not verdicts; a finding is resolved once.** Publishing,
+applying and rewriting each record a destination and leave the finding in the
+Inbox, because a new capability is usually both news and a description change.
+`Resolve` closes it once, recording which destinations it took, and is refused
+when there are none: "looked and did nothing" is what Dismiss is for, and the two
+must not be indistinguishable afterwards. Records written before this carry no
+`awaitsResolve` and count as handled. `isHandled` in `components/Admin.jsx` is the
+one copy of that rule, used by both the Inbox count and the monitor panel.
+
 **The voice examples are lifted from the catalogue, not written for the prompt.**
 `houseVoice()` reads real `one` and `watch` lines out of `TOOLS`, so the examples
 cannot drift from the site they are meant to match. Telling a model "plain,
@@ -1371,6 +1414,8 @@ days; a person still writes the sentence around it and presses send.
 | `lib/dedup.js` | Model-first dedup with the string matching as fallback, and the verdict log |
 | `lib/model.js` | The provider chain. The only reader of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
 | `lib/research.js` | Fetches a vendor's own pages and drafts an entry from them |
+| `lib/rewrite.js` | Rewrites a listing's description to take in a monitor finding. Proposes, never saves |
+| `lib/sentencediff.js` | The sentence-level diff and length check the rewrite editor shows. Pure, client-safe |
 | `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, the strict diff |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
@@ -2028,6 +2073,7 @@ node scripts/housekeeping-test.mjs   # the reset clears four things and protects
 node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, and does nothing else
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
 node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip
+node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>

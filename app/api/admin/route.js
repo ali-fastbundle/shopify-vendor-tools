@@ -1,7 +1,8 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { read, write, KEYS } from "@/lib/store";
-import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind, sweepOwnership } from "@/lib/listings";
+import { read, write, KEYS, pushCapped } from "@/lib/store";
+import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind, sweepOwnership, mergedTools } from "@/lib/listings";
+import { sanitiseProposal } from "@/lib/rewrite";
 import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
 import { TOOLS } from "@/lib/tools";
@@ -499,7 +500,11 @@ export async function POST(request) {
     const saved = await addFeedEntry(entry, { tool, changeId: id, publishedBy: session.email });
 
     const published = await read(KEYS.changesPublished, {});
-    published[id] = { feedId: saved.id, at: saved.at, by: session.email, headline: saved.headline };
+    /* `awaitsResolve`: publishing is a destination, not a verdict. The same
+       finding may also want the listing rewritten, so it stays in the Inbox
+       until somebody resolves it once. Records written before this flag
+       existed have no flag and count as resolved, which is what they were. */
+    published[id] = { feedId: saved.id, at: saved.at, by: session.email, headline: saved.headline, awaitsResolve: true };
     await write(KEYS.changesPublished, published);
 
     return Response.json({ published, feedEntry: saved });
@@ -535,16 +540,15 @@ export async function POST(request) {
     applied[id] = {
       at: new Date().toISOString(), by: session.email,
       toolId: change.entryId, field: edit.field, to: edit.to, previous,
+      awaitsResolve: true,
     };
     await write(KEYS.changesApplied, applied);
 
-    /* Applying resolves it. Leaving it open would mean reading the same
-       proposal again next week and wondering whether it was done. */
-    const seen = await read(KEYS.changesSeen, {});
-    seen[id] = { at: new Date().toISOString().slice(0, 10), by: session.email, via: "applied" };
-    await write(KEYS.changesSeen, seen);
-
-    return Response.json({ applied, dismissed: seen });
+    /* Applying used to resolve the finding on the spot, which made it
+       impossible to also publish it: the row left the Inbox the moment the
+       listing changed. Now it is a destination like the others, and the
+       finding is resolved once, by resolve-change, after all of them. */
+    return Response.json({ applied });
   }
 
   if (action === "undo-change") {
@@ -557,12 +561,121 @@ export async function POST(request) {
     await write(KEYS.changesApplied, applied);
 
     /* Undoing reopens it: the proposal is live again and still wants a
-       decision. */
+       decision. Covers both a legacy apply, which resolved on the spot, and a
+       finding resolved after its destinations. */
     const seen = await read(KEYS.changesSeen, {});
-    delete seen[id];
+    if (seen[id]?.via === "applied" || seen[id]?.via === "resolved") delete seen[id];
     await write(KEYS.changesSeen, seen);
 
     return Response.json({ applied, dismissed: seen });
+  }
+
+  /*
+   * Save an AI rewrite of a listing, after a person has read the diff.
+   *
+   * What arrives is whatever the editor accepted, possibly edited, so it is
+   * re-checked here rather than trusted: sanitiseProposal keeps only `one`,
+   * `note` and `price`, drops anything else and anything unchanged. A
+   * protected field posted by hand is dropped the same way the model's would
+   * be, and the drop is recorded. Each field goes through applyFieldEdit, the
+   * same override a vendor edit and a one-click apply use, so the editorial
+   * file is untouched (invariant 4) and Undo is exact.
+   *
+   * Logged, every time, with the finding that prompted it, the model's own
+   * proposal, what was actually saved and whether the editor changed it. A
+   * bad description is traceable from the listing back to the sentence on a
+   * vendor's page that started it.
+   */
+  if (action === "apply-rewrite") {
+    const [rows, tools] = await Promise.all([readChangelog(500), mergedTools()]);
+    const change = rows.find((r) => r.id === id);
+    if (!change) return new Response("Unknown change", { status: 400 });
+    const tool = tools.find((t) => t.id === change.entryId);
+    if (!tool) return new Response("That change is about a tool that is no longer listed.", { status: 400 });
+
+    const rewritten = await read(KEYS.changesRewritten, {});
+    if (rewritten[id]) return new Response("This finding already has a saved rewrite. Undo it first.", { status: 409 });
+
+    const { fields, dropped } = sanitiseProposal(body.fields, tool);
+    if (!Object.keys(fields).length) {
+      return new Response("Nothing to save: no description field differs from the listing.", { status: 400 });
+    }
+
+    const previous = {};
+    for (const [field, value] of Object.entries(fields)) {
+      const res = await applyFieldEdit(tool.id, field, value, { by: session.email });
+      if (res.error) return new Response(res.error, { status: 400 });
+      previous[field] = res.previous;
+    }
+
+    const at = new Date().toISOString();
+    const logId = `rw-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const proposal = sanitiseProposal(body.proposal, tool).fields;
+    await pushCapped(KEYS.rewriteLog, [{
+      id: logId, type: "rewrite", at, by: session.email,
+      changeId: id, toolId: tool.id, toolName: tool.name,
+      finding: {
+        kind: change.kind, what: change.what, old: change.old, new: change.new,
+        url: change.url, confidence: change.confidence, at: change.at,
+      },
+      before: Object.fromEntries(Object.keys(fields).map((f) => [f, tool[f] || ""])),
+      saved: fields,
+      proposal,
+      edited: JSON.stringify(proposal) !== JSON.stringify(fields),
+      dropped: [...(Array.isArray(body.dropped) ? body.dropped : []), ...dropped]
+        .filter((d, i, all) => d && typeof d.field === "string" && all.findIndex((x) => x?.field === d.field) === i)
+        .slice(0, 20)
+        .map((d) => ({ field: d.field.slice(0, 40), reason: String(d.reason || "").slice(0, 20) })),
+      steer: typeof body.steer === "string" ? body.steer.slice(0, 400) : "",
+      provider: typeof body.provider === "string" ? body.provider.slice(0, 20) : "",
+      summary: typeof body.summary === "string" ? body.summary.slice(0, 240) : "",
+      flag: typeof body.flag === "string" ? body.flag.slice(0, 200) : "",
+    }], 300);
+
+    rewritten[id] = { at, by: session.email, toolId: tool.id, fields: Object.keys(fields), previous, logId };
+    await write(KEYS.changesRewritten, rewritten);
+    return Response.json({ rewritten });
+  }
+
+  if (action === "undo-rewrite") {
+    const rewritten = await read(KEYS.changesRewritten, {});
+    const record = rewritten[id];
+    if (!record) return new Response("That finding has no saved rewrite.", { status: 400 });
+    for (const field of [...record.fields].reverse()) {
+      await undoFieldEdit(record.toolId, field, record.previous?.[field]);
+    }
+    delete rewritten[id];
+    await write(KEYS.changesRewritten, rewritten);
+    await pushCapped(KEYS.rewriteLog, [{
+      id: `rw-${Date.now().toString(36)}-undo`, type: "undo", at: new Date().toISOString(),
+      by: session.email, changeId: id, toolId: record.toolId, undoes: record.logId, fields: record.fields,
+    }], 300);
+    /* Undoing a destination reopens the finding, as undoing an apply does. */
+    const seen = await read(KEYS.changesSeen, {});
+    if (seen[id]?.via === "resolved") { delete seen[id]; await write(KEYS.changesSeen, seen); }
+    return Response.json({ rewritten, dismissed: seen });
+  }
+
+  /*
+   * Resolve a finding once, after whatever destinations it needed: published,
+   * applied, rewritten, or any combination. Refused with none of them, because
+   * "looked and did nothing" is what Dismiss is for, and the two should not be
+   * indistinguishable afterwards.
+   */
+  if (action === "resolve-change") {
+    const rows = await readChangelog(500);
+    if (!rows.some((r) => r.id === id)) return new Response("Unknown change", { status: 400 });
+    const [published, applied, rewritten] = await Promise.all([
+      read(KEYS.changesPublished, {}), read(KEYS.changesApplied, {}), read(KEYS.changesRewritten, {}),
+    ]);
+    const destinations = [
+      published[id] && "published", applied[id] && "applied", rewritten[id] && "rewritten",
+    ].filter(Boolean);
+    if (!destinations.length) return new Response("Nothing has been done with this finding yet. Dismiss it instead.", { status: 400 });
+    const seen = await read(KEYS.changesSeen, {});
+    seen[id] = { at: new Date().toISOString().slice(0, 10), by: session.email, via: "resolved", destinations };
+    await write(KEYS.changesSeen, seen);
+    return Response.json({ dismissed: seen });
   }
 
   if (action === "dismiss-change" || action === "reopen-change") {

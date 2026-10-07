@@ -10,6 +10,7 @@ import { ALL_EVENTS } from "@/lib/events";
 import { drafted, published } from "@/lib/drafts";
 import { timesAsked } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
+import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
 import { Pill } from "./Pill";
 import { ThemeToggle } from "./Theme";
 
@@ -85,6 +86,8 @@ export default function AdminPanel({
   discovery = { findings: [] },
   blocked = [],
   publishedChanges = {},
+  rewrittenChanges = {},
+  rewriteLog = [],
   feed = [],
   health = null,
   inventory = [],
@@ -121,7 +124,7 @@ export default function AdminPanel({
   const pendingClaims = Object.entries(claimRows).filter(([, c]) => c.status !== "verified");
   const verifiedClaims = Object.entries(claimRows).filter(([, c]) => c.status === "verified");
 
-  const openChanges = (changelog || []).filter((r) => !seen[r.id]);
+  const openChanges = (changelog || []).filter((r) => !isHandled(r.id, seen, publishedChanges || {}, appliedChanges || {}));
   /* "Since your last visit" is computed against the value the server rendered
      with, which is the visit before this one: the stamp below updates after. */
   const sinceVisit = lastVisit
@@ -237,6 +240,7 @@ export default function AdminPanel({
             seen={seen}
             appliedChanges={appliedChanges || {}}
             publishedChanges={publishedChanges || {}}
+            rewrittenChanges={rewrittenChanges || {}}
             discovery={discovery}
             onSeen={setSeen}
             act={act}
@@ -280,7 +284,7 @@ export default function AdminPanel({
         )}
 
         {tab === "system" && (
-          <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []}
+          <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []} rewriteLog={rewriteLog || []}
             health={health} blocked={blocked || []} changelog={changelog || []}
             inventory={inventory || []} />
         )}
@@ -295,9 +299,9 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, discovery = { findings: [] }, onSeen, act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, discovery = { findings: [] }, onSeen, act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
-  const openChanges = changes.filter((r) => !seen[r.id]);
+  const openChanges = changes.filter((r) => !isHandled(r.id, seen, publishedChanges, appliedChanges));
   const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length;
 
   /*
@@ -370,7 +374,8 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
       </Section>
 
       <ChangeMonitor rows={changes} monitor={monitor} seen={seen}
-        appliedChanges={appliedChanges} publishedChanges={publishedChanges} onSeen={onSeen} />
+        appliedChanges={appliedChanges} publishedChanges={publishedChanges}
+        rewrittenChanges={rewrittenChanges} onSeen={onSeen} />
 
       <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
     </>
@@ -436,7 +441,7 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], f
  * look. A dumping ground with the diagnosis buried in it is a tab people stop
  * opening.
  */
-function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], health, blocked = [], changelog = [], inventory = [] }) {
+function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], health, blocked = [], changelog = [], inventory = [] }) {
   return (
     <>
       <StatusStrip health={health} maillog={maillog} blocked={blocked} />
@@ -462,6 +467,11 @@ function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog =
       <Collapsible title="Dedup decisions" count={dedupelog.length}
         hint="Every submission, what it was matched to, and what decided it.">
         <DedupeLog rows={dedupelog} />
+      </Collapsible>
+
+      <Collapsible title="AI rewrites" count={rewriteLog.length}
+        hint="Every description rewritten with AI, with the finding that prompted it, what the model proposed and what was saved. Newest first.">
+        <RewriteLog rows={rewriteLog} />
       </Collapsible>
 
       <Collapsible title="Changelog archive" count={changelog.length}
@@ -2239,6 +2249,55 @@ function PublishedEntries({ entries = {}, onEntries }) {
 
 /* Why a submission was merged, or was not. The only destructive outcome in the
    suggestion pipeline is a merge, so it is the one that has to be answerable. */
+/*
+ * The audit trail for AI rewrites. A bad description is traced from here back
+ * to the finding, the source page and the person who accepted it, and the row
+ * says whether they saved the model's text or their own edit of it.
+ */
+function RewriteLog({ rows = [] }) {
+  if (!rows.length) return <Empty>No description has been rewritten with AI.</Empty>;
+  return (
+    <>
+      {rows.map((r) => r.type === "undo" ? (
+        <Row key={r.id}
+          title={r.toolId}
+          tag="undone"
+          tagColor={C.dim}
+          body={`Restored ${(r.fields || []).join(", ")} to what was there before rewrite ${r.undoes}.`}
+          meta={`${String(r.at || "").slice(0, 16).replace("T", " ")} · ${r.by}`}
+        />
+      ) : (
+        <Row key={r.id}
+          title={r.toolName || r.toolId}
+          tag={`rewrote ${(Object.keys(r.saved || {})).join(", ")}`}
+          tagColor={C.accentInk}
+          badges={<>
+            {r.provider && <Pill>{r.provider}</Pill>}
+            {r.edited && <Pill>edited before saving</Pill>}
+            {r.dropped?.length > 0 && <Pill>dropped {r.dropped.map((d) => d.field).join(", ")}</Pill>}
+          </>}
+          body={<>
+            <span style={{ color: C.muted }}>Finding ({r.finding?.kind}, {r.finding?.confidence}): </span>{r.finding?.what}
+            {r.finding?.url && <> <a href={outbound(r.finding.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>source</a></>}
+            {r.steer && <><br /><span style={{ color: C.muted }}>Steer: </span>{r.steer}</>}
+            {Object.keys(r.saved || {}).map((f) => {
+              const d = diffSentences(r.before?.[f] || "", r.saved[f]);
+              return (
+                <div key={f} style={{ marginTop: 6 }}>
+                  <b>{f}</b>
+                  <div style={{ marginTop: 2 }}><Sentences parts={d.before} side="before" /></div>
+                  <div style={{ marginTop: 4 }}><Sentences parts={d.after} side="after" /></div>
+                </div>
+              );
+            })}
+          </>}
+          meta={`${String(r.at || "").slice(0, 16).replace("T", " ")} · ${r.by} · change ${r.changeId}`}
+        />
+      ))}
+    </>
+  );
+}
+
 function DedupeLog({ rows = [] }) {
   if (!rows.length) return <Empty>No submissions since this log started.</Empty>;
   return (
@@ -2280,19 +2339,32 @@ const KIND_LABEL = {
    kind is how eight unrelated hues end up next to a spine that means something. */
 const LOUD = new Set(["wind-down", "acquisition", "dead-page", "free-tier", "pricing"]);
 
-function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, onSeen }) {
+/*
+ * A finding is handled once it is dismissed or resolved, and resolving is one
+ * click after whatever destinations it needed. Publishing, applying and
+ * rewriting are destinations, not verdicts: a new capability is usually news
+ * and a description change, and the row has to stay put while somebody does
+ * both. Records written before resolve-once existed carry no `awaitsResolve`
+ * and count as handled, which is what they were when they were written.
+ */
+const isHandled = (id, seen = {}, published = {}, applied = {}) => Boolean(
+  seen[id]
+  || (published[id] && !published[id].awaitsResolve)
+  || (applied[id] && !applied[id].awaitsResolve));
+
+function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, onSeen }) {
   const [busy, setBusy] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
   const [dismissed, setDismissed] = useState(seen || {});
   const [applied, setApplied] = useState(appliedChanges || {});
   const [published, setPublished] = useState(publishedChanges || {});
+  const [rewritten, setRewritten] = useState(rewrittenChanges || {});
   const [openTool, setOpenTool] = useState("");
   const [showEarlier, setShowEarlier] = useState(false);
 
-  /* A change is handled once it has a destination: on the feed, in the
-     listing, or explicitly dismissed. Handled ones leave the Inbox. */
-  const handled = (r) => Boolean(dismissed[r.id] || applied[r.id] || published[r.id]);
+  /* Handled means dismissed or resolved. Handled ones leave the Inbox. */
+  const handled = (r) => isHandled(r.id, dismissed, published, applied);
 
   async function mark(id, action, extra = {}) {
     setBusy(id); setResult("");
@@ -2310,6 +2382,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
       if (d.dismissed) { setDismissed(d.dismissed); onSeen?.(d.dismissed); }
       if (d.applied) setApplied(d.applied);
       if (d.published) setPublished(d.published);
+      if (d.rewritten) setRewritten(d.rewritten);
       return d;
     } catch {
       setResult("Could not reach the server.");
@@ -2411,7 +2484,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
         ? <Empty>Nothing from the latest run. Most weeks this is the correct answer.</Empty>
         : groups.map((g) => (
           <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
-            applied={applied} published={published} dismissed={dismissed} busy={busy} onAct={mark} />
+            applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} busy={busy} onAct={mark} />
         ))}
 
       {earlierGroups.length > 0 && (
@@ -2424,14 +2497,15 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
           </button>
           {showEarlier && earlierGroups.map((g) => (
             <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
-              applied={applied} published={published} dismissed={dismissed} busy={busy} onAct={mark} />
+              applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} busy={busy} onAct={mark} />
           ))}
         </div>
       )}
 
       <p style={{ fontSize: F.xs, color: C.dim, margin: "14px 0 4px", lineHeight: 1.55, maxWidth: "76ch" }}>
-        A tool disappears from here once every one of its changes has a destination. Publishing puts
-        it on the feed, applying corrects the listing, dismissing records that you looked. Most
+        A tool disappears from here once every one of its changes is resolved or dismissed. Publishing
+        puts a finding on the feed, applying or rewriting corrects the listing, and one finding can
+        take more than one of those before you resolve it. Dismissing records that you looked. Most
         findings belong on the feed: a listing that grows a sentence every week has stopped being a
         listing.
       </p>
@@ -2447,7 +2521,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
  * outgrows its layout: it is not that the rows are wrong, it is that they
  * crowd out the two things that needed a decision.
  */
-function ToolChanges({ group, openTool, setOpenTool, applied, published, dismissed, busy, onAct }) {
+function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritten, dismissed, busy, onAct }) {
   const expanded = openTool === group.id;
   const [batch, setBatch] = useState("");
   const tool = ALL_TOOLS.find((t) => t.id === group.id);
@@ -2456,7 +2530,7 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, dismiss
   async function dismissAll() {
     setBatch("dismiss");
     for (const r of group.rows) {
-      if (!dismissed[r.id] && !applied[r.id] && !published[r.id]) await onAct(r.id, "dismiss-change");
+      if (!dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id]) await onAct(r.id, "dismiss-change");
     }
     setBatch("");
   }
@@ -2505,7 +2579,7 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, dismiss
               )}
               {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "74ch" }}>{r.why}</p>}
               <ChangeAction r={r} done={Boolean(dismissed[r.id])} applied={applied[r.id]}
-                published={published[r.id]} busy={busy} onAct={onAct} />
+                published={published[r.id]} rewritten={rewritten[r.id]} busy={busy} onAct={onAct} />
             </div>
           ))}
         </div>
@@ -2544,9 +2618,10 @@ function AdminLogo({ tool, size = 22 }) {
  *             guess here would be a button claiming it will write something
  *             and then writing the wrong thing.
  */
-function ChangeAction({ r, done, applied, published, busy, onAct }) {
+function ChangeAction({ r, done, applied, published, rewritten, busy, onAct }) {
   const edit = r.edit || { state: "unmapped" };
   const [writing, setWriting] = useState(false);
+  const [rewriting, setRewriting] = useState(false);
   const [headline, setHeadline] = useState("");
   const [drafting, setDrafting] = useState(false);
   const [meta, setMeta] = useState(null);
@@ -2640,7 +2715,7 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
       {edit.state === "unmapped" && (
         <p style={{ fontSize: F.xs, color: C.dim, margin: `0 0 ${S.sm}px`, lineHeight: 1.55, maxWidth: "72ch" }}>
           The monitor could not map this onto a single field{edit.field ? ` (it suggested "${edit.field}", which is not one we store)` : ""}.
-          It may still be worth publishing to Recent updates.
+          It may still be worth publishing to Recent updates, rewriting the description, or both.
         </p>
       )}
 
@@ -2725,6 +2800,10 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
         </div>
       )}
 
+      {rewriting && !rewritten && (
+        <RewriteEditor r={r} busy={busy} onAct={onAct} onClose={() => setRewriting(false)} />
+      )}
+
       <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
         {/*
           * Three destinations, and the feed is first because it is where most
@@ -2759,13 +2838,252 @@ function ChangeAction({ r, done, applied, published, busy, onAct }) {
           </Btn>
         ) : null}
 
+        {/*
+          * Rewrite with AI, for the findings that do not land on one field. A
+          * destination like the other two and not exclusive with either: a new
+          * capability is usually news and a description change.
+          */}
+        {rewritten ? (
+          <>
+            <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
+              Description rewritten {String(rewritten.at || "").slice(0, 10)} ({rewritten.fields.join(", ")})
+            </span>
+            <ConfirmBtn onConfirm={() => onAct(r.id, "undo-rewrite")} busy={busy === r.id}
+              confirm="Restore the old text">Undo rewrite</ConfirmBtn>
+          </>
+        ) : edit.state !== "appliable" && !rewriting && (
+          <Btn onClick={() => setRewriting(true)}>Rewrite with AI</Btn>
+        )}
+
         {openListing}
         {source}
 
-        {!applied && !published && (done
-          ? <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
-          : <ConfirmBtn onConfirm={() => onAct(r.id, "dismiss-change")} busy={busy === r.id}>Dismiss</ConfirmBtn>)}
+        {/*
+          * Resolved once, after every destination it needed. Dismiss stays for
+          * the findings that needed none, and is not offered once one was used,
+          * because "looked and did nothing" and "did something" should not be
+          * indistinguishable afterwards.
+          */}
+        {(applied || published || rewritten)
+          ? (done
+            ? (
+              <>
+                <span style={{ fontSize: F.xs, color: C.muted, fontWeight: 700 }}>Resolved</span>
+                <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
+              </>
+            )
+            : <Btn onClick={() => onAct(r.id, "resolve-change")} busy={busy === r.id} tone="go">Resolve</Btn>)
+          : (done
+            ? <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
+            : <ConfirmBtn onConfirm={() => onAct(r.id, "dismiss-change")} busy={busy === r.id}>Dismiss</ConfirmBtn>)}
       </div>
+    </div>
+  );
+}
+
+/*
+ * The AI rewrite editor.
+ *
+ * Proposes on open, then shows every proposed field as old against new, with
+ * the sentences that changed marked on both sides, the length before and
+ * after, and a textarea holding the proposal so it can be edited before it is
+ * accepted. The diff re-renders from the textarea, so what is highlighted is
+ * always what would be saved.
+ *
+ * The steer box goes to the model as the editor's instruction: "work this into
+ * the second sentence", "this is minor, one clause only". It outranks the
+ * model's own judgement about where the change goes, never the rules about
+ * what it may touch.
+ *
+ * Nothing saves until "Accept and save", and the server re-checks whatever is
+ * sent: only one, note and price, and only where they differ.
+ */
+const REWRITE_FIELDS = ["one", "note", "price"];
+const DROP_WHY = {
+  protected: "protected, so never written by a rewrite. A monitor-driven change to a caveat, a category or ownership is exactly what this arrangement exists to prevent",
+  outside: "not part of a description rewrite",
+};
+
+function Sentences({ parts, side }) {
+  return (
+    <p style={{ fontSize: F.sm, lineHeight: 1.65, margin: 0, color: side === "before" ? C.muted : C.text }}>
+      {parts.length === 0 && <span style={{ color: C.dim }}>(empty)</span>}
+      {parts.map((p, i) => (p.changed
+        ? (
+          <span key={i} style={side === "before"
+            ? { background: C.badSoft, textDecoration: "line-through", textDecorationColor: C.badInk, borderRadius: 3 }
+            : { background: C.accentSoft, color: C.text, borderRadius: 3, boxShadow: `inset 0 -1px 0 ${C.accentEdge}` }}>
+            {p.text}
+          </span>
+        )
+        : <span key={i}>{p.text}</span>))}
+    </p>
+  );
+}
+
+function RewriteEditor({ r, busy, onAct, onClose }) {
+  const [steer, setSteer] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [drafts, setDrafts] = useState({});
+  const [include, setInclude] = useState({});
+  const [err, setErr] = useState("");
+
+  async function propose(withSteer = steer) {
+    setLoading(true); setErr("");
+    try {
+      const res = await fetch("/api/admin/rewrite", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: r.id, steer: withSteer }),
+      });
+      if (!res.ok) { setErr(await res.text()); return; }
+      const d = await res.json();
+      setResult(d);
+      setDrafts({ ...d.fields });
+      setInclude(Object.fromEntries(Object.keys(d.fields || {}).map((f) => [f, true])));
+    } catch {
+      setErr("Could not reach the server.");
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { propose(""); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fields = REWRITE_FIELDS.filter((f) => drafts[f] !== undefined);
+  const chosen = Object.fromEntries(fields.filter((f) => include[f] && String(drafts[f] || "").trim()).map((f) => [f, drafts[f]]));
+  const hasDash = Object.values(chosen).some((v) => /[—–]/.test(v));
+
+  async function save() {
+    setErr("");
+    const res = await onAct(r.id, "apply-rewrite", {
+      fields: chosen,
+      proposal: result?.fields || {},
+      dropped: result?.dropped || [],
+      steer: result?.steer || "",
+      provider: result?.provider || "",
+      summary: result?.summary || "",
+      flag: result?.flag || "",
+    });
+    if (res?.error) { setErr(res.error); return; }
+    onClose();
+  }
+
+  return (
+    <div style={{
+      background: C.raised, border: `1px solid ${C.accentEdge}`, borderRadius: R.card,
+      padding: S.lg, marginBottom: S.sm,
+    }}>
+      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+        <b style={{ fontSize: F.sm }}>Rewrite the description</b>
+        {result?.provider && <span style={{ fontSize: F.xs, color: C.dim }}>drafted by {result.provider}</span>}
+        {result?.source && (
+          <span style={{ fontSize: F.xs, color: C.dim }}>
+            {result.source.read ? "· source page read" : `· ${result.source.note || "source page not read"}`}
+          </span>
+        )}
+      </div>
+
+      {loading && (
+        <p style={{ fontSize: F.sm, color: C.muted, margin: "12px 0", lineHeight: 1.6 }}>
+          Reading the source page and working the finding into the listing…
+        </p>
+      )}
+
+      {!loading && result && (
+        <>
+          {result.summary && (
+            <p style={{ fontSize: F.sm, color: C.text, margin: "8px 0 0", lineHeight: 1.55, maxWidth: "74ch" }}>
+              {fields.length ? result.summary : <>No change proposed. {result.summary}</>}
+            </p>
+          )}
+          {!fields.length && (
+            <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>
+              If it is news rather than a change to what the tool is, Publish to Recent updates is the right home.
+            </p>
+          )}
+
+          {fields.map((f) => {
+            const before = result.current?.[f] || "";
+            const after = drafts[f] || "";
+            const d = diffSentences(before, after);
+            const g = growth(before, after);
+            const grew = g.pct > GROWTH_WARN_PCT;
+            return (
+              <div key={f} style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md, opacity: include[f] ? 1 : 0.55 }}>
+                <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+                  <label className="flex items-center" style={{ gap: 6, fontSize: F.xs, fontWeight: 700 }}>
+                    <input type="checkbox" checked={Boolean(include[f])}
+                      onChange={(e) => setInclude((x) => ({ ...x, [f]: e.target.checked }))} />
+                    {f}
+                  </label>
+                  <span className="tnum" style={{ fontSize: F.xs, color: grew ? C.warnInk : C.dim, fontWeight: grew ? 700 : 400 }}>
+                    {g.from} → {g.to} chars ({g.pct >= 0 ? "+" : ""}{g.pct}%)
+                    {grew && " · grows the listing"}
+                  </span>
+                  <span style={{ fontSize: F.xs, color: C.dim }}>
+                    {d.changedCount} sentence{d.changedCount === 1 ? "" : "s"} changed
+                  </span>
+                </div>
+                <div className="flex flex-wrap" style={{ gap: S.lg, marginTop: S.sm }}>
+                  <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                    <p style={{ fontSize: F.xs, color: C.dim, margin: "0 0 4px", fontWeight: 600 }}>Now</p>
+                    <Sentences parts={d.before} side="before" />
+                  </div>
+                  <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                    <p style={{ fontSize: F.xs, color: C.dim, margin: "0 0 4px", fontWeight: 600 }}>Proposed</p>
+                    <Sentences parts={d.after} side="after" />
+                  </div>
+                </div>
+                <textarea value={after} rows={f === "note" ? 5 : 2}
+                  onChange={(e) => setDrafts((x) => ({ ...x, [f]: e.target.value }))}
+                  aria-label={`Edit the proposed ${f}`}
+                  style={{ ...FIELD, resize: "vertical", lineHeight: 1.55, marginTop: S.sm }} />
+              </div>
+            );
+          })}
+
+          {(result.dropped || []).length > 0 && (
+            <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.55, maxWidth: "74ch" }}>
+              Dropped from the proposal:{" "}
+              {result.dropped.map((d, i) => (
+                <span key={d.field}>{i > 0 && "; "}<b style={{ color: C.muted }}>{d.field}</b>, {DROP_WHY[d.reason] || d.reason}</span>
+              ))}.
+            </p>
+          )}
+          {result.flag && (
+            <p style={{ fontSize: F.xs, color: C.warnInk, margin: `${S.sm}px 0 0`, lineHeight: 1.55, maxWidth: "74ch" }}>
+              <b>The model flagged the caveat or ownership:</b>{" "}
+              <span style={{ color: C.muted }}>{result.flag} If it is right, that is a hand edit to <code>lib/tools.js</code>.</span>
+            </p>
+          )}
+          {hasDash && (
+            <p style={{ fontSize: F.xs, color: C.badInk, margin: `${S.sm}px 0 0` }}>
+              There is an em-dash or en-dash in the text. Saving will turn it into a comma.
+            </p>
+          )}
+        </>
+      )}
+
+      <div style={{ marginTop: S.md }}>
+        <label style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, display: "block", marginBottom: 4 }}>
+          Steer it (optional)
+        </label>
+        <textarea value={steer} onChange={(e) => setSteer(e.target.value)} rows={2}
+          placeholder="Work this into the second sentence. This is minor, one clause only."
+          style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
+      </div>
+
+      <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
+        <Btn onClick={save} busy={busy === r.id} tone="go" disabled={loading || !Object.keys(chosen).length}>
+          Accept and save
+        </Btn>
+        <Btn onClick={() => propose(steer)} busy={loading}>{steer.trim() ? "Propose again with this" : "Propose again"}</Btn>
+        <Btn onClick={onClose}>Cancel</Btn>
+      </div>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5, maxWidth: "74ch" }}>
+        Saves as an override, like a vendor edit, so the file is untouched and Undo restores exactly what was
+        there. Every save is logged with this finding in System, AI rewrites.
+      </p>
+      {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>}
     </div>
   );
 }
