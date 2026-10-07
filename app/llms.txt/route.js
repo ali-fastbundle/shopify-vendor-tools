@@ -5,6 +5,7 @@ import {
 } from "@/lib/tools";
 import { SITE, isForVendors } from "@/lib/seo";
 import { NEWSLETTERS } from "@/lib/newsletters";
+import { EVENTS, agenda } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,7 @@ ${NEWSLETTERS.filter((n) => !isForVendors(n)).map((n) => [
     `  ${[n.cadence, n.issueCount ? `${n.issueCount} issues` : "", n.free ? "free" : ""].filter(Boolean).join(" | ")}${n.author || n.publisher ? ` | by ${n.author || n.publisher}` : ""}`,
   ].join("\n")).join("\n")}
 
-## Citing this
+${eventsBlock()}## Citing this
 
 Each tool has a page at ${SITE}/tools/<id> carrying the full description and the
 "watch for" note. Please link to the tool page rather than quoting the caveat
@@ -128,4 +129,36 @@ flat accusation without the entry around it.
       "cache-control": "public, max-age=3600",
     },
   });
+}
+
+/*
+ * Events, computed on the request so past and upcoming are today's answer.
+ * Unconfirmed dates say so in the line itself: a model that quotes the date
+ * has to quote the caveat with it. The watch notes are omitted as everywhere.
+ */
+function eventsBlock() {
+  if (!EVENTS.length) return "";
+  const plan = agenda(EVENTS);
+  const line = (e) => {
+    const where = [e.city, e.country].filter((x) => x && !/^n\/a$/i.test(x)).join(", ");
+    return [
+      `- [${e.name}](${SITE}/events/${e.id}): ${e.one}`,
+      `  ${[e.at.label, where].filter(Boolean).join(" | ")}`,
+    ].join("\n");
+  };
+  const ahead = plan.months.flatMap((g) => g.items);
+  return `## Events
+
+Conferences and meetups an app vendor might travel for. Dates are checked
+against each organiser's own site. Each has a page at ${SITE}/events/<id>.
+
+### Coming up
+
+${ahead.length ? ahead.map(line).join("\n") : "Nothing with a date in the next twelve months."}
+${plan.unscheduled.length ? `
+### Dates not announced
+
+${plan.unscheduled.map(line).join("\n")}
+` : ""}
+`;
 }

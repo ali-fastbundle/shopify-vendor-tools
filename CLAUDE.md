@@ -1363,6 +1363,9 @@ days; a person still writes the sentence around it and presses send.
 | `lib/announce.js` | The announcement prompt and the house-voice examples. Drafts, never publishes |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |
+| `lib/events.js` | The events catalogue, and `placeEvent`, the only place past, imminent and upcoming are decided |
+| `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and agenda), the shared row and body, and `/events/[id]` |
+| `components/SiteNav.jsx` | The four top-level views on the index pages that are not the directory |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists. Client-safe, so no model import |
 | `lib/dedup.js` | Model-first dedup with the string matching as fallback, and the verdict log |
 | `lib/model.js` | The provider chain. The only reader of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
@@ -1691,7 +1694,7 @@ tool compare modal is untouched: the list is the pass where you work out which t
 ## Sections beyond tools
 
 `RESOURCE_KINDS` in `lib/tools.js` names every section: tools, newsletters, events,
-podcasts, YouTube, books, groups, accounts, influencers. `tool` and `newsletter` have
+podcasts, YouTube, books, groups, accounts, influencers. `tool`, `newsletter` and `event` have
 `live: true`; the rest are roadmap cards.
 The roadmap renders every kind that is not open as a card that opens the suggest modal
 preselected to it, and `/api/suggest` validates `kind` against that list, defaulting to
@@ -1750,6 +1753,36 @@ not published, and `watch` says so rather than a rhythm being guessed from the a
 satisfy the format is inventing a fact. `started` and `issueCount` are independent: a
 publication can have a countable run with no findable start date, or the reverse. Having
 both is what lets a reader check the run for gaps.
+
+**Events are live**, opened on 2026-10-07: an index at `/events`, a page per entry
+at `/events/[id]`, sitemap entries, `llms.txt`, and a place in the top-level views
+(Directory, Newsletters, Events, Recent updates), which `SiteNav` renders on every
+index page and `Directory.jsx` renders on the home page. The catalogue stays the
+default view.
+
+- **Status is never stored.** Past, imminent (within 30 days) and upcoming are
+  derived by `placeEvent` at render, and the pages are `force-dynamic` so that
+  happens on the day the page is read. The spreadsheet the entries came from had
+  a Status column that was wrong for six of them on the day it was imported.
+- **An inferred date is never presented as scheduled.** Only an `annual` series
+  with a known `lastHeld` inside two years is placed at its next anniversary, and
+  it says "Not confirmed" in the date box, "Date not confirmed, last held ..." on
+  the row, gets no countdown, is counted apart in the month strip, and gets no
+  schema.org `Event` node. A meetup that runs several times a year is not
+  `annual`: it has no anniversary, so it goes to "Dates not announced".
+- **Ids are per series, not per edition.** The next edition is an edit to the
+  dates and name, never a new entry.
+- **An agenda, not a month grid**, with a twelve-month count strip on top. Most
+  events are one day in a scattered month, so a grid is mostly empty cells and
+  unusable on a phone. The strip keeps what a grid is for, seeing busy months.
+- **Status is contrast, not hue.** Past is dimmed, upcoming is full text,
+  imminent takes the neutral inversion. No category colour (invariant A), no
+  green (C), no warn tone (B).
+- `relevance` is ours, checked on the event's own site, and says who the event
+  is built for. `notes` is research scaffolding and is stripped by `placed()`
+  before anything reaches a client component.
+- Events are read-only: no votes, reviews, reports or claims. The write routes do
+  not accept event ids.
 
 Newsletters are live: seven published entries in the file, the section opened on
 2026-10-02. They have their own pages at `/newsletters/[id]` and an index at
@@ -1978,6 +2011,7 @@ node scripts/discovery-settled.mjs   # one item, one place: listed, queued or de
 node scripts/housekeeping-test.mjs   # the reset clears four things and protects the snapshots
 node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, and does nothing else
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
+node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip
 node scripts/interest-test.mjs       # needs a running server
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>

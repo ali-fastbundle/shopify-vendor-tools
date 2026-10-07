@@ -1184,15 +1184,23 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               cursor: "pointer", fontFamily: "inherit",
             }}>Directory</button>
 
-          {/* A real page, not an in-place view: a plain link to /newsletters,
-              never the selected state on this page because selecting it leaves
-              this page. Styled like the others in their unselected state. */}
+          {/* Real pages, not in-place views: plain links to /newsletters and
+              /events, never the selected state on this page because selecting
+              one leaves this page. Styled like the others unselected, and in
+              the same order as SiteNav on those pages. */}
           <a href="/newsletters" className="press"
             style={{
               textDecoration: "none", background: "transparent", color: C.muted,
               border: `1px solid ${C.line}`, borderRadius: R.control,
               padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
             }}>Newsletters</a>
+
+          <a href="/events" className="press"
+            style={{
+              textDecoration: "none", background: "transparent", color: C.muted,
+              border: `1px solid ${C.line}`, borderRadius: R.control,
+              padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
+            }}>Events</a>
 
           {/* An anchor rather than a button, because it goes somewhere real.
               aria-pressed matches the view toggle: neither this nor that

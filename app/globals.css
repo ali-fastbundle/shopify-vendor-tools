@@ -349,3 +349,19 @@ a:focus-visible,
  * Nothing to disable under reduced motion: every transition is declared under
  * no-preference above. This block is deliberately empty of transform rules.
  */
+
+/*
+ * The events month strip. Twelve months in one row where there is room for
+ * them, two rows of six on a phone, so it never scrolls sideways.
+ */
+.event-strip {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+}
+
+@media (min-width: 768px) {
+  .event-strip {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+}

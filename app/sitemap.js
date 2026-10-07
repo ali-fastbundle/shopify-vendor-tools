@@ -2,6 +2,7 @@ import { mergedTools, mergedNewsletters } from "@/lib/listings";
 import { LAST_UPDATED_ISO, CATEGORIES, isInCat } from "@/lib/tools";
 import { SITE } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
+import { EVENTS } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,20 @@ export default async function sitemap() {
       lastModified: new Date(n.updated || LAST_UPDATED_ISO || Date.now()),
       changeFrequency: "monthly",
       priority: 0.6,
+    })),
+    {
+      url: `${SITE}/events`,
+      lastModified: new Date(
+        EVENTS.reduce((max, e) => (e.updated && e.updated > max ? e.updated : max), "")
+        || LAST_UPDATED_ISO || Date.now()),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    ...EVENTS.map((e) => ({
+      url: `${SITE}/events/${e.id}`,
+      lastModified: new Date(e.updated || LAST_UPDATED_ISO || Date.now()),
+      changeFrequency: "monthly",
+      priority: 0.5,
     })),
   ];
 }

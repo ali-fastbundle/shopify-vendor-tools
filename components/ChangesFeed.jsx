@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import CopyLink from "./CopyLink";
+import SiteNav from "@/components/SiteNav";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, CATEGORIES, catOf, formatDay } from "@/lib/tools";
 
@@ -191,12 +192,9 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
   return (
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
       <div className="mx-auto" style={{ maxWidth: 860, padding: "0 20px" }}>
-        <nav style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
-          <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
-          <span style={{ color: C.dim }}> / </span><span>Recent updates</span>
-        </nav>
+        <SiteNav current="updates" />
 
-        <header style={{ paddingTop: S.xl }}>
+        <header style={{ paddingTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
             Recent updates
           </h1>

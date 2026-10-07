@@ -6,6 +6,7 @@ import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, 
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_COMMUNITIES } from "@/lib/communities";
 import { ALL_PODCASTS } from "@/lib/podcasts";
+import { ALL_EVENTS } from "@/lib/events";
 import { drafted, published } from "@/lib/drafts";
 import { timesAsked } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
@@ -133,7 +134,7 @@ export default function AdminPanel({
   const inboxCount = pending.length + openReports.length + pendingClaims.length + openChanges.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
-    + drafted(ALL_PODCASTS).length;
+    + drafted(ALL_PODCASTS).length + drafted(ALL_EVENTS).length;
   const counts = {
     inbox: inboxCount,
     catalogue: catalogueCount,
@@ -1314,6 +1315,7 @@ const SOURCES = [
   { kind: "newsletter", entries: ALL_NEWSLETTERS },
   { kind: "group", entries: ALL_COMMUNITIES },
   { kind: "podcast", entries: ALL_PODCASTS },
+  { kind: "event", entries: ALL_EVENTS },
 ];
 
 /*

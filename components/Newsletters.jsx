@@ -1,6 +1,7 @@
 import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
+import SiteNav from "@/components/SiteNav";
 
 /*
  * The Newsletters index, server-rendered with no client state, same contract
@@ -92,13 +93,9 @@ export default function Newsletters({ newsletters, lastUpdated }) {
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 20px" }}>
 
-        <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
-          <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
-          <span style={{ color: C.dim }}> / </span>
-          <span style={{ color: C.text }}>Newsletters</span>
-        </nav>
+        <SiteNav current="newsletters" />
 
-        <header style={{ marginTop: S.xl }}>
+        <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
             Newsletters
           </h1>
