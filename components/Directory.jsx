@@ -488,6 +488,12 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
             {/* Five example queries were five buttons wide enough to wrap to
                 three rows. They are worth having and not worth that space, so
                 they open on ask. */}
+            {/* The recommender sits on the examples' line, on the right, so
+                it costs no height above the fold (invariant F). */}
+            <a href="/recommend" style={{
+              float: "right", marginTop: S.sm, fontSize: F.xs, color: C.muted,
+              textDecoration: "underline", textUnderlineOffset: 3,
+            }}>Have a listing? Get three picks for it</a>
             <details style={{ marginTop: S.sm }}>
               <summary style={{
                 fontSize: F.xs, color: C.dim, cursor: "pointer", listStyle: "none",

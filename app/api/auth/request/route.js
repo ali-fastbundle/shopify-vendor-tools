@@ -26,7 +26,11 @@ export async function POST(request) {
    * then travels inside the signed token, so an unknown or malformed one is
    * dropped rather than carried, and the callback cannot be pointed anywhere.
    */
-  const back = (await isListedId(tool)) ? tool : "";
+  /* `@recommend` is the one non-listing destination: the growth recommender
+     is signed-in only, and sending somebody home after they signed in to use
+     it loses the form they filled in. A fixed token, not a path, so it still
+     cannot be pointed anywhere else. */
+  const back = tool === "@recommend" || (await isListedId(tool)) ? tool : "";
 
   const origin = new URL(request.url).origin;
   const link = `${origin}/api/auth/callback?token=${encodeURIComponent(mintLoginToken(addr, back))}`;

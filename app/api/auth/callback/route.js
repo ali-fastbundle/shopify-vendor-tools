@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
  */
 function returnPath(id) {
   if (!id) return "/?signin=ok";
+  if (id === "@recommend") return "/recommend?signin=ok";
   const safe = encodeURIComponent(id);
   if (NEWSLETTERS.some((n) => n.id === id)) return `/newsletters/${safe}?signin=ok`;
   if (EVENTS.some((e) => e.id === id)) return `/events/${safe}?signin=ok`;

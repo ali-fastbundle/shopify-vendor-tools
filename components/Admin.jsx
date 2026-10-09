@@ -75,6 +75,7 @@ export default function AdminPanel({
   reports = [],
   accounts = {},
   stats = { fields: {}, queries: [] },
+  recommend = { runs: [], summary: null },
   maillog = [],
   entries = {},
   dedupelog = [],
@@ -284,7 +285,7 @@ export default function AdminPanel({
         )}
 
         {tab === "audience" && (
-          <Audience stats={stats} interest={interest || {}} entries={entryRows} />
+          <Audience stats={stats} interest={interest || {}} entries={entryRows} recommend={recommend} />
         )}
 
         {tab === "system" && (
@@ -776,11 +777,53 @@ function StatusStrip({ health, maillog = [], blocked = [] }) {
  * Audience, not health. What visitors are doing, kept away from what is
  * broken so neither has to be read through the other.
  */
-function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {} }) {
+function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {}, recommend = { runs: [], summary: null } }) {
   return (
     <>
+      <RecommenderRuns runs={recommend.runs || []} summary={recommend.summary} />
       <Stats stats={stats} />
       <Interest interest={interest} entries={entries} />
+    </>
+  );
+}
+
+/*
+ * What app teams asked the growth recommender for. The summary first, because
+ * it is the answer to "what do people need": objectives, budgets, stages and
+ * App Store categories counted, and which tools came back most. The runs
+ * themselves are collapsed underneath. No addresses: runs are stored without
+ * them (lib/recommend.js).
+ */
+function RecommenderRuns({ runs = [], summary = null }) {
+  if (!runs.length) {
+    return <Section title="Growth recommender" count={0}><Empty>Nobody has run it yet.</Empty></Section>;
+  }
+  const top = (pairs, n = 5) => pairs.slice(0, n).map(([k, v]) => `${k} (${v})`).join(", ");
+  return (
+    <>
+      <Section title="Growth recommender" count={summary?.total ?? runs.length}
+        hint="What app teams asked for, counted. The last 500 runs; the all-time total is under Counts.">
+        <Row title="Wanted" body={top(summary?.objectives || [], 8) || "Nothing yet."} />
+        <Row title="Budget" body={top(summary?.budgets || []) || "Nothing yet."} />
+        <Row title="Stage" body={top(summary?.stages || []) || "Nothing yet."} />
+        <Row title="Their App Store categories" body={top(summary?.categories || [], 8) || "No listing read yet."} />
+        <Row title="Recommended most" body={top(summary?.picked || [], 8) || "Nothing yet."} />
+        {summary?.fallback > 0 && (
+          <Row title="Answered without the model" tag="check the provider chain" tagColor={C.warnInk}
+            body={`${summary.fallback} of ${summary.total} runs fell back to category and budget ranking.`} />
+        )}
+      </Section>
+      <Collapsible title="Recommender runs" count={runs.length}>
+        {runs.slice(0, 200).map((r) => (
+          <Row key={r.id}
+            title={r.app?.name || r.handle}
+            tag={r.path === "model" ? "" : r.path}
+            badges={<a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>{r.handle}</a>}
+            body={`Wants: ${r.objective}. ${Number(r.installs).toLocaleString("en-US")} installs, ${r.stage}, budget ${r.budget}. Got: ${(r.picks || []).map((p) => p.name).join(", ")}.`}
+            meta={`${String(r.at).slice(0, 16).replace("T", " ")}${r.app?.category ? ` · ${r.app.category}` : ""}${r.app?.rating !== undefined ? ` · ${r.app.rating} from ${r.app.reviews} reviews` : ""}${r.listingRead ? "" : " · listing unread"}${r.provider ? ` · ${r.provider}` : ""}`}
+          />
+        ))}
+      </Collapsible>
     </>
   );
 }

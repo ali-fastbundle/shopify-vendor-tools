@@ -1616,6 +1616,54 @@ nobody here checked.
 - **The Article's `mentions` are the listings' WebPage nodes**, never a second
   SoftwareApplication, which would be a priceless duplicate of the tool.
 
+**42. The growth recommender: signed in, one public page read, three picks, every run kept without an address.**
+`/recommend` (linked from the matcher's examples line, so it costs no fold height). A
+signed-in person gives their App Store listing URL, budget, stage, objective and install
+count, and gets three tools from the catalogue, each with a reason tied to that
+situation. `lib/recommend.js`, through the matcher's provider chain.
+
+**What it may read, and why only that.** Checked on 2026-10-10:
+
+- **Store Leads**' licence forbids transferring its materials to another person, using
+  the information for competitive purposes, reselling it, and republishing it "in any
+  form" without permission. **No Store Leads data is used anywhere in this path, and none
+  may be.** Its terms also say an account holder "must not reference our company, or
+  website, in any external communication without prior written consent". The directory
+  lists Store Leads and the blog names it; that clause binds anyone here who holds a
+  Store Leads account, and is worth knowing before anyone signs up for one.
+- **Applora**'s licence is "for your own research and business purposes, not to resell or
+  redistribute it in bulk", its acceptable use forbids scraping or republishing its
+  aggregated data, and API and MCP access is a paid plan. Not a free source, and serving
+  its data to visitors is not something the licence grants.
+- **The App Store's robots.txt** allows listing pages and disallows `*q=*`, which is
+  search. So the listing page is read (`lib/appListing.js`: one page, `apps.shopify.com/<handle>`
+  only, never search or the reviews pages), and **keyword position is not**: the only free
+  way to read it is searching, which robots.txt closes. The prompt and the answer both say
+  it is unavailable rather than leaving a model to guess.
+
+**What may be recommended is decided before the model sees anything**, the matcher's rule
+(invariant 35): `noRecommend` (the editor's connections), wind-downs, drafts, the app
+itself, and anything over the stated budget are filtered out, and the answer is validated
+against that same filtered list, so an id the model invents or a flagged tool it names
+cannot come back. A tool with no published price is admitted only on the two larger
+budgets. The no-model path (invariant 20) ranks by objective, category and budget and
+still writes each reason from the person's own inputs; every run records which path
+answered, and the admin summary counts the fallbacks.
+
+**Every run is stored, without an address** (`svt:recommend:runs`, newest 2,000), and the
+Audience tab on `/admin` leads with what they add up to: objectives, budgets, stages, the
+askers' App Store categories, and which tools came back most. That is the most useful
+thing this produces, it is useful in aggregate, and keeping the address would break the
+sign-in form's promise of what an account stores. If the asker ever needs to be known,
+change that sentence in `components/Account.jsx` in the same commit (see Accounts).
+
+The form keeps what was typed in this browser across the sign-in trip, and the sign-in
+token carries `@recommend`, the one non-listing return destination, so the callback
+brings people back to the form rather than the homepage.
+
+`node scripts/recommend-test.mjs` covers the filtering, the validation, both paths, what is
+fetched and that no run carries an address.
+
 ## Layout
 
 | Path | Role |
@@ -1646,6 +1694,9 @@ nobody here checked.
 | `lib/notice.js` | The one-screen page answered to a link clicked in an email |
 | `lib/blog.js` `lib/posts/` | Posts as data, the inline link and unverified marks, and the page, RSS and text renderings |
 | `components/Blog.jsx` `app/blog` | The blog index, a post, and `/blog/rss`. Server-rendered, no client state |
+| `lib/recommend.js` `lib/recommendOptions.js` | The growth recommender: candidates, prompt, validation, fallback, runs; and the form's choices (client-safe) |
+| `lib/appListing.js` | Reads one public App Store listing page. Nothing else on apps.shopify.com |
+| `app/recommend` `components/Recommender.jsx` `app/api/recommend` | The recommender's page, form and route |
 | `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
 | `components/EventLogo.jsx` | An event's mark: hosted logo, favicon, then the status-coloured lettermark |
 | `components/SiteNav.jsx` | The top-level views on the index pages that are not the directory: Directory, Newsletters, Events, Recent updates, Blog |
@@ -2327,6 +2378,7 @@ node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
+node scripts/recommend-test.mjs      # flagged and over-budget tools never picked, no address kept
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
 ```
