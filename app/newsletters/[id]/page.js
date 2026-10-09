@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 /*
  * One newsletter at its own URL, server-rendered and complete without
  * JavaScript, the same contract as /tools/[id]. The one interactive piece lives
- * in a client island (NewsletterActions); everything a crawler reads is here.
+ * in a client island (components/Engagement.jsx); everything a crawler reads is here.
  */
 async function load(id) {
   const [newsletters, storedReviews, claims] = await Promise.all([

@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dir = mkdtempSync(join(tmpdir(), "svt-events-"));
-for (const f of ["events", "drafts"]) {
+for (const f of ["events", "drafts", "eventCoords"]) {
   const src = readFileSync(join(root, "lib", `${f}.js`), "utf8").replace(/from "\.\/(\w+)"/g, 'from "./$1.mjs"');
   writeFileSync(join(dir, `${f}.mjs`), src);
 }

@@ -1,7 +1,7 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { listedEntity } from "@/lib/entries";
-import { ownsListing, sanitiseEdit, saveEdit, mergedTools, mergedNewsletters } from "@/lib/listings";
+import { ownsListing, sanitiseEdit, editableFor, saveEdit, mergedTools, mergedNewsletters, mergedEvents } from "@/lib/listings";
 import { sendEvent } from "@/lib/mail";
 
 export const dynamic = "force-dynamic";
@@ -28,8 +28,12 @@ export async function POST(request) {
     return new Response("You have not verified ownership of this listing.", { status: 403 });
   }
 
-  const { edit: clean, error } = sanitiseEdit(edit || {});
+  const { edit: sane, error } = sanitiseEdit(edit || {});
   if (error) return new Response(error, { status: 400 });
+  // Narrower than the tool whitelist for the other shapes. See EDITABLE_BY_KIND.
+  const clean = editableFor(tool.kind, sane);
+  // Same answer sanitiseEdit gives an edit made only of protected fields.
+  if (!Object.keys(clean).length) return new Response("Nothing to save.", { status: 400 });
 
   await saveEdit(toolId, clean, session.email);
 
@@ -40,6 +44,8 @@ export async function POST(request) {
     values: changed.map((f) => `${f}: ${typeof clean[f] === "object" ? JSON.stringify(clean[f]) : clean[f]}`),
   });
 
-  const tools = tool.kind === "newsletter" ? await mergedNewsletters() : await mergedTools();
+  const tools = tool.kind === "newsletter" ? await mergedNewsletters()
+    : tool.kind === "event" ? await mergedEvents()
+    : await mergedTools();
   return Response.json({ tools });
 }

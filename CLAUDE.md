@@ -26,7 +26,11 @@ curl -H "Cookie: <owner session>" -X POST localhost:3000/api/listing \
   -d '{"toolId":"applora","edit":{"watch":"No downsides!","cat":"suite","ratings":[]}}'
 ```
 
-It must return 200 with the original `watch`, `cat` and `ratings` intact.
+It must leave the original `watch`, `cat` and `ratings` intact. It answers 400 "Nothing
+to save." because every field in it is protected and `sanitiseEdit` drops them all; an
+edit that also carries an allowed field answers 200 and saves only that field. (This
+said 200 for a long time after the code stopped doing it. The protection is the point,
+not the status code.)
 
 **2. API keys stay server-side.**
 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` are used only in `app/api/match/route.js`. Never
@@ -115,8 +119,9 @@ milliseconds on a request is the price of delivery that happens, and the transpo
 timeout bounds the worst case.
 
 `sendEvent` never throws. A mail failure must never turn a stored suggestion into a 500
-someone sees — `/api/auth/request` is the single exception, because there the mail *is*
-the request, and it reads the failure off the returned result rather than a throw.
+someone sees. `/api/auth/request` and `/api/contact` are the exceptions, because there
+the mail *is* the request (a contact message is stored nowhere else), and both read the
+failure off the returned result rather than a throw.
 
 Every attempt is written to `svt:maillog` and logged as `[mail]`, success or failure.
 Silence was the bug; the log is how it stays fixed. `/admin` shows the last 100 and the
@@ -193,6 +198,10 @@ of it.
 one without the other, and every Resend call sets `reply_to` to the first
 `ADMIN_EMAILS` address. The subscribe copy tells people they can reply to get off the
 list; the from-address has no inbox, so without `reply_to` that is a lie.
+
+The one exception is a contact message (invariant 38), whose `reply_to` is the sender,
+because pressing reply has to reach the person who wrote in. A matrix row sets it by
+returning `replyTo`; nothing else does.
 
 **32. Ownership is only a fact when it names something else.**
 "AppJubilee is built by AppJubilee" is not information: every product is made by
@@ -1432,6 +1441,89 @@ links is a better reason to open an email than a new listing, which happens
 rarely and which nobody subscribed for. `Compose` drafts from the last seven
 days; a person still writes the sentence around it and presses send.
 
+**37. Every section gets the full engagement set. No section ships read-only.**
+Likes, ratings, reviews (with helpfulness votes), reports and claiming, on every kind
+of listing, by default. A new section is not finished until its entries can be liked,
+reviewed, reported and claimed like a tool. Events shipped read-only once; they no
+longer are.
+
+**The UI is one module, `components/Engagement.jsx`.** A section imports it and passes
+`kind`, the entity and its server-read reviews, and it renders the reviews in the first
+response for a crawler. Newsletters had their own copy (`NewsletterActions.jsx`, now
+gone), and within months it had drifted from the house rules: glyphs instead of
+Phosphor, a stored review overwriting a saved draft, no helpfulness votes, a list that
+only updated on reload. That is what a second copy does, so do not write one. The tool
+grid keeps its own version because its likes and stars live on the card, inside the
+component that filters and compares; the rules are the same.
+
+**Registering a section with the server is two lines in `lib/entries.js`:** its ids in
+`isListedId` and its shape in `listedEntity`. Every write route validates through those,
+so a kind that is not there cannot be voted on, and one that is cannot be missed by a
+route. Then three per-kind lists:
+
+- `EDITABLE_BY_KIND` in `lib/listings.js`, what an owner may change, applied by
+  `editableFor` in `/api/listing` after `sanitiseEdit`. Narrower than the tool list for
+  every other shape: less prose, more fact.
+- `reportKindsFor(kind)` in `lib/tools.js`, which the form offers and `/api/report`
+  enforces. A newsletter has no price; a tool has no date.
+- A `merged<Kind>()` that copies across only the editable fields and restates the rest.
+
+**A lookup across kinds is `listedEntity`, never the tool catalogue.** `/api/review`
+found the listing for its email with `catalogueTools().find(...)`, which is undefined
+for a newsletter, so every newsletter review was stored and then answered 500 on
+`.name`. Sign-in also returned people to `/?tool=<id>`, which only reopens a tool, so a
+newsletter reviewer landed on the homepage; the callback now sends each kind to its own
+page.
+
+`scripts/engagement-test.mjs` checks the set against a running server.
+
+**38. Contact is a form, never a mailto, and the address is not in the repository.**
+`/contact` posts to `/api/contact`, which sends one email through `sendEvent("contact")`
+to `CONTACT_EMAIL` and stores nothing. **The repository is public**, so an address
+committed anywhere in it is harvested from GitHub as surely as from a mailto in the page
+source. `CONTACT_EMAIL` is set in the Vercel environment and nowhere else; unset, mail
+falls back to `ADMIN_EMAILS` with a warning, so a missing variable delays a message
+rather than losing it. `scripts/engagement-test.mjs` fails if the address appears in any
+file.
+
+- **No captcha.** A honeypot field (`company`, off-screen, out of the tab order,
+  `aria-hidden`) and a time-to-submit check of three seconds. The render time is a
+  token signed with `AUTH_SECRET` when the page renders, so a script cannot backdate
+  it the way it could a timestamp the browser supplied. Both failures answer exactly
+  what success answers: telling a bot which check it failed is telling it what to
+  change.
+- **Order, per invariant 6:** honeypot, token and validation are pure checks; the
+  limiter (five an hour per IP) sits directly above the send.
+- **`reply_to` is the sender**, the one exception to invariant 14.
+- **Nothing is sent to the sender.** The address is whatever somebody typed into a
+  public form, so an acknowledgement would let anyone point our mail at a stranger,
+  the same reason `/api/subscribe` only mails a new address (invariant 8).
+- **A failed send is reported to the person** (502), not thanked, because nothing
+  else holds the message.
+
+Every footer carries `FooterLinks`: the maintainer's LinkedIn (`AUTHOR_URL`) as a
+Phosphor icon, and Contact.
+
+**39. A visitor's location never leaves their browser.**
+"Events near me" on `/events` sorts upcoming in-person events by distance.
+
+- **Asked for only on the click.** Never on load: an unasked-for permission prompt
+  gets "block", and then the feature is gone for that visitor for good.
+- **Distance is computed client-side** in `components/NearbyEvents.jsx`, which has no
+  fetch, no beacon, no storage and no cookie. There is no route a location could
+  reach even by mistake, and the test reads the source to prove it.
+- **Coordinates are city-level and committed**, in `lib/eventCoords.js`, written by
+  `scripts/geocode-events.mjs` (OpenStreetMap Nominatim, one request a second, an
+  identifying user agent). Nothing geocodes at build or request time: a build should
+  not fail because a third party is down, and Lisbon does not move between deploys.
+  Each row keeps the city and country it was looked up from, and `coordsFor` drops it
+  when the entry no longer matches, so a moved event loses its distance rather than
+  showing the old one. **Run the script after adding an event or changing a city.**
+- **Kilometres, rounded to tens**, and "In your city" under 15 km: city-level
+  coordinates cannot say anything finer.
+- **Refused or unavailable falls back to a country picker**, which is also offered
+  up front to anybody who would rather not share.
+
 ## Layout
 
 | Path | Role |
@@ -1448,6 +1540,13 @@ days; a person still writes the sentence around it and presses send.
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |
 | `lib/events.js` | The events catalogue, and `placeEvent`, the only place past, imminent and upcoming are decided |
+| `lib/eventCoords.js` | City-level coordinates per event. Generated by `scripts/geocode-events.mjs`; never edited by hand |
+| `components/NearbyEvents.jsx` | "Events near me": geolocation on click, distance in the browser, country fallback |
+| `components/Engagement.jsx` | Likes, ratings, reviews, helpfulness, reports and claiming for every section that is not the tool grid |
+| `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
+| `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text |
+| `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
+| `components/FooterLinks.jsx` | LinkedIn and Contact, on every footer |
 | `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
 | `components/EventLogo.jsx` | An event's mark: hosted logo, favicon, then the status-coloured lettermark |
 | `components/SiteNav.jsx` | The four top-level views on the index pages that are not the directory |
@@ -1884,8 +1983,13 @@ default view.
 - `relevance` is ours, checked on the event's own site, and says who the event
   is built for. `notes` is research scaffolding and is stripped by `placed()`
   before anything reaches a client component.
-- Events are read-only: no votes, reviews, reports or claims. The write routes do
-  not accept event ids.
+- Events take the full engagement set (invariant 37): likes, ratings, reviews,
+  reports and claims, on the event page and in the modal. An organiser may edit
+  `one`, `url` and `social` and nothing else; the dates, the place, the audience,
+  `relevance` and `watch` are editorial. A date that moved is a report
+  ("Wrong date or place"), not an edit. An event with no `domain` of its own cannot
+  be claimed, because the only thing left to verify against would be the ticketing
+  platform; the panel sends the organiser to the contact page instead.
 
 Newsletters are live: seven published entries in the file, the section opened on
 2026-10-02. They have their own pages at `/newsletters/[id]` and an index at
@@ -2017,6 +2121,7 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `report` | yes | thank you, only if they gave an address |
 | `listing_edited` | yes | nothing (they just made the edit) |
 | `monitor_digest` | yes, and only when something changed | nothing |
+| `contact` | to `CONTACT_EMAIL`, `reply_to` the sender | nothing, ever (invariant 38) |
 
 Votes send nothing, either side. That covers both kinds: liking a tool, and
 marking a review helpful.
@@ -2118,6 +2223,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/interest-test.mjs       # needs a running server
+AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
 ```

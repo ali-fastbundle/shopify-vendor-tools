@@ -2,8 +2,24 @@ import { readLoginToken, mintSession, sessionCookie } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { recordSignIn } from "@/lib/accounts";
 import { sendEvent } from "@/lib/mail";
+import { NEWSLETTERS } from "@/lib/newsletters";
+import { EVENTS } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
+
+/*
+ * A newsletter or an event has its own page, and the directory only knows how
+ * to reopen a tool, so sending those back to `/?tool=` landed people on the
+ * homepage with the listing they were reviewing gone. Each kind goes back to
+ * where it lives. The lookups are the static catalogues, so this costs no I/O.
+ */
+function returnPath(id) {
+  if (!id) return "/?signin=ok";
+  const safe = encodeURIComponent(id);
+  if (NEWSLETTERS.some((n) => n.id === id)) return `/newsletters/${safe}?signin=ok`;
+  if (EVENTS.some((e) => e.id === id)) return `/events/${safe}?signin=ok`;
+  return `/?signin=ok&tool=${safe}`;
+}
 
 export async function GET(request) {
   const token = new URL(request.url).searchParams.get("token");
@@ -18,7 +34,7 @@ export async function GET(request) {
    * edited to say. It becomes a parameter on our own origin either way, so
    * there is no destination here for anyone to control.
    */
-  const back = tool ? `/?signin=ok&tool=${encodeURIComponent(tool)}` : "/?signin=ok";
+  const back = returnPath(tool);
 
   /*
    * After the token check, which is a pure HMAC compare with no I/O — a forged

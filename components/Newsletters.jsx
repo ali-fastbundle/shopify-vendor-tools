@@ -4,6 +4,7 @@ import { Pill } from "@/components/Pill";
 import SiteNav from "@/components/SiteNav";
 import IndexSearch from "@/components/IndexSearch";
 import { searchText } from "@/lib/search";
+import FooterLinks from "@/components/FooterLinks";
 
 /*
  * The Newsletters index, server-rendered with no client state, same contract
@@ -131,6 +132,8 @@ export default function Newsletters({ newsletters, lastUpdated }) {
         </div>
 
         <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
+
+          <FooterLinks />
           <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
             <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
             Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.

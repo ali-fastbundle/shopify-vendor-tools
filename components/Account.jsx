@@ -99,7 +99,7 @@ export function SignInPrompt({ reason, returnTo = "" }) {
       <div>
         <p style={{ fontSize: F.sm, color: C.text, margin: 0, lineHeight: 1.55, maxWidth: "58ch" }}>
           Check your inbox. The link works once and expires in 15 minutes. It comes back to this
-          tool, and what you have written is kept.
+          page, and what you have written is kept.
         </p>
         {state.dev && (
           <p style={{ fontSize: F.xs, color: C.warnInk, margin: "8px 0 0", lineHeight: 1.5 }}>
@@ -232,7 +232,27 @@ export function AccountBar({ session, refresh }) {
 /* ------------------------------------------------------------------ */
 /*  Claim + edit, inside the tool detail view                          */
 /* ------------------------------------------------------------------ */
-export function OwnerPanel({ tool, session, refresh, onTools }) {
+/*
+ * What an owner of each kind of listing can change, in words. The server's
+ * list is EDITABLE_BY_KIND in lib/listings.js; this is the sentence that
+ * describes it, and the form below draws the same fields.
+ */
+const OWNER_COPY = {
+  tool: { noun: "tool", can: "the summary, description, pricing, site and social links",
+    keeps: "The category, the \"watch for\" note and community ratings stay with the editors." },
+  newsletter: { noun: "newsletter", can: "the summary, description, subscribe link and social links",
+    keeps: "The cadence, the run length, the \"watch for\" note and community ratings stay with the editors." },
+  event: { noun: "event", can: "the summary, the event link and social links",
+    keeps: "The dates, the place, who it is for, the \"watch for\" note and community ratings stay with the editors. If a date has moved, report it and an editor will change it." },
+};
+const FIELDS = {
+  tool: ["one", "note", "price", "free", "url", "social"],
+  newsletter: ["one", "note", "free", "url", "social"],
+  event: ["one", "url", "social"],
+};
+
+export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
+  const copy = OWNER_COPY[kind] || OWNER_COPY.tool;
   const owns = session.owned?.includes(tool.id) || session.admin;
   // Signing in from the tool's own domain is itself proof, so that path skips publishing.
   const shortcut = rootOf(domainOfEmail(session.email)) === rootOf(tool.domain);
@@ -254,7 +274,30 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
     setBusy(false);
   }
 
+  /* Nothing to verify a claim against: an event sold on a ticketing platform
+     with no site of its own. Say how to reach us instead of offering a claim
+     the server would refuse. Owners and admins still get the panel. */
+  if (!tool.domain && !owns) {
+    return (
+      <p style={{ fontSize: F.sm, color: C.dim, marginTop: S.lg, lineHeight: 1.55 }}>
+        Run this {copy.noun}? It has no site of its own to verify a claim against,
+        so <a href="/contact" style={{ color: C.muted }}>get in touch</a> and we will sort it out by hand.
+      </p>
+    );
+  }
+
   if (!session.signedIn) {
+    /* The directory has a sign-in in its header; the newsletter and event
+       pages do not, so those get the form in place. */
+    if (kind !== "tool") {
+      return (
+        <div style={{ marginTop: S.lg, border: `1px dashed ${C.line}`, borderRadius: R.card, padding: S.lg }}>
+          <p style={{ fontSize: F.md, fontWeight: 700, margin: `0 0 ${S.sm}px` }}>Is this your {copy.noun}?</p>
+          <SignInPrompt returnTo={tool.id}
+            reason={`Sign in to claim the listing and edit how it is described. Any email works, because ownership is proved against ${tool.domain} rather than the address you sign in with.`} />
+        </div>
+      );
+    }
     return (
       <p style={{ fontSize: F.sm, color: C.dim, marginTop: S.lg, lineHeight: 1.55 }}>
         Is this your tool? Sign in at the top of the page to claim the listing and edit
@@ -278,11 +321,10 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
             padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
           }}>{editing ? "Cancel" : "Edit details"}</button>
         </div>
-        {editing && <EditForm tool={tool} onDone={onTools} onClose={() => setEditing(false)} />}
+        {editing && <EditForm tool={tool} kind={kind} onDone={onTools} onClose={() => setEditing(false)} />}
         {!editing && (
           <p style={{ fontSize: F.xs, color: C.dim, marginTop: S.md, lineHeight: 1.55 }}>
-            You can change the summary, description, pricing, site and social links. The
-            category, the "watch for" note and community ratings stay with the editors.
+            You can change {copy.can}. {copy.keeps}
           </p>
         )}
       </div>
@@ -291,7 +333,7 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
 
   return (
     <div style={{ marginTop: S.lg, border: `1px dashed ${C.line}`, borderRadius: R.card, padding: S.lg }}>
-      <p style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>Is this your tool?</p>
+      <p style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>Is this your {copy.noun}?</p>
       <p style={{ fontSize: F.sm, color: C.muted, margin: "8px 0 0", lineHeight: 1.55 }}>
         Claim the listing to edit how it is described. You prove it by publishing a short
         string on <b style={{ color: C.text }}>{tool.domain}</b>, either a file or a meta tag,
@@ -348,7 +390,8 @@ export function OwnerPanel({ tool, session, refresh, onTools }) {
 }
 
 /* ------------------------------------------------------------------ */
-function EditForm({ tool, onDone, onClose }) {
+function EditForm({ tool, onDone, onClose, kind = "tool" }) {
+  const has = (f) => (FIELDS[kind] || FIELDS.tool).includes(f);
   const [form, setForm] = useState({
     one: tool.one || "", note: tool.note || "", price: tool.price || "",
     free: Boolean(tool.free), url: tool.url || "",
@@ -366,10 +409,12 @@ function EditForm({ tool, onDone, onClose }) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         toolId: tool.id,
-        edit: {
+        // Only the fields this kind lets an owner set. The server drops the
+        // rest anyway (editableFor); sending them would only look like it worked.
+        edit: Object.fromEntries(Object.entries({
           one: form.one, note: form.note, price: form.price, free: form.free, url: form.url,
           social: Object.fromEntries(SOCIALS.map(({ key }) => [key, form[key]])),
-        },
+        }).filter(([k]) => has(k))),
       }),
     });
     if (!res.ok) { setMsg(await res.text()); setBusy(false); return; }
@@ -384,29 +429,35 @@ function EditForm({ tool, onDone, onClose }) {
   return (
     <div className="flex flex-col" style={{ gap: S.md, marginTop: S.lg }}>
       <div>
-        <label style={label}>One-line summary, shown on the card</label>
+        <label style={label}>One-line summary{kind === "tool" ? ", shown on the card" : ""}</label>
         <input style={field} value={form.one} onChange={set("one")} maxLength={140} />
       </div>
-      <div>
-        <label style={label}>Description</label>
-        <textarea style={{ ...field, minHeight: 120, resize: "vertical", lineHeight: 1.5 }}
-          value={form.note} onChange={set("note")} maxLength={1200} />
-      </div>
-      <div className="flex flex-wrap" style={{ gap: S.md }}>
-        <div style={{ flex: 1, minWidth: 170 }}>
-          <label style={label}>Pricing, as you want it shown</label>
-          <input style={field} value={form.price} onChange={set("price")} maxLength={60} />
+      {has("note") && (
+        <div>
+          <label style={label}>Description</label>
+          <textarea style={{ ...field, minHeight: 120, resize: "vertical", lineHeight: 1.5 }}
+            value={form.note} onChange={set("note")} maxLength={1200} />
         </div>
+      )}
+      <div className="flex flex-wrap" style={{ gap: S.md }}>
+        {has("price") && (
+          <div style={{ flex: 1, minWidth: 170 }}>
+            <label style={label}>Pricing, as you want it shown</label>
+            <input style={field} value={form.price} onChange={set("price")} maxLength={60} />
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 170 }}>
-          <label style={label}>Website</label>
+          <label style={label}>{kind === "event" ? "Event page" : kind === "newsletter" ? "Subscribe link" : "Website"}</label>
           <input style={field} value={form.url} onChange={set("url")} placeholder="https://" />
         </div>
       </div>
-      <label className="flex items-center" style={{ gap: S.sm, fontSize: F.sm, cursor: "pointer" }}>
-        <input type="checkbox" checked={form.free} style={{ accentColor: C.accent, width: 15, height: 15 }}
-          onChange={(e) => setForm({ ...form, free: e.target.checked })} />
-        Offers a free plan
-      </label>
+      {has("free") && (
+        <label className="flex items-center" style={{ gap: S.sm, fontSize: F.sm, cursor: "pointer" }}>
+          <input type="checkbox" checked={form.free} style={{ accentColor: C.accent, width: 15, height: 15 }}
+            onChange={(e) => setForm({ ...form, free: e.target.checked })} />
+          {kind === "newsletter" ? "Free to subscribe" : "Offers a free plan"}
+        </label>
+      )}
       <div className="flex flex-wrap" style={{ gap: S.md }}>
         {SOCIALS.map(({ key, label: name, placeholder }) => (
           <div key={key} style={{ flex: 1, minWidth: 150 }}>

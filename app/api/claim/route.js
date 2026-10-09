@@ -21,6 +21,9 @@ export async function POST(request) {
   const { toolId, action } = await request.json();
   const tool = await listedEntity(toolId);
   if (!tool) return new Response("Unknown listing", { status: 400 });
+  if (!tool.domain) {
+    return new Response("This listing has no site of its own to verify against. Email us through the contact page instead.", { status: 400 });
+  }
 
   const claims = await getClaims();
   const existing = claims[toolId];

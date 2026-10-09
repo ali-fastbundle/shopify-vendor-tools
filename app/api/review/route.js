@@ -1,6 +1,6 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { catalogueTools, isListedId } from "@/lib/entries";
+import { isListedId, listedEntity } from "@/lib/entries";
 import { sessionFrom } from "@/lib/auth";
 import { publicReviews, upsertReview } from "@/lib/reviews";
 import { sendEvent } from "@/lib/mail";
@@ -48,10 +48,13 @@ export async function POST(request) {
   const { reviews, replaced } = upsertReview(stored, body.id, entry);
   await write(KEYS.reviews, reviews);
 
-  const tool = (await catalogueTools()).find((t) => t.id === body.id);
+  /* listedEntity, not the tool catalogue: a newsletter or an event id passes
+     isListedId above, and looking it up among tools only returned undefined,
+     which threw on `.name` after the review was already stored. */
+  const tool = await listedEntity(body.id);
   await sendEvent("review", {
     origin: new URL(request.url).origin,
-    toolName: tool.name, toolId: tool.id,
+    toolName: tool.name, toolId: tool.id, kind: tool.kind,
     rating: entry.rating, author: entry.author, text: entry.text,
     email: session.email, edited: replaced,
   });

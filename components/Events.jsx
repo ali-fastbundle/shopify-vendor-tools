@@ -6,6 +6,8 @@ import EventDialog from "@/components/EventDialog";
 import TimelineScroll from "@/components/TimelineScroll";
 import SiteNav from "@/components/SiteNav";
 import IndexSearch from "@/components/IndexSearch";
+import NearbyEvents from "@/components/NearbyEvents";
+import FooterLinks from "@/components/FooterLinks";
 
 /*
  * The Events index. Server-rendered, whole in the first response, the same
@@ -128,6 +130,18 @@ function Timeline({ timeline, today, nowMonth }) {
   return out;
 }
 
+/*
+ * What "Events near me" needs and nothing more: upcoming, with a date to
+ * show, in the slim shape the island sorts. Past and undated events are left
+ * out, because the question is where to go next, not what happened nearby.
+ */
+const nearbyOf = (events) => events
+  .filter((e) => (e.at.status === "upcoming" || e.at.status === "imminent") && e.at.date)
+  .map((e) => ({
+    id: e.id, name: e.name, city: e.city || "", country: e.country || "",
+    lat: e.lat, lng: e.lng, date: e.at.date, label: e.at.label,
+  }));
+
 const H2 = ({ children, id }) => (
   <h2 id={id} style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{children}</h2>
 );
@@ -163,6 +177,7 @@ export default function Events({ plan, events, lastUpdated }) {
           */}
         <IndexSearch scope="event-list" placeholder="Search events, cities, organisers"
           label="Search events, cities and organisers" />
+        <NearbyEvents events={nearbyOf(events)} />
 
         <div id="event-list">
         <section aria-labelledby="calendar" data-search-group="" style={{ marginTop: S["3xl"] }}>
@@ -203,6 +218,8 @@ export default function Events({ plan, events, lastUpdated }) {
         </div>
 
         <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
+
+          <FooterLinks />
           <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
             Dates are checked by hand against each organiser's own site, and an event with no confirmed
             date is never shown as scheduled. <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is

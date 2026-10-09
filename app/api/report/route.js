@@ -1,6 +1,6 @@
 import { read, write, KEYS } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
-import { reportKindOf } from "@/lib/tools";
+import { reportKindOf, reportKindsFor } from "@/lib/tools";
 import { listedEntity } from "@/lib/entries";
 import { isEmail, normaliseEmail } from "@/lib/auth";
 import { sendEvent } from "@/lib/mail";
@@ -36,7 +36,9 @@ export async function POST(request) {
   if (!tool) return new Response("Unknown listing", { status: 400 });
 
   const kind = reportKindOf(body.kind);
-  if (!kind) return new Response("Pick what is wrong", { status: 400 });
+  if (!kind || !reportKindsFor(tool.kind).some((k) => k.id === kind.id)) {
+    return new Response("Pick what is wrong", { status: 400 });
+  }
 
   const value = clean(body.value, 500);
   if (kind.needsValue && !value) {

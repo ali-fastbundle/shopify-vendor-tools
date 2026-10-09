@@ -10,10 +10,12 @@ import { pendingKinds } from "@/lib/sections";
 import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
 import CopyLink from "./CopyLink";
+import GrowText from "./GrowText";
 import { FeedRows } from "./ChangesFeed";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
+import FooterLinks from "@/components/FooterLinks";
 
 /* ================================================================== */
 /*  Bits                                                               */
@@ -217,63 +219,7 @@ function ExternalRatings({ ratings, detail = false }) {
   );
 }
 
-/*
- * A multi-line field that grows with what is typed into it.
- *
- * Enter makes a new line. It does not submit.
- *
- * The review box used to be a single-line input with `Enter` wired to submit,
- * which is the shape of a search box, not of a place to write a paragraph.
- * People wrote two sentences, reached for a line break, and posted half a
- * review instead. Nobody reports that. They just do not come back.
- *
- * Cmd or Ctrl plus Enter still submits, for anyone who expects a keyboard way
- * out of a text box, and the button is always the obvious one.
- */
-const GrowText = React.forwardRef(function GrowText(
-  { value, onChange, onSubmit, rows = 2, maxRows = 12, style, ...rest }, ref,
-) {
-  const own = useRef(null);
-  /* The node either way, whether the caller passed an object ref, a callback
-     ref, or nothing at all. */
-  useImperativeHandle(ref, () => own.current, []);
-
-  /* Height follows the content: reset to auto so the box can shrink again when
-     text is deleted, then take the scroll height. Floored at `rows` so an empty
-     box still reads as somewhere to write a paragraph, and capped at `maxRows`
-     so a long review does not push the Post button off the screen. */
-  useEffect(() => {
-    const node = own.current;
-    if (!node) return;
-    node.style.height = "auto";
-    const cs = getComputedStyle(node);
-    const line = parseFloat(cs.lineHeight) || 20;
-    const border = node.offsetHeight - node.clientHeight;
-    const chrome = border + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-    const wanted = node.scrollHeight + border;
-    const min = line * rows + chrome;
-    const max = line * maxRows + chrome;
-    node.style.height = `${Math.min(Math.max(wanted, min), max)}px`;
-    node.style.overflowY = wanted > max ? "auto" : "hidden";
-  }, [value, rows, maxRows]);
-
-  return (
-    <textarea
-      ref={own}
-      rows={rows}
-      value={value}
-      onChange={onChange}
-      onKeyDown={(e) => {
-        if (onSubmit && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-          e.preventDefault();
-          onSubmit();
-        }
-      }}
-      style={{ resize: "none", lineHeight: 1.5, display: "block", ...style }}
-      {...rest}
-    />
-  );
-});
+/* GrowText, the textarea for prose, lives in components/GrowText.jsx. */
 
 /*
  * The one treatment a "go to the tool" link gets, on every card and every row
@@ -1381,6 +1327,8 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
         </main>
 
         <footer style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.lg, paddingBottom: BAND.desktop }}>
+
+          <FooterLinks />
           <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
             By{" "}
             {AUTHOR_URL
@@ -2106,7 +2054,7 @@ function ReportProblem({ tool }) {
         <select value={kind} aria-label="Kind of problem"
           onChange={(e) => { setKind(e.target.value); setErr(""); }}
           style={{ ...field, width: 210 }}>
-          {REPORT_KINDS.map((k) => (
+          {reportKindsFor("tool").map((k) => (
             <option key={k.id} value={k.id} style={{ background: C.panel }}>{k.label}</option>
           ))}
         </select>

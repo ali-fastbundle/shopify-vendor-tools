@@ -2,7 +2,8 @@ import React from "react";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
-import NewsletterActions from "@/components/NewsletterActions";
+import Engagement from "@/components/Engagement";
+import FooterLinks from "@/components/FooterLinks";
 
 /*
  * One newsletter, at its own URL, rendered on the server.
@@ -10,7 +11,7 @@ import NewsletterActions from "@/components/NewsletterActions";
  * Deliberately mirrors ToolPage.jsx: no client state in this file, everything
  * in the first response, reviews read on the server and printed. The one
  * interactive piece, rating/reviewing/reporting/claiming, is an isolated client
- * island (NewsletterActions) exactly as the tool flow keeps its interaction in
+ * island (components/Engagement.jsx, shared by every section) exactly as the tool flow keeps its interaction in
  * the directory modal rather than in the server page.
  *
  * No category colour anywhere. The category palette is reserved for tool
@@ -65,6 +66,11 @@ function formatStarted(s) {
   const month = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m)] || "";
   return month ? `${month} ${y}` : y;
 }
+
+/* The publication's own domain, for verifying a claim. Same derivation as
+   listedEntity in lib/entries.js, which is what the claim route checks. */
+const domainOf = (url) =>
+  String(url || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
 
 export default function NewsletterPage({ newsletter: n, related, reviews = [], rating, forVendors, session = null, lastUpdated }) {
   const domain = String(n.url || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0];
@@ -170,36 +176,10 @@ export default function NewsletterPage({ newsletter: n, related, reviews = [], r
             {/* Rate, review, report and claim, the same as a tool. Isolated
                 client island so this file stays server-only and whole in the
                 first response. */}
-            <NewsletterActions newsletter={n} rating={rating} reviewCount={reviews.length} />
+            <Engagement kind="newsletter" initialReviews={reviews}
+              entity={{ ...n, domain: n.domain || domainOf(n.url) }} />
           </div>
         </article>
-
-        {reviews.length > 0 && (
-          <section style={{ marginTop: S["3xl"] }}>
-            <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
-              What people say
-              {rating && (
-                <span className="tnum" style={{ fontSize: F.md, color: C.muted, fontWeight: 500, marginLeft: S.sm }}>
-                  {rating.ratingValue} from {rating.ratingCount}
-                </span>
-              )}
-            </h2>
-            <div style={{ marginTop: S.md }}>
-              {reviews.map((r) => (
-                <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.md}px 0` }}>
-                  <p style={{ fontSize: F.sm, margin: 0 }}>
-                    <b>{r.author}</b>
-                    <span className="tnum" style={{ color: C.star, marginLeft: S.sm }}>
-                      {"★".repeat(r.rating)}<span style={{ color: C.starOff }}>{"★".repeat(5 - r.rating)}</span>
-                    </span>
-                    <span style={{ color: C.dim, marginLeft: S.sm }}>{r.date}</span>
-                  </p>
-                  {r.text && <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0` }}>{r.text}</p>}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         {related.length > 0 && (
           <section style={{ marginTop: S["3xl"] }}>
@@ -221,6 +201,8 @@ export default function NewsletterPage({ newsletter: n, related, reviews = [], r
         )}
 
         <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"] }}>
+
+          <FooterLinks />
           <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
             <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
             Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.

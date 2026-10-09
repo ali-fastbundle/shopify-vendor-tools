@@ -1,6 +1,8 @@
 import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { EventBody, placeOf } from "@/components/EventParts";
+import Engagement from "@/components/Engagement";
+import FooterLinks from "@/components/FooterLinks";
 
 /*
  * One event at its own URL. No client state in this file, same contract as
@@ -31,7 +33,7 @@ function relatedEvents(e, all, limit = 4) {
   return out;
 }
 
-export default function EventPage({ e, all, today, lastUpdated }) {
+export default function EventPage({ e, all, today, reviews = [], lastUpdated }) {
   const related = relatedEvents(e, all);
 
   return (
@@ -52,6 +54,9 @@ export default function EventPage({ e, all, today, lastUpdated }) {
           <div style={{ height: 3, background: C.edge }} />
           <div style={{ padding: S["2xl"] }}>
             <EventBody e={e} today={today} />
+            {/* Like, rate, review, report and claim: the set every section
+                gets. A client island, so this file keeps no state. */}
+            <Engagement kind="event" entity={e} initialReviews={reviews} />
           </div>
         </article>
 
@@ -80,6 +85,8 @@ export default function EventPage({ e, all, today, lastUpdated }) {
         </p>
 
         <footer style={{ marginTop: S["3xl"], paddingBottom: S["4xl"] }}>
+
+          <FooterLinks />
           <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
             <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
             Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify, or by any

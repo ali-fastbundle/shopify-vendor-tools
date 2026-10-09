@@ -12,6 +12,7 @@ import { toolDescription, logoAlt } from "@/lib/seo";
  * whole point, which is that this badge looks the same everywhere it appears.
  */
 import { Pill } from "@/components/Pill";
+import FooterLinks from "@/components/FooterLinks";
 
 /*
  * One tool, at its own URL, rendered on the server.
@@ -377,6 +378,8 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
         )}
 
         <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"] }}>
+
+          <FooterLinks />
           <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
             <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory of
             tools for Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.

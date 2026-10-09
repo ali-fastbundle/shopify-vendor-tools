@@ -1,4 +1,5 @@
-import { EVENTS, agenda, placed, todayISO } from "@/lib/events";
+import { agenda, placed, todayISO } from "@/lib/events";
+import { mergedEvents } from "@/lib/listings";
 import { LAST_UPDATED } from "@/lib/tools";
 import { SITE, EVENTS_URL } from "@/lib/seo";
 import Events from "@/components/Events";
@@ -19,8 +20,10 @@ export const metadata = {
   twitter: { card: "summary", title, description },
 };
 
-export default function Page() {
+export default async function Page() {
   const today = todayISO();
+  // Merged, so an organiser's edit to the summary or link shows here too.
+  const EVENTS = await mergedEvents();
   const plan = agenda(EVENTS, today);
   const upcoming = plan.timeline.flatMap((g) => g.items)
     .filter((e) => e.at.status !== "past" && e.at.mode === "exact");
