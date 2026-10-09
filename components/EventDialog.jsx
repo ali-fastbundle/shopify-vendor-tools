@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { C, S, R, F } from "@/lib/tools";
 import { EventBody } from "@/components/EventParts";
 import Engagement from "@/components/Engagement";
+import FollowBox from "@/components/FollowBox";
 
 /*
  * The event modal, as an island beside a list that is already complete in the
@@ -93,6 +94,7 @@ export default function EventDialog({ events = [], today }) {
             </div>
             {/* Keyed on the id so opening another event starts a fresh form
                 rather than carrying the last one's draft and counts across. */}
+            {e.at.status !== "past" && <FollowBox key={`f-${e.id}`} id={e.id} kind="event" name={e.name} />}
             <Engagement key={e.id} kind="event" entity={e} />
             <p style={{ fontSize: F.xs, margin: `${S.md}px 0 0` }}>
               <a href={`/events/${e.id}`} style={{ color: C.muted }}>Open as its own page</a>

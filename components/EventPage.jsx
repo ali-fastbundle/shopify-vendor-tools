@@ -2,6 +2,7 @@ import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { EventBody, placeOf } from "@/components/EventParts";
 import Engagement from "@/components/Engagement";
+import FollowBox from "@/components/FollowBox";
 import FooterLinks from "@/components/FooterLinks";
 
 /*
@@ -56,6 +57,7 @@ export default function EventPage({ e, all, today, reviews = [], lastUpdated }) 
             <EventBody e={e} today={today} />
             {/* Like, rate, review, report and claim: the set every section
                 gets. A client island, so this file keeps no state. */}
+            {e.at.status !== "past" && <FollowBox id={e.id} kind="event" name={e.name} />}
             <Engagement kind="event" entity={e} initialReviews={reviews} />
           </div>
         </article>

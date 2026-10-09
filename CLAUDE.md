@@ -119,9 +119,10 @@ milliseconds on a request is the price of delivery that happens, and the transpo
 timeout bounds the worst case.
 
 `sendEvent` never throws. A mail failure must never turn a stored suggestion into a 500
-someone sees. `/api/auth/request` and `/api/contact` are the exceptions, because there
-the mail *is* the request (a contact message is stored nowhere else), and both read the
-failure off the returned result rather than a throw.
+someone sees. `/api/auth/request`, `/api/contact` and `/api/follow` are the exceptions,
+because there the mail *is* the request (a contact message and an unconfirmed follow are
+stored nowhere else), and all three read the failure off the returned result rather than
+a throw.
 
 Every attempt is written to `svt:maillog` and logged as `[mail]`, success or failure.
 Silence was the bug; the log is how it stays fixed. `/admin` shows the last 100 and the
@@ -1524,6 +1525,68 @@ Phosphor icon, and Contact.
 - **Refused or unavailable falls back to a country picker**, which is also offered
   up front to anybody who would rather not share.
 
+**40. Following a newsletter or an event: confirmed first, one digest a day, titles and links only.**
+Anybody can follow one newsletter or one event by email (`components/FollowBox.jsx`, on
+the listing page and in the event modal). What happens next is in `lib/notify.js`, run
+daily by `/api/cron/notify` (`0 8 * * *`; same three ways in as the monitor).
+
+**Double opt-in, and nothing stored before it.** `/api/follow` sends a link carrying the
+address and the item, signed with `AUTH_SECRET` (`mintFollowToken`), and writes nothing.
+`/api/follow/confirm` is where an address is first stored. An address somebody typed for
+a stranger therefore never reaches `svt:follows`. A signed-in visitor following with
+their own address skips the email, because signing in already proved the inbox; a
+different address from a signed-in session still needs confirming. One address gets at
+most three confirmation emails a day, counted under a hash of the address, and the
+answer is "check your inbox" either way (invariant 8).
+
+**The site-wide list in `lib/subscribers.js` is not double opt-in**, and was never
+described here as one. It adds on the first request and mails a welcome. Following was
+built confirmed-first on purpose; bringing the old list into line is a separate change.
+
+**One email per person per day.** `detect()` appends news to each follower's queue in
+`svt:follows:queue`; `send()` drains it with one `sendEvent("follow_digest")` per person.
+Six follows on a busy day is one email with six lines. A failed send stays queued for
+tomorrow (dropped after five tries; the mail log keeps every attempt), and an unfollow
+after queueing wins.
+
+**What counts as news:**
+- **A new issue**, for a newsletter with an `rss` field. Title and link only, never the
+  body: we send people to the issue, we do not republish it. `lib/feeds.js` keeps no
+  description or content at all, and the test asserts the body never reaches an email.
+- **The listing changed**, for every newsletter: an editor published a `/changes` entry
+  about it, or its public text changed (`one`, `note`, `watch`, cadence, link, author,
+  publisher; not `updated` or `issueCount`, which move on every recheck). For a newsletter
+  with no feed this is the only path, and the follow box says so in as many words.
+- **Dates confirmed**, for an event: it was unscheduled, approximate or inferred, and is
+  now an exact date in the catalogue.
+- **Approaching**: 30 and 7 days before an exact start date. First followed inside a
+  window gets that window's line, never a wider one.
+
+**Dates confirmed is read off the catalogue, never off the monitor.** The monitor does not
+watch event sites at all (it covers tools and newsletters), and if it did, its read would
+be a proposal, not a fact (invariant 20). The date in `lib/events.js` is set by an editor
+from the organiser's site, and that is the only thing worth an email that cannot be taken
+back.
+
+**The first sight of anything is a baseline.** A newly added feed does not mail its back
+catalogue; a feed that changes its guid scheme does not either, because an item dated on
+or before the newest one seen is not new; and at most three issues per feed per run.
+Feeds are fetched only for newsletters somebody follows.
+
+**`rss` is never guessed.** Two of the seven newsletters have one, checked by hand on
+2026-10-10: CPGD (Substack) and Retail Insider (WordPress). The two beehiiv newsletters do
+not, because beehiiv exposes a feed only when the publisher switches it on, and Operators
+(Kit), DTC (Webflow) and ECDB have none. `rss` is restated in `mergedNewsletters()`, so a
+publisher's edit cannot point the daily fetch somewhere else.
+
+**Every digest can be stopped from inside it.** A stop link per item and one for
+everything in the footer, HMACs over the address and the item in their own namespace
+(`follow-stop:`), so one cannot be edited into another or replayed as a site-wide
+unsubscribe. `/api/follow/remove` answers the same page whether or not anything was
+followed.
+
+`node scripts/follow-test.mjs` covers all of it with no server and no keys.
+
 ## Layout
 
 | Path | Role |
@@ -1547,6 +1610,11 @@ Phosphor icon, and Contact.
 | `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
 | `components/FooterLinks.jsx` | LinkedIn and Contact, on every footer |
+| `lib/follows.js` `lib/followCopy.js` | Who follows what (confirmed only), stop tokens, and the one-sentence promise |
+| `lib/notify.js` `lib/feeds.js` | The daily run: detect news, queue it per person, send one digest each; the RSS and Atom reader |
+| `components/FollowBox.jsx` `app/api/follow` | Following a newsletter or an event: the box, the request, confirm and stop |
+| `app/api/cron/notify` | The daily run's endpoint |
+| `lib/notice.js` | The one-screen page answered to a link clicked in an email |
 | `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
 | `components/EventLogo.jsx` | An event's mark: hosted logo, favicon, then the status-coloured lettermark |
 | `components/SiteNav.jsx` | The four top-level views on the index pages that are not the directory |
@@ -2122,6 +2190,8 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `listing_edited` | yes | nothing (they just made the edit) |
 | `monitor_digest` | yes, and only when something changed | nothing |
 | `contact` | to `CONTACT_EMAIL`, `reply_to` the sender | nothing, ever (invariant 38) |
+| `follow_confirm` | no | the confirm link; nothing is stored until it is clicked |
+| `follow_digest` | no | today's news about what they follow, one email, a stop link per item |
 
 Votes send nothing, either side. That covers both kinds: liking a tool, and
 marking a review helpful.
@@ -2224,6 +2294,7 @@ node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, lo
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
+node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
 ```
