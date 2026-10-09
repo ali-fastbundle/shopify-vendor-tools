@@ -71,7 +71,7 @@ export async function generateMetadata({ params }) {
   if (!found) return { title: "Not found | watchfor.tools" };
   const { tool } = found;
 
-  const title = `${tool.name} — ${catOf(tool.cat).label} | watchfor.tools`;
+  const title = `${tool.name}: ${catOf(tool.cat).label} | watchfor.tools`;
   /* Its own sentence, never the site description: sixty pages sharing one
      description is sixty pages treated as one. */
   const description = toolDescription(tool);
