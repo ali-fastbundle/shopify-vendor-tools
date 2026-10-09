@@ -2,7 +2,7 @@ import { readFile } from "fs/promises";
 import { join } from "path";
 import { ImageResponse } from "next/og";
 import { DARK, CATEGORIES, HEADLINE } from "@/lib/tools";
-import { catalogueTools } from "@/lib/entries";
+import { ogFacts, ogVersion } from "@/lib/ogCard";
 
 /*
  * The share card, served from a route we name ourselves.
@@ -66,10 +66,10 @@ async function inter() {
 
 export async function GET() {
   const fonts = await inter();
-  /* The real published count, file plus anything published from the admin
-     queue, so the card agrees with the homepage. It read TOOLS.length (the file
-     alone) and showed 42 while the page showed 44. */
-  const toolCount = (await catalogueTools()).length;
+  /* The facts the card draws, from the one function its URL version is a
+     hash of (lib/ogCard.js), so the two cannot disagree again. */
+  const facts = await ogFacts();
+  const { toolCount } = facts;
 
   return new ImageResponse(
     (
@@ -112,6 +112,11 @@ export async function GET() {
         </div>
       </div>
     ),
-    { ...size, fonts: fonts.length ? fonts : undefined },
+    {
+      ...size, fonts: fonts.length ? fonts : undefined,
+      // The version this image is, so it can be checked against the URL on
+      // the homepage from outside.
+      headers: { "x-og-version": ogVersion(facts) },
+    },
   );
 }

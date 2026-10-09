@@ -1722,6 +1722,7 @@ fetched and that no run carries an address.
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, the `published()` filter every catalogue passes through, and `readiness()` |
 | `lib/publish.js` | Publishing a file draft from /admin: the parsed edit and the commit to GitHub |
+| `lib/ogCard.js` | What the share card draws, and the URL version hashed from exactly that. The image route and the homepage both read it |
 | `lib/announce.js` | The announcement prompt and the house-voice examples. Drafts, never publishes |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |
@@ -2427,6 +2428,7 @@ node scripts/follow-test.mjs         # double opt-in, detection, one digest per 
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/recommend-test.mjs      # flagged and over-budget tools never picked, no address kept
 node scripts/publish-test.mjs        # publishing a file draft changes exactly two things, and only by commit
+node scripts/og-test.mjs [baseUrl]   # the share card's URL version moves with what it draws, and matches live
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
 ```

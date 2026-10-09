@@ -1,5 +1,5 @@
 import { Inter } from "next/font/google";
-import { TOOLS, LAST_UPDATED_ISO, HEADLINE, DARK } from "@/lib/tools";
+import { HEADLINE, DARK } from "@/lib/tools";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeScript } from "@/components/Theme";
@@ -26,20 +26,12 @@ const description =
   "Every tool built for the people who build Shopify apps, and the few general ones worth leaving for. Rankings, store data, revenue analytics, partner programs. Open directory, community rated.";
 
 /*
- * Messengers and social platforms cache an OG image against its URL and hold it
- * for a long time, so a changed image behind an unchanged URL is one nobody
- * sees. Next appends a hash of the route's own output, which does not move when
- * only the catalogue changes — the image is generated from data, not from the
- * file. This version does move: a tool added or an entry edited changes it, and
- * scrapers refetch.
+ * The share image is not set here. Its URL carries a version derived from what
+ * the card draws (lib/ogCard.js), which includes entries published from Redis,
+ * so it can only be known per request, and this layout's metadata is static.
+ * The homepage, which is dynamic anyway, sets it in generateMetadata. A static
+ * version here is what went stale: it counted the file alone.
  */
-const ogVersion = `${TOOLS.length}-${LAST_UPDATED_ISO}`;
-const ogImage = {
-  url: `/og?v=${ogVersion}`,
-  width: 1200,
-  height: 630,
-  alt: `Watch For Tools. ${HEADLINE}`,
-};
 
 export const metadata = {
   metadataBase: new URL("https://watchfor.tools"),
@@ -52,9 +44,8 @@ export const metadata = {
     type: "website",
     url: "https://watchfor.tools",
     siteName: "watchfor.tools",
-    images: [ogImage],
   },
-  twitter: { card: "summary_large_image", title, description, images: [ogImage] },
+  twitter: { card: "summary_large_image", title, description },
 };
 
 /*

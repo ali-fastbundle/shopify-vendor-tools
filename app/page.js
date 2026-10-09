@@ -5,8 +5,28 @@ import { publicReviews } from "@/lib/reviews";
 import { homeGraph } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
 import { NEWSLETTERS } from "@/lib/newsletters";
+import { HEADLINE } from "@/lib/tools";
+import { ogFacts, ogVersion } from "@/lib/ogCard";
 
 export const dynamic = "force-dynamic";
+
+/*
+ * The share card's URL, versioned on exactly what the card draws (see
+ * lib/ogCard.js). Per request, because the tool count includes entries
+ * published from the admin queue, which the build cannot see.
+ */
+export async function generateMetadata(_, parent) {
+  const og = (await parent).openGraph || {};
+  const image = {
+    url: `/og?v=${ogVersion(await ogFacts())}`,
+    width: 1200, height: 630,
+    alt: `Watch For Tools. ${HEADLINE}`,
+  };
+  return {
+    openGraph: { ...og, images: [image] },
+    twitter: { card: "summary_large_image", images: [image] },
+  };
+}
 
 export default async function Page() {
   // Rendered on the server so the catalogue, including vendor edits, is in the
