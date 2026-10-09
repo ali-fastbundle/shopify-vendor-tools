@@ -15,6 +15,7 @@ import { storeInventory } from "@/lib/inventory";
 import { feedEntries } from "@/lib/feed";
 import { health } from "@/lib/health";
 import { readRuns, summariseRuns } from "@/lib/recommend";
+import { canPublish, readPublishLog } from "@/lib/publish";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -92,6 +93,9 @@ export default async function AdminPage({ searchParams }) {
     { key: "inventory", load: () => storeInventory(), empty: [] },
     /* Summarised here, on the server: lib/recommend imports the model chain,
        which no client component may import (invariant 20). */
+    /* Whether the Publish button can commit (GITHUB_TOKEN is set), and what it
+       has published. The token itself never leaves the server. */
+    { key: "publishing", load: async () => ({ canPublish: canPublish(), log: await readPublishLog(20) }), empty: { canPublish: false, log: [] } },
     { key: "recommend", load: async () => { const runs = await readRuns(500); return { runs, summary: summariseRuns(runs) }; }, empty: { runs: [], summary: null } },
   ];
 

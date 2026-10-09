@@ -5,7 +5,7 @@ import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind, sweep
 import { sanitiseProposal } from "@/lib/rewrite";
 import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
-import { TOOLS } from "@/lib/tools";
+import { TOOLS, ALL_TOOLS } from "@/lib/tools";
 import { catalogueTools } from "@/lib/entries";
 import { dismissFinding, restoreFinding, getDiscovery, clearDiscovery, discoveryKey } from "@/lib/discovery";
 import { storeInventory, resetTestData, deleteRow } from "@/lib/inventory";
@@ -14,6 +14,10 @@ import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
 import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry } from "@/lib/feed";
 import { tally } from "@/lib/tallies";
+import { ALL_NEWSLETTERS } from "@/lib/newsletters";
+import { ALL_EVENTS } from "@/lib/events";
+import { ALL_COMMUNITIES } from "@/lib/communities";
+import { ALL_PODCASTS } from "@/lib/podcasts";
 
 export const dynamic = "force-dynamic";
 
@@ -370,6 +374,26 @@ export async function POST(request) {
    * invariant 4 and the only thing that works: a Vercel filesystem is read
    * only at runtime. See lib/entries.js.
    */
+  /*
+   * Publish a drafted entry from its source file: commit the removal of
+   * `draft: true` (and today's `updated`) to the file on GitHub, which Vercel
+   * then deploys. Not the same thing as publish-entry below, which publishes
+   * a queue draft into Redis. See lib/publish.js and invariant 12.
+   */
+  if (action === "publish-file-draft") {
+    const lists = { tool: ALL_TOOLS, newsletter: ALL_NEWSLETTERS, event: ALL_EVENTS, group: ALL_COMMUNITIES, podcast: ALL_PODCASTS };
+    const kind = String(body.kind || "");
+    const entry = (lists[kind] || []).find((e) => e.id === id && e.draft);
+    if (!entry) return new Response("No draft with that id here. It may already be published.", { status: 400 });
+    /* Loaded here rather than at the top: the parser it brings is needed only
+       when somebody presses Publish, not on every admin request. */
+    const { commitPublish, logPublish } = await import("@/lib/publish");
+    const result = await commitPublish({ kind, id, entry });
+    if (result.error) return new Response(result.error, { status: 400 });
+    await logPublish({ at: new Date().toISOString(), by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url });
+    return Response.json({ ok: true, sha: result.sha, url: result.url });
+  }
+
   if (action === "publish-entry") {
     const suggestions = await read(KEYS.suggestions, []);
     const suggestion = suggestions.find((s) => s.id === id);

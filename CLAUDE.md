@@ -161,16 +161,39 @@ drafts exist. Seeing a draft takes a deliberate `ALL_` import, which only `/admi
 leak has to be written on purpose rather than forgotten into existence, so keep it that
 way: if you add a catalogue, export the published list under the plain name.
 
-**There is no publish button for a *file* entry, and there should not be one.** Publishing
-one of these is deleting `draft: true` from the entry in its source file.
+**Publishing a file entry is a commit to the file, and the button on /admin makes that
+commit.** Publishing is still exactly what it was: deleting `draft: true` from the entry in
+its source file. Since 2026-10-10 the Drafts panel can do that edit itself, by committing it
+to the file on GitHub (`lib/publish.js`), and Vercel deploys the commit like any other push.
 
-(Invariant 22 adds a publish button for a different thing: an entry drafted from a
-suggestion, which lives in Redis and never touches this file. The rule below is about
-`lib/tools.js` and is unchanged by it. A `draft: true` in the file is still published by
-editing the file.) What makes an entry ready is `note` and
-`watch` being right, which is a judgement made while editing the file, not a state to flip
-from a web page. A button would also mean storing published-ness outside the file, and
-then `lib/tools.js` would stop being the truth about what the directory says.
+This used to say there should be no such button, for two reasons, and both still hold:
+
+- **Published-ness must live only in the file.** It does. The button does not set a flag
+  anywhere; it edits the file and commits. A Vercel function cannot write its own
+  filesystem, so the commit is the only form a web-page publish can take that keeps the
+  file the truth. Every publish is a reviewable commit, and undoing one is a revert.
+- **Ready is a judgement about `note` and `watch`.** So the panel shows both in full above
+  the button, the button asks twice and says exactly what it will commit, and `readiness()`
+  in `lib/drafts.js` refuses the mechanical failures (no watch, a watch of "none", an
+  em-dash, no summary, no https link) on the page and again on the server. Whether the
+  words are *right* is still the person pressing it.
+
+The edit is located by parsing the file (acorn), never by matching text: the entry is the
+object whose `id` matches, its `draft: true` property is removed, and its `updated` is set to
+the day it goes live (added at the entry's own indent if absent). The result is parsed again
+before anything is sent, so a commit that would break the build is refused before Vercel
+sees it, and the write is made against the sha that was read, so a file changed in between
+is reported rather than overwritten. `scripts/publish-test.mjs` runs the edit against every
+real draft in every catalogue and requires exactly those two changes.
+
+**It needs `GITHUB_TOKEN`**: a fine-grained token with Contents read and write on this one
+repository and nothing else, set in the Vercel environment as sensitive. Without it the
+button is disabled and says so, and publishing is the hand edit it always was. The commit
+message names the entry and never the admin's address (the repository is public); who
+pressed it is in `svt:publishlog` on /admin.
+
+(Invariant 22's button is a different thing: an entry drafted from a suggestion, which lives
+in Redis and never touches a file.)
 
 `LAST_UPDATED` is computed from the published list, so writing a draft does not move the
 site-wide date. Nothing a visitor can see has changed, so the date of the last change has
@@ -364,10 +387,11 @@ row is served by `/api/data`, and it does nothing else. It used to say Approve,
 which reads like the last step before something appears in the directory, and
 people reasonably waited for a listing that was never coming.
 
-Publishing is still a hand edit to `lib/tools.js` (or the catalogue file for the
-kind), for the same reason invariant 12 has no publish button: `note` and `watch`
-are editorial writing, not a state to flip from a web page. `/admin` says this
-above the queue rather than leaving it to be rediscovered.
+Publishing into the file is still an edit to `lib/tools.js` (or the catalogue file for
+the kind), either by hand or, once the entry is written there as a draft, with the
+Publish button in the Drafts panel, which commits that same edit (invariant 12). Marking
+a suggestion reviewed does neither: `note` and `watch` are editorial writing, not a state
+to flip. `/admin` says this above the queue rather than leaving it to be rediscovered.
 
 **Copy as entry stub** does the mechanical half: the id, the domain, the URL and
 today's date, which are all derivable and are where a typo'd id comes from. It
@@ -1696,7 +1720,8 @@ fetched and that no run carries an address.
 | `lib/subscribers.js` | List add/remove, unsubscribe token mint and verify |
 | `lib/mail.js` | The event matrix and `sendEvent()`. The only caller of Resend |
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
-| `lib/drafts.js` | `draft: true`, and the `published()` filter every catalogue passes through |
+| `lib/drafts.js` | `draft: true`, the `published()` filter every catalogue passes through, and `readiness()` |
+| `lib/publish.js` | Publishing a file draft from /admin: the parsed edit and the commit to GitHub |
 | `lib/announce.js` | The announcement prompt and the house-voice examples. Drafts, never publishes |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |
@@ -2401,6 +2426,7 @@ AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement 
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/recommend-test.mjs      # flagged and over-budget tools never picked, no address kept
+node scripts/publish-test.mjs        # publishing a file draft changes exactly two things, and only by commit
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
 ```

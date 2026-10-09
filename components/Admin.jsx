@@ -7,7 +7,7 @@ import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_COMMUNITIES } from "@/lib/communities";
 import { ALL_PODCASTS } from "@/lib/podcasts";
 import { ALL_EVENTS } from "@/lib/events";
-import { drafted, published } from "@/lib/drafts";
+import { drafted, published, readiness } from "@/lib/drafts";
 import { timesAsked } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
 import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
@@ -76,6 +76,7 @@ export default function AdminPanel({
   accounts = {},
   stats = { fields: {}, queries: [] },
   recommend = { runs: [], summary: null },
+  publishing = { canPublish: false, log: [] },
   maillog = [],
   entries = {},
   dedupelog = [],
@@ -257,6 +258,7 @@ export default function AdminPanel({
 
         {tab === "catalogue" && (
           <Catalogue
+            publishing={publishing}
             reviewed={[...reviewed].sort(byDemand)}
             entries={entryRows}
             onEntries={setEntryRows}
@@ -388,12 +390,12 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
   );
 }
 
-function Catalogue({ reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
       <PublishingNote />
-      <Drafts />
+      <Drafts publishing={publishing} />
       <NeedsVerifying />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
@@ -1367,10 +1369,12 @@ function NeedsVerifying() {
 /*  here, so a new entry kind shows up in this panel by being added to  */
 /*  SOURCES rather than by anyone remembering to render it.             */
 /*                                                                     */
-/*  There is no Publish button. Publishing is deleting `draft: true` in */
-/*  the source file, because the thing that makes an entry ready is the */
-/*  note and the watch being right, and that is a judgement made while  */
-/*  editing the file rather than a state to flip from a web page.       */
+/*  Publish commits the removal of `draft: true` (and today's updated)  */
+/*  to the entry's source file on GitHub, and Vercel deploys it. The    */
+/*  file stays the only place published-ness lives (lib/publish.js).    */
+/*  The button shows the readiness checklist and the note and watch in  */
+/*  full, and asks twice, because whether they are right is still a     */
+/*  person's call.                                                      */
 /* ------------------------------------------------------------------ */
 
 const SOURCES = [
@@ -1398,7 +1402,84 @@ function factValue(v) {
   return v === 0 ? "0" : v ? String(v) : "";
 }
 
-function Drafts() {
+/*
+ * The Publish control on one draft. Two presses: the first says exactly what
+ * will be committed, the second commits it. Disabled, with the reason, when
+ * the entry is not ready or there is no token to commit with.
+ */
+function PublishDraft({ kind, entry, canCommit }) {
+  const problems = readiness(entry, kind);
+  const [state, setState] = useState({ status: "idle", msg: "", url: "", sha: "" });
+  const sectionClosed = !kindOf(kind).live;
+
+  async function commit() {
+    setState({ status: "busy", msg: "", url: "", sha: "" });
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "publish-file-draft", kind, id: entry.id }),
+      });
+      if (!res.ok) { setState({ status: "error", msg: await res.text(), url: "", sha: "" }); return; }
+      const d = await res.json();
+      setState({ status: "done", msg: "", url: d.url, sha: d.sha });
+    } catch {
+      setState({ status: "error", msg: "Could not reach the server.", url: "", sha: "" });
+    }
+  }
+
+  if (state.status === "done") {
+    return (
+      <p style={{ fontSize: F.sm, color: C.accentInk, margin: `${S.sm}px 0 0`, lineHeight: 1.55 }}>
+        Committed{state.sha ? ` ${state.sha.slice(0, 7)}` : ""}.{" "}
+        {state.url && <a href={state.url} target="_blank" rel="noopener noreferrer" style={{ color: C.accentInk }}>See the commit</a>}
+        {" "}It goes live when Vercel finishes building it, usually a minute or two, and stays in this list until then.
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: S.md }}>
+      {problems.length > 0 && (
+        <ul style={{ margin: `0 0 ${S.sm}px`, paddingLeft: S.lg, fontSize: F.xs, color: C.warnInk, lineHeight: 1.5 }}>
+          {problems.map((p) => <li key={p}>{p}</li>)}
+        </ul>
+      )}
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        {state.status === "armed" ? (
+          <>
+            <Btn onClick={commit} tone="go">Commit to main</Btn>
+            <Btn onClick={() => setState({ status: "idle", msg: "", url: "", sha: "" })}>Cancel</Btn>
+            <span style={{ fontSize: F.xs, color: C.muted }}>
+              Removes <code>draft: true</code> from {entry.id} in its source file and sets <code>updated</code> to today.
+            </span>
+          </>
+        ) : (
+          <Btn onClick={() => setState({ status: "armed", msg: "", url: "", sha: "" })}
+            busy={state.status === "busy"} disabled={!canCommit || problems.length > 0}
+            title={!canCommit ? "GITHUB_TOKEN is not set" : problems.length ? "Not ready yet" : "Publish this entry"}>
+            {state.status === "busy" ? "Committing…" : "Publish"}
+          </Btn>
+        )}
+        {!canCommit && (
+          <span style={{ fontSize: F.xs, color: C.dim }}>
+            Needs a GITHUB_TOKEN in the Vercel environment to commit with. Until then, publish by deleting <code>draft: true</code> in the file.
+          </span>
+        )}
+        {canCommit && problems.length > 0 && state.status !== "armed" && (
+          <span style={{ fontSize: F.xs, color: C.dim }}>Fix the items above in the file first.</span>
+        )}
+      </div>
+      {sectionClosed && (
+        <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>
+          The {kindOf(kind).label.toLowerCase()} section is not open yet, so a published entry shows nowhere until its kind is set live.
+        </p>
+      )}
+      {state.status === "error" && <p style={{ fontSize: F.xs, color: C.badInk, margin: `${S.xs}px 0 0` }}>{state.msg}</p>}
+    </div>
+  );
+}
+
+function Drafts({ publishing = { canPublish: false, log: [] } }) {
   const rows = SOURCES.flatMap(({ kind, entries }) =>
     drafted(entries).map((entry) => ({ kind, entry })));
 
@@ -1414,7 +1495,7 @@ function Drafts() {
     <Section
       title="Drafts"
       count={rows.length}
-      hint="Written but not published: absent from the grid, the search, the matcher, every count, the share card and every API response. Publish by deleting `draft: true` from the entry in its source file, and give it an `updated` of the day it goes live."
+      hint="Written but not published: absent from the grid, the search, the matcher, every count, the share card and every API response. Publish commits the change to the entry's source file on GitHub (draft removed, updated set to today) and Vercel deploys it. Read the note and the watch first: that is the part a button cannot check."
     >
       {rows.length === 0
         ? <Empty>Nothing in progress. An entry becomes a draft by carrying `draft: true`.</Empty>
@@ -1430,6 +1511,7 @@ function Drafts() {
               return (
                 <Row key={`${kind}:${entry.id}`}
                   title={entry.name}
+                  footer={<PublishDraft kind={kind} entry={entry} canCommit={publishing.canPublish} />}
                   badges={<>
                     <span style={{ fontSize: F.xs, color: C.dim }}>{entry.id}</span>
                     {/* A positive tag. Absent means nothing is rendered: a
@@ -1467,6 +1549,18 @@ function Drafts() {
             })}
           </div>
         ))}
+      {publishing.log?.length > 0 && (
+        <div style={{ marginTop: S.lg }}>
+          <p style={{ fontSize: F.xs, color: C.dim, fontWeight: 700, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            Published from here
+          </p>
+          {publishing.log.map((r) => (
+            <Row key={`${r.at}-${r.id}`} title={r.name || r.id} tag={r.kind}
+              meta={`${String(r.at).slice(0, 16).replace("T", " ")} · ${r.by}${r.sha ? ` · ${r.sha.slice(0, 7)}` : ""}`}
+              actions={r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
+          ))}
+        </div>
+      )}
     </Section>
   );
 }
