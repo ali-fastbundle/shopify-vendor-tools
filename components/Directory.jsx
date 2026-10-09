@@ -14,7 +14,7 @@ import GrowText from "./GrowText";
 import Vote from "./Vote";
 import VisitSite from "./VisitSite";
 import { FeedRows } from "./ChangesFeed";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { ThemeToggle } from "./Theme";
 import FooterLinks from "@/components/FooterLinks";
@@ -1663,13 +1663,7 @@ function Facts({ tool }) {
  * price field tends to describe the wind-down rather than a tier and "Free,
  * then winding down" is not a sentence anybody meant to write.
  */
-function priceLine(tool) {
-  const price = String(tool.price || "").trim();
-  if (!tool.free || tool.dying) return price;
-  if (/free/i.test(price)) return price;
-  if (!price || /^not published$/i.test(price)) return "Free plan, paid tiers not published";
-  return `Free, then ${price.charAt(0).toLowerCase()}${price.slice(1)}`;
-}
+/* priceLine, the price with a free plan folded in, lives in lib/tools.js. */
 
 /*
  * The card, rebuilt around one question: which of these thirty do I open.

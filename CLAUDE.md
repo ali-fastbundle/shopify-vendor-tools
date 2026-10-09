@@ -1028,6 +1028,15 @@ of tools at an address.
   cannot crash on a bad id, which is right inside a render and exactly wrong in a
   route: it would serve App Store ASO at a hundred misspelled URLs and let a
   crawler index every one. `/categories/nonsense` is a 404.
+- **Each row shows the tool's caveat**, because the page's description promises
+  "each with the caveat worth knowing before you pay" and it used to show none. The
+  caveat sits inside the tool's own row under its name, so it is never quoted without
+  its subject, which is the reason `llms.txt` leaves caveats out. The price uses
+  `priceLine()` from `lib/tools.js`, the same one the card uses, so a free plan is part
+  of the price and never a second label beside one that already says Free.
+- **Titles use `categoryTerm(cat)`**, not `${label} tools`: "Store databases tools" is
+  what the template made of a label that is already a plural noun. A category whose
+  label does not read with "tools" after it carries a `term`.
 - **Secondary members are listed after the primary ones and marked**, with a link
   to the category they lead with. "Why is Marmeto on the billing page" is answered
   by "because it is a suite", one click away rather than absent.

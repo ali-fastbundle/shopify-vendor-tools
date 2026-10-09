@@ -1,8 +1,7 @@
 import React from "react";
 import { outbound } from "@/lib/outbound";
 import {
-  C, S, R, F, TRACK, ink, catOf, ownerOf,
-} from "@/lib/tools";
+  C, S, R, F, TRACK, ink, catOf, ownerOf, priceLine } from "@/lib/tools";
 import { logoAlt } from "@/lib/seo";
 import { Pill } from "@/components/Pill";
 import FooterLinks from "@/components/FooterLinks";
@@ -70,9 +69,10 @@ const Shell = ({ children, lastUpdated }) => (
  */
 function Member({ tool, primary }) {
   const col = catOf(tool.cat).color;
+  /* The price line carries a free plan (rule J), so it is never a second
+     label beside a price that already says Free. */
   const facts = [
-    tool.price,
-    tool.free && "free plan",
+    priceLine(tool),
     tool.suite && `part of ${tool.suite}`,
     tool.linked && `same owner as ${tool.linked}`,
     ownerOf(tool) && `by ${ownerOf(tool)}`,
@@ -123,6 +123,16 @@ function Member({ tool, primary }) {
           <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.5, margin: `${S.sm}px 0 0` }}>
             {tool.one}
           </p>
+
+          {/* The caveat, which the page's description promises ("each with the
+              caveat worth knowing before you pay"). Inside the tool's own row,
+              under its name, so the subject is never lost: the out-of-context
+              quote llms.txt avoids cannot happen here. */}
+          {tool.watch && (
+            <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "70ch" }}>
+              <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
+            </p>
+          )}
 
           <p className="flex flex-wrap items-baseline tnum" style={{
             gap: S.sm, fontSize: F.xs, color: C.muted, margin: `${S.sm}px 0 0`,

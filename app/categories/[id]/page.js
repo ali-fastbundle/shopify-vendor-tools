@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { read, KEYS } from "@/lib/store";
 import { mergedTools } from "@/lib/listings";
 import { publicReviews } from "@/lib/reviews";
-import { findCat, LAST_UPDATED } from "@/lib/tools";
+import { findCat, categoryTerm, LAST_UPDATED } from "@/lib/tools";
 import {
   categoryUrl, categoryMembers, categoryDescription, categoryGraph, relatedCategories,
 } from "@/lib/seo";
@@ -42,7 +42,7 @@ export async function generateMetadata({ params }) {
   if (!found) return { title: "Not found | watchfor.tools" };
   const { cat, members } = found;
 
-  const title = `${cat.label} tools for Shopify app vendors | watchfor.tools`;
+  const title = `${categoryTerm(cat)} for Shopify app vendors | watchfor.tools`;
   const description = categoryDescription(cat, members.length);
 
   return {
