@@ -101,20 +101,24 @@ ok(!fa.error && fa.source.includes(`    updated: "${TODAY}",\n  },`), "an entry 
 ok(/does not parse/.test(publishInSource("export const = [", "a", TODAY).error || ""), "a file that does not parse is refused before any edit");
 
 console.log("\nthe commit:");
-const mp = catalogues.newsletter.find((n) => n.id === "marketplacepulse");
-let r = await commitPublish({ kind: "newsletter", id: "marketplacepulse", entry: mp, today: TODAY });
+/* Whichever draft exists today. This named one entry once, and publishing that
+   entry broke the test, which is the button working rather than failing. */
+const [K, mp] = Object.entries(catalogues).flatMap(([kind, list]) => drafted(list).map((e) => [kind, e]))
+  .find(([kind, e]) => readiness(e, kind).length === 0) || [];
+if (!mp) { console.log("  skip  no publishable draft in any catalogue to commit"); }
+let r = await commitPublish({ kind: K, id: mp.id, entry: mp, today: TODAY });
 ok(/GITHUB_TOKEN/.test(r.error || "") && puts.length === 0, "no token: refused, nothing sent");
 process.env.GITHUB_TOKEN = "github_pat_test";
-r = await commitPublish({ kind: "newsletter", id: "marketplacepulse", entry: { ...mp, watch: "" }, today: TODAY });
+r = await commitPublish({ kind: K, id: mp.id, entry: { ...mp, watch: "" }, today: TODAY });
 ok(/Not ready/.test(r.error || "") && puts.length === 0, "an entry that fails readiness is refused before GitHub is asked");
 ok(readiness({ one: "x", note: "y", watch: "none", url: "https://a.b" }).some((p) => /nothing to watch/.test(p)), "readiness refuses a watch of \"none\"");
-r = await commitPublish({ kind: "newsletter", id: "marketplacepulse", entry: mp, today: TODAY });
+r = await commitPublish({ kind: K, id: mp.id, entry: mp, today: TODAY });
 const put = puts[0] || {};
-ok(r.sha === "def4567890" && put.path === "lib/newsletters.js" && put.sha === "abc123" && put.branch === "main", "commits to the right file on main, against the sha it read");
-ok(put.source && !/id: "marketplacepulse"[\s\S]{0,4000}?draft: true[\s\S]*?\n  \},\n\];/.test(put.source) && put.source.includes(`updated: "${TODAY}"`), "the committed file has the flag gone and today's date");
-ok(/^Publish Marketplace Pulse \(newsletter\)/.test(put.message || "") && !/@/.test(put.message || ""), "the commit message names the entry and carries no email address");
+ok(r.sha === "def4567890" && put.path === FILES[K] && put.sha === "abc123" && put.branch === "main", `commits to ${FILES[K]} on main, against the sha it read`);
+ok(put.source && publishInSource(put.source, mp.id, TODAY).error?.includes("no draft flag") && put.source.includes(`updated: "${TODAY}"`), "the committed file has the flag gone and today's date");
+ok(put.message?.startsWith(`Publish ${mp.name} (${K})`) && !/@/.test(put.message || ""), "the commit message names the entry and carries no email address");
 putStatus = 409;
-r = await commitPublish({ kind: "newsletter", id: "marketplacepulse", entry: mp, today: TODAY });
+r = await commitPublish({ kind: K, id: mp.id, entry: mp, today: TODAY });
 ok(/changed on GitHub/.test(r.error || ""), "a file that moved between read and write is reported, not overwritten");
 putStatus = 200;
 
@@ -124,13 +128,13 @@ const sess = (email) => { const b = Buffer.from(JSON.stringify({ t: "session", e
 const call = (body, cookie) => route.POST(new Request("http://localhost:3000/api/admin", {
   method: "POST", headers: { "Content-Type": "application/json", "x-forwarded-for": "10.2.0.1", ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body),
 }));
-ok((await call({ action: "publish-file-draft", kind: "newsletter", id: "marketplacepulse" })).status === 404, "signed out: 404, as every admin route");
-ok((await call({ action: "publish-file-draft", kind: "newsletter", id: "marketplacepulse" }, sess("someone@example.com"))).status === 404, "signed in but not an admin: 404");
-ok((await call({ action: "publish-file-draft", kind: "newsletter", id: "cpgd" }, sess("admin@example.com"))).status === 400, "a published entry cannot be published again");
-const res = await call({ action: "publish-file-draft", kind: "newsletter", id: "marketplacepulse" }, sess("admin@example.com"));
+ok((await call({ action: "publish-file-draft", kind: K, id: mp.id })).status === 404, "signed out: 404, as every admin route");
+ok((await call({ action: "publish-file-draft", kind: K, id: mp.id }, sess("someone@example.com"))).status === 404, "signed in but not an admin: 404");
+ok((await call({ action: "publish-file-draft", kind: "newsletter", id: "marketplacepulse" }, sess("admin@example.com"))).status === 400, "a published entry cannot be published again");
+const res = await call({ action: "publish-file-draft", kind: K, id: mp.id }, sess("admin@example.com"));
 ok(res.status === 200 && (await res.json()).sha === "def4567890", "an admin publish returns the commit");
 const log = await readPublishLog(5);
-ok(log[0]?.id === "marketplacepulse" && log[0]?.by === "admin@example.com" && log[0]?.sha, "and it is logged with who and which commit");
+ok(log[0]?.id === mp.id && log[0]?.by === "admin@example.com" && log[0]?.sha, "and it is logged with who and which commit");
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);
