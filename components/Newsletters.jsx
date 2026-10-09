@@ -4,6 +4,8 @@ import { Pill } from "@/components/Pill";
 import SiteNav from "@/components/SiteNav";
 import IndexSearch from "@/components/IndexSearch";
 import { searchText } from "@/lib/search";
+import { CardVotes } from "@/components/Engagement";
+import VisitSite from "@/components/VisitSite";
 import FooterLinks from "@/components/FooterLinks";
 
 /*
@@ -52,13 +54,23 @@ function Signal({ n }) {
   );
 }
 
+/*
+ * A newsletter card, built the way a tool card is: `.card` for the hover lift
+ * and border, the name as the `.card-link` whose overlay makes the whole card
+ * open the newsletter's page (globals.css), and a footer with the community's
+ * votes on the left and the way out on the right. Votes and Visit site sit
+ * above the overlay, so neither opens the card.
+ */
 function Row({ n }) {
   const by = n.author || n.publisher;
   return (
-    <li data-search={searchText(n.name, n.publisher, n.author, n.cadence, n.one, n.note, n.tags)}
-      style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
+    <li className="card" data-search={searchText(n.name, n.publisher, n.author, n.cadence, n.one, n.note, n.tags)}
+      style={{
+        background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
+        padding: S.lg, marginTop: S.md,
+      }}>
       <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-        <a href={`/newsletters/${n.id}`}
+        <a href={`/newsletters/${n.id}`} className="card-link"
           style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none", letterSpacing: TRACK.tight }}>
           {n.name}
         </a>
@@ -72,6 +84,11 @@ function Row({ n }) {
       <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, margin: `${S.xs}px 0 0`, maxWidth: "70ch" }}>
         <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{n.watch}
       </p>
+      <div className="flex flex-wrap items-center justify-between"
+        style={{ gap: S.sm, borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
+        <CardVotes id={n.id} noun="newsletter" />
+        <VisitSite url={n.url} />
+      </div>
     </li>
   );
 }
@@ -82,7 +99,7 @@ function Group({ title, blurb, items }) {
     <section data-search-group="" style={{ marginTop: S["3xl"] }}>
       <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
       <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "70ch" }}>{blurb}</p>
-      <ul style={{ listStyle: "none", padding: 0, margin: `${S.md}px 0 0` }}>
+      <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
         {items.map((n) => <Row key={n.id} n={n} />)}
       </ul>
     </section>

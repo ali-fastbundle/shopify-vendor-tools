@@ -26,11 +26,12 @@
  * `mine` and `helpfulByMe` for whoever is looking.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ThumbsUp, ThumbsDown, Star } from "@phosphor-icons/react";
+import { ThumbsUp, Star } from "@phosphor-icons/react";
 import { C, S, R, F, TRACK, reportKindsFor, reportKindOf } from "@/lib/tools";
 import { byHelpfulness } from "@/lib/reviews";
 import { useSession, SignInPrompt, OwnerPanel } from "@/components/Account";
 import GrowText from "@/components/GrowText";
+import Vote from "@/components/Vote";
 
 const NOUN = { tool: "tool", newsletter: "newsletter", event: "event" };
 
@@ -43,35 +44,35 @@ const quiet = {
   textDecoration: "underline",
 };
 
-/** One decimal, the way the directory shows a community rating. */
-export function summarise(reviews = []) {
-  if (!reviews.length) return null;
-  const avg = reviews.reduce((n, r) => n + (Number(r.rating) || 0), 0) / reviews.length;
-  return { value: avg.toFixed(1), count: reviews.length };
+/*
+ * One read of /api/data per page, however many cards on it want counts. The
+ * index pages render a card per entry, and a fetch per card would be twenty
+ * requests for one answer. Reset after a vote so the next reader sees it.
+ */
+let dataOnce = null;
+export function pageData() {
+  if (!dataOnce) {
+    dataOnce = fetch("/api/data", { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
+  }
+  return dataOnce;
 }
 
-export default function Engagement({ entity, kind = "tool", initialReviews = [] }) {
-  const [session, refresh] = useSession();
+/*
+ * Like and dislike, the vote state for one id: counts from the shared read,
+ * this browser's own vote from localStorage, and the POST. Used by the full
+ * Engagement block and by CardVotes, so a vote on a card and a vote on the
+ * listing are the same vote.
+ */
+export function useVote(id) {
   const [votes, setVotes] = useState(null);
   const [myVote, setMyVote] = useState(0);
-  const [reviews, setReviews] = useState(initialReviews);
-  const id = entity.id;
-  const noun = NOUN[kind] || "listing";
-  const voteKey = `svt:vote:${id}`;
-
+  const key = `svt:vote:${id}`;
   useEffect(() => {
     let live = true;
-    (async () => {
-      try {
-        const d = await (await fetch("/api/data", { cache: "no-store" })).json();
-        if (!live) return;
-        setVotes((d.votes && d.votes[id]) || { up: 0, down: 0 });
-        if (d.reviews) setReviews(d.reviews[id] || []);
-      } catch { /* a failed read costs the counts and nothing else */ }
-    })();
+    pageData().then((d) => { if (live) setVotes((d.votes && d.votes[id]) || { up: 0, down: 0 }); });
     try {
       // `svt:nlvote:` is where the newsletter page kept it before this module.
-      const raw = localStorage.getItem(voteKey) ?? localStorage.getItem(`svt:nlvote:${id}`);
+      const raw = localStorage.getItem(key) ?? localStorage.getItem(`svt:nlvote:${id}`);
       setMyVote(Number(raw) || 0);
     } catch {}
     return () => { live = false; };
@@ -81,15 +82,63 @@ export default function Engagement({ entity, kind = "tool", initialReviews = [] 
     const next = myVote === dir ? 0 : dir;
     const previous = myVote;
     setMyVote(next);
-    try { localStorage.setItem(voteKey, String(next)); } catch {}
+    // Optimistic, so the count moves under the finger rather than a beat later.
+    setVotes((v) => {
+      const c = { ...(v || { up: 0, down: 0 }) };
+      if (previous === 1) c.up = Math.max(0, c.up - 1);
+      if (previous === -1) c.down = Math.max(0, c.down - 1);
+      if (next === 1) c.up += 1;
+      if (next === -1) c.down += 1;
+      return c;
+    });
+    try { localStorage.setItem(key, String(next)); } catch {}
     try {
       const d = await (await fetch("/api/vote", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, previous, next }),
       })).json();
       if (d.votes && d.votes[id]) setVotes(d.votes[id]);
+      dataOnce = null;
     } catch { /* leave the optimistic state; the next load reconciles */ }
   }
+  return { votes, myVote, vote };
+}
+
+/*
+ * The vote pair on a section card, the same control and the same placement as
+ * a tool card's. A client island inside a server-rendered card: the card is
+ * whole without it, and the counts arrive with the one shared read. The
+ * min-height reserves the row so the card does not reflow when they do.
+ */
+export function CardVotes({ id, noun = "listing" }) {
+  const { votes, myVote, vote } = useVote(id);
+  return (
+    <div className="flex items-center" style={{ gap: S.xs, minHeight: 26 }}>
+      <Vote dir={1} active={myVote === 1} n={votes ? votes.up : 0} onClick={() => vote(1)} label={`Like this ${noun}`} />
+      <Vote dir={-1} active={myVote === -1} n={votes ? votes.down : 0} onClick={() => vote(-1)} label={`Dislike this ${noun}`} />
+    </div>
+  );
+}
+
+/** One decimal, the way the directory shows a community rating. */
+export function summarise(reviews = []) {
+  if (!reviews.length) return null;
+  const avg = reviews.reduce((n, r) => n + (Number(r.rating) || 0), 0) / reviews.length;
+  return { value: avg.toFixed(1), count: reviews.length };
+}
+
+export default function Engagement({ entity, kind = "tool", initialReviews = [] }) {
+  const [session, refresh] = useSession();
+  const [reviews, setReviews] = useState(initialReviews);
+  const id = entity.id;
+  const noun = NOUN[kind] || "listing";
+  const { votes, myVote, vote } = useVote(id);
+
+  useEffect(() => {
+    let live = true;
+    pageData().then((d) => { if (live && d.reviews) setReviews(d.reviews[id] || []); });
+    return () => { live = false; };
+  }, [id]);
 
   const rating = summarise(reviews);
   const mine = reviews.find((r) => r.mine) || null;
@@ -97,8 +146,8 @@ export default function Engagement({ entity, kind = "tool", initialReviews = [] 
   return (
     <div style={{ marginTop: S.xl, borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
       <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-        <VoteButton dir={1} on={myVote === 1} count={votes?.up ?? 0} noun={noun} onClick={() => vote(1)} />
-        <VoteButton dir={-1} on={myVote === -1} count={votes?.down ?? 0} noun={noun} onClick={() => vote(-1)} />
+        <Vote dir={1} active={myVote === 1} n={votes?.up ?? 0} onClick={() => vote(1)} label={`Like this ${noun}`} />
+        <Vote dir={-1} active={myVote === -1} n={votes?.down ?? 0} onClick={() => vote(-1)} label={`Dislike this ${noun}`} />
         {rating && (
           <span className="tnum inline-flex items-center" style={{ fontSize: F.sm, color: C.muted, gap: S.xs, marginLeft: S.sm }}>
             <Star size={14} weight="fill" color={C.star} />
@@ -122,23 +171,6 @@ export default function Engagement({ entity, kind = "tool", initialReviews = [] 
   );
 }
 
-/* The same gesture as on a tool card, so the same icons and the same states:
-   regular when off, fill when on, neutral rather than coloured. */
-function VoteButton({ dir, on, count, noun, onClick }) {
-  const Icon = dir === 1 ? ThumbsUp : ThumbsDown;
-  return (
-    <button onClick={onClick} aria-pressed={on} className="press inline-flex items-center tnum"
-      aria-label={`${dir === 1 ? "Like" : "Dislike"} this ${noun}`}
-      style={{
-        gap: S.xs, background: on ? C.subtle : "transparent",
-        border: `1px solid ${on ? C.edge : C.line}`, borderRadius: R.control,
-        padding: "6px 10px", fontSize: F.sm, color: C.text, cursor: "pointer", fontFamily: "inherit",
-      }}>
-      <Icon size={15} weight={on ? "fill" : "regular"} />
-      {count}
-    </button>
-  );
-}
 
 /*
  * One review per account per listing, signed in, with the draft kept across

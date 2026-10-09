@@ -11,6 +11,8 @@ import { byHelpfulness } from "@/lib/reviews";
 import { Pill } from "./Pill";
 import CopyLink from "./CopyLink";
 import GrowText from "./GrowText";
+import Vote from "./Vote";
+import VisitSite from "./VisitSite";
 import { FeedRows } from "./ChangesFeed";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
@@ -221,26 +223,7 @@ function ExternalRatings({ ratings, detail = false }) {
 
 /* GrowText, the textarea for prose, lives in components/GrowText.jsx. */
 
-/*
- * The one treatment a "go to the tool" link gets, on every card and every row
- * regardless of category: solid, high contrast, bold. It used to take the
- * category colour, which made the most important link on the card a different
- * weight and a different colour nine times over.
- *
- * Text on background is the one pair that inverts correctly in both themes.
- */
-function VisitSite({ url, children = "Visit site", size = F.xs }) {
-  return (
-    <a href={outbound(url)} target="_blank" rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className="press inline-flex items-center"
-      style={{
-        gap: S.xs, background: C.text, color: C.bg, borderRadius: R.control,
-        padding: "5px 12px", fontSize: size, fontWeight: 700, textDecoration: "none",
-        whiteSpace: "nowrap",
-      }}>{children}<ArrowUpRight size={size} weight="bold" /></a>
-  );
-}
+/* VisitSite, the one outbound-link treatment on a card, lives in components/VisitSite.jsx. */
 
 /*
  * How a tool relates to whoever else built it. One sentence, used by the list
@@ -1740,7 +1723,9 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
                 * something to copy or middle-click. preventDefault fires only
                 * for a plain left click.
                 */}
-              <a href={`/tools/${tool.id}`}
+              {/* `.card-link`: its overlay makes the whole card open this
+                  (globals.css), the same on every card in every section. */}
+              <a href={`/tools/${tool.id}`} className="card-link"
                 onClick={(e) => {
                   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
                   e.preventDefault();
@@ -1835,25 +1820,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
   );
 }
 
-function Vote({ dir, active, n, onClick }) {
-  /* Liking is an action, so the active state is the action colour. Disliking
-     is the same action pointed the other way, not a warning, so it is neutral. */
-  const on = dir === 1
-    ? { background: C.accent, color: C.onAccent, border: C.accent }
-    : { background: C.text, color: C.bg, border: C.text };
-  const Icon = dir === 1 ? ThumbsUp : ThumbsDown;
-  return (
-    <button onClick={onClick} aria-pressed={active} aria-label={dir === 1 ? "Like" : "Dislike"}
-      className="press flex items-center tnum" style={{
-        gap: S.xs, background: active ? on.background : C.subtle,
-        color: active ? on.color : C.muted,
-        border: `1px solid ${active ? on.border : C.line}`, borderRadius: R.control,
-        padding: "4px 8px", fontSize: F.xs, cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
-      }}>
-      <Icon size={13} weight={active ? "fill" : "regular"} /><span>{n}</span>
-    </button>
-  );
-}
+/* Vote, the like and dislike control, lives in components/Vote.jsx. */
 
 /* ================================================================== */
 function CloseButton({ onClose }) {

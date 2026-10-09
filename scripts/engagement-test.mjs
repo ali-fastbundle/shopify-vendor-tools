@@ -46,6 +46,16 @@ ok(!/\bfetch\s*\(|sendBeacon|XMLHttpRequest|localStorage|sessionStorage|document
 ok(/onClick=\{locate\}/.test(nearby) && !/useEffect/.test(nearby),
   "getCurrentPosition is reached only from the button, never from an effect on load");
 
+console.log("\nevery section's cards open as a whole and carry votes:");
+const read = (f) => readFileSync(join(root, f), "utf8");
+for (const [file, what] of [["components/Directory.jsx", "tool cards"], ["components/Newsletters.jsx", "newsletter cards"], ["components/EventParts.jsx", "event rows"]]) {
+  const src = read(file);
+  ok(/className="card-link"/.test(src) && /className="card[\s"]/.test(src), `${what} use .card and .card-link`);
+}
+ok(/CardVotes/.test(read("components/Newsletters.jsx")) && /CardVotes/.test(read("components/EventParts.jsx")), "newsletter and event cards carry CardVotes");
+ok(/\.card-link::after/.test(read("app/globals.css")) && /\.card :is\(a, button/.test(read("app/globals.css")), "the overlay and the raised controls are defined once, in globals.css");
+ok(!/function Vote\(/.test(read("components/Directory.jsx")) && !/function VoteButton/.test(read("components/Engagement.jsx")), "there is one vote button, components/Vote.jsx");
+
 console.log("\nthe contact address is not in the repository:");
 const walk = (d) => readdirSync(d).flatMap((f) => {
   if (["node_modules", ".next", ".git", "brag-output"].includes(f)) return [];

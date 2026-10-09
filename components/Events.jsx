@@ -2,6 +2,7 @@ import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { monthLabel, monthShort } from "@/lib/events";
 import { EventRow, placeOf, eventSearch } from "@/components/EventParts";
+import { CardVotes } from "@/components/Engagement";
 import EventDialog from "@/components/EventDialog";
 import TimelineScroll from "@/components/TimelineScroll";
 import SiteNav from "@/components/SiteNav";
@@ -118,7 +119,7 @@ function Timeline({ timeline, today, nowMonth }) {
         style={{ marginTop: S.lg }}>
         {/* Sticky inside the scroller, so the month is always named. */}
         <h3 style={{
-          position: "sticky", top: 0, zIndex: 1, background: C.bg,
+          position: "sticky", top: 0, zIndex: 2, background: C.bg,
           fontSize: F.sm, fontWeight: 700, color: allPast ? C.dim : C.muted,
           margin: 0, padding: `${S.sm}px 0 ${S.xs}px`, borderBottom: `1px solid ${C.line}`,
         }}>{g.label}</h3>
@@ -202,13 +203,15 @@ export default function Events({ plan, events, lastUpdated }) {
             </p>
             <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
               {unscheduled.map((e) => (
-                <li key={e.id} id={e.id} data-search={eventSearch(e)} style={{ padding: `${S.sm}px 0`, borderTop: `1px solid ${C.line}` }}>
-                  <a href={`/events/${e.id}`} data-event={e.id}
+                <li key={e.id} id={e.id} data-search={eventSearch(e)} className="card"
+                  style={{ padding: `${S.md}px ${S.sm}px`, margin: `${S.xs}px -${S.sm}px`, border: "1px solid transparent", borderRadius: R.card }}>
+                  <a href={`/events/${e.id}`} data-event={e.id} className="card-link"
                     style={{ color: C.text, fontWeight: 700, fontSize: F.md, textDecoration: "none" }}>{e.name}</a>
                   <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>
                     {[placeOf(e), e.at.label].filter(Boolean).join(" · ")}
                   </p>
                   {e.one && <p style={{ fontSize: F.sm, color: C.text, margin: `${S.xs}px 0 0`, lineHeight: 1.55, maxWidth: "64ch" }}>{e.one}</p>}
+                  <div style={{ marginTop: S.sm }}><CardVotes id={e.id} noun="event" /></div>
                 </li>
               ))}
             </ul>

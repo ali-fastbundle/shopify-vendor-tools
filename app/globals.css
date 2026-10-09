@@ -335,6 +335,47 @@ a:focus-visible,
   border-color: var(--c-edge);
 }
 
+/*
+ * The whole card opens, on every card in every section: tools, newsletters,
+ * events. One pattern, defined here once, so no section invents a second.
+ *
+ * The card's name is the one real link (`.card-link`). Its ::after stretches
+ * over the whole card, so a click anywhere on the card is a click on that
+ * link: the cursor changes, middle-click and modifier-click behave like a
+ * link, it works with JavaScript off, and a crawler sees one ordinary href.
+ * Keyboard focus lands on the name and Enter opens it, because it is an <a>.
+ *
+ * Everything else that can be pressed inside a card sits above that overlay,
+ * so a vote, a star, Compare, a category link or Visit site does its own job
+ * and never opens the card. A new control inside a card is covered by this
+ * rule without anybody remembering to stop propagation.
+ */
+.card { position: relative; }
+.card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.card :is(a, button, input, select, textarea, label, summary, details):not(.card-link) {
+  position: relative;
+  z-index: 1;
+}
+/* The name reads as the link it is: underlined on hover over the card or on
+   focus. Focus also outlines the card, since the card is what will open. */
+/* !important because a card title sets text-decoration: none inline, and an
+   inline style otherwise beats this rule. */
+.card:hover .card-link,
+.card-link:focus-visible {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+.card-link:focus-visible { outline: none; }
+.card:has(.card-link:focus-visible) {
+  outline: 2px solid var(--c-text);
+  outline-offset: 2px;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;

@@ -5,6 +5,7 @@ import { countdown, RELEVANCE_LABEL, dayLabel } from "@/lib/events";
 import { Pill } from "@/components/Pill";
 import EventLogo from "@/components/EventLogo";
 import { searchText } from "@/lib/search";
+import { CardVotes } from "@/components/Engagement";
 
 /*
  * The pieces of an event that render the same on the index, in the modal and
@@ -108,7 +109,14 @@ export function EventRow({ e, today }) {
   const past = e.at.status === "past";
   const where = placeOf(e);
   return (
-    <li id={e.id} data-search={eventSearch(e)} style={{ padding: `${S.md}px 0`, display: "flex", gap: S.lg, alignItems: "flex-start" }}>
+    /* A card like every other (globals.css): the name's overlay opens the event,
+       which the timeline's EventDialog turns into the modal on a plain click.
+       The border is transparent until hover, so a past event keeps "no fill". */
+    <li id={e.id} data-search={eventSearch(e)} className="card"
+      style={{
+        padding: `${S.md}px ${S.sm}px`, margin: `${S.xs}px -${S.sm}px`, display: "flex", gap: S.lg, alignItems: "flex-start",
+        border: "1px solid transparent", borderRadius: R.card,
+      }}>
       <DateBlock e={e} />
       <div style={{ minWidth: 0 }}>
         <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
@@ -116,7 +124,7 @@ export function EventRow({ e, today }) {
           {/* A real link to the event's page. A plain left click opens the
               modal instead (EventDialog); everything else, and every crawler,
               gets the page. */}
-          <a href={`/events/${e.id}`} data-event={e.id}
+          <a href={`/events/${e.id}`} data-event={e.id} className="card-link"
             style={{
               color: past ? C.muted : C.text, fontWeight: 700, fontSize: F.md,
               textDecoration: "none", letterSpacing: TRACK.tight,
@@ -133,6 +141,7 @@ export function EventRow({ e, today }) {
             {e.one}
           </p>
         )}
+        <div style={{ marginTop: S.sm }}><CardVotes id={e.id} noun="event" /></div>
       </div>
     </li>
   );
