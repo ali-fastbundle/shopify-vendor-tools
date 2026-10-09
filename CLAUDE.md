@@ -1587,6 +1587,35 @@ followed.
 
 `node scripts/follow-test.mjs` covers all of it with no server and no keys.
 
+**41. The blog compares; it never copies a listing, and it marks what it did not check.**
+`/blog` and `/blog/[slug]`, server-rendered with no client state, each with its own
+metadata, an Article graph, a sitemap entry and a place in `/blog/rss` (full text) and
+`llms.txt` (titles and links only: a verdict quoted without its criteria is a different
+claim). It is for what a listing cannot hold, chiefly a whole category side by side.
+
+**A post is data, not JSX** (`lib/posts/*.js`, registered in `lib/blog.js` as `ALL_POSTS`
+and `POSTS` per invariant 12), so the page, the RSS item and the plain text come from one
+source. Two inline marks: `[label](tool:id)` links a listing and `{†text}` marks a claim
+nobody here checked.
+
+- **Link, never copy.** A tool's price and caveat live on its listing; a post links it.
+  `scripts/blog-test.mjs` fails if twelve words in a row of any linked tool's `note` or
+  `watch` appear in the post, and fails on any link that does not resolve.
+- **Criteria before verdicts**, so the verdict can be argued with. The test checks the
+  order.
+- **Say what was and was not checked, in the post.** None of the ASO tools was run;
+  features are as each vendor's own site describes them, and figures a vendor publishes
+  about itself carry the dagger. Ownership is checked against the companies' own pages
+  and legal terms, never against a competitor's comparison page: AppJubilee's /compare
+  page was the first written source for the WideBundle connection, and the post cites
+  both companies' terms of use, which name The Wide Company, instead.
+- **A post and a listing must not disagree.** Writing the ASO comparison found that
+  AppJubilee's note called it "the obvious pick" for a portfolio, which its own pricing
+  does not support against Rankbase's 20 apps for $99. The listing was corrected the same
+  day rather than left contradicting the post.
+- **The Article's `mentions` are the listings' WebPage nodes**, never a second
+  SoftwareApplication, which would be a priceless duplicate of the tool.
+
 ## Layout
 
 | Path | Role |
@@ -1615,9 +1644,11 @@ followed.
 | `components/FollowBox.jsx` `app/api/follow` | Following a newsletter or an event: the box, the request, confirm and stop |
 | `app/api/cron/notify` | The daily run's endpoint |
 | `lib/notice.js` | The one-screen page answered to a link clicked in an email |
+| `lib/blog.js` `lib/posts/` | Posts as data, the inline link and unverified marks, and the page, RSS and text renderings |
+| `components/Blog.jsx` `app/blog` | The blog index, a post, and `/blog/rss`. Server-rendered, no client state |
 | `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
 | `components/EventLogo.jsx` | An event's mark: hosted logo, favicon, then the status-coloured lettermark |
-| `components/SiteNav.jsx` | The four top-level views on the index pages that are not the directory |
+| `components/SiteNav.jsx` | The top-level views on the index pages that are not the directory: Directory, Newsletters, Events, Recent updates, Blog |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists. Client-safe, so no model import |
 | `lib/dedup.js` | Model-first dedup with the string matching as fallback, and the verdict log |
 | `lib/model.js` | The provider chain. The only reader of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
@@ -2295,6 +2326,7 @@ node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, cal
 node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
+node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
 ```

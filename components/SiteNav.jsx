@@ -19,6 +19,7 @@ export const SITE_VIEWS = [
   { id: "newsletters", label: "Newsletters", href: "/newsletters" },
   { id: "events", label: "Events", href: "/events" },
   { id: "updates", label: "Recent updates", href: "/changes" },
+  { id: "blog", label: "Blog", href: "/blog" },
 ];
 
 export const viewStyle = (on) => ({

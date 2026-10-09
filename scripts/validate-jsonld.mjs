@@ -162,5 +162,30 @@ for (const doc of await graphOf("/categories")) {
   }
 }
 
+/*
+ * Blog posts. Article wants a headline, an author and dates; Google shows
+ * nothing without them. `mentions` must point at listing pages, never carry a
+ * second SoftwareApplication for a tool, which would be a priceless duplicate.
+ */
+console.log("\nblog post (/blog/shopify-app-store-aso-tools-compared):");
+for (const doc of await graphOf("/blog/shopify-app-store-aso-tools-compared")) {
+  const ns = nodes(doc);
+  const art = ns.find((n) => n["@type"] === "Article");
+  if (!art) { err("post has no Article"); continue; }
+  ok("has Article");
+  art.headline && art.headline.length <= 110 ? ok(`headline, ${art.headline.length} chars`) : err(`headline missing or over 110 chars`);
+  /^\d{4}-\d{2}-\d{2}/.test(art.datePublished || "") ? ok("datePublished") : err("no datePublished");
+  art.dateModified ? ok("dateModified") : warn("no dateModified");
+  const author = ns.find((n) => n["@id"] === art.author?.["@id"]);
+  author?.name ? ok(`author resolves to ${author.name}`) : err("author does not resolve to a node with a name");
+  ns.find((n) => n["@id"] === art.publisher?.["@id"]) ? ok("publisher resolves") : err("publisher does not resolve");
+  const page = ns.find((n) => n["@type"] === "WebPage" && n["@id"] === art.mainEntityOfPage?.["@id"]);
+  page?.breadcrumb?.itemListElement?.length === 3 ? ok("WebPage with a 3-level breadcrumb") : err("no WebPage breadcrumb");
+  const m = art.mentions || [];
+  m.every((x) => x["@type"] === "WebPage" && /\/tools\/|\/newsletters\/|\/events\//.test(x.url || ""))
+    ? ok(`mentions ${m.length} listing pages`) : err("a mention is not a listing WebPage");
+  if (ns.some((n) => n["@type"] === "SoftwareApplication")) err("post carries a SoftwareApplication node");
+}
+
 console.log(`\n${errors} errors, ${warnings} warnings`);
 process.exit(errors ? 1 : 0);

@@ -1117,7 +1117,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
           * toggle. No category colour: it is not a category. No accent: green
           * is for things that do something.
           */}
-        <div role="group" aria-label="Directory views" className="flex items-center"
+        <div role="group" aria-label="Directory views" className="flex flex-wrap items-center"
           style={{ gap: S.xs, marginBottom: S.md, borderBottom: `1px solid ${C.line}`, paddingBottom: S.sm }}>
           <button aria-pressed={view2 === "directory"}
             onClick={() => setView2("directory")}
@@ -1176,6 +1176,13 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               <span className="tnum" style={{ color: C.text, fontWeight: 700 }}>{unread}</span>
             )}
           </a>
+
+          <a href="/blog" className="press"
+            style={{
+              textDecoration: "none", background: "transparent", color: C.muted,
+              border: `1px solid ${C.line}`, borderRadius: R.control,
+              padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
+            }}>Blog</a>
         </div>
 
         <main id="main" tabIndex={-1} style={{ outline: "none" }}>

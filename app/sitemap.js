@@ -3,6 +3,7 @@ import { LAST_UPDATED_ISO, CATEGORIES, isInCat } from "@/lib/tools";
 import { SITE } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
 import { EVENTS } from "@/lib/events";
+import { POSTS } from "@/lib/blog";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,18 @@ export default async function sitemap() {
       lastModified: new Date(e.updated || LAST_UPDATED_ISO || Date.now()),
       changeFrequency: "monthly",
       priority: 0.5,
+    })),
+    ...(POSTS.length ? [{
+      url: `${SITE}/blog`,
+      lastModified: new Date(POSTS.reduce((max, p) => ((p.updated || p.date) > max ? (p.updated || p.date) : max), "")),
+      changeFrequency: "weekly",
+      priority: 0.6,
+    }] : []),
+    ...POSTS.map((p) => ({
+      url: `${SITE}/blog/${p.slug}`,
+      lastModified: new Date(p.updated || p.date),
+      changeFrequency: "monthly",
+      priority: 0.7,
     })),
   ];
 }

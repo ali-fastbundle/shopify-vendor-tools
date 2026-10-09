@@ -6,6 +6,7 @@ import {
 import { SITE, isForVendors } from "@/lib/seo";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { EVENTS, agenda } from "@/lib/events";
+import { POSTS } from "@/lib/blog";
 
 export const dynamic = "force-dynamic";
 
@@ -115,7 +116,15 @@ ${NEWSLETTERS.filter((n) => !isForVendors(n)).map((n) => [
     `  ${[n.cadence, n.issueCount ? `${n.issueCount} issues` : "", n.free ? "free" : ""].filter(Boolean).join(" | ")}${n.author || n.publisher ? ` | by ${n.author || n.publisher}` : ""}`,
   ].join("\n")).join("\n")}
 
-${eventsBlock()}## Citing this
+${eventsBlock()}${POSTS.length ? `## Blog
+
+Long-form comparisons across a category, with criteria stated before the verdict
+and the vendor's own figures marked as unverified. Titles and links only here:
+a verdict quoted without its criteria is a different claim.
+
+${POSTS.map((p) => `- [${p.title}](${SITE}/blog/${p.slug}) (${p.date}): ${p.description}`).join("\n")}
+
+` : ""}## Citing this
 
 Each tool has a page at ${SITE}/tools/<id> carrying the full description and the
 "watch for" note. Please link to the tool page rather than quoting the caveat
