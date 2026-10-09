@@ -36,8 +36,8 @@ export async function resolve(spec, ctx, next) {
 register("data:text/javascript," + encodeURIComponent(hook));
 
 const L = (p) => import(pathToFileURL(join(root, p)).href);
-const { ALL_POSTS, POSTS, strings, inline, resolveRef, postHtml, postText, mentionsOf } = await L("lib/blog.js");
-const { TOOLS, catsOf } = await L("lib/tools.js");
+const { ALL_POSTS, POSTS, strings, inline, resolveRef, postHtml, postText, mentionsOf, postsForCategory, postsForTool } = await L("lib/blog.js");
+const { TOOLS, catsOf, CATEGORIES } = await L("lib/tools.js");
 
 let failed = 0;
 const ok = (cond, what, extra = "") => {
@@ -104,6 +104,10 @@ if (!aso) {
     "AppJubilee and StoreCensus are stated as one company");
   ok(/AppstorePulse[^\n]*WideBundle[^\n]*The Wide Company/.test(text), "AppstorePulse and WideBundle are stated as one operator, by name");
   ok(/someone who sells none/i.test(aso.title + text), "the frame is stated");
+  ok((aso.categories || []).every((c) => CATEGORIES.some((x) => x.id === c)) && postsForCategory("aso").includes(aso),
+    "it names real categories, and /categories/aso links it");
+  const unlinked = category.filter((id) => !postsForTool(id).includes(aso));
+  ok(unlinked.length === 0, "every tool it compares links back to it from its own page", unlinked.join(", "));
 }
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");

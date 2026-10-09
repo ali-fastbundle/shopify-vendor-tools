@@ -6,6 +6,8 @@ import {
 import { logoAlt } from "@/lib/seo";
 import { Pill } from "@/components/Pill";
 import FooterLinks from "@/components/FooterLinks";
+import PostLinks from "@/components/PostLinks";
+import { postsForCategory } from "@/lib/blog";
 
 /*
  * Category pages, server rendered.
@@ -172,6 +174,7 @@ export function CategoryPage({ cat, members, related, lastUpdated }) {
             {alsoCount > 0 && `, and ${alsoCount} more that also belong in it`}.
           </p>
         )}
+        <PostLinks posts={postsForCategory(cat.id)} context="category" />
       </header>
 
       {members.length > 0 ? (

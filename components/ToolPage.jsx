@@ -12,6 +12,8 @@ import { toolDescription, logoAlt } from "@/lib/seo";
  * whole point, which is that this badge looks the same everywhere it appears.
  */
 import { Pill } from "@/components/Pill";
+import PostLinks from "@/components/PostLinks";
+import { postsForTool } from "@/lib/blog";
 import FooterLinks from "@/components/FooterLinks";
 
 /*
@@ -318,6 +320,8 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             <OwnerInvite tool={tool} viewer={viewer} />
           </div>
         </article>
+
+        <PostLinks posts={postsForTool(tool.id)} context="tool" />
 
         {reviews.length > 0 && (
           <section style={{ marginTop: S["3xl"] }}>
