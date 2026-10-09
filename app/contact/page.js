@@ -3,6 +3,7 @@ import { mintFormToken } from "@/lib/auth";
 import SiteNav from "@/components/SiteNav";
 import ContactForm from "@/components/ContactForm";
 import FooterLinks from "@/components/FooterLinks";
+import { withShareImage } from "@/lib/ogCard";
 
 /* Dynamic, because the form carries a token signed at render time and a
    cached page would hand everybody the same, ever older, timestamp. */
@@ -11,12 +12,17 @@ export const dynamic = "force-dynamic";
 const title = "Contact | watchfor.tools";
 const description = "Get in touch with the person who maintains watchfor.tools: corrections, listings, or anything else.";
 
-export const metadata = {
+const baseMetadata = {
   title,
   description,
   alternates: { canonical: "/contact" },
   openGraph: { title, description, type: "website", siteName: "watchfor.tools" },
 };
+
+/* Async because the share image is versioned on live data (lib/ogCard.js). */
+export async function generateMetadata() {
+  return withShareImage(baseMetadata);
+}
 
 export default function Page() {
   return (

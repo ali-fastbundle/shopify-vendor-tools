@@ -1,3 +1,4 @@
+import { withShareImage } from "@/lib/ogCard";
 import { feedEntries } from "@/lib/feed";
 import { mergedTools } from "@/lib/listings";
 import { SITE } from "@/lib/seo";
@@ -9,7 +10,7 @@ const title = "Recent updates | watchfor.tools";
 const description =
   "Pricing moves, new features, rebrands and wind-downs across tools for Shopify app vendors, dated and in order.";
 
-export const metadata = {
+const baseMetadata = {
   title,
   description,
   /* So a reader that lands on the page can find the feed without being told. */
@@ -19,6 +20,11 @@ export const metadata = {
   },
   openGraph: { title, description, type: "website", url: `${SITE}/changes`, siteName: "watchfor.tools" },
 };
+
+/* Async because the share image is versioned on live data (lib/ogCard.js). */
+export async function generateMetadata() {
+  return withShareImage(baseMetadata);
+}
 
 export default async function Page() {
   const [entries, tools] = await Promise.all([feedEntries({ limit: 300 }), mergedTools()]);

@@ -1,3 +1,4 @@
+import { withShareImage } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { sessionFrom, isAdmin } from "@/lib/auth";
@@ -66,7 +67,7 @@ function viewerOf({ tool, claims }) {
   };
 }
 
-export async function generateMetadata({ params }) {
+async function baseMetadata({ params }) {
   const found = await load(params.id);
   if (!found) return { title: "Not found | watchfor.tools" };
   const { tool } = found;
@@ -84,7 +85,7 @@ export async function generateMetadata({ params }) {
       title, description, type: "article",
       url: toolUrl(tool.id),
       siteName: "watchfor.tools",
-      images: [{ url: `/og?v=${tool.id}-${tool.updated}`, width: 1200, height: 630, alt: `${tool.name} on watchfor.tools` }],
+      images: [{ alt: `${tool.name} on watchfor.tools` }],
     },
     twitter: { card: "summary_large_image", title, description },
   };
@@ -119,4 +120,10 @@ export default async function Page({ params }) {
       />
     </>
   );
+}
+
+/* Wrapped so every page carries the one share card, versioned on what it
+   draws (lib/ogCard.js), rather than each page writing its own. */
+export async function generateMetadata(props) {
+  return withShareImage(await baseMetadata(props));
 }

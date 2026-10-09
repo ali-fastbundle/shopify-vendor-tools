@@ -1,3 +1,4 @@
+import { withShareImage } from "@/lib/ogCard";
 import { agenda, placed, todayISO } from "@/lib/events";
 import { mergedEvents } from "@/lib/listings";
 import { LAST_UPDATED } from "@/lib/tools";
@@ -12,13 +13,18 @@ const title = "Events for Shopify app vendors | watchfor.tools";
 const description =
   "Conferences and meetups worth an app vendor's time, with who is actually in the room. Dates checked against each organiser's site, and nothing unconfirmed shown as scheduled.";
 
-export const metadata = {
+const baseMetadata = {
   title,
   description,
   alternates: { canonical: "/events" },
   openGraph: { title, description, type: "website", url: EVENTS_URL, siteName: "watchfor.tools" },
   twitter: { card: "summary", title, description },
 };
+
+/* Async because the share image is versioned on live data (lib/ogCard.js). */
+export async function generateMetadata() {
+  return withShareImage(baseMetadata);
+}
 
 export default async function Page() {
   const today = todayISO();

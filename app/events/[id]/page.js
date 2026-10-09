@@ -1,3 +1,4 @@
+import { withShareImage } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
 import { placed, todayISO } from "@/lib/events";
 import { mergedEvents } from "@/lib/listings";
@@ -23,7 +24,7 @@ async function load(id) {
   return e ? { e, all, today, reviews: publicReviews(stored)[id] || [] } : null;
 }
 
-export async function generateMetadata({ params }) {
+async function baseMetadata({ params }) {
   const found = await load(params.id);
   if (!found) return { title: "Not found | watchfor.tools" };
   const { e } = found;
@@ -48,4 +49,10 @@ export default async function Page({ params }) {
       <EventPage e={e} all={all} today={today} reviews={reviews} lastUpdated={LAST_UPDATED} />
     </>
   );
+}
+
+/* Wrapped so every page carries the one share card, versioned on what it
+   draws (lib/ogCard.js), rather than each page writing its own. */
+export async function generateMetadata(props) {
+  return withShareImage(await baseMetadata(props));
 }

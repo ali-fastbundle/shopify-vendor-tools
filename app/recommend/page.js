@@ -2,12 +2,13 @@ import { C, S, F, TRACK, LAST_UPDATED } from "@/lib/tools";
 import SiteNav from "@/components/SiteNav";
 import Recommender from "@/components/Recommender";
 import FooterLinks from "@/components/FooterLinks";
+import { withShareImage } from "@/lib/ogCard";
 
 const title = "Growth picks for your app | watchfor.tools";
 const description =
   "Give the listing URL, budget, stage and goal for your Shopify app and get three tools from the directory, each with a reason tied to your situation.";
 
-export const metadata = {
+const baseMetadata = {
   title,
   description,
   alternates: { canonical: "/recommend" },
@@ -15,6 +16,11 @@ export const metadata = {
   /* A form behind a sign-in: nothing here for a search result to show. */
   robots: { index: false, follow: true },
 };
+
+/* Async because the share image is versioned on live data (lib/ogCard.js). */
+export async function generateMetadata() {
+  return withShareImage(baseMetadata);
+}
 
 export default function Page() {
   return (

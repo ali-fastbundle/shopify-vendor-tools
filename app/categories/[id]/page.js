@@ -1,3 +1,4 @@
+import { withShareImage } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
 import { read, KEYS } from "@/lib/store";
 import { mergedTools } from "@/lib/listings";
@@ -37,7 +38,7 @@ async function load(id) {
   };
 }
 
-export async function generateMetadata({ params }) {
+async function baseMetadata({ params }) {
   const found = await load(params.id);
   if (!found) return { title: "Not found | watchfor.tools" };
   const { cat, members } = found;
@@ -72,4 +73,10 @@ export default async function Page({ params }) {
       <CategoryPage cat={cat} members={members} related={related} lastUpdated={LAST_UPDATED} />
     </>
   );
+}
+
+/* Wrapped so every page carries the one share card, versioned on what it
+   draws (lib/ogCard.js), rather than each page writing its own. */
+export async function generateMetadata(props) {
+  return withShareImage(await baseMetadata(props));
 }

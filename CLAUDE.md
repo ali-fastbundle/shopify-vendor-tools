@@ -1731,7 +1731,7 @@ fetched and that no run carries an address.
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, the `published()` filter every catalogue passes through, and `readiness()` |
 | `lib/publish.js` | Publishing a file draft from /admin: the parsed edit and the commit to GitHub |
-| `lib/ogCard.js` | What the share card draws, and the URL version hashed from exactly that. The image route and the homepage both read it |
+| `lib/ogCard.js` | What the share card draws, the URL version hashed from exactly that, and `withShareImage()`, which every page that sets its own `openGraph` must go through: Next replaces the layout's openGraph rather than merging it, so a page that skips it ships with no image. og-test enforces it |
 | `lib/announce.js` | The announcement prompt and the house-voice examples. Drafts, never publishes |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |

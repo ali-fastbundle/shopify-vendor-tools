@@ -57,6 +57,17 @@ ok(/ogFacts\(\)/.test(route) && /x-og-version/.test(route), "the image draws ogF
 ok(/ogVersion\(await ogFacts\(\)\)/.test(page), "the homepage versions its og:image on the same facts");
 ok(!/og\?v=/.test(layout) && !/TOOLS\.length/.test(layout), "the layout builds no version of its own");
 
+/* Every page that writes its own openGraph replaces the layout's, so each
+   has to carry the image itself, through the one helper. */
+const { readdirSync, statSync } = await import("node:fs");
+const pages = [];
+const walk = (d) => { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (f === "page.js") pages.push(p); } };
+walk(join(root, "app"));
+const withOg = pages.filter((p) => /openGraph/.test(readFileSync(p, "utf8")));
+const missing = withOg.filter((p) => !/withShareImage\(|ogVersion\(await ogFacts\(\)\)/.test(readFileSync(p, "utf8")))
+  .map((p) => p.slice(root.length + 1));
+ok(missing.length === 0, `all ${withOg.length} pages that set openGraph carry the versioned share image`, missing.join(", "));
+
 const base = process.argv[2];
 if (base) {
   console.log(`\nlive, ${base}:`);

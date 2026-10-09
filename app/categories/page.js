@@ -1,3 +1,4 @@
+import { withShareImage } from "@/lib/ogCard";
 import { mergedTools } from "@/lib/listings";
 import { LAST_UPDATED } from "@/lib/tools";
 import { categoryCounts, categoriesGraph, CATEGORIES_URL } from "@/lib/seo";
@@ -5,7 +6,7 @@ import { CategoryIndex } from "@/components/Categories";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = {
+const baseMetadata = {
   title: "Categories | watchfor.tools",
   description:
     "Every category of tool built for Shopify app vendors: ASO, App Store data, billing analytics, "
@@ -19,6 +20,11 @@ export const metadata = {
     type: "website",
   },
 };
+
+/* Async because the share image is versioned on live data (lib/ogCard.js). */
+export async function generateMetadata() {
+  return withShareImage(baseMetadata);
+}
 
 export default async function Page() {
   const tools = await mergedTools();

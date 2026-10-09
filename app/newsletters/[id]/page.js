@@ -1,3 +1,4 @@
+import { withShareImage } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { sessionFrom, isAdmin } from "@/lib/auth";
@@ -29,7 +30,7 @@ async function load(id) {
   return { n, newsletters, claims, reviews: publicReviews(storedReviews) };
 }
 
-export async function generateMetadata({ params }) {
+async function baseMetadata({ params }) {
   const found = await load(params.id);
   if (!found) return { title: "Not found | watchfor.tools" };
   const { n } = found;
@@ -73,4 +74,10 @@ export default async function Page({ params }) {
       />
     </>
   );
+}
+
+/* Wrapped so every page carries the one share card, versioned on what it
+   draws (lib/ogCard.js), rather than each page writing its own. */
+export async function generateMetadata(props) {
+  return withShareImage(await baseMetadata(props));
 }
