@@ -2,6 +2,8 @@ import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
 import SiteNav from "@/components/SiteNav";
+import IndexSearch from "@/components/IndexSearch";
+import { searchText } from "@/lib/search";
 
 /*
  * The Newsletters index, server-rendered with no client state, same contract
@@ -52,7 +54,8 @@ function Signal({ n }) {
 function Row({ n }) {
   const by = n.author || n.publisher;
   return (
-    <li style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
+    <li data-search={searchText(n.name, n.publisher, n.author, n.cadence, n.one, n.note, n.tags)}
+      style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
       <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
         <a href={`/newsletters/${n.id}`}
           style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none", letterSpacing: TRACK.tight }}>
@@ -75,7 +78,7 @@ function Row({ n }) {
 function Group({ title, blurb, items }) {
   if (!items.length) return null;
   return (
-    <section style={{ marginTop: S["3xl"] }}>
+    <section data-search-group="" style={{ marginTop: S["3xl"] }}>
       <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
       <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "70ch" }}>{blurb}</p>
       <ul style={{ listStyle: "none", padding: 0, margin: `${S.md}px 0 0` }}>
@@ -111,6 +114,10 @@ export default function Newsletters({ newsletters, lastUpdated }) {
           </p>
         </header>
 
+        <IndexSearch scope="newsletter-list" placeholder="Search newsletters, writers, topics"
+          label="Search newsletters, writers and topics" />
+
+        <div id="newsletter-list">
         <Group
           title="About the Shopify platform"
           blurb="Written about the platform and the app ecosystem. The closest thing here to reading for your own roadmap."
@@ -121,6 +128,7 @@ export default function Newsletters({ newsletters, lastUpdated }) {
           blurb="Written for merchants and operators, not for app developers. Useful as demand signal and as a view of what your merchants are being sold."
           items={merchant}
         />
+        </div>
 
         <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
           <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>

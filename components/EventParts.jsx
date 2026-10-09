@@ -4,6 +4,7 @@ import { outbound } from "@/lib/outbound";
 import { countdown, RELEVANCE_LABEL, dayLabel } from "@/lib/events";
 import { Pill } from "@/components/Pill";
 import EventLogo from "@/components/EventLogo";
+import { searchText } from "@/lib/search";
 
 /*
  * The pieces of an event that render the same on the index, in the modal and
@@ -99,11 +100,15 @@ export const placeOf = (e) =>
  */
 const whenLine = (e) => (e.at.mode === "inferred" ? "Date TBC" : e.at.label);
 
+/* What an event row is searched on. Shared by the timeline rows and the "Dates not announced" list, so both answer alike. */
+export const eventSearch = (e) =>
+  searchText(e.name, e.organizer, e.city, e.country, e.venue, e.one, e.focus, e.audience);
+
 export function EventRow({ e, today }) {
   const past = e.at.status === "past";
   const where = placeOf(e);
   return (
-    <li id={e.id} style={{ padding: `${S.md}px 0`, display: "flex", gap: S.lg, alignItems: "flex-start" }}>
+    <li id={e.id} data-search={eventSearch(e)} style={{ padding: `${S.md}px 0`, display: "flex", gap: S.lg, alignItems: "flex-start" }}>
       <DateBlock e={e} />
       <div style={{ minWidth: 0 }}>
         <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
