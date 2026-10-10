@@ -2140,6 +2140,28 @@ anything about software: `id`, `name`, `url`, `one`, `note`, `watch`, `social`, 
 the market they sell into has a conflict worth naming, the same way a tracker built by an
 app vendor does, and it is no more theirs to edit than a tool's is.
 
+**Merchant-facing media earns its row on two counts, and a channel is one of them.**
+A podcast, a newsletter, an event or any other place merchants gather is useful to an app
+vendor in two different ways: it is where you learn how your customers talk about their
+problems and which tools they are being sold, and it is a channel for getting in front of
+them, as a guest, a sponsor, an advertiser, an exhibitor. **Being written for merchants
+rather than for app builders is therefore not a mark against an entry**; it is the audience
+the vendor is trying to reach. The bar is whether either use is real: a show that stopped
+publishing in 2021 is neither current nor a channel, and its `watch` says so.
+
+The channel half is recorded as `reach`, optional prose on the podcast shape: how a vendor
+gets in, with prices where they are published, as of `updated`. Omitted where there is no
+way in, never "none" (rule E). It is editorial like `watch`: when podcasts are registered in
+`EDITABLE_BY_KIND`, `reach` is not on the owner's list, because a publisher writing their
+own rate card into our listing is advertising. **When guests pay to appear, `watch` says
+so too**, because it changes what the content is: an interview somebody bought a slot for
+is a placement, whether you are listening for demand signal or deciding to buy one.
+
+The same applies to tools whose job is promotion, such as a paid opt-in or co-registration
+product: in scope when an app vendor is the buyer (invariant 26), with the audience's real
+platform mix stated in `watch` when it is wider than Shopify. Newsletters and events do not
+carry `reach` yet; adding it is the same field, written from each one's own advertising page.
+
 **`shopifySpecific` is a positive tag, not a warning.** Optional on a newsletter. True
 means the publication is about Shopify itself, and renders a neutral "Shopify-specific"
 badge. Absent or false renders **nothing**: no badge, no "not Shopify-specific" note, no
