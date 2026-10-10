@@ -1,16 +1,21 @@
 import { bumpStats } from "@/lib/store";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { catalogueTools } from "@/lib/entries";
+import { STAT_SECTIONS } from "@/lib/beacon";
+import { SCREENS } from "@/lib/recommendOptions";
 
 export const dynamic = "force-dynamic";
 
 /*
  * Directory-specific counters only.
  *
- * Page traffic is Vercel Analytics' job and is not duplicated here — see
- * CLAUDE.md. What Vercel cannot see is which *tool* someone opened and what
- * they typed into the matcher, so those two things, and nothing else, are
- * counted.
+ * Page traffic is Vercel Analytics' job and is not duplicated here, see
+ * CLAUDE.md. Counted here: which tool someone opened, what they typed into the
+ * matcher, a view of each section (including the in-place Recent updates view,
+ * which is no navigation and so invisible to Vercel), and how far somebody got
+ * through the recommender (`recommend:reached:<screen>`, once per screen per
+ * page load). Completion is counted by the run route itself
+ * (`recommend:runs`), so the funnel's last step does not depend on a beacon.
  *
  * The client buffers events and posts them in one go, so this is a write per
  * batch rather than a write per view. The whole batch lands in a single
@@ -50,6 +55,14 @@ export async function POST(request) {
 
   const uses = Number(body.matcher);
   if (Number.isFinite(uses) && uses > 0) fields["matcher:uses"] = Math.min(uses, MAX_EVENTS);
+
+  /* Fixed lists, so the hash cannot be seeded with junk fields. */
+  for (const id of (Array.isArray(body.sections) ? body.sections : []).slice(0, 10)) {
+    if (STAT_SECTIONS.includes(id)) fields[`section:${id}`] = (fields[`section:${id}`] || 0) + 1;
+  }
+  for (const step of (Array.isArray(body.recommend) ? body.recommend : []).slice(0, 30)) {
+    if (SCREENS.includes(step)) fields[`recommend:reached:${step}`] = (fields[`recommend:reached:${step}`] || 0) + 1;
+  }
 
   const queries = (Array.isArray(body.queries) ? body.queries : [])
     .slice(0, MAX_EVENTS)

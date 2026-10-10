@@ -3,6 +3,7 @@ import SiteNav from "@/components/SiteNav";
 import Recommender from "@/components/Recommender";
 import FooterLinks from "@/components/FooterLinks";
 import { withShareImage } from "@/lib/ogCard";
+import SectionView from "@/components/SectionView";
 
 const title = "Growth picks for your app | watchfor.tools";
 const description =
@@ -28,6 +29,7 @@ export default function Page() {
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
         <SiteNav current="recommend" />
+        <SectionView id="recommend" />
         {/* The priming screens are the introduction, so the page heading is a
             label, not a second hero competing with them. */}
         <h1 style={{ fontSize: F.lg, fontWeight: 700, margin: `${S["2xl"]}px 0 0`, letterSpacing: TRACK.tight, color: C.muted }}>

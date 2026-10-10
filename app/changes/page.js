@@ -4,6 +4,7 @@ import { mergedTools } from "@/lib/listings";
 import { SITE, IDS } from "@/lib/seo";
 import ChangesFeed from "@/components/ChangesFeed";
 import JsonLd from "@/components/JsonLd";
+import SectionView from "@/components/SectionView";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,7 @@ export default async function Page() {
 
   return (
     <>
+      <SectionView id="updates" />
       <JsonLd data={graph} />
       <ChangesFeed entries={entries} tools={tools} />
     </>

@@ -15,6 +15,8 @@ import { effectiveConfidence, errorRates, CAP, VERIFICATION_LABEL } from "@/lib/
 import { Pill } from "./Pill";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
+import { SCREENS, PRIMING, questionOf } from "@/lib/recommendOptions";
+import { STAT_SECTIONS } from "@/lib/beacon";
 
 /*
  * Admin console.
@@ -2442,7 +2444,7 @@ function Stats({ stats = { fields: {}, queries: [] } }) {
 
   return (
     <Section title="Directory stats" count={totalOpens}
-      hint="Tool opens and matcher use only. Page views, referrers and paths are in Vercel Analytics and deliberately not duplicated here. Nothing is tied to a person.">
+      hint="Tool opens, matcher use, section views and the recommender funnel. Referrers, devices and countries are in Vercel Analytics and not duplicated here. Counts only: no cookie, no identifier, nothing tied to a person.">
       <div className="flex flex-wrap" style={{ gap: S["2xl"], padding: "12px 0 4px" }}>
         <div>
           <p style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0 }}>{totalOpens}</p>
@@ -2473,6 +2475,9 @@ function Stats({ stats = { fields: {}, queries: [] } }) {
         </div>
       )}
 
+      <SectionViews fields={fields} />
+      <RecommenderFunnel fields={fields} />
+
       <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
         <p style={{ fontSize: F.sm, fontWeight: 600, margin: 0 }}>
           Last {Math.min(queries.length, 50)} matcher queries
@@ -2490,6 +2495,80 @@ function Stats({ stats = { fields: {}, queries: [] } }) {
           )}
       </div>
     </Section>
+  );
+}
+
+const SECTION_LABEL = { directory: "Directory", newsletters: "Newsletters", events: "Events", updates: "Recent updates", blog: "Blog", recommend: "Recommender", categories: "Categories index" };
+
+/* One count per page load of each section. Recent updates includes the
+   in-place tab on the directory, which Vercel cannot see. */
+function SectionViews({ fields = {} }) {
+  const rows = STAT_SECTIONS.map((id) => [id, fields[`section:${id}`] || 0]).sort((a, b) => b[1] - a[1]);
+  return (
+    <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
+      <p style={{ fontSize: F.sm, fontWeight: 600, margin: 0 }}>Section views</p>
+      {rows.every(([, n]) => !n) ? <Empty>No section views counted yet.</Empty> : (
+        <table className="tnum" style={{ fontSize: F.sm, marginTop: S.sm, borderCollapse: "collapse" }}>
+          <tbody>{rows.map(([id, n]) => (
+            <tr key={id}><td style={{ padding: "2px 24px 2px 0", color: C.muted }}>{SECTION_LABEL[id] || id}</td><td style={{ textAlign: "right" }}>{n}</td></tr>
+          ))}</tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/*
+ * How far people get through the recommender. Each screen counts the page
+ * loads that reached it; the loss column is the drop from the screen before,
+ * which is where people stop. Completed is counted by the run route, not the
+ * browser. A resumed draft enters at its saved screen, so a later screen can
+ * read slightly higher than the one before it.
+ */
+function RecommenderFunnel({ fields = {} }) {
+  const label = (id) => PRIMING.find((p) => p.id === id)?.ok ? `Intro: ${PRIMING.find((p) => p.id === id).ok}` : (questionOf(id)?.short || id);
+  const steps = SCREENS.map((id) => ({ id, n: fields[`recommend:reached:${id}`] || 0 }));
+  const done = fields["recommend:runs"] || 0;
+  const first = steps[0]?.n || 0;
+  if (!first && !done) {
+    return (
+      <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
+        <p style={{ fontSize: F.sm, fontWeight: 600, margin: 0 }}>Recommender funnel</p>
+        <Empty>Nobody has started it yet.</Empty>
+      </div>
+    );
+  }
+  let worst = null;
+  steps.forEach((st, i) => {
+    const drop = i ? steps[i - 1].n - st.n : 0;
+    if (drop > 0 && (!worst || drop > worst.drop)) worst = { id: st.id, drop };
+  });
+  const rows = [...steps, { id: "__done", n: done }];
+  return (
+    <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
+      <p style={{ fontSize: F.sm, fontWeight: 600, margin: 0 }}>Recommender funnel</p>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "2px 0 0" }}>
+        {first} started, {done} completed{first ? ` (${Math.round((done / first) * 100)}%)` : ""}.
+        {worst ? ` Most lost before ${label(worst.id)}: ${worst.drop}.` : ""}
+      </p>
+      <table className="tnum" style={{ fontSize: F.sm, marginTop: S.sm, borderCollapse: "collapse" }}>
+        <thead><tr style={{ color: C.dim, fontSize: F.xs }}>
+          <th style={{ textAlign: "left", fontWeight: 600, padding: "2px 24px 2px 0" }}>Screen</th>
+          <th style={{ textAlign: "right", fontWeight: 600, padding: "2px 16px 2px 0" }}>Reached</th>
+          <th style={{ textAlign: "right", fontWeight: 600 }}>Lost here</th>
+        </tr></thead>
+        <tbody>{rows.map((r, i) => {
+          const lost = i ? rows[i - 1].n - r.n : 0;
+          return (
+            <tr key={r.id} style={{ color: worst && worst.id === r.id ? C.warnInk : C.text }}>
+              <td style={{ padding: "2px 24px 2px 0", color: r.id === "__done" ? C.text : undefined, fontWeight: r.id === "__done" ? 600 : 400 }}>{r.id === "__done" ? "Completed a run" : label(r.id)}</td>
+              <td style={{ textAlign: "right", padding: "2px 16px 2px 0" }}>{r.n}</td>
+              <td style={{ textAlign: "right", color: lost > 0 ? undefined : C.dim }}>{i ? (lost > 0 ? lost : "") : ""}</td>
+            </tr>
+          );
+        })}</tbody>
+      </table>
+    </div>
   );
 }
 
@@ -3506,7 +3585,7 @@ function AdminLogo({ tool, size = 22 }) {
   const [failed, setFailed] = useState(false);
   if (failed || !tool.domain) return null;
   return (
-    <img src={tool.logo || `https://www.google.com/s2/favicons?domain=${tool.domain}&sz=64`}
+    <img referrerPolicy="no-referrer" src={tool.logo || `https://www.google.com/s2/favicons?domain=${tool.domain}&sz=64`}
       alt="" width={size} height={size} loading="lazy" decoding="async"
       onError={() => setFailed(true)}
       style={{

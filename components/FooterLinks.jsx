@@ -5,7 +5,8 @@ import { outbound } from "@/lib/outbound";
 
 /*
  * The two ways to reach the person behind the directory, on every page's
- * footer: their LinkedIn and the contact form. Defined once, like Pill and
+ * footer: their LinkedIn and the contact form. And /privacy, which says what
+ * is stored, because a footer is where people look for it. Defined once, like Pill and
  * CopyLink, so it looks the same wherever it is.
  *
  * Contact is a page with a form, never a mailto. An address in the page
@@ -27,6 +28,7 @@ export default function FooterLinks() {
         </a>
       )}
       <a href="/contact" style={{ color: C.muted }}>Contact</a>
+      <a href="/privacy" style={{ color: C.muted }}>Privacy</a>
     </p>
   );
 }

@@ -72,7 +72,7 @@ export default function EventLogo({ e, size = 28, status }) {
   if (step === "letter") return <Lettermark e={e} size={size} status={status} />;
 
   return (
-    <img
+    <img referrerPolicy="no-referrer"
       ref={ref}
       src={step === "logo" ? e.logo : `https://www.google.com/s2/favicons?domain=${e.domain}&sz=128`}
       alt={`${e.name} logo`}

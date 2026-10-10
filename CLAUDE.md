@@ -2585,19 +2585,50 @@ that omits the field should send nothing rather than throw.
 Adding an event means adding a row to `MATRIX` and nothing else. If you find yourself
 importing the Resend transport into a route, stop — that is the pattern this replaced.
 
+## Privacy and consent
+
+**`/privacy` states what is stored, from the code, and changes in the same commit as the
+code.** Browser storage (theme, votes, the Recent updates mark, unsent drafts), the one
+session cookie, Vercel Analytics and Speed Insights (cookieless), email addresses only from
+people who gave them and for what, the hashed and expiring rate-limit keys, the processors
+(Vercel, Upstash, Resend), and the Google favicon request. A new localStorage key, cookie,
+stored field or processor is a line on that page, or the page is wrong.
+
+**No cookie banner, because nothing needs consent.** The only cookie is the sign-in session,
+which is strictly necessary for what the person asked for, and nothing tracks anybody.
+
+**A consent banner is a precondition for any third-party script, not an afterthought.**
+Analytics beyond Vercel's cookieless counts, an ad or retargeting pixel, a chat widget, an
+embedded video, a social button, a hosted font or script from another origin: the commit
+that adds one also adds consent that blocks it until given (not a notice that it is
+already running), and updates `/privacy`. Do not add the script first and the banner
+"next". If that work is not wanted, the script is not wanted either.
+
+**Rate limiting stores no IP address.** `lib/ratelimit.js` keys on a salted SHA-256 of it
+and every key expires with its window (an hour at most for anything keyed on an IP). Logos
+from the favicon service carry `referrerPolicy="no-referrer"`.
+
 ## Analytics and stats
 
 **Page-level traffic lives in Vercel Analytics, not Redis.** Views, paths, referrers,
 devices, countries — all of it is already collected by `<Analytics />` in
-`app/layout.js`, and none of it is reimplemented here. Do not add a page-view counter,
-a visit log, or a session table. If the question is "how many people came", the answer
-is in the Vercel dashboard.
+`app/layout.js`, and none of it is reimplemented here. Do not add a visit log, a
+per-path page-view counter or a session table. If the question is "how many people came",
+the answer is in the Vercel dashboard. The one exception is a single count per section
+(`section:<id>` below), kept beside the other directory counters so /admin can read them
+together, and it carries no path, referrer or identifier.
 
 `svt:stats` holds only what Vercel cannot see, because it happens inside one client
 component without a navigation:
 
 - `tool:<id>` — a tool's detail view was opened
 - `matcher:uses` — the matcher was run
+- `section:<id>` — one view of a section per page load (`components/SectionView.jsx` on each
+  index page; the directory and its in-place Recent updates tab count through its own batch).
+  Ids are a fixed list, `STAT_SECTIONS` in `lib/beacon.js`
+- `recommend:reached:<screen>` — the first time a page load reaches each recommender screen.
+  Completion is `recommend:runs`, counted by the run route, so the funnel's end does not
+  depend on a beacon. /admin, Audience, shows the funnel and the screen losing the most
 
 with `svt:stats:queries` keeping the last 50 matcher queries as text, capped and never
 joined to a person. No email is attached even when one is known, and no session id.
@@ -2677,6 +2708,7 @@ node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
+node scripts/privacy-test.mjs        # /privacy names every browser key; one cookie; no IP stored; stat lists fixed
 node scripts/shipping-test.mjs       # recommender feedback, blog comments, the announcement queue
 node scripts/recommend-test.mjs      # the flow's questions, drafts, drivers, cost, nothing-fits, no address kept
 node scripts/publish-test.mjs        # publish changes exactly two things, discard removes exactly one entry, hold commits nothing

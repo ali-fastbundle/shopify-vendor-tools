@@ -8,6 +8,7 @@ import {
 } from "@/lib/recommendOptions";
 import { useSession, SignInPrompt } from "@/components/Account";
 import GrowText from "@/components/GrowText";
+import { beacon } from "@/lib/beacon";
 import { ThumbsUp, ThumbsDown } from "@phosphor-icons/react";
 
 /*
@@ -192,6 +193,18 @@ export default function Recommender() {
       body: JSON.stringify({ step: nextStep, answers: a, skipped: s }),
     }).then((r) => setSaved(r.ok)).catch(() => {});
   }
+
+  /*
+   * The funnel: each screen counted the first time this page load reaches it,
+   * with no identifier. Completion is counted by the run route. Drop-off is
+   * the difference between consecutive screens, read on /admin.
+   */
+  const reached = useRef(new Set());
+  useEffect(() => {
+    if (!SCREENS.includes(step) || reached.current.has(step)) return;
+    reached.current.add(step);
+    beacon({ recommend: [step] });
+  }, [step]);
 
   const go = (to, a, s) => { setError(""); setStep(to); persist(to, a, s); };
   const setAnswer = (key, v) => setAnswers((x) => ({ ...x, [key]: v }));

@@ -4,6 +4,7 @@ import { LAST_UPDATED } from "@/lib/tools";
 import { categoryCounts, categoriesGraph, CATEGORIES_URL } from "@/lib/seo";
 import { CategoryIndex } from "@/components/Categories";
 import JsonLd from "@/components/JsonLd";
+import SectionView from "@/components/SectionView";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function Page() {
 
   return (
     <>
+      <SectionView id="categories" />
       <JsonLd data={categoriesGraph(counts)} />
       <CategoryIndex counts={counts} lastUpdated={LAST_UPDATED} />
     </>

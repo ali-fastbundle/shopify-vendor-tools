@@ -4,6 +4,7 @@ import { LAST_UPDATED } from "@/lib/tools";
 import { BLOG_URL, blogGraph } from "@/lib/seo";
 import { BlogIndex } from "@/components/Blog";
 import JsonLd from "@/components/JsonLd";
+import SectionView from "@/components/SectionView";
 
 /* Dynamic so the share image version is read per request, like every other
    page; a version frozen at build time is the drift lib/ogCard.js exists to stop. */
@@ -32,6 +33,7 @@ export async function generateMetadata() {
 export default function Page() {
   return (
     <>
+      <SectionView id="blog" />
       <JsonLd data={blogGraph(POSTS)} />
       <BlogIndex posts={POSTS} lastUpdated={LAST_UPDATED} />
     </>

@@ -5,6 +5,7 @@ import { LAST_UPDATED } from "@/lib/tools";
 import { SITE, EVENTS_URL } from "@/lib/seo";
 import Events from "@/components/Events";
 import JsonLd from "@/components/JsonLd";
+import SectionView from "@/components/SectionView";
 
 /* Dynamic so past, imminent and upcoming are worked out on the day the page is
    read, never on the day it was built. */
@@ -54,6 +55,7 @@ export default async function Page() {
 
   return (
     <>
+      <SectionView id="events" />
       <JsonLd data={graph} />
       <Events plan={plan} events={placed(EVENTS, today)} lastUpdated={LAST_UPDATED} />
     </>

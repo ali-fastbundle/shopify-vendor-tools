@@ -41,16 +41,16 @@ import FooterLinks from "@/components/FooterLinks";
  * what people ask for is the useful signal; it is never paired with a session
  * or an address.
  */
-const statQueue = { tools: [], matcher: 0, queries: [] };
+const statQueue = { tools: [], matcher: 0, queries: [], sections: [] };
 let statTimer = null;
 
 function flushStats() {
   if (typeof window === "undefined") return;
   if (statTimer) { clearTimeout(statTimer); statTimer = null; }
-  if (!statQueue.tools.length && !statQueue.matcher && !statQueue.queries.length) return;
+  if (!statQueue.tools.length && !statQueue.matcher && !statQueue.queries.length && !statQueue.sections.length) return;
 
   const payload = JSON.stringify(statQueue);
-  statQueue.tools = []; statQueue.matcher = 0; statQueue.queries = [];
+  statQueue.tools = []; statQueue.matcher = 0; statQueue.queries = []; statQueue.sections = [];
 
   try {
     if (navigator.sendBeacon) {
@@ -73,6 +73,13 @@ function scheduleFlush() {
 function trackToolOpen(id) {
   if (!id) return;
   statQueue.tools.push(id);
+  scheduleFlush();
+}
+
+/* A view of a section: the directory on load, and Recent updates when its tab
+   is opened in place, which is no navigation and so invisible to Vercel. */
+function trackSection(id) {
+  statQueue.sections.push(id);
   scheduleFlush();
 }
 
@@ -129,7 +136,7 @@ function Logo({ tool, size = 34 }) {
     );
   }
   return (
-    <img
+    <img referrerPolicy="no-referrer"
       src={step === "logo" ? tool.logo : `https://www.google.com/s2/favicons?domain=${tool.domain}&sz=128`}
       /* Names the thing rather than announcing that it is an image. It was
          empty, which is right for pure decoration and wrong here: the mark is
@@ -950,7 +957,11 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
   const showUpdates = () => {
     setView2("updates");
     stampSeen();
+    trackSection("updates");
   };
+
+  /* One directory view per page load, counted with the rest of the batch. */
+  useEffect(() => { trackSection("directory"); }, []);
 
   const openTool = (id, rating = 0) => {
     trackToolOpen(id); setDetail(id);

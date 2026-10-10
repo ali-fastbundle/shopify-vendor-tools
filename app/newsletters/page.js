@@ -4,6 +4,7 @@ import { LAST_UPDATED } from "@/lib/tools";
 import { SITE, NEWSLETTERS_URL, IDS } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
 import Newsletters from "@/components/Newsletters";
+import SectionView from "@/components/SectionView";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export default async function Page() {
   };
   return (
     <>
+      <SectionView id="newsletters" />
       <JsonLd data={graph} />
       <Newsletters newsletters={newsletters} lastUpdated={LAST_UPDATED} />
     </>
