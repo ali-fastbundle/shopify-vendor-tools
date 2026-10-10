@@ -28,7 +28,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ThumbsUp, Star } from "@phosphor-icons/react";
 import { C, S, R, F, TRACK, reportKindsFor, reportKindOf } from "@/lib/tools";
-import { byHelpfulness } from "@/lib/reviews";
+import { byHelpfulness, ratingStats, RATING_POLICY, exclusionNote } from "@/lib/reviews";
 import { useSession, SignInPrompt, OwnerPanel } from "@/components/Account";
 import GrowText from "@/components/GrowText";
 import Vote from "@/components/Vote";
@@ -122,9 +122,8 @@ export function CardVotes({ id, noun = "listing" }) {
 
 /** One decimal, the way the directory shows a community rating. */
 export function summarise(reviews = []) {
-  if (!reviews.length) return null;
-  const avg = reviews.reduce((n, r) => n + (Number(r.rating) || 0), 0) / reviews.length;
-  return { value: avg.toFixed(1), count: reviews.length };
+  const s = ratingStats(reviews);
+  return s ? { value: s.value.toFixed(1), count: s.count } : null;
 }
 
 export default function Engagement({ entity, kind = "tool", initialReviews = [] }) {
@@ -291,6 +290,7 @@ function ReviewList({ id, reviews, session, onChange }) {
   return (
     <section style={{ marginTop: S.xl }}>
       <h2 style={{ fontSize: F.lg, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>What people say</h2>
+      <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5, margin: `${S.xs}px 0 0` }}>{RATING_POLICY}</p>
       <div style={{ marginTop: S.sm }}>
         {ordered.map((r) => (
           <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.md}px 0` }}>
@@ -303,6 +303,7 @@ function ReviewList({ id, reviews, session, onChange }) {
               </span>
               <span className="tnum" style={{ color: C.dim }}>{r.date}</span>
             </p>
+            {exclusionNote(r) && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>{exclusionNote(r)}</p>}
             {r.text && <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "68ch" }}>{r.text}</p>}
             <Helpful id={id} review={r} session={session} onChange={onChange} />
           </div>

@@ -13,6 +13,7 @@ import { TALLIES, pendingCount } from "@/lib/tallies";
 import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
 import { effectiveConfidence, errorRates, CAP, VERIFICATION_LABEL } from "@/lib/findings";
 import { Pill } from "./Pill";
+import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
 
 /*
@@ -96,6 +97,7 @@ export default function AdminPanel({
   feed = [],
   health = null,
   inventory = [],
+  reviewSignals = [],
   initialTab = "inbox",
 }) {
   /*
@@ -112,6 +114,7 @@ export default function AdminPanel({
   const [claimRows, setClaimRows] = useState(claims || {});
   const [reportRows, setReportRows] = useState(reports || []);
   const [entryRows, setEntryRows] = useState(entries || {});
+  const [reviewRows, setReviewRows] = useState(reviewSignals);
   const [seen, setSeen] = useState(changesSeen || {});
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
@@ -174,6 +177,7 @@ export default function AdminPanel({
       if (d.claims) setClaimRows(d.claims);
       if (d.reports) setReportRows(d.reports);
       if (d.entries) setEntryRows(d.entries);
+      if (d.reviewSignals) setReviewRows(d.reviewSignals);
     } catch {
       setErr("Could not reach the server.");
     } finally {
@@ -281,6 +285,7 @@ export default function AdminPanel({
             verified={verifiedClaims}
             subscribers={subscribers || []}
             feed={feed}
+            reviews={reviewRows}
             act={act}
             busy={busy}
           />
@@ -421,9 +426,10 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, reviewed = [],
   );
 }
 
-function People({ accounts = {}, claims = {}, verified = [], subscribers = [], feed = [], act, busy }) {
+function People({ accounts = {}, claims = {}, verified = [], subscribers = [], feed = [], reviews = [], act, busy }) {
   return (
     <>
+      <Reviews groups={reviews} act={act} busy={busy} />
       <Section
         title="Verified claims"
         count={verified.length}
@@ -439,6 +445,92 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], f
     </>
   );
 }
+
+/*
+ * Every review, grouped by listing, with the two markers and the exclusion
+ * control on each row.
+ *
+ * Markers are prompts to read, never verdicts: a burst (three or more in seven
+ * days) and a reviewer whose address is on the listing's own domain. Both are
+ * computed on the server in lib/reviewSignals.js, because the second needs the
+ * address. Listings with a marker or an exclusion are open at the top; the
+ * rest are behind one collapsed header once there are more than ten of them.
+ *
+ * Excluding keeps the review on the listing, labelled, and takes it out of the
+ * average and the aggregateRating. It is reversible, so it is a plain button
+ * rather than a ConfirmBtn.
+ */
+function Reviews({ groups = [], act, busy }) {
+  const look = groups.filter((g) => g.burst || g.domainMatches || g.excludedCount);
+  const rest = groups.filter((g) => !(g.burst || g.domainMatches || g.excludedCount));
+  const total = groups.reduce((n, g) => n + g.reviews.length, 0);
+  const restCount = rest.reduce((n, g) => n + g.reviews.length, 0);
+  const hint = "Markers say look, not exclude: three or more reviews on one listing within seven days, and a reviewer signed in on the listing's own domain. An excluded review stays on the listing, labelled with the reason, and counts toward neither the average nor the structured-data rating.";
+  return (
+    <>
+      <Section title="Reviews" count={total} hint={hint}>
+        {look.length === 0
+          ? <Empty>{total ? "No listing has a marker or an excluded review." : "No reviews yet."}</Empty>
+          : look.map((g) => <ReviewGroup key={g.id} g={g} act={act} busy={busy} />)}
+      </Section>
+      {rest.length > 0 && (
+        <Collapsible title="Other reviews" count={restCount} openWhen={restCount <= 10}
+          hint="Listings with no marker and nothing excluded. The same controls apply.">
+          {rest.map((g) => <ReviewGroup key={g.id} g={g} act={act} busy={busy} />)}
+        </Collapsible>
+      )}
+    </>
+  );
+}
+
+function ReviewGroup({ g, act, busy }) {
+  const summary = g.average == null
+    ? "no rating shown"
+    : `${g.average} from ${g.counted} counted`;
+  return (
+    <div style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0 4px" }}>
+      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+        <a href={`/${g.kind === "newsletter" ? "newsletters" : "tools"}/${g.id}`}
+          style={{ fontSize: F.lg, fontWeight: 700, color: C.text, textDecoration: "none" }}>{g.name}</a>
+        <span className="tnum" style={{ fontSize: F.xs, color: C.dim }}>
+          {g.reviews.length} {g.reviews.length === 1 ? "review" : "reviews"}, {summary}{g.domain ? `, ${g.domain}` : ""}
+        </span>
+        {g.burst && <Pill tone="warn">{g.burst.count} in {BURST_DAYS} days, {g.burst.from} to {g.burst.to}</Pill>}
+        {g.domainMatches > 0 && <Pill tone="warn">{g.domainMatches} from the listing's domain</Pill>}
+      </div>
+      <div style={{ paddingLeft: S.lg }}>
+        {g.reviews.map((r) => (
+          <Row key={r.id}
+            dim={Boolean(r.excluded)}
+            title={<span style={{ fontSize: F.md }}>{r.author || "Anonymous"} <span className="tnum" style={{ color: C.muted, fontWeight: 500 }}>{r.rating}/5</span></span>}
+            badges={<>
+              {r.excluded && <Pill>excluded: {EXCLUSION_REASONS[r.excluded.reason]?.label || r.excluded.reason}</Pill>}
+              {r.domainMatch && <Pill tone="warn">same domain as listing</Pill>}
+              {r.inBurst && <Pill>in the burst</Pill>}
+            </>}
+            body={r.text || <span style={{ color: C.dim }}>No text.</span>}
+            meta={[
+              r.date, r.editedAt && r.editedAt !== r.date ? `edited ${r.editedAt}` : "", r.email,
+              r.excluded ? `excluded by ${r.excluded.by || "?"} ${String(r.excluded.at || "").slice(0, 10)}` : "",
+            ].filter(Boolean).join(" · ")}
+            actions={r.excluded
+              ? <Btn busy={busy === `exclude-review${g.id}${r.id}`}
+                  onClick={() => act("exclude-review", r.id, { toolId: g.id, reason: null }, g.id)}>Count it again</Btn>
+              : <>
+                  {Object.entries(EXCLUSION_REASONS).map(([key, x]) => (
+                    <Btn key={key} tone="stop" busy={busy === `exclude-review${g.id + key}${r.id}`}
+                      onClick={() => act("exclude-review", r.id, { toolId: g.id, reason: key }, g.id + key)}>
+                      Exclude: {x.label.toLowerCase()}
+                    </Btn>
+                  ))}
+                </>}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+const BURST_DAYS = 7;
 
 /*
  * "Is anything broken?"

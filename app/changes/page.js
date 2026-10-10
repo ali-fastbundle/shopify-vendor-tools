@@ -1,7 +1,7 @@
 import { withShareImage } from "@/lib/ogCard";
 import { feedEntries } from "@/lib/feed";
 import { mergedTools } from "@/lib/listings";
-import { SITE } from "@/lib/seo";
+import { SITE, IDS } from "@/lib/seo";
 import ChangesFeed from "@/components/ChangesFeed";
 import JsonLd from "@/components/JsonLd";
 
@@ -53,8 +53,13 @@ export default async function Page() {
           "@type": "Article",
           headline: e.headline.slice(0, 110),
           datePublished: e.date,
+          // Written by a person for the site, every time (invariant 31), so
+          // the site is the author. A node every page already defines.
+          author: { "@id": IDS.organization },
+          publisher: { "@id": IDS.organization },
           about: { "@type": "SoftwareApplication", name: e.toolName, url: `${SITE}/tools/${e.toolId}` },
-          url: `${SITE}/tools/${e.toolId}`,
+          // The entry's own address: a fragment on this page, as the RSS item has.
+          url: `${SITE}/changes#${e.id}`,
         },
       })),
     },

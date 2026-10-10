@@ -14,6 +14,7 @@ import { toolDescription, logoAlt } from "@/lib/seo";
 import { Pill } from "@/components/Pill";
 import PostLinks from "@/components/PostLinks";
 import { postsForTool } from "@/lib/blog";
+import { RATING_POLICY, exclusionNote } from "@/lib/reviews";
 import FooterLinks from "@/components/FooterLinks";
 
 /*
@@ -333,6 +334,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
                 </span>
               )}
             </h2>
+            <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5, margin: `${S.xs}px 0 0` }}>{RATING_POLICY}</p>
             <div style={{ marginTop: S.md }}>
               {reviews.map((r) => (
                 <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.md}px 0` }}>
@@ -343,6 +345,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
                     </span>
                     <span style={{ color: C.dim, marginLeft: S.sm }}>{r.date}</span>
                   </p>
+                  {exclusionNote(r) && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>{exclusionNote(r)}</p>}
                   {r.text && <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0` }}>{r.text}</p>}
                 </div>
               ))}

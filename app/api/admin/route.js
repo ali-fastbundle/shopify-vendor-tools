@@ -18,6 +18,8 @@ import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_EVENTS } from "@/lib/events";
 import { ALL_COMMUNITIES } from "@/lib/communities";
 import { ALL_PODCASTS } from "@/lib/podcasts";
+import { setExclusion } from "@/lib/reviews";
+import { reviewSignals } from "@/lib/reviewSignals";
 
 export const dynamic = "force-dynamic";
 
@@ -114,6 +116,26 @@ export async function POST(request) {
     seen[session.email] = new Date().toISOString();
     await write(KEYS.adminSeen, seen);
     return Response.json({ seenAt: seen[session.email] });
+  }
+
+  /*
+   * Exclude a review from the average, or count it again.
+   *
+   * The review stays on the listing, labelled with the reason, and stops
+   * counting toward the displayed rating and the aggregateRating markup. Who
+   * set it and when are stored and never served (publicReviews keeps the
+   * reason only). `reason: null` counts it again. Answers with the refreshed
+   * signals list so the panel re-renders from the server's view.
+   */
+  if (action === "exclude-review") {
+    const toolId = String(body.toolId || "");
+    const reason = body.reason == null || body.reason === "" ? null : String(body.reason);
+    const stored = await read(KEYS.reviews, {});
+    const res = setExclusion(stored, toolId, String(id || ""), reason, session.email);
+    if (res.error === "unknown") return new Response("No such review.", { status: 400 });
+    if (res.error) return new Response("Unknown reason.", { status: 400 });
+    await write(KEYS.reviews, res.reviews);
+    return Response.json({ reviewSignals: await reviewSignals(res.reviews) });
   }
 
   /*

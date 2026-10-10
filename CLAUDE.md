@@ -322,6 +322,28 @@ buying as a star, so it costs the same thing to cast.
   says so when there are any to lose.
 - Nothing is emailed, either side. It is a vote.
 
+**A review can be excluded from the average, and it stays on the page.**
+An admin flags it from the Reviews panel at the top of People, with one of two
+reasons in `EXCLUSION_REASONS` (`lib/reviews.js`): from the vendor, or
+unverifiable. The review is still shown, labelled "Not counted in the rating"
+with the reason, and counts toward neither the displayed average nor
+`aggregateRating`. `ratingStats` is the one copy of that rule, and the card,
+the list, the compare table, the tool page, the newsletter page and `ratingOf`
+all read it. **If every review is excluded there is no rating at all**, not a
+zero, which is invariant 29 again. Who excluded it and when are stored and
+stripped by `publicReviews`; the reason is public. A reviewer editing their own
+text keeps the flag, because `upsertReview` spreads the previous review.
+
+The policy is stated where the rating is, in `RATING_POLICY`, under every
+"What people say" heading and in `llms.txt`. A policy nobody can see does not
+protect anything.
+
+The panel carries two markers from `lib/reviewSignals.js`, server only because
+the second reads addresses: three or more reviews on one listing within seven
+days, and a reviewer whose email domain equals the listing's domain or is a
+subdomain of it (never a substring, invariant 32's lesson). **Markers say look,
+never exclude.** Nothing is flagged automatically. `scripts/review-exclusion.mjs`.
+
 **The form says why, in one line:** "Ratings need an account so they mean
 something. One email, no password." `SignInPrompt` in `components/Account.jsx`
 takes a required `reason`, because a sign-in wall with no stated reason reads as
@@ -1778,7 +1800,8 @@ fetched and that no run carries an address.
 | `app/tools/[id]` | The per-tool route. Title, description, canonical and graph per entry |
 | `app/sitemap.js` `app/robots.js` `app/llms.txt` | What crawlers and models read |
 | `lib/entries.js` | Entries published from the admin queue, and `catalogueTools()`, the catalogue everything validates against |
-| `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, and the only thing that strips an address off either |
+| `lib/reviews.js` | One review per account per tool, helpfulness votes and their order, exclusion from the average, and the only thing that strips an address off either |
+| `lib/reviewSignals.js` | The admin review markers: a burst, and a reviewer on the listing's own domain. Server only |
 | `lib/sections.js` | Which kinds have a catalogue, and which sections are actually open |
 | `lib/accounts.js` | Account records. Three fields, and the copy that promises them |
 | `lib/email.js` | The HTML/text shell, `reply_to`, and the Resend transport |
@@ -2429,6 +2452,7 @@ node scripts/discovery-settled.mjs   # one item, one place: listed, queued or de
 node scripts/housekeeping-test.mjs   # the reset clears four things and protects the snapshots
 node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, and does nothing else
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
+node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers
 node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong

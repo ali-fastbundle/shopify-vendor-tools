@@ -54,6 +54,9 @@ Every entry is written by hand after reading the vendor's own site. Each carries
 conflict of interest, a coverage gap, or a claim the vendor cannot back up.
 There are no affiliate links and no paid placement.
 
+Community ratings average reviews from signed-in accounts. Reviews from the vendor's
+own team, or that cannot be verified, are shown on the listing but not counted.
+
 External review scores, where present, are transcribed by hand from the platform's
 own page with the date they were read. They are never averaged into the community
 rating: the two measure different populations.

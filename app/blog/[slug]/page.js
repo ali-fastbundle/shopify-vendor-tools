@@ -1,10 +1,10 @@
-import { withShareImage } from "@/lib/ogCard";
+import { withShareImage, shareImageUrl } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
 import { postBySlug, mentionsOf } from "@/lib/blog";
 import { LAST_UPDATED, TOOLS } from "@/lib/tools";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { EVENTS } from "@/lib/events";
-import { postUrl, articleGraph } from "@/lib/seo";
+import { SITE, postUrl, articleGraph } from "@/lib/seo";
 import { BlogPost } from "@/components/Blog";
 import JsonLd from "@/components/JsonLd";
 
@@ -39,13 +39,13 @@ async function baseMetadata({ params }) {
 const nameOf = ({ kind, id }) =>
   (kind === "tool" ? TOOLS : kind === "newsletter" ? NEWSLETTERS : EVENTS).find((x) => x.id === id)?.name || id;
 
-export default function Page({ params }) {
+export default async function Page({ params }) {
   const post = postBySlug(params.slug);
   if (!post) notFound();
   const mentions = mentionsOf(post).map((m) => ({ ...m, name: nameOf(m) }));
   return (
     <>
-      <JsonLd data={articleGraph(post, mentions)} />
+      <JsonLd data={articleGraph(post, mentions, await shareImageUrl(SITE))} />
       <BlogPost post={post} lastUpdated={LAST_UPDATED} />
     </>
   );

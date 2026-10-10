@@ -16,6 +16,7 @@ import { feedEntries } from "@/lib/feed";
 import { health } from "@/lib/health";
 import { readRuns, summariseRuns } from "@/lib/recommend";
 import { canPublish, readPublishLog } from "@/lib/publish";
+import { reviewSignals } from "@/lib/reviewSignals";
 
 export const dynamic = "force-dynamic";
 export const metadata = { robots: { index: false, follow: false } };
@@ -91,6 +92,8 @@ export default async function AdminPage({ searchParams }) {
     { key: "feed", load: () => feedEntries({ limit: 60 }), empty: [] },
     { key: "health", load: () => health(), empty: null },
     { key: "inventory", load: () => storeInventory(), empty: [] },
+    /* Server side because the domain marker reads reviewer addresses. */
+    { key: "reviewSignals", load: () => reviewSignals(), empty: [] },
     /* Summarised here, on the server: lib/recommend imports the model chain,
        which no client component may import (invariant 20). */
     /* Whether the Publish button can commit (GITHUB_TOKEN is set), and what it

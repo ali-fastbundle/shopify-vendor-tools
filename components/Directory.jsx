@@ -7,7 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
-import { byHelpfulness } from "@/lib/reviews";
+import { byHelpfulness, ratingStats, RATING_POLICY, exclusionNote } from "@/lib/reviews";
 import { Pill } from "./Pill";
 import CopyLink from "./CopyLink";
 import GrowText from "./GrowText";
@@ -855,10 +855,9 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
     }
   }
 
-  const avg = (id) => {
-    const rs = reviews[id] || [];
-    return rs.length ? rs.reduce((a, b) => a + b.rating, 0) / rs.length : 0;
-  };
+  /* The counted reviews only (lib/reviews.js ratingStats), so a vendor's own
+     review neither moves a card's stars nor lifts it up "Top rated". */
+  const avg = (id) => ratingStats(reviews[id])?.value || 0;
   const net = (id) => {
     const v = votes[id] || { up: 0, down: 0 };
     return v.up - v.down;
@@ -1951,6 +1950,7 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
             session={session} existing={reviews.find((r) => r.mine) || null} />
           {ordered.length > 0 && (
             <div className="mt-5 flex flex-col" style={{ gap: S.md }}>
+              <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5, margin: 0 }}>{RATING_POLICY}</p>
               {ordered.map((r) => (
                 <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
                   <div className="flex items-baseline flex-wrap" style={{ gap: S.sm }}>
@@ -1963,6 +1963,7 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
                         sets it from their own session and never stores it. */}
                     {r.mine && <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 600 }}>yours</span>}
                   </div>
+                  {exclusionNote(r) && <p className="mt-1" style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>{exclusionNote(r)}</p>}
                   {r.text && <p className="mt-1" style={{ fontSize: F.md, lineHeight: 1.55, color: C.muted, maxWidth: "64ch" }}>{r.text}</p>}
                   <Helpful review={r} signedIn={Boolean(session.signedIn)}
                     onMark={() => onHelpful(r.id)} />
@@ -2319,8 +2320,8 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
     ["Pricing", (t) => t.price],
     ["Free plan", (t) => (t.free ? "Yes" : "No")],
     ["Community rating", (t) => {
-      const a = avg(t.id), n = (reviews[t.id] || []).length;
-      return n ? `${a.toFixed(1)} from ${n}` : "Not rated yet";
+      const r = ratingStats(reviews[t.id]);
+      return r ? `${r.value.toFixed(1)} from ${r.count}` : "Not rated yet";
     }],
     ...(anyRatings ? [["External ratings", (t) => (t.ratings || []).map((r) => (
       r.score == null
