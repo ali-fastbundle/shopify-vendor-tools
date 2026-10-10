@@ -18,6 +18,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 for (const k of Object.keys(process.env)) if (/^(UPSTASH|KV)_/.test(k)) delete process.env[k];
+process.env.AUTH_SECRET = "review-test-secret";
+process.env.ADMIN_EMAILS = "admin@example.com";
 const hook = `
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -38,7 +40,7 @@ const ok = (cond, what, extra = "") => { console.log(`  ${cond ? "ok  " : "FAIL"
 const L = (p) => import(pathToFileURL(join(root, p)).href);
 const src = (p) => readFileSync(join(root, p), "utf8");
 
-const { ratingStats, setExclusion, publicReviews, upsertReview, exclusionNote, RATING_POLICY } = await L("lib/reviews.js");
+const { ratingStats, setExclusion, confirmReview, publicReviews, upsertReview, exclusionNote, RATING_POLICY } = await L("lib/reviews.js");
 const { ratingOf } = await L("lib/seo.js");
 const { signalsFrom, sameSite } = await L("lib/reviewSignals.js");
 
@@ -102,6 +104,80 @@ const admin = src("app/api/admin/route.js");
 ok(admin.indexOf('action === "exclude-review"') > admin.indexOf("isAdmin(session.email)"), "the exclude action sits behind the admin check");
 ok(!/reviewSignals/.test(src("components/Admin.jsx").split("\n").filter((l) => l.startsWith("import")).join("\n")),
   "the admin component does not import the server-only signals module");
+
+console.log("\nconfirm and unexclude:");
+{
+  let st = { m: [
+    rv("m1", 5, "2026-10-04", "alon@gmail.com"), rv("m2", 5, "2026-09-30", "a@x.io"),
+    rv("m3", 5, "2026-09-29", "b@meridian.app"), rv("m4", 5, "2026-09-29", "c@y.io"),
+  ] };
+  const ents = [{ id: "m", name: "Meridian", domain: "meridian.app", url: "https://meridian.app", kind: "tool" }];
+  const g0 = signalsFrom(st, ents)[0];
+  ok(g0.needs === 4 && g0.burstOpen.length === 4, "four open, all four in the burst");
+  ok(JSON.stringify(g0.reviews.find((r) => r.id === "m3").active) === '["burst","domain"]', "the same-domain review carries both markers");
+
+  st = confirmReview(st, "m", "m1", ["burst"], "admin@site").reviews;
+  const g1 = signalsFrom(st, ents)[0];
+  ok(g1.reviews.find((r) => r.id === "m1").active.length === 0 && g1.needs === 3, "confirming one clears its marker");
+  ok(g1.burstOpen.length === 3 && g1.reviews.filter((r) => r.active.includes("burst")).length === 3, "and leaves the other three in the burst raised");
+  ok(ratingStats(st.m).count === 4, "a confirmed review stays counted");
+  const c = st.m.find((r) => r.id === "m1");
+  ok(c.confirmed.by === "admin@site" && c.confirmed.at && c.audit.at(-1).action === "confirmed", "who and when are recorded, and it is in the history");
+
+  for (const id of g1.burstOpen) st = confirmReview(st, "m", id, ["burst"], "admin@site").reviews;
+  const g2 = signalsFrom(st, ents)[0];
+  ok(g2.burstOpen.length === 0, "confirming the burst clears it on every review");
+  ok(JSON.stringify(g2.reviews.find((r) => r.id === "m3").active) === '["domain"]' && g2.needs === 1,
+    "but a same-domain review inside it is still raised, for its own reason");
+  ok(signalsFrom(st, ents)[0].reviews.find((r) => r.id === "m2").active.length === 0, "and a confirmed marker is not raised again on the next read");
+
+  ok(confirmReview(st, "m", "m2", ["made-up"], "a").error === "markers", "an unknown marker kind is refused");
+  st = setExclusion(st, "m", "m3", "vendor", "admin@site").reviews;
+  ok(confirmReview(st, "m", "m3", ["domain"], "a").error === "excluded", "an excluded review cannot be confirmed, only unexcluded");
+  ok(signalsFrom(st, ents)[0].needs === 0, "an excluded review needs no decision");
+  st = setExclusion(st, "m", "m3", null, "admin@site").reviews;
+  const u = st.m.find((r) => r.id === "m3");
+  ok(!u.excluded && ratingStats(st.m).count === 4, "unexclude counts it again");
+  ok(u.audit.map((a) => a.action).join() === "confirmed,excluded,unexcluded" && u.audit.at(-1).was === "vendor", "and the history keeps every decision, including what was undone", u.audit.map((a) => a.action).join());
+  ok(setExclusion(st, "m", "m3", null, "x").error === "not-excluded", "unexcluding a review that is not excluded is refused");
+  ok(signalsFrom(st, ents)[0].reviews.find((r) => r.id === "m3").active.join() === "domain", "unexcluded, its open marker is back for a decision");
+
+  const pub = JSON.stringify(publicReviews(st));
+  ok(!/"confirmed"|"audit"|admin@site/.test(pub), "neither the confirmation nor the history reaches a visitor");
+
+  const edited = upsertReview(st, "m", { ...rv("x", 5, "2026-10-09", "alon@gmail.com"), text: "rewritten" }).reviews;
+  ok(!edited.m.find((r) => r.email === "alon@gmail.com").confirmed, "rewriting the text clears a confirmation, which was given on the words");
+  const sameText = upsertReview(st, "m", { ...rv("x", 4, "2026-10-09", "alon@gmail.com") }).reviews;
+  ok(Boolean(sameText.m.find((r) => r.email === "alon@gmail.com").confirmed), "changing only the stars keeps it");
+}
+
+console.log("\nthe admin route:");
+{
+  const { createHmac } = await import("node:crypto");
+  const { write, read, KEYS } = await L("lib/store.js");
+  const route = await L("app/api/admin/route.js");
+  const sess = (email) => { const b = Buffer.from(JSON.stringify({ t: "session", email, exp: Date.now() + 3600e3 })).toString("base64url"); return `svt_session=${b}.${createHmac("sha256", process.env.AUTH_SECRET).update(b).digest("base64url")}`; };
+  const call = (body, cookie = sess("admin@example.com")) => route.POST(new Request("http://localhost:3000/api/admin", {
+    method: "POST", headers: { "Content-Type": "application/json", "x-forwarded-for": "10.9.0.1", cookie }, body: JSON.stringify(body) }));
+  const { TOOLS } = await L("lib/tools.js");
+  const t = TOOLS[0];
+  const dom = t.domain;
+  await write(KEYS.reviews, { [t.id]: [
+    rv("r1", 5, "2026-10-01", "a@gmail.com"), rv("r2", 5, "2026-10-02", "b@gmail.com"), rv("r3", 5, "2026-10-03", `c@${dom}`),
+  ] });
+  ok((await call({ action: "confirm-burst", toolId: t.id }, sess("someone@example.com"))).status === 404, "not an admin: 404");
+  const res = await call({ action: "confirm-burst", toolId: t.id });
+  const d = await res.json();
+  const g = d.reviewSignals.find((x) => x.id === t.id);
+  ok(res.status === 200 && d.confirmed === 3 && g.burstOpen.length === 0, "confirm all in this burst confirms each of them", `${d.confirmed}`);
+  ok(g.needs === 1 && g.reviews.find((r) => r.id === "r3").active.join() === "domain", "and leaves the same-domain marker for its own decision");
+  ok((await call({ action: "confirm-burst", toolId: t.id })).status === 409, "pressing it again finds nothing left and says so");
+  const one = await (await call({ action: "confirm-review", id: "r3", toolId: t.id })).json();
+  ok(one.reviewSignals.find((x) => x.id === t.id).needs === 0, "confirming the last one leaves nothing to decide");
+  const stored = (await read(KEYS.reviews, {}))[t.id];
+  ok(stored.every((r) => r.confirmed?.by === "admin@example.com"), "every confirmation names who made it");
+  ok((await call({ action: "unexclude-review", id: "r1", toolId: t.id })).status === 409, "unexcluding a review that is not excluded is refused");
+}
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

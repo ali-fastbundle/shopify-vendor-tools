@@ -14,7 +14,7 @@ import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
 import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry } from "@/lib/feed";
 import { tally } from "@/lib/tallies";
-import { setExclusion } from "@/lib/reviews";
+import { setExclusion, confirmReview } from "@/lib/reviews";
 import { reviewSignals } from "@/lib/reviewSignals";
 
 export const dynamic = "force-dynamic";
@@ -123,15 +123,45 @@ export async function POST(request) {
    * reason only). `reason: null` counts it again. Answers with the refreshed
    * signals list so the panel re-renders from the server's view.
    */
-  if (action === "exclude-review") {
+  if (action === "exclude-review" || action === "unexclude-review") {
     const toolId = String(body.toolId || "");
-    const reason = body.reason == null || body.reason === "" ? null : String(body.reason);
+    const reason = action === "unexclude-review" || body.reason == null || body.reason === "" ? null : String(body.reason);
     const stored = await read(KEYS.reviews, {});
     const res = setExclusion(stored, toolId, String(id || ""), reason, session.email);
     if (res.error === "unknown") return new Response("No such review.", { status: 400 });
+    if (res.error === "not-excluded") return new Response("That review is not excluded.", { status: 409 });
     if (res.error) return new Response("Unknown reason.", { status: 400 });
     await write(KEYS.reviews, res.reviews);
     return Response.json({ reviewSignals: await reviewSignals(res.reviews) });
+  }
+
+  /*
+   * Confirm: looked, and it is fine. One review, or every review still open in
+   * a listing's burst. Which markers a confirmation covers is read from the
+   * signals as they stand now, on the server, never from the request: a page
+   * cannot confirm a marker it was never shown, and a marker raised since the
+   * page loaded stays raised. Confirming a burst covers the burst marker only;
+   * a reviewer on the vendor's domain inside it is still its own decision.
+   */
+  if (action === "confirm-review" || action === "confirm-burst") {
+    const toolId = String(body.toolId || "");
+    let stored = await read(KEYS.reviews, {});
+    const group = (await reviewSignals(stored)).find((g) => g.id === toolId);
+    if (!group) return new Response("No reviews on that listing.", { status: 400 });
+    const jobs = action === "confirm-burst"
+      ? group.burstOpen.map((rid) => [rid, ["burst"]])
+      : (() => { const r = group.reviews.find((x) => x.id === String(id || "")); return r ? [[r.id, r.active]] : []; })();
+    if (action === "confirm-review" && !jobs.length) return new Response("No such review.", { status: 400 });
+    if (!jobs.some(([, m]) => m.length)) return new Response("Nothing left to confirm there. Reload to see the current state.", { status: 409 });
+    for (const [rid, markers] of jobs) {
+      if (!markers.length) continue;
+      const res = confirmReview(stored, toolId, rid, markers, session.email);
+      if (res.error === "excluded") return new Response("That review is excluded. Unexclude it if the exclusion was wrong.", { status: 409 });
+      if (res.error) return new Response("Could not confirm that review.", { status: 400 });
+      stored = res.reviews;
+    }
+    await write(KEYS.reviews, stored);
+    return Response.json({ reviewSignals: await reviewSignals(stored), confirmed: jobs.filter(([, m]) => m.length).length });
   }
 
   /*

@@ -379,6 +379,20 @@ days, and a reviewer whose email domain equals the listing's domain or is a
 subdomain of it (never a substring, invariant 32's lesson). **Markers say look,
 never exclude.** Nothing is flagged automatically. `scripts/review-exclusion.mjs`.
 
+**Every review decision has an opposite, and every one is recorded.** Confirm means
+"looked, and it is fine": the review stays counted and the markers it carries now stop
+showing on it (`confirmed: { by, at, markers }`). It covers marker *kinds*, so a review
+confirmed for a burst is still raised for a reviewer on the vendor's domain, and a marker
+of a kind added later can raise it again. Each review in a burst is its own decision;
+"Confirm all in this burst" is the bulk case and covers the burst marker only. Which
+markers a confirmation covers is read from the signals on the server at the time, never
+from the request. Unexclude undoes an exclusion, because some will be wrong. Every
+exclude, unexclude and confirm is appended to the review's `audit`, and both `confirmed`
+and `audit` are stripped by `publicReviews` with the addresses. Rewriting the text clears a
+confirmation, which was given on the words; changing only the stars keeps it. The panel's
+heading counts reviews still to decide, not reviews that exist; Excluded, Confirmed and
+the rest are collapsed below it.
+
 **The form says why, in one line:** "Ratings need an account so they mean
 something. One email, no password." `SignInPrompt` in `components/Account.jsx`
 takes a required `reason`, because a sign-in wall with no stated reason reads as
