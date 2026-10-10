@@ -214,6 +214,16 @@ panel, all two presses with the readiness checklist on screen, all revertible.
   `svt:drafts:hold` and never a file edit: being on hold says nothing a visitor can see and
   nothing about published-ness, which stays the file's alone. Undo is Move back to drafts.
 
+**Every draft action names the build it was rendered by, and the server refuses a
+mismatch.** The panel and the action read the same catalogue file, but from whichever
+deployment served each, and those differ for the minute after any commit. Four publishes in
+47 seconds left a page offering RetailFest Connect as a draft after the server had published
+it, and Publish answered "No draft with that id here", true and unexplained. `draftFor` in
+`lib/draftOutcomes.js` is now the one lookup behind Publish, Discard, Hold and un-hold: it
+compares the page's build (`VERCEL_GIT_COMMIT_SHA`) with its own, matches the id exactly,
+checks the name the page showed against the name in this build, and says which of those
+disagreed. A lookup that misses silently is not acceptable once one of the actions deletes.
+
 **The panel is collapsed per draft**: name, type and the one-line summary. Everything else,
 and every outcome button, is inside the expanded row, after the note and the watch in full,
 so nothing can be published, held or discarded without the text a button cannot check

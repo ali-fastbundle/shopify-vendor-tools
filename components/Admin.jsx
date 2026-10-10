@@ -1513,7 +1513,7 @@ function factValue(v) {
  * The readiness checklist shows for every outcome. It gates Publish only:
  * discarding an entry that is not ready is the usual case.
  */
-function DraftActions({ kind, entry, canCommit, hold, onHolds }) {
+function DraftActions({ kind, entry, canCommit, build, hold, onHolds }) {
   const problems = readiness(entry, kind);
   const [mode, setMode] = useState("idle");      // idle | publish | discard | hold | unhold
   const [text, setText] = useState("");
@@ -1527,7 +1527,9 @@ function DraftActions({ kind, entry, canCommit, hold, onHolds }) {
     try {
       const res = await fetch("/api/admin", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, kind, id: entry.id, ...extra }),
+        /* The build and the name go with the id, so the server can refuse an
+           action from a page older than the deploy it is answering from. */
+        body: JSON.stringify({ action, kind, id: entry.id, name: entry.name, build, ...extra }),
       });
       if (!res.ok) { setState({ status: "error", msg: await res.text(), url: "", sha: "", what }); return; }
       const d = await res.json();
@@ -1634,7 +1636,11 @@ function DraftActions({ kind, entry, canCommit, hold, onHolds }) {
           The {kindOf(kind).label.toLowerCase()} section is not open yet, so a published entry shows nowhere until its kind is set live.
         </p>
       )}
-      {state.status === "error" && <p style={{ fontSize: F.xs, color: C.badInk, margin: `${S.xs}px 0 0` }}>{state.msg}</p>}
+      {state.status === "error" && (
+        <p style={{ fontSize: F.xs, color: C.badInk, margin: `${S.xs}px 0 0` }}>
+          {state.msg}{/Reload/.test(state.msg) && <> <a href="" style={{ color: C.badInk }}>Reload now</a></>}
+        </p>
+      )}
     </div>
   );
 }
@@ -1649,7 +1655,7 @@ const FILE_OF = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", event:
  * after the note and the watch in full, so nothing can be published, held or
  * discarded without the text a button cannot check having been on screen.
  */
-function DraftRow({ kind, entry, canCommit, hold, onHolds }) {
+function DraftRow({ kind, entry, canCommit, build, hold, onHolds }) {
   const [open, setOpen] = useState(false);
   const facts = Object.entries(entry).filter(([key, v]) => !SKIP.includes(key) && factValue(v) !== "");
   return (
@@ -1693,14 +1699,14 @@ function DraftRow({ kind, entry, canCommit, hold, onHolds }) {
               <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
             </p>
             : <p style={{ color: C.badInk, margin: "8px 0 0" }}>No watch note. Not publishable without one.</p>}
-          <DraftActions kind={kind} entry={entry} canCommit={canCommit} hold={hold} onHolds={onHolds} />
+          <DraftActions kind={kind} entry={entry} canCommit={canCommit} build={build} hold={hold} onHolds={onHolds} />
         </div>
       )}
     </div>
   );
 }
 
-function Drafts({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [] }) {
+function Drafts({ publishing = { canPublish: false, log: [], build: "" }, holds = {}, discards = [] }) {
   const [holdMap, setHoldMap] = useState(holds);
   const rows = SOURCES.flatMap(({ kind, entries }) => drafted(entries).map((entry) => ({ kind, entry })));
   const holdOf = ({ kind, entry }) => holdMap[`${kind}:${entry.id}`] || null;
@@ -1708,7 +1714,7 @@ function Drafts({ publishing = { canPublish: false, log: [] }, holds = {}, disca
   const held = rows.filter((r) => holdOf(r));
   const row = (r) => (
     <DraftRow key={`${r.kind}:${r.entry.id}`} kind={r.kind} entry={r.entry}
-      canCommit={publishing.canPublish} hold={holdOf(r)} onHolds={setHoldMap} />
+      canCommit={publishing.canPublish} build={publishing.build} hold={holdOf(r)} onHolds={setHoldMap} />
   );
 
   return (

@@ -77,9 +77,14 @@ const dtc = placeEvent(ALL_EVENTS.find((e) => e.id === "dtc-dines-vancouver"), T
 ok(dtc.mode === "exact" && dtc.date === "2026-10-29" && dtc.status === "imminent",
   "DTC Dines Vancouver is dated 29 October and imminent", `${dtc.date} ${dtc.status}`);
 ok(countdown(dtc, T) === "In 22 days", "with a countdown", countdown(dtc, T));
-for (const id of ["dotdigital-summit", "retailfest-connect"]) {
-  const e = ALL_EVENTS.find((x) => x.id === id);
-  ok(e.draft && placeEvent(e, T).mode === "unscheduled", `${id} is unverified, so a draft, and would be unscheduled`);
+/* A rule rather than two named entries: these were pinned by id, and the ids
+   changed state (published, then one discarded) without the rule changing.
+   What must hold is that an unverified event with no known date is never
+   given one, whether it is a draft or not. */
+const unverifiedUndated = ALL_EVENTS.filter((e) => /^UNVERIFIED/.test(e.notes || "") && e.datePrecision === "unknown");
+ok(unverifiedUndated.length > 0, `${unverifiedUndated.length} unverified events with no known date`);
+for (const e of unverifiedUndated) {
+  ok(placeEvent(e, T).mode === "unscheduled", `${e.id} is placed under Dates not announced, never given a date`);
 }
 
 console.log("\nthe timeline:");

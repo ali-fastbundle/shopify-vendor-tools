@@ -157,12 +157,30 @@ ok(dput.message?.startsWith(`Discard ${dd.name} (${DK}): Out of scope: merchant-
 console.log("\nthe admin route:");
 const route = await L("app/api/admin/route.js");
 const sess = (email) => { const b = Buffer.from(JSON.stringify({ t: "session", email, exp: Date.now() + 3600e3 })).toString("base64url"); return `svt_session=${b}.${createHmac("sha256", process.env.AUTH_SECRET).update(b).digest("base64url")}`; };
-const call = (body, cookie) => route.POST(new Request("http://localhost:3000/api/admin", {
+/* Every draft action carries the build the page was rendered by and the name
+   it showed, as the panel sends them. Locally the build is "dev". */
+const nameOf = (kind, id) => (catalogues[kind] || []).find((e) => e.id === id)?.name;
+const call = (raw, cookie) => { const body = /-draft$/.test(raw.action || "") && !("build" in raw) ? { build: "dev", name: nameOf(raw.kind, raw.id), ...raw } : raw; return route.POST(new Request("http://localhost:3000/api/admin", {
   method: "POST", headers: { "Content-Type": "application/json", "x-forwarded-for": "10.2.0.1", ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body),
-}));
+})); };
 ok((await call({ action: "publish-file-draft", kind: K, id: mp.id })).status === 404, "signed out: 404, as every admin route");
 ok((await call({ action: "publish-file-draft", kind: K, id: mp.id }, sess("someone@example.com"))).status === 404, "signed in but not an admin: 404");
-ok((await call({ action: "publish-file-draft", kind: "newsletter", id: "marketplacepulse" }, sess("admin@example.com"))).status === 400, "a published entry cannot be published again");
+const pub = await call({ action: "publish-file-draft", kind: "newsletter", id: "marketplacepulse" }, sess("admin@example.com"));
+const pubMsg = await pub.text();
+ok(pub.status === 409 && /is not a draft in build dev: it is published/.test(pubMsg), "a published entry cannot be published again, and the answer says it is published", pubMsg);
+
+console.log("\nan action from a page older than the deploy:");
+const putsAtStale = puts.length;
+const stale = await call({ action: "discard-file-draft", kind: K, id: mp.id, build: "0123456789abcdef", name: mp.name, reason: "x" }, sess("admin@example.com"));
+const staleMsg = await stale.text();
+ok(stale.status === 409 && /rendered by build 0123456 and the server is now dev/.test(staleMsg), "is refused with both builds named", staleMsg);
+const noBuild = await call({ action: "hold-draft", kind: K, id: mp.id, build: undefined, name: mp.name, note: "x" }, sess("admin@example.com"));
+ok(noBuild.status === 409, "a page that sends no build at all is refused the same way");
+const renamed = await call({ action: "publish-file-draft", kind: K, id: mp.id, build: "dev", name: "Something Else" }, sess("admin@example.com"));
+ok(renamed.status === 409 && /named this "Something Else"/.test(await renamed.text()), "a name that does not match the id in this build is refused");
+const typo = await call({ action: "discard-file-draft", kind: K, id: mp.id.replace(/-/g, "_") + "_", build: "dev", name: mp.name, reason: "x" }, sess("admin@example.com"));
+ok(typo.status === 400 && /No .* with id/.test(await typo.text()), "an id that is not in the file is refused by name, never matched loosely");
+ok(puts.length === putsAtStale, "none of those reached GitHub");
 const res = await call({ action: "publish-file-draft", kind: K, id: mp.id }, sess("admin@example.com"));
 ok(res.status === 200 && (await res.json()).sha === "def4567890", "an admin publish returns the commit");
 const log = await readPublishLog(5);
@@ -187,7 +205,7 @@ ok(hres.status === 200 && (await getHolds())[`${DK}:${dd.id}`]?.note === "waitin
 ok(puts.length === putsAtHold, "and commits nothing");
 await call({ action: "unhold-draft", kind: DK, id: dd.id }, sess("admin@example.com"));
 ok(!(await getHolds())[`${DK}:${dd.id}`], "moving it back clears the hold");
-ok((await call({ action: "hold-draft", kind: "tool", id: "kollectify", note: "x" }, sess("admin@example.com"))).status === 400, "a published entry cannot be held");
+ok((await call({ action: "hold-draft", kind: "tool", id: "kollectify", note: "x" }, sess("admin@example.com"))).status === 409, "a published entry cannot be held");
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

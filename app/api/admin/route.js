@@ -5,7 +5,7 @@ import { getClaims, revokeClaim, applyFieldEdit, undoFieldEdit, fieldKind, sweep
 import { sanitiseProposal } from "@/lib/rewrite";
 import { sendEvent, EVENTS, adminList } from "@/lib/mail";
 import { sanitiseEntry, saveEntry, removeEntry, getEntries } from "@/lib/entries";
-import { TOOLS, ALL_TOOLS } from "@/lib/tools";
+import { TOOLS } from "@/lib/tools";
 import { catalogueTools } from "@/lib/entries";
 import { dismissFinding, restoreFinding, getDiscovery, clearDiscovery, discoveryKey } from "@/lib/discovery";
 import { storeInventory, resetTestData, deleteRow } from "@/lib/inventory";
@@ -14,10 +14,6 @@ import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
 import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry } from "@/lib/feed";
 import { tally } from "@/lib/tallies";
-import { ALL_NEWSLETTERS } from "@/lib/newsletters";
-import { ALL_EVENTS } from "@/lib/events";
-import { ALL_COMMUNITIES } from "@/lib/communities";
-import { ALL_PODCASTS } from "@/lib/podcasts";
 import { setExclusion } from "@/lib/reviews";
 import { reviewSignals } from "@/lib/reviewSignals";
 
@@ -403,10 +399,11 @@ export async function POST(request) {
    * a queue draft into Redis. See lib/publish.js and invariant 12.
    */
   if (action === "publish-file-draft") {
-    const lists = { tool: ALL_TOOLS, newsletter: ALL_NEWSLETTERS, event: ALL_EVENTS, group: ALL_COMMUNITIES, podcast: ALL_PODCASTS };
     const kind = String(body.kind || "");
-    const entry = (lists[kind] || []).find((e) => e.id === id && e.draft);
-    if (!entry) return new Response("No draft with that id here. It may already be published.", { status: 400 });
+    const { draftFor } = await import("@/lib/draftOutcomes");
+    const found = draftFor({ kind, id, name: body.name, build: body.build });
+    if (found.error) return new Response(found.error, { status: found.status });
+    const { entry } = found;
     /* Loaded here rather than at the top: the parser it brings is needed only
        when somebody presses Publish, not on every admin request. */
     const { commitPublish, logPublish } = await import("@/lib/publish");
@@ -425,10 +422,11 @@ export async function POST(request) {
    * must not label anything.
    */
   if (action === "discard-file-draft") {
-    const lists = { tool: ALL_TOOLS, newsletter: ALL_NEWSLETTERS, event: ALL_EVENTS, group: ALL_COMMUNITIES, podcast: ALL_PODCASTS };
     const kind = String(body.kind || "");
-    const entry = (lists[kind] || []).find((e) => e.id === id && e.draft);
-    if (!entry) return new Response("No draft with that id here. It may already be published or discarded.", { status: 400 });
+    const { draftFor } = await import("@/lib/draftOutcomes");
+    const found = draftFor({ kind, id, name: body.name, build: body.build });
+    if (found.error) return new Response(found.error, { status: found.status });
+    const { entry } = found;
     const { commitDiscard, logPublish } = await import("@/lib/publish");
     const result = await commitDiscard({ kind, id, entry, reason: body.reason });
     if (result.error) return new Response(result.error, { status: 400 });
@@ -441,10 +439,10 @@ export async function POST(request) {
 
   /* Hold and un-hold: admin state only, never a file edit (lib/draftOutcomes.js). */
   if (action === "hold-draft" || action === "unhold-draft") {
-    const lists = { tool: ALL_TOOLS, newsletter: ALL_NEWSLETTERS, event: ALL_EVENTS, group: ALL_COMMUNITIES, podcast: ALL_PODCASTS };
     const kind = String(body.kind || "");
-    if (!(lists[kind] || []).some((e) => e.id === id && e.draft)) return new Response("No draft with that id here.", { status: 400 });
-    const { setHold, clearHold } = await import("@/lib/draftOutcomes");
+    const { setHold, clearHold, draftFor } = await import("@/lib/draftOutcomes");
+    const found = draftFor({ kind, id, name: body.name, build: body.build });
+    if (found.error) return new Response(found.error, { status: found.status });
     const r = action === "hold-draft"
       ? await setHold({ kind, id, note: body.note, by: session.email })
       : await clearHold({ kind, id });

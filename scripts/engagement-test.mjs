@@ -80,7 +80,12 @@ const ev = "web-summit";
 
 console.log("\nevents take the full set:");
 ok((await post("/api/vote", { id: ev, previous: 0, next: 1 })).status === 200, "an event can be liked");
-ok((await post("/api/vote", { id: "dotdigital-summit", previous: 0, next: 1 })).status === 400, "a drafted event cannot");
+/* Whichever event is a draft in the file today, read as text like the rest of
+   this script. It named one id once, and publishing that event broke it. */
+const draftEventId = (readFileSync(join(root, "lib/events.js"), "utf8").split(/\n  \{\n/)
+  .find((b) => /^\s*draft: true,/m.test(b)) || "").match(/id: "([^"]+)"/)?.[1];
+if (draftEventId) ok((await post("/api/vote", { id: draftEventId, previous: 0, next: 1 })).status === 400, `a drafted event cannot (${draftEventId})`);
+else console.log("  skip  no drafted event to try");
 ok((await post("/api/review", { id: ev, rating: 4 })).status === 401, "reviewing an event needs an account");
 ok((await post("/api/review", { id: ev, rating: 4, text: "Worth it for the partner floor." }, reviewer)).status === 200,
   "a signed-in review of an event is stored");

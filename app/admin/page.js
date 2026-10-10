@@ -107,7 +107,9 @@ export default async function AdminPage({ searchParams }) {
        which no client component may import (invariant 20). */
     /* Whether the Publish button can commit (GITHUB_TOKEN is set), and what it
        has published. The token itself never leaves the server. */
-    { key: "publishing", load: async () => ({ canPublish: canPublish(), log: await readPublishLog(20) }), empty: { canPublish: false, log: [] } },
+    /* `build` goes back with every draft action, so an action from a page
+       rendered before the latest deploy is refused rather than misread. */
+    { key: "publishing", load: async () => ({ canPublish: canPublish(), log: await readPublishLog(20), build: (await import("@/lib/draftOutcomes")).BUILD }), empty: { canPublish: false, log: [], build: "" } },
     { key: "recommend", load: async () => { const runs = await readRuns(500); return { runs, summary: summariseRuns(runs) }; }, empty: { runs: [], summary: null } },
   ];
 

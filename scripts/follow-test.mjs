@@ -121,7 +121,11 @@ ok(res.status === 200 && Boolean((await getFollows())["reader@example.org"]?.ite
 res = await confirm.GET(new Request("http://localhost:3000/api/follow/confirm?token=forged.token"));
 ok(res.status === 400, "a forged confirm link is refused");
 ok((await follow.POST(req("/api/follow", { id: "kollectify", email: "x@example.org" }))).status === 400, "a tool cannot be followed this way");
-ok((await follow.POST(req("/api/follow", { id: "dotdigital-summit", email: "x@example.org" }))).status === 400, "nor a drafted event");
+/* Whichever event is a draft today. This named one once, and publishing it
+   from /admin broke the test, which is the button working. */
+const draftEvent = (await L("lib/events.js")).ALL_EVENTS.find((e) => e.draft);
+if (draftEvent) ok((await follow.POST(req("/api/follow", { id: draftEvent.id, email: "x@example.org" }))).status === 400, `nor a drafted event (${draftEvent.id})`);
+else console.log("  skip  no drafted event to try");
 
 const before = sent.length;
 for (let i = 0; i < 4; i++) await follow.POST(req("/api/follow", { id: "web-summit", email: "stranger@example.org" }, { ip: `10.1.0.${i}` }));
