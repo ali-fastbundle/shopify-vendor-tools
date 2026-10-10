@@ -687,11 +687,13 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools, feed = [], newsletterCount = 0 }) {
+export default function Directory({ tools: initialTools, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {} }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
-  const [votes, setVotes] = useState({});
-  const [reviews, setReviews] = useState({});
+  /* From the server, so the first render is already sorted the way it will
+     stay. /api/data still refreshes them, and adds `mine` for the viewer. */
+  const [votes, setVotes] = useState(initialVotes);
+  const [reviews, setReviews] = useState(initialReviews);
   const [mine, setMine] = useState({});
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1055,7 +1057,10 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
         <header style={{ paddingTop: S["3xl"], paddingBottom: S.xl }}>
           <div className="flex flex-wrap items-center justify-between" style={{ gap: S.lg, marginBottom: S["2xl"] }}>
             <Wordmark />
-            <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
+            {/* minHeight is the signed-out bar's own height (38px): it renders
+                nothing until the session loads, and the row grew 6px when it
+                did, moving the whole masthead. */}
+            <div className="flex flex-wrap items-center" style={{ gap: S.md, minHeight: 38 }}>
               {/* Recent updates used to sit here, a small link between the
                   wordmark and the account controls, which is where links go to
                   be ignored. It is one of the two things the directory is for,
@@ -1283,6 +1288,18 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 
           {rows.length > 0 && view === "grid" && (
             <div className="grid" style={{ gap: S.md, gridTemplateColumns: "repeat(auto-fill, minmax(272px, 1fr))" }}>
+              {rows.map((t) => (
+                <Card key={t.id} tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
+                  votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
+                  onVote={(d) => vote(t.id, d)} onOpen={(r) => openTool(t.id, r)}
+                  picked={picked.includes(t.id)} onPick={() => toggle(t.id)}
+                  underCat={cat}
+                  pickFull={picked.length >= 4 && !picked.includes(t.id)} />
+              ))}
+              {/* After the cards in the markup, not first with `order: 999`. The
+                  page paints while its HTML is still arriving, and as the only
+                  item in the grid it painted in the first slot, then got pushed
+                  down by every card that streamed in after it. */}
               <button
                 onClick={() => setShowSuggest("tool")}
                 className="card flex flex-col items-start justify-center text-left"
@@ -1290,7 +1307,6 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                   background: C.invite,
                   border: `1px dashed ${C.accentEdge}`, borderRadius: R.card, padding: S.xl,
                   minHeight: 190, cursor: "pointer", fontFamily: "inherit", color: C.text,
-                  order: 999,
                 }}
               >
                 <span style={{ fontSize: F.lg, fontWeight: 700, letterSpacing: TRACK.tight }}>
@@ -1305,14 +1321,6 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                   padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
                 }}>Add a tool</span>
               </button>
-              {rows.map((t) => (
-                <Card key={t.id} tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
-                  votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
-                  onVote={(d) => vote(t.id, d)} onOpen={(r) => openTool(t.id, r)}
-                  picked={picked.includes(t.id)} onPick={() => toggle(t.id)}
-                  underCat={cat}
-                  pickFull={picked.length >= 4 && !picked.includes(t.id)} />
-              ))}
             </div>
           )}
 

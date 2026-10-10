@@ -32,8 +32,8 @@ export async function generateMetadata(_, parent) {
 export default async function Page() {
   // Rendered on the server so the catalogue, including vendor edits, is in the
   // HTML for crawlers rather than arriving after hydration.
-  const [tools, stored, feed] = await Promise.all([
-    mergedTools(), read(KEYS.reviews, {}), feedEntries({ limit: 150 }),
+  const [tools, stored, feed, votes] = await Promise.all([
+    mergedTools(), read(KEYS.reviews, {}), feedEntries({ limit: 150 }), read(KEYS.votes, {}),
   ]);
 
   /*
@@ -49,7 +49,12 @@ export default async function Page() {
   return (
     <>
       <JsonLd data={homeGraph(tools, reviews)} />
-      <Directory tools={tools} feed={feed} newsletterCount={NEWSLETTERS.length} />
+      {/* Votes and reviews go in as the grid's starting state. The default sort
+          is "Top rated", which reads both, so starting from nothing meant the
+          server sent one order and the browser re-sorted into another once
+          /api/data arrived: the largest layout shift on the page (0.26). */}
+      <Directory tools={tools} feed={feed} newsletterCount={NEWSLETTERS.length}
+        initialVotes={votes} initialReviews={reviews} />
     </>
   );
 }
