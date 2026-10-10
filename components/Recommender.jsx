@@ -8,6 +8,7 @@ import {
 } from "@/lib/recommendOptions";
 import { useSession, SignInPrompt } from "@/components/Account";
 import GrowText from "@/components/GrowText";
+import { ThumbsUp, ThumbsDown } from "@phosphor-icons/react";
 
 /*
  * The growth recommender, as a conversation rather than a form.
@@ -463,6 +464,7 @@ const block = (title, body) => body ? (
 
 function Answer({ result, answers, onEdit }) {
   const { app = {}, listingRead, picks = [], path, noneFit, skipped = [] } = result;
+  const fb = useFeedback(result.feedbackToken);
   return (
     <section style={{ marginTop: S["3xl"], maxWidth: 760 }}>
       <h2 tabIndex={-1} style={{ fontSize: F["2xl"], fontWeight: 700, letterSpacing: TRACK.tighter, margin: 0 }}>
@@ -500,6 +502,7 @@ function Answer({ result, answers, onEdit }) {
             </div>
           )}
           <a href={p.path} style={{ display: "inline-block", fontSize: F.sm, color: C.text, marginTop: S.md, textUnderlineOffset: 3 }}>Read the full {p.name} entry</a>
+          <PickFeedback pick={p} fb={fb} />
         </article>
       ))}
 
@@ -508,12 +511,118 @@ function Answer({ result, answers, onEdit }) {
           Written without the usual model, which was unavailable: ranked on the categories your words point to and your budget.
         </p>
       )}
+      <RunFeedback fb={fb} />
       <div className="flex flex-wrap items-center" style={{ gap: S.md, marginTop: S.xl }}>
         <Button onClick={onEdit}>Change my answers</Button>
       </div>
       <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.5, maxWidth: "60ch" }}>
         Tools the editor of this directory is connected to are never recommended. Nothing here is paid placement.
       </p>
+    </section>
+  );
+}
+
+/* ---------------- feedback ---------------- */
+
+/*
+ * Per pick, then per run. Each press is saved as it happens, so somebody who
+ * gives one thumb and leaves has still told us something. The token came back
+ * with the answer and is what lets this land on the run without the run
+ * knowing whose it was (lib/recommendFeedback.js).
+ */
+function useFeedback(token) {
+  const [picks, setPicks] = useState({});
+  const [helped, setHelped] = useState("");
+  const [state, setState] = useState({ busy: "", msg: "" });
+
+  async function send(body, tag) {
+    if (!token) return false;
+    setState({ busy: tag, msg: "" });
+    try {
+      const res = await fetch("/api/recommend/feedback", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, ...body }),
+      });
+      if (!res.ok) { setState({ busy: "", msg: await res.text() }); return false; }
+      const d = await res.json();
+      setPicks(d.picks || {}); setHelped(d.helped || "");
+      setState({ busy: "", msg: "" });
+      return true;
+    } catch {
+      setState({ busy: "", msg: "That did not save. Try again." });
+      return false;
+    }
+  }
+  return { token, picks, helped, state, send };
+}
+
+const thumb = (on) => ({
+  display: "inline-flex", alignItems: "center", gap: S.xs,
+  background: on ? C.text : C.panel, color: on ? C.bg : C.muted,
+  border: `1px solid ${on ? C.text : C.line}`, borderRadius: R.control,
+  padding: "4px 12px", fontSize: F.xs, fontWeight: 600, fontFamily: "inherit", cursor: "pointer",
+});
+
+function PickFeedback({ pick, fb }) {
+  const mine = fb.picks[pick.id] || { vote: 0, why: "" };
+  const [why, setWhy] = useState("");
+  const [saved, setSaved] = useState(false);
+  if (!fb.token) return null;
+  const vote = (v) => { setSaved(false); fb.send({ pick: pick.id, vote: mine.vote === v ? 0 : v }, `vote:${pick.id}`); };
+  return (
+    <div style={{ marginTop: S.lg, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        <span style={{ fontSize: F.sm, color: C.muted }}>Is this a good pick for you?</span>
+        {/* Selected is a state, so the neutral inversion (invariant C), not green. */}
+        <button type="button" className="ctl press" aria-pressed={mine.vote === 1} onClick={() => vote(1)} style={thumb(mine.vote === 1)}>
+          <ThumbsUp size={14} weight={mine.vote === 1 ? "fill" : "regular"} /> Yes
+        </button>
+        <button type="button" className="ctl press" aria-pressed={mine.vote === -1} onClick={() => vote(-1)} style={thumb(mine.vote === -1)}>
+          <ThumbsDown size={14} weight={mine.vote === -1 ? "fill" : "regular"} /> No
+        </button>
+      </div>
+      {mine.vote !== 0 && (
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.sm }}>
+          <input value={why} onChange={(e) => { setWhy(e.target.value); setSaved(false); }} maxLength={300}
+            aria-label={`Why, about ${pick.name} (optional)`}
+            placeholder={mine.vote === 1 ? "What makes it right? (optional)" : "What makes it wrong? (optional)"}
+            onKeyDown={async (e) => { if (e.key === "Enter" && why.trim()) { e.preventDefault(); setSaved(await fb.send({ pick: pick.id, why }, `why:${pick.id}`)); } }}
+            style={{ ...field, flex: 1, minWidth: 220, padding: "8px 12px", fontSize: F.sm }} />
+          <Button disabled={!why.trim()} busy={fb.state.busy === `why:${pick.id}`}
+            onClick={async () => setSaved(await fb.send({ pick: pick.id, why }, `why:${pick.id}`))}>Save</Button>
+          {saved && <span style={{ fontSize: F.xs, color: C.muted }}>Saved.</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RunFeedback({ fb }) {
+  const [text, setText] = useState("");
+  const [sent, setSent] = useState(false);
+  if (!fb.token) return null;
+  return (
+    <section aria-labelledby="fb-run" style={{ marginTop: S["2xl"], border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl, background: C.panel }}>
+      <h3 id="fb-run" style={{ fontSize: F.lg, fontWeight: 700, margin: 0 }}>Did this help?</h3>
+      <div className="flex flex-wrap" role="group" aria-label="Did this help?" style={{ gap: S.sm, marginTop: S.md }}>
+        {[["yes", "Yes"], ["partly", "Partly"], ["no", "No"]].map(([id, label]) => (
+          <button key={id} type="button" className="ctl press" aria-pressed={fb.helped === id}
+            onClick={() => { setSent(false); fb.send({ helped: fb.helped === id ? "" : id }, "helped"); }}
+            style={thumb(fb.helped === id)}>{label}</button>
+        ))}
+      </div>
+      <label htmlFor="fb-text" style={{ display: "block", fontSize: F.sm, color: C.muted, margin: `${S.md}px 0 ${S.xs}px` }}>
+        Anything to add? What was missing, wrong, or useful. (optional)
+      </label>
+      <GrowText id="fb-text" value={text} onChange={(e) => { setText(e.target.value); setSent(false); }}
+        onSubmit={async () => { if (text.trim()) setSent(await fb.send({ text }, "text")); }}
+        rows={2} maxRows={8} maxLength={1200} style={{ ...field, lineHeight: 1.55, fontSize: F.sm }} />
+      <div className="flex flex-wrap items-center" style={{ gap: S.md, marginTop: S.sm }}>
+        <Button tone="go" disabled={!text.trim()} busy={fb.state.busy === "text"}
+          onClick={async () => setSent(await fb.send({ text }, "text"))}>Send</Button>
+        {sent && <span style={{ fontSize: F.xs, color: C.muted }}>Thank you. It goes to the editor, with your answers and without your address.</span>}
+        {fb.state.msg && <span style={{ fontSize: F.xs, color: C.badInk }}>{fb.state.msg}</span>}
+      </div>
     </section>
   );
 }

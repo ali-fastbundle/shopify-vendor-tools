@@ -1,5 +1,5 @@
 import { configured, isEmail, mintLoginToken, normaliseEmail } from "@/lib/auth";
-import { isListedId } from "@/lib/entries";
+import { isVotableId, isListedId } from "@/lib/entries";
 import { isSendingRestricted } from "@/lib/email";
 import { sendEvent } from "@/lib/mail";
 import { allow, ipOf } from "@/lib/ratelimit";
@@ -30,7 +30,10 @@ export async function POST(request) {
      is signed-in only, and sending somebody home after they signed in to use
      it loses the form they filled in. A fixed token, not a path, so it still
      cannot be pointed anywhere else. */
-  const back = tool === "@recommend" || (await isListedId(tool)) ? tool : "";
+  /* A blog post's key (`post:<slug>`) returns to the post, where the comment
+     form kept what was typed. Checked against the published posts. */
+  const back = tool === "@recommend" || (await isListedId(tool))
+    || (typeof tool === "string" && tool.startsWith("post:") && (await isVotableId(tool))) ? tool : "";
 
   const origin = new URL(request.url).origin;
   const link = `${origin}/api/auth/callback?token=${encodeURIComponent(mintLoginToken(addr, back))}`;

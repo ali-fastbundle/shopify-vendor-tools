@@ -4,6 +4,8 @@ import { inline, resolveRef, minutesToRead, UNVERIFIED_LEGEND } from "@/lib/blog
 import { outbound } from "@/lib/outbound";
 import SiteNav from "@/components/SiteNav";
 import FooterLinks from "@/components/FooterLinks";
+import Engagement from "@/components/Engagement";
+import { postKey } from "@/lib/comments";
 
 /*
  * The blog index and a post. Server-rendered with no client state, the same
@@ -156,7 +158,7 @@ export function BlogIndex({ posts, lastUpdated }) {
   );
 }
 
-export function BlogPost({ post, lastUpdated }) {
+export function BlogPost({ post, lastUpdated, comments = [] }) {
   return (
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
@@ -175,6 +177,12 @@ export function BlogPost({ post, lastUpdated }) {
           {post.body.map((b, i) => <Block key={i} b={b} />)}
           <p style={{ fontSize: F.xs, color: C.dim, margin: `${S["2xl"]}px 0 0` }}>{UNVERIFIED_LEGEND}</p>
         </article>
+        {/* The shared engagement module, as a client island: likes and
+            comments. The comments are read on the server and passed in, so
+            they are in the first response like a listing's reviews. */}
+        <div id="comments">
+          <Engagement kind="post" entity={{ id: postKey(post.slug), slug: post.slug, name: post.title }} initialComments={comments} />
+        </div>
         <p style={{ marginTop: S["2xl"], fontSize: F.sm }}><a href="/blog" style={{ color: C.muted }}>All posts</a></p>
         <Footer lastUpdated={lastUpdated} />
       </div>

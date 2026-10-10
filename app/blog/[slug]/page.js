@@ -7,6 +7,7 @@ import { EVENTS } from "@/lib/events";
 import { SITE, postUrl, articleGraph } from "@/lib/seo";
 import { BlogPost } from "@/components/Blog";
 import JsonLd from "@/components/JsonLd";
+import { readComments, publicComments } from "@/lib/comments";
 
 /* Dynamic so the share image version is read per request, like every other
    page; a version frozen at build time is the drift lib/ogCard.js exists to stop. */
@@ -46,7 +47,7 @@ export default async function Page({ params }) {
   return (
     <>
       <JsonLd data={articleGraph(post, mentions, await shareImageUrl(SITE))} />
-      <BlogPost post={post} lastUpdated={LAST_UPDATED} />
+      <BlogPost post={post} lastUpdated={LAST_UPDATED} comments={publicComments((await readComments())[post.slug])} />
     </>
   );
 }

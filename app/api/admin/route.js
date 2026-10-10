@@ -75,6 +75,7 @@ export async function POST(request) {
       review:         { email: me, toolName: "Applora", toolId: "applora", rating: 5, author: "Test", text: "A test review." },
       claim_verified: { email: me, toolName: "Applora", domain: "applora.ai", method: "email-domain" },
       suggestion:     { email: me, name: "Test Tool", url: "https://example.com", why: "A test suggestion.", by: "Test", approved: true, kindLabel: "Tools", catLabel: "App Store ASO" },
+      comment:        { email: me, postTitle: "Test post", slug: "test", author: "Test", text: "A test comment." },
       report:         { email: me, toolName: "Applora", domain: "applora.ai", kindLabel: "Broken link", value: "A test report." },
       listing_edited: { email: me, toolName: "Applora", changed: ["price"], values: ["price: $0 (test)"], byAdmin: true },
       monitor_digest: { email: me, count: 2, checked: 29, total: 29, changes: [
@@ -107,6 +108,24 @@ export async function POST(request) {
    * visit" is computed against the visit before this one rather than against
    * the moment the page finished loading.
    */
+  /*
+   * Blog comments (lib/comments.js): read, hide with a reason, unhide, or
+   * delete outright. Keyed by post slug and comment id, never by position.
+   */
+  if (["review-comment", "hide-comment", "unhide-comment", "delete-comment"].includes(action)) {
+    const { readComments, saveComments, moderate, removeComment, adminComments } = await import("@/lib/comments");
+    const { POSTS } = await import("@/lib/blog");
+    const slug = String(body.slug || "");
+    const all = await readComments();
+    const r = action === "delete-comment"
+      ? removeComment(all, slug, String(id || ""))
+      : moderate(all, slug, String(id || ""), action.replace("-comment", ""), { reason: body.reason, by: session.email });
+    if (r.error) return new Response(r.error, { status: 400 });
+    await saveComments(r.comments);
+    const titleOf = (s) => POSTS.find((p) => p.slug === s)?.title || s;
+    return Response.json({ comments: adminComments(r.comments, titleOf) });
+  }
+
   if (action === "seen-inbox") {
     const seen = await read(KEYS.adminSeen, {});
     seen[session.email] = new Date().toISOString();

@@ -113,7 +113,23 @@ export default async function AdminPage({ searchParams }) {
     /* `build` goes back with every draft action, so an action from a page
        rendered before the latest deploy is refused rather than misread. */
     { key: "publishing", load: async () => ({ canPublish: canPublish(), log: await readPublishLog(20), build: (await import("@/lib/draftOutcomes")).BUILD }), empty: { canPublish: false, log: [], build: "" } },
-    { key: "recommend", load: async () => { const runs = await readRuns(500); return { runs, summary: summariseRuns(runs) }; }, empty: { runs: [], summary: null } },
+    /* The LinkedIn announcement queue, seeds merged in, each with its checks:
+       hype, figures not in the facts, an em-dash. */
+    /* Blog comments with their addresses: rendered here, behind the check. */
+    { key: "comments", load: async () => {
+      const { readComments, adminComments } = await import("@/lib/comments");
+      const { POSTS } = await import("@/lib/blog");
+      return adminComments(await readComments(), (s) => POSTS.find((p) => p.slug === s)?.title || s);
+    }, empty: [] },
+    { key: "announcements", load: async () => {
+      const { getAnnouncements, checksFor } = await import("@/lib/announcements");
+      return (await getAnnouncements()).map((r) => ({ ...r, checks: checksFor(r) }));
+    }, empty: [] },
+    { key: "recommend", load: async () => {
+      const { readFeedback, summariseFeedback } = await import("@/lib/recommendFeedback");
+      const [runs, fb] = await Promise.all([readRuns(500), readFeedback()]);
+      return { runs, summary: summariseRuns(runs), feedback: summariseFeedback(runs, fb) };
+    }, empty: { runs: [], summary: null, feedback: null } },
   ];
 
   /*

@@ -33,7 +33,7 @@ import { useSession, SignInPrompt, OwnerPanel } from "@/components/Account";
 import GrowText from "@/components/GrowText";
 import Vote from "@/components/Vote";
 
-const NOUN = { tool: "tool", newsletter: "newsletter", event: "event" };
+const NOUN = { tool: "tool", newsletter: "newsletter", event: "event", post: "post" };
 
 const field = {
   background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
@@ -126,7 +126,14 @@ export function summarise(reviews = []) {
   return s ? { value: s.value.toFixed(1), count: s.count } : null;
 }
 
-export default function Engagement({ entity, kind = "tool", initialReviews = [] }) {
+export default function Engagement({ entity, kind = "tool", initialReviews = [], initialComments = [] }) {
+  /* A blog post is not a listing: likes and comments, no rating, no report,
+     no claim. Same votes, same sign-in, same module. */
+  if (kind === "post") return <PostEngagement entity={entity} initialComments={initialComments} />;
+  return <ListingEngagement entity={entity} kind={kind} initialReviews={initialReviews} />;
+}
+
+function ListingEngagement({ entity, kind, initialReviews }) {
   const [session, refresh] = useSession();
   const [reviews, setReviews] = useState(initialReviews);
   const id = entity.id;
@@ -417,6 +424,146 @@ function ReportForm({ id, name, kind }) {
         <button onClick={() => setOpen(false)} style={{ ...quiet, textDecoration: "none", fontSize: F.xs, color: C.dim }}>Cancel</button>
       </div>
       {msg && <p style={{ fontSize: F.xs, color: C.badInk, margin: `${S.sm}px 0 0` }}>{msg}</p>}
+    </div>
+  );
+}
+
+
+/* ---------------- blog posts ---------------- */
+
+/*
+ * Likes and comments on a post. The likes are the same votes as a listing's,
+ * keyed `post:<slug>` (lib/comments.js), so /api/vote and the shared read
+ * serve them unchanged. Comments need an account, the same as a review, and
+ * appear at once; an editor reads them afterwards from the admin Inbox.
+ *
+ * `entity.id` is the post key, `entity.slug` the slug the comment route takes.
+ * Comments arrive as a prop so the server page prints them for a crawler, and
+ * are refreshed on mount to pick up `mine`.
+ */
+function PostEngagement({ entity, initialComments }) {
+  const [session] = useSession();
+  const { votes, myVote, vote } = useVote(entity.id);
+  const [comments, setComments] = useState(initialComments);
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/comment?post=${encodeURIComponent(entity.slug)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d && d.comments) setComments(d.comments); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [entity.slug]);
+
+  return (
+    <div style={{ marginTop: S["2xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        <span style={{ fontSize: F.sm, color: C.muted, marginRight: S.xs }}>Was this useful?</span>
+        <Vote dir={1} active={myVote === 1} n={votes?.up ?? 0} onClick={() => vote(1)} label="Like this post" />
+        <Vote dir={-1} active={myVote === -1} n={votes?.down ?? 0} onClick={() => vote(-1)} label="Dislike this post" />
+      </div>
+      <CommentList comments={comments} />
+      <CommentForm slug={entity.slug} postKey={entity.id} session={session} onPosted={setComments} hasComments={comments.length > 0} />
+    </div>
+  );
+}
+
+function CommentList({ comments }) {
+  if (!comments.length) return null;
+  return (
+    <section style={{ marginTop: S.xl }}>
+      <h2 style={{ fontSize: F.lg, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
+        Comments <span className="tnum" style={{ color: C.dim, fontWeight: 500 }}>{comments.length}</span>
+      </h2>
+      <div style={{ marginTop: S.sm }}>
+        {comments.map((c) => (
+          <div key={c.id} id={`comment-${c.id}`} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.md}px 0` }}>
+            <p className="flex flex-wrap items-center" style={{ fontSize: F.sm, margin: 0, gap: S.sm }}>
+              <b>{c.author}</b>
+              <span className="tnum" style={{ color: C.dim }}>{String(c.at).slice(0, 10)}</span>
+            </p>
+            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "68ch", whiteSpace: "pre-wrap" }}>{c.text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* The draft survives the trip through the inbox to sign in, like a review's. */
+function CommentForm({ slug, postKey, session, onPosted, hasComments }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [author, setAuthor] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const draftKey = `svt:draft:${postKey}`;
+
+  useEffect(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(draftKey) || "null");
+      if (d && d.text) { setText(d.text); setAuthor(d.author || ""); setOpen(true); }
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    try { localStorage.setItem(draftKey, JSON.stringify({ text, author })); } catch {}
+  }, [text, author, open]);
+
+  async function submit() {
+    if (!text.trim()) { setMsg("Write something first."); return; }
+    setBusy(true); setMsg("");
+    try {
+      const res = await fetch("/api/comment", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ post: slug, text, author }),
+      });
+      if (!res.ok) { setMsg(await res.text()); setBusy(false); return; }
+      const d = await res.json();
+      onPosted(d.comments || []);
+      try { localStorage.removeItem(draftKey); } catch {}
+      setText(""); setOpen(false); setMsg("Posted. Thank you.");
+    } catch { setMsg("Could not reach the server."); }
+    setBusy(false);
+  }
+
+  if (!open) {
+    return (
+      <div style={{ marginTop: S.lg }}>
+        <button onClick={() => setOpen(true)} style={{ ...quiet, fontSize: F.sm, color: C.muted }}>
+          {hasComments ? "Add a comment" : "Comment on this post"}
+        </button>
+        {msg && <span style={{ fontSize: F.xs, color: C.muted, marginLeft: S.md }}>{msg}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: S.lg, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg }}>
+      {session.signedIn ? (
+        <>
+          <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Your name (optional)"
+            aria-label="Your name" style={field} maxLength={40} />
+          <GrowText value={text} onChange={(e) => setText(e.target.value)} onSubmit={submit}
+            rows={3} maxRows={14} maxLength={2000} aria-label="Your comment"
+            placeholder="A correction, a tool that belongs in this, or what you found" style={{ ...field, marginTop: S.sm }} />
+          <div className="flex items-center" style={{ gap: S.md, marginTop: S.md }}>
+            <button onClick={submit} disabled={busy || !text.trim()} className="press" style={{
+              background: text.trim() ? C.accent : C.subtle, color: text.trim() ? C.onAccent : C.dim,
+              border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
+              cursor: text.trim() ? "pointer" : "default", fontFamily: "inherit",
+            }}>{busy ? "Posting…" : "Post comment"}</button>
+            <button onClick={() => setOpen(false)} style={{ ...quiet, textDecoration: "none", fontSize: F.sm, color: C.dim }}>Cancel</button>
+          </div>
+          <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.sm}px 0 0`, lineHeight: 1.5 }}>
+            Comments appear straight away and are read by the editor afterwards. One may be hidden, with the reason recorded.
+          </p>
+          {msg && <p style={{ fontSize: F.xs, color: C.badInk, margin: `${S.sm}px 0 0` }}>{msg}</p>}
+        </>
+      ) : (
+        <SignInPrompt returnTo={postKey}
+          reason="Comments need an account so they mean something. One email, no password." />
+      )}
     </div>
   );
 }

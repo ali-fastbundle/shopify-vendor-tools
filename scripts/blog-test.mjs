@@ -110,5 +110,23 @@ if (!aso) {
   ok(unlinked.length === 0, "every tool it compares links back to it from its own page", unlinked.join(", "));
 }
 
+/* Invariant 11 on the blog: outbound links carry utm_source at render time,
+   in the RSS body as on the page; internal, mailto and already-tagged links
+   are left alone; the post source never carries it. */
+console.log("\nutm on post links:");
+{
+  const fake = { slug: "t", title: "t", description: "d".repeat(60), date: "2026-10-10", body: [{ p:
+    "[out](https://example.com/a?x=1#f) [in](tool:" + TOOLS[0].id + ") [mail](mailto:a@b.co) [tagged](https://example.com/?UTM_SOURCE=x)" }] };
+  const html = postHtml(fake, "https://watchfor.tools");
+  ok(html.includes('href="https://example.com/a?x=1&amp;utm_source=watchfor.tools#f"'), "an external link is tagged, query kept, fragment last");
+  ok(html.includes(`href="https://watchfor.tools/tools/${TOOLS[0].id}"`), "an internal link is not tagged");
+  ok(!/mailto[^"]*utm_source/.test(html) && !/UTM_SOURCE=x&amp;utm_source/.test(html), "mailto and already-tagged links are left alone");
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const src = readdirSync(join(root, "lib/posts")).map((f) => readFileSync(join(root, "lib/posts", f), "utf8")).join("\n");
+  ok(!/utm_source/.test(src), "no post source carries utm_source");
+  const page = readFileSync(join(root, "components/Blog.jsx"), "utf8");
+  ok(/outbound\(href\)/.test(page), "the post page tags external links through outbound()");
+}
+
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

@@ -1780,6 +1780,15 @@ nobody here checked.
   day rather than left contradicting the post.
 - **The Article's `mentions` are the listings' WebPage nodes**, never a second
   SoftwareApplication, which would be a priceless duplicate of the tool.
+- **Outbound links in a post carry `utm_source` on the page and in the RSS body**, through
+  `outbound()` at render time, never in `lib/posts/`. `postText` (llms.txt) is not tagged.
+
+**Posts take likes and comments through `components/Engagement.jsx`** (`kind="post"`), keyed
+`post:<slug>`. `isVotableId` admits that key for `/api/vote`; `isListedId` does not, so a post
+can never be reviewed, reported or claimed. Comments (`lib/comments.js`, `svt:comments`) need an
+account, use a review's limit, appear at once and land in the Inbox as Comments to read: Looks
+fine, Hide (required reason, kept, reversible) or Delete (gone). A hidden comment is not served
+at all, and the address and every moderation field leave only through `publicComments`.
 
 **42. The growth recommender: signed in, one question per screen, one public page read, up to three picks, every run kept without an address.**
 `/recommend` (linked from the matcher's examples line, so it costs no fold height), noindex
@@ -1855,6 +1864,28 @@ brings people back to the form rather than the homepage.
 `node scripts/recommend-test.mjs` covers the filtering, the validation, both paths, what is
 fetched and that no run carries an address.
 
+**Feedback is per pick, then per run, and it carries its run.** Each pick takes a thumb and an
+optional line on why; the run takes "did this help?" (yes, partly, no) and a free-text box.
+Every press is saved as it happens. A record in `svt:recommend:feedback` keeps a copy of the
+run it is about (answers, listing, skipped, path, provider, every pick with its reason), because
+runs are capped and a thumbs down with nothing to check it against is a complaint, not a signal.
+Still no address: the run answer carries a token (`mintRunToken`) and holding it is the only
+proof the run was yours. The Audience tab leads with **misfits**, tools recommended at least
+three times with at least two thumbs down and half or more of their votes down, because that
+pattern means the matching is wrong for that tool. Then most recommended, most rejected, and
+every comment in full with its inputs. `lib/recommendFeedback.js`, `scripts/shipping-test.mjs`.
+
+**43. Announcements: drafted on a button, grounded in the catalogue, posted by hand.**
+The Announcements section on Catalogue (`lib/announcements.js`) queues a LinkedIn post for
+something that shipped. Nothing queues itself: the editor says what shipped and presses Draft.
+The model is given figures from the published catalogue at that moment and may state no
+others; `unsupportedNumbers` and `hypeIn` check the result in code and the panel shows any
+failure in the warning colour beside the text. Status is draft, ready, posted (with its date)
+or dropped. **Nothing here posts anywhere.** Not to be confused with `lib/announce.js`, which
+drafts a feed entry. Five seeds (tool and category pages, Recent updates, newsletters, events,
+the recommender) live in `SEEDS` with figures computed on read, merge into the queue until first
+touched, and are stored from then on.
+
 ## Layout
 
 | Path | Role |
@@ -1892,6 +1923,9 @@ fetched and that no run carries an address.
 | `components/JsonLd.jsx` | The one way a page emits structured data: adds the site, organization and author nodes (`withSiteNodes` in `lib/seo.js`, ids from `IDS`) so no page refers to a node it does not define, and escapes `<`. validate-jsonld checks every page type |
 | `components/Blog.jsx` `app/blog` | The blog index, a post, and `/blog/rss`. Server-rendered, no client state |
 | `lib/recommend.js` `lib/recommendOptions.js` `lib/recommendDraft.js` | The growth recommender: candidates, prompt, validation, fallback, cost, runs; the questions, choices and answer shape (client-safe); and saved progress per account |
+| `lib/recommendFeedback.js` | Thumbs and lines per pick, did-this-help per run, each with its run; the misfit signal |
+| `lib/comments.js` `app/api/comment` | Blog comments: post, read, hide, unhide, delete |
+| `lib/announcements.js` `app/api/admin/announcements` | The LinkedIn announcement queue, its seeds and its checks |
 | `lib/appListing.js` | Reads one public App Store listing page. Nothing else on apps.shopify.com |
 | `app/recommend` `components/Recommender.jsx` `app/api/recommend` | The recommender's page, flow and routes (run, `draft`, `listing`) |
 | `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
@@ -2618,6 +2652,7 @@ node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
+node scripts/shipping-test.mjs       # recommender feedback, blog comments, the announcement queue
 node scripts/recommend-test.mjs      # the flow's questions, drafts, drivers, cost, nothing-fits, no address kept
 node scripts/publish-test.mjs        # publish changes exactly two things, discard removes exactly one entry, hold commits nothing
 node scripts/og-test.mjs [baseUrl]   # the share card's URL version moves with what it draws, and matches live

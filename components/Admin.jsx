@@ -78,6 +78,8 @@ export default function AdminPanel({
   accounts = {},
   stats = { fields: {}, queries: [] },
   recommend = { runs: [], summary: null },
+  announcements = [],
+  comments = [],
   publishing = { canPublish: false, log: [] },
   maillog = [],
   entries = {},
@@ -118,6 +120,8 @@ export default function AdminPanel({
   const [reportRows, setReportRows] = useState(reports || []);
   const [entryRows, setEntryRows] = useState(entries || {});
   const [reviewRows, setReviewRows] = useState(reviewSignals);
+  const [commentRows, setCommentRows] = useState(comments);
+  const unreadComments = commentRows.filter((c) => !c.reviewed);
   const [seen, setSeen] = useState(changesSeen || {});
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
@@ -145,7 +149,7 @@ export default function AdminPanel({
   /* Most asked first, everywhere a queue is shown. Demand decides order. */
   const byDemand = (a, b) => timesAsked(b) - timesAsked(a);
 
-  const inboxCount = pending.length + openReports.length + pendingClaims.length + openChanges.length;
+  const inboxCount = pending.length + openReports.length + pendingClaims.length + openChanges.length + unreadComments.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
     + drafted(ALL_PODCASTS).length + drafted(ALL_EVENTS).length;
@@ -181,6 +185,7 @@ export default function AdminPanel({
       if (d.reports) setReportRows(d.reports);
       if (d.entries) setEntryRows(d.entries);
       if (d.reviewSignals) setReviewRows(d.reviewSignals);
+      if (d.comments) setCommentRows(d.comments);
     } catch {
       setErr("Could not reach the server.");
     } finally {
@@ -256,6 +261,7 @@ export default function AdminPanel({
             rewrittenChanges={rewrittenChanges || {}}
             verifiedChanges={verifiedChanges || {}}
             discovery={discovery}
+            comments={unreadComments}
             onSeen={setSeen}
             act={act}
             busy={busy}
@@ -266,6 +272,7 @@ export default function AdminPanel({
 
         {tab === "catalogue" && (
           <Catalogue
+            announcements={announcements}
             publishing={publishing}
             holds={holds}
             discards={discards}
@@ -293,6 +300,7 @@ export default function AdminPanel({
             subscriberRows={subscriberRows}
             feed={feed}
             reviews={reviewRows}
+            comments={commentRows}
             act={act}
             busy={busy}
           />
@@ -320,10 +328,10 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, discovery = { findings: [] }, onSeen, act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, discovery = { findings: [] }, comments = [], onSeen, act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
   const openChanges = changes.filter((r) => !isHandled(r.id, seen, publishedChanges, appliedChanges));
-  const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length;
+  const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length && !comments.length;
 
   /*
    * `nothing` is about deadlines, and discovery findings are not one: they are
@@ -342,7 +350,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
         <section className="pb-10">
           <p style={{ fontSize: F.lg, color: C.muted, margin: 0, lineHeight: 1.6, maxWidth: "62ch" }}>
             Nothing is waiting on you. No suggestions to review, no open reports, no claims to check,
-            and no listing changes since your last visit.
+            no blog comments to read, and no listing changes since your last visit.
           </p>
           <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "62ch" }}>
             The Catalogue tab has the drafts and what is published. The monitor runs on Mondays.
@@ -384,6 +392,13 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
 
       <OpenReports rows={reports} act={act} busy={busy} />
 
+      {comments.length > 0 && (
+        <Section title="Comments to read" count={comments.length}
+          hint="Blog comments are live the moment they are posted. Read each one: Looks fine takes it out of here, Hide takes it off the post with a reason and keeps it, Delete removes it for good.">
+          {comments.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
+        </Section>
+      )}
+
       <Section
         title="Claims to check"
         count={claims.length}
@@ -403,12 +418,13 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
+function Catalogue({ announcements = [], publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
       <PublishingNote />
       <Drafts publishing={publishing} holds={holds} discards={discards} />
+      <Announcements initial={announcements} />
       <NeedsVerifying />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
@@ -434,10 +450,16 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
   );
 }
 
-function People({ accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], feed = [], reviews = [], act, busy }) {
+function People({ accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], feed = [], reviews = [], comments = [], act, busy }) {
+  const read = comments.filter((c) => c.reviewed);
   return (
     <>
       <Reviews groups={reviews} act={act} busy={busy} />
+      <Collapsible title="Blog comments" count={read.length}
+        hint="Comments already read, including hidden ones. Unread comments are in the Inbox.">
+        {read.length === 0 ? <Empty>No comments read yet.</Empty>
+          : read.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
+      </Collapsible>
       <Section
         title="Verified claims"
         count={verified.length}
@@ -472,6 +494,38 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], s
  * The heading counts what is unreviewed, not what exists. The open section is
  * the work; the decided ones are collapsed below it.
  */
+/* One blog comment, with every decision available from where it is shown. */
+function CommentRow({ c, act, busy }) {
+  const [reason, setReason] = useState("");
+  const [hiding, setHiding] = useState(false);
+  const k = (a) => a + c.id;
+  return (
+    <Row
+      title={c.author}
+      tag={c.hidden ? "hidden" : c.reviewed ? "read" : "unread"}
+      tagColor={c.hidden ? C.warnInk : C.muted}
+      badges={<a href={`/blog/${c.slug}#comment-${c.id}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>{c.postTitle}</a>}
+      dim={Boolean(c.hidden)}
+      body={<p style={{ margin: 0, whiteSpace: "pre-wrap", color: C.text }}>{c.text}</p>}
+      meta={`${String(c.at).slice(0, 16).replace("T", " ")} · ${c.email}${c.hidden ? ` · hidden by ${c.hidden.by}: ${c.hidden.reason}` : c.reviewedBy ? ` · read by ${c.reviewedBy}` : ""}`}
+      actions={<>
+        {!c.reviewed && <Btn tone="go" busy={busy === k("review-comment")} onClick={() => act("review-comment", c.id, { slug: c.slug })}>Looks fine</Btn>}
+        {!c.hidden && !hiding && <Btn onClick={() => setHiding(true)}>Hide</Btn>}
+        {!c.hidden && hiding && (
+          <span className="inline-flex items-center" style={{ gap: S.xs }}>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why it is hidden (required)" maxLength={200}
+              aria-label="Why it is hidden" style={{ ...FIELD, width: 260, padding: "2px 8px", fontSize: F.xs }} />
+            <Btn disabled={!reason.trim()} busy={busy === k("hide-comment")} onClick={() => act("hide-comment", c.id, { slug: c.slug, reason })}>Hide it</Btn>
+            <Btn onClick={() => setHiding(false)}>Cancel</Btn>
+          </span>
+        )}
+        {c.hidden && <Btn busy={busy === k("unhide-comment")} onClick={() => act("unhide-comment", c.id, { slug: c.slug })}>Unhide</Btn>}
+        <ConfirmBtn busy={busy === k("delete-comment")} onConfirm={() => act("delete-comment", c.id, { slug: c.slug })} confirm="Delete for good">Delete</ConfirmBtn>
+      </>}
+    />
+  );
+}
+
 const MARKER_LABEL = { burst: "in a burst", domain: "same domain as listing" };
 
 function Reviews({ groups = [], act, busy }) {
@@ -952,6 +1006,7 @@ function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries 
   return (
     <>
       <RecommenderRuns runs={recommend.runs || []} summary={recommend.summary} />
+      <RecommenderFeedback feedback={recommend.feedback} />
       <Stats stats={stats} />
       <Interest interest={interest} entries={entries} />
     </>
@@ -1001,6 +1056,213 @@ function RecommenderRuns({ runs = [], summary = null }) {
     </>
   );
 }
+
+/*
+ * What people said about the recommender's answers. The misfits lead: a tool
+ * recommended often and rejected often means the matching is wrong for it,
+ * which is the one finding here that asks for a change. Then the two counts
+ * side by side, then every comment in full with the run that produced it, so
+ * a bad pick is traceable to the answers behind it.
+ */
+const HELPED_LABEL = { yes: "Helped", partly: "Partly helped", no: "Did not help" };
+
+function RecommenderFeedback({ feedback = null }) {
+  const records = feedback?.records || [];
+  if (!feedback || !records.length) {
+    return <Section title="Recommender feedback" count={0}><Empty>No feedback on a run yet.</Empty></Section>;
+  }
+  const h = feedback.helped || {};
+  const line = (rows, f) => rows.map(f).join(", ");
+  return (
+    <>
+      <Section title="Recommender feedback" count={records.length}
+        hint={`Did it help: ${h.yes || 0} yes, ${h.partly || 0} partly, ${h.no || 0} no. A misfit is recommended at least three times with at least two thumbs down and half or more of its votes down.`}>
+        {feedback.misfits.length > 0 && feedback.misfits.map((t) => (
+          <Row key={t.id} title={t.name} tag="recommended often, rejected often" tagColor={C.warnInk}
+            body={`Recommended ${t.recommended} times. ${t.up} up, ${t.down} down.${t.reasons.length ? ` Why: ${t.reasons.filter((r) => r.vote === -1).map((r) => `"${r.why}"`).join(" ")}` : ""}`}
+            meta="The matching is wrong for this one: the prompt, the themes, or its own summary is pulling it into runs it does not fit." />
+        ))}
+        <Row title="Recommended most" body={line(feedback.mostRecommended, (t) => `${t.name} (${t.recommended}${t.votes ? `, ${t.up} up ${t.down} down` : ""})`) || "Nothing yet."} />
+        <Row title="Rejected most" body={line(feedback.mostRejected, (t) => `${t.name} (${t.down} down of ${t.votes}, recommended ${t.recommended})`) || "No thumbs down yet."} />
+      </Section>
+      <Collapsible title="Feedback in full" count={records.length}>
+        {records.slice(0, 200).map((f) => {
+          const run = f.run || {};
+          const a = run.answers || {};
+          return (
+            <Row key={f.runId}
+              title={run.app?.name || run.handle || f.runId}
+              tag={f.helped ? HELPED_LABEL[f.helped] : ""}
+              tagColor={f.helped === "no" ? C.warnInk : C.muted}
+              badges={run.path && run.path !== "model" ? <Pill>{run.path}</Pill> : null}
+              body={(
+                <>
+                  {f.text && <p style={{ margin: 0, color: C.text, whiteSpace: "pre-wrap" }}>{f.text}</p>}
+                  <ul style={{ listStyle: "none", padding: 0, margin: f.text ? "8px 0 0" : 0 }}>
+                    {(run.picks || []).map((p) => {
+                      const v = (f.picks || {})[p.id];
+                      return (
+                        <li key={p.id} style={{ marginTop: 4 }}>
+                          <b style={{ color: C.text }}>{p.name}</b>{" "}
+                          {v?.vote === 1 ? "up" : v?.vote === -1 ? "down" : "no vote"}
+                          {v?.why ? `: "${v.why}"` : ""}
+                          <span style={{ color: C.dim }}> · model said: {p.why}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p style={{ margin: "8px 0 0", color: C.dim }}>
+                    {a.problem ? `Not working: ${a.problem} ` : ""}{a.objective ? `Wants: ${a.objective}. ` : ""}
+                    {a.installs != null ? `${Number(a.installs).toLocaleString("en-US")} installs. ` : ""}
+                    {a.revenue ? `Revenue ${a.revenue}. ` : ""}{a.budget ? `Budget ${a.budget}. ` : ""}{a.timeframe ? `Timeframe ${a.timeframe}. ` : ""}
+                    {(a.tried || []).length ? `Tried: ${a.tried.join(", ")}. ` : ""}
+                    {(run.skipped || []).length ? `Skipped: ${run.skipped.join(", ")}.` : ""}
+                  </p>
+                </>
+              )}
+              meta={`${String(f.updatedAt || f.at).slice(0, 16).replace("T", " ")} · run ${String(run.at || "").slice(0, 16).replace("T", " ")}${run.app?.category ? ` · ${run.app.category}` : ""}${run.provider ? ` · ${run.provider}` : ""}${run.considered != null ? ` · ${run.considered} considered` : ""}`}
+            />
+          );
+        })}
+      </Collapsible>
+    </>
+  );
+}
+
+/*
+ * Announcements: a LinkedIn post queued for something that shipped, so it is
+ * not lost (lib/announcements.js). The Draft button is the trigger: nothing
+ * queues itself, and nothing here posts. Each post shows its checks beside it,
+ * in the warning colour when one fails: a figure that is in neither the
+ * catalogue facts nor the description, a hype word, an em-dash. The editor
+ * still decides whether the words are right.
+ */
+const ANN_STATUS = { draft: "Draft", ready: "Ready", posted: "Posted", dropped: "Dropped" };
+
+function Announcements({ initial = [] }) {
+  const [rows, setRows] = useState(initial);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const [form, setForm] = useState({ kind: "feature", what: "", url: "", since: "" });
+
+  async function post(body, tag) {
+    setBusy(tag); setErr("");
+    try {
+      const res = await fetch("/api/admin/announcements", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      if (!res.ok) { setErr(await res.text()); return false; }
+      setRows((await res.json()).announcements || []);
+      return true;
+    } catch { setErr("Could not reach the server."); return false; } finally { setBusy(""); }
+  }
+
+  const open = rows.filter((r) => r.status === "draft" || r.status === "ready");
+  const done = rows.filter((r) => r.status === "posted" || r.status === "dropped");
+
+  return (
+    <>
+      <Section title="Announcements" count={open.length}
+        hint="A LinkedIn post for something that shipped, queued until it is posted or dropped. Drafting is a button you press; posting is you, pasting it into LinkedIn and marking it posted. Figures come from the published catalogue at the moment of drafting.">
+        <div style={{ padding: "12px 0", borderTop: 0 }}>
+          <div className="flex flex-wrap" style={{ gap: S.sm }}>
+            <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} aria-label="What kind of thing shipped"
+              style={{ ...FIELD, width: 200 }}>
+              <option value="feature">A feature</option>
+              <option value="section">A section</option>
+              <option value="listings">A batch of listings</option>
+            </select>
+            <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://watchfor.tools/... (optional)"
+              aria-label="Where it lives" style={{ ...FIELD, flex: 1, minWidth: 220 }} />
+            {form.kind === "listings" && (
+              <input type="date" value={form.since} onChange={(e) => setForm({ ...form, since: e.target.value })}
+                aria-label="Listings updated since" title="Listings with an updated date on or after this are given to the draft" style={{ ...FIELD, width: 170 }} />
+            )}
+          </div>
+          <Grow value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={3}
+            placeholder="What shipped, in your words. The draft can say only what this and the catalogue say."
+            style={{ ...FIELD, marginTop: S.sm }} />
+          <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
+            <Btn tone="go" busy={busy === "draft"} disabled={form.what.trim().length < 20}
+              onClick={async () => { if (await post({ action: "draft", ...form }, "draft")) setForm({ kind: "feature", what: "", url: "", since: "" }); }}>
+              Draft a post
+            </Btn>
+            {err && <span style={{ fontSize: F.xs, color: C.badInk }}>{err}</span>}
+          </div>
+        </div>
+        {open.length === 0
+          ? <Empty>Nothing queued.</Empty>
+          : open.map((r) => <AnnouncementRow key={r.id} r={r} busy={busy} post={post} />)}
+      </Section>
+      <Collapsible title="Posted and dropped" count={done.length}>
+        {done.length === 0 ? <Empty>Nothing posted or dropped yet.</Empty>
+          : done.map((r) => <AnnouncementRow key={r.id} r={r} busy={busy} post={post} />)}
+      </Collapsible>
+    </>
+  );
+}
+
+function AnnouncementRow({ r, busy, post }) {
+  const [text, setText] = useState(r.text);
+  const [postedAt, setPostedAt] = useState(r.postedAt || new Date().toISOString().slice(0, 10));
+  const [copied, setCopied] = useState(false);
+  useEffect(() => { setText(r.text); }, [r.text]);
+  const c = r.checks || { hype: [], numbers: [], emDash: false, words: 0 };
+  const dirty = text !== r.text;
+  const fails = [
+    c.numbers.length ? `Figures not in the facts or the description: ${c.numbers.join(", ")}` : "",
+    c.hype.length ? `Hype: ${c.hype.join(", ")}` : "",
+    c.emDash ? "Has an em-dash" : "",
+  ].filter(Boolean);
+  const tag = (s) => `${s}:${r.id}`;
+  return (
+    <Row
+      title={r.what.length > 90 ? `${r.what.slice(0, 90)}…` : r.what}
+      tag={ANN_STATUS[r.status]}
+      tagColor={r.status === "ready" ? C.accentInk : C.muted}
+      badges={<>
+        <Pill>{KIND_NAMES[r.kind] || r.kind}</Pill>
+        {r.seeded && <Pill>seeded</Pill>}
+      </>}
+      dim={r.status === "dropped"}
+      meta={`Shipped ${r.shipped || String(r.createdAt).slice(0, 10)}${r.status === "posted" ? ` · posted ${r.postedAt}` : ""} · ${c.words} words${r.provider ? ` · drafted by ${r.provider}` : r.seeded ? " · written in code, figures from today's catalogue" : ""}${r.note ? ` · model note: ${r.note}` : ""}`}
+      body={(
+        <>
+          {fails.length > 0 && <p style={{ margin: "0 0 8px", color: C.warnInk, fontWeight: 600 }}>{fails.join(". ")}.</p>}
+          {r.thin && <p style={{ margin: "0 0 8px", color: C.warnInk }}>The model said the description was thin.</p>}
+          <Grow value={text} onChange={(e) => setText(e.target.value)} rows={8} style={{ ...FIELD, color: C.text }} aria-label="Post text" />
+        </>
+      )}
+      actions={<>
+        {dirty && <Btn tone="go" busy={busy === tag("save")} onClick={() => post({ action: "update", id: r.id, text }, tag("save"))}>Save edit</Btn>}
+        <Btn onClick={async () => {
+          try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
+        }}>{copied ? "Copied" : "Copy text"}</Btn>
+        {r.status !== "ready" && r.status !== "posted" && (
+          <Btn busy={busy === tag("ready")} onClick={() => post({ action: "update", id: r.id, status: "ready", ...(dirty ? { text } : {}) }, tag("ready"))}>Mark ready</Btn>
+        )}
+        {r.status === "ready" && (
+          <Btn busy={busy === tag("draft")} onClick={() => post({ action: "update", id: r.id, status: "draft" }, tag("draft"))}>Back to draft</Btn>
+        )}
+        {r.status !== "posted" && (
+          <span className="inline-flex items-center" style={{ gap: S.xs }}>
+            <input type="date" value={postedAt} onChange={(e) => setPostedAt(e.target.value)} aria-label="Date posted"
+              style={{ ...FIELD, width: 150, padding: "2px 8px", fontSize: F.xs }} />
+            <Btn busy={busy === tag("posted")} onClick={() => post({ action: "update", id: r.id, status: "posted", postedAt, ...(dirty ? { text } : {}) }, tag("posted"))}>Mark posted</Btn>
+          </span>
+        )}
+        {r.status === "posted" && (
+          <Btn busy={busy === tag("unpost")} onClick={() => post({ action: "update", id: r.id, status: "ready" }, tag("unpost"))}>Not posted after all</Btn>
+        )}
+        {r.status !== "dropped"
+          ? <ConfirmBtn busy={busy === tag("drop")} onConfirm={() => post({ action: "update", id: r.id, status: "dropped" }, tag("drop"))}>Drop</ConfirmBtn>
+          : <Btn busy={busy === tag("restore")} onClick={() => post({ action: "update", id: r.id, status: "draft" }, tag("restore"))}>Back to draft</Btn>}
+      </>}
+    />
+  );
+}
+
+const KIND_NAMES = { feature: "feature", section: "section", listings: "listings" };
 
 /* Every finding ever, for when the question is "did we already see this". */
 function ChangelogArchive({ rows = [] }) {
@@ -2247,6 +2509,7 @@ const MAIL_EVENTS = [
   ["signin_link", "Sign-in link"],
   ["subscribe", "Subscribe"],
   ["review", "Review / rating"],
+  ["comment", "Blog comment"],
   ["claim_verified", "Claim verified"],
   ["suggestion", "Suggestion"],
   ["report", "Report"],

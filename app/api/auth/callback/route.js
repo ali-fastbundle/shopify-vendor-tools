@@ -16,6 +16,9 @@ export const dynamic = "force-dynamic";
 function returnPath(id) {
   if (!id) return "/?signin=ok";
   if (id === "@recommend") return "/recommend?signin=ok";
+  /* Minted only for a published post (the request route checked), and the
+     slug is ours, so this is a path on our origin and nowhere else. */
+  if (id.startsWith("post:")) return `/blog/${encodeURIComponent(id.slice(5))}?signin=ok#comments`;
   const safe = encodeURIComponent(id);
   if (NEWSLETTERS.some((n) => n.id === id)) return `/newsletters/${safe}?signin=ok`;
   if (EVENTS.some((e) => e.id === id)) return `/events/${safe}?signin=ok`;

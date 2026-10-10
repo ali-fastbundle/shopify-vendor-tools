@@ -1,4 +1,4 @@
-import { sessionFrom } from "@/lib/auth";
+import { sessionFrom, mintRunToken } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { mergedTools } from "@/lib/listings";
 import { listingHandle, listingUrl, readListing } from "@/lib/appListing";
@@ -70,7 +70,10 @@ export async function POST(request) {
   await tally("recommend:runs");
   await clearDraft(session.email).catch(() => {});
 
+  /* The token is how feedback finds this run without the run knowing whose it
+     was (lib/recommendFeedback.js). */
   return Response.json({
+    runId: row.id, feedbackToken: mintRunToken(row.id),
     app, listingRead, skipped,
     picks: result.picks.map((p) => ({ ...p, path: `/tools/${p.id}` })),
     path: result.path, noneFit: result.noneFit,
