@@ -442,18 +442,36 @@ export async function POST(request) {
    * then deploys. Not the same thing as publish-entry below, which publishes
    * a queue draft into Redis. See lib/publish.js and invariant 12.
    */
+  /*
+   * Every draft action ends in draftDone, success or not: one log line with
+   * the action, the entry and the status, and a publish-log row for anything
+   * that failed. "Discard does not persist" once had no trail at all: the
+   * platform log said a request returned 200 and nothing said what it was.
+   * Ids and statuses only; no address is logged.
+   */
+  async function draftDone(status, { kind, entryId, name, error = "", sha = "" }) {
+    console.log(`[drafts] ${action} ${kind}:${entryId} -> ${status}${sha ? ` ${sha.slice(0, 7)}` : ""}${error ? ` ${String(error).slice(0, 200)}` : ""}`);
+    if (status >= 400) {
+      const { logPublish } = await import("@/lib/publish");
+      await logPublish({ at: new Date().toISOString(), by: session.email, kind, id: entryId, name: name || entryId, outcome: "failed", action, error: String(error).slice(0, 300) }).catch(() => {});
+      return new Response(error, { status });
+    }
+    return null;
+  }
+
   if (action === "publish-file-draft") {
     const kind = String(body.kind || "");
     const { draftFor } = await import("@/lib/draftOutcomes");
     const found = draftFor({ kind, id, name: body.name, build: body.build });
-    if (found.error) return new Response(found.error, { status: found.status });
+    if (found.error) return draftDone(found.status, { kind, entryId: id, name: body.name, error: found.error });
     const { entry } = found;
     /* Loaded here rather than at the top: the parser it brings is needed only
        when somebody presses Publish, not on every admin request. */
     const { commitPublish, logPublish } = await import("@/lib/publish");
     const result = await commitPublish({ kind, id, entry });
-    if (result.error) return new Response(result.error, { status: 400 });
-    await logPublish({ at: new Date().toISOString(), by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url });
+    if (result.error) return draftDone(502, { kind, entryId: id, name: entry.name, error: result.error });
+    await logPublish({ at: new Date().toISOString(), by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url, outcome: "published" });
+    await draftDone(200, { kind, entryId: id, sha: result.sha });
     return Response.json({ ok: true, sha: result.sha, url: result.url });
   }
 
@@ -469,15 +487,16 @@ export async function POST(request) {
     const kind = String(body.kind || "");
     const { draftFor } = await import("@/lib/draftOutcomes");
     const found = draftFor({ kind, id, name: body.name, build: body.build });
-    if (found.error) return new Response(found.error, { status: found.status });
+    if (found.error) return draftDone(found.status, { kind, entryId: id, name: body.name, error: found.error });
     const { entry } = found;
     const { commitDiscard, logPublish } = await import("@/lib/publish");
     const result = await commitDiscard({ kind, id, entry, reason: body.reason });
-    if (result.error) return new Response(result.error, { status: 400 });
+    if (result.error) return draftDone(/one line|under 200/.test(result.error) ? 400 : 502, { kind, entryId: id, name: entry.name, error: result.error });
     const { recordDiscard, clearHold } = await import("@/lib/draftOutcomes");
     const record = await recordDiscard({ kind, entry, reason: body.reason, by: session.email, sha: result.sha, url: result.url });
     await clearHold({ kind, id });
     await logPublish({ at: record.at, by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url, outcome: "discarded", reason: record.reason });
+    await draftDone(200, { kind, entryId: id, sha: result.sha });
     return Response.json({ ok: true, sha: result.sha, url: result.url });
   }
 
@@ -486,11 +505,14 @@ export async function POST(request) {
     const kind = String(body.kind || "");
     const { setHold, clearHold, draftFor } = await import("@/lib/draftOutcomes");
     const found = draftFor({ kind, id, name: body.name, build: body.build });
-    if (found.error) return new Response(found.error, { status: found.status });
+    if (found.error) return draftDone(found.status, { kind, entryId: id, name: body.name, error: found.error });
     const r = action === "hold-draft"
       ? await setHold({ kind, id, note: body.note, by: session.email })
       : await clearHold({ kind, id });
-    if (r.error) return new Response(r.error, { status: 400 });
+    if (r.error) return draftDone(400, { kind, entryId: id, name: found.entry.name, error: r.error });
+    await draftDone(200, { kind, entryId: id });
+    const { logPublish } = await import("@/lib/publish");
+    await logPublish({ at: new Date().toISOString(), by: session.email, kind, id, name: found.entry.name, outcome: action === "hold-draft" ? "held" : "unheld", reason: action === "hold-draft" ? String(body.note || "").slice(0, 300) : "" });
     return Response.json({ holds: r.holds });
   }
 

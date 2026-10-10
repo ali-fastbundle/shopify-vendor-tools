@@ -1605,6 +1605,9 @@ function DraftActions({ kind, entry, canCommit, build, hold, onHolds }) {
       if (!res.ok) { setState({ status: "error", msg: await res.text(), url: "", sha: "", what }); return; }
       const d = await res.json();
       if (d.holds) { onHolds(d.holds); reset(); return; }
+      /* Done means a commit exists. A 200 without one is reported as what it
+         is, never shown as success. */
+      if (!d.sha) { setState({ status: "error", msg: "The server answered without a commit, so nothing is known to have been written. Check Committed from here, then reload.", url: "", sha: "", what }); return; }
       setState({ status: "done", msg: "", url: d.url, sha: d.sha, what });
     } catch {
       setState({ status: "error", msg: "Could not reach the server.", url: "", sha: "", what });
@@ -1726,7 +1729,7 @@ const FILE_OF = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", event:
  * after the note and the watch in full, so nothing can be published, held or
  * discarded without the text a button cannot check having been on screen.
  */
-function DraftRow({ kind, entry, canCommit, build, hold, onHolds }) {
+function DraftRow({ kind, entry, canCommit, build, hold, onHolds, pending }) {
   const [open, setOpen] = useState(false);
   const facts = Object.entries(entry).filter(([key, v]) => !SKIP.includes(key) && factValue(v) !== "");
   return (
@@ -1745,6 +1748,11 @@ function DraftRow({ kind, entry, canCommit, build, hold, onHolds }) {
         {hold && (
           <span style={{ display: "block", fontSize: F.xs, color: C.dim, margin: "4px 0 0 18px", lineHeight: 1.5 }}>
             On hold: {hold.note} · {hold.by} · {String(hold.at || "").slice(0, 10)}
+          </span>
+        )}
+        {pending && (
+          <span style={{ display: "block", fontSize: F.xs, color: C.accentInk, margin: "4px 0 0 18px", lineHeight: 1.5 }}>
+            {pending.outcome === "discarded" ? "Discarded" : "Published"} in {String(pending.sha).slice(0, 7)} at {String(pending.at).slice(11, 16)} UTC, waiting for Vercel to deploy it. Reload in a minute.
           </span>
         )}
       </button>
@@ -1770,7 +1778,11 @@ function DraftRow({ kind, entry, canCommit, build, hold, onHolds }) {
               <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
             </p>
             : <p style={{ color: C.badInk, margin: "8px 0 0" }}>No watch note. Not publishable without one.</p>}
-          <DraftActions kind={kind} entry={entry} canCommit={canCommit} build={build} hold={hold} onHolds={onHolds} />
+          {pending
+            ? <p style={{ fontSize: F.xs, color: C.muted, margin: `${S.md}px 0 0` }}>
+              Already committed{pending.url ? <> (<a href={pending.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>the commit</a>)</> : ""}. No action until the deploy that removes it from this list.
+            </p>
+            : <DraftActions kind={kind} entry={entry} canCommit={canCommit} build={build} hold={hold} onHolds={onHolds} />}
         </div>
       )}
     </div>
@@ -1781,11 +1793,16 @@ function Drafts({ publishing = { canPublish: false, log: [], build: "" }, holds 
   const [holdMap, setHoldMap] = useState(holds);
   const rows = SOURCES.flatMap(({ kind, entries }) => drafted(entries).map((entry) => ({ kind, entry })));
   const holdOf = ({ kind, entry }) => holdMap[`${kind}:${entry.id}`] || null;
+  /* A draft this build still has, which the log says was committed away: the
+     commit exists and the deploy has not landed. Without this a refresh in that
+     minute looks exactly like a press that did nothing. */
+  const pendingOf = ({ kind, entry }) => (publishing.log || []).find((r) =>
+    r.kind === kind && r.id === entry.id && r.sha && (r.outcome === "discarded" || r.outcome === "published" || !r.outcome)) || null;
   const active = rows.filter((r) => !holdOf(r));
   const held = rows.filter((r) => holdOf(r));
   const row = (r) => (
     <DraftRow key={`${r.kind}:${r.entry.id}`} kind={r.kind} entry={r.entry}
-      canCommit={publishing.canPublish} build={publishing.build} hold={holdOf(r)} onHolds={setHoldMap} />
+      canCommit={publishing.canPublish} build={publishing.build} hold={holdOf(r)} onHolds={setHoldMap} pending={pendingOf(r)} />
   );
 
   return (
@@ -1822,9 +1839,13 @@ function Drafts({ publishing = { canPublish: false, log: [], build: "" }, holds 
 
       {publishing.log?.length > 0 && (
         <Collapsible title="Committed from here" count={publishing.log.length}
-          hint="Every publish and discard made from this panel, newest first.">
+          openWhen={publishing.log.slice(0, 5).some((r) => r.outcome === "failed")}
+          hint="Every publish, discard and hold made from this panel, newest first, and every one that failed, with the reason it gave.">
           {publishing.log.map((r) => (
-            <Row key={`${r.at}-${r.id}`} title={r.name || r.id} tag={r.outcome === "discarded" ? `${r.kind}, discarded` : r.kind}
+            <Row key={`${r.at}-${r.id}`} title={r.name || r.id}
+              tag={`${r.kind}, ${r.outcome === "failed" ? `${String(r.action || "").replace(/-file-draft|-draft/, "")} failed` : r.outcome || "published"}`}
+              tagColor={r.outcome === "failed" ? C.badInk : undefined}
+              body={r.outcome === "failed" ? <p style={{ margin: 0, lineHeight: 1.5 }}>{r.error}</p> : null}
               meta={`${String(r.at).slice(0, 16).replace("T", " ")} · ${r.by}${r.sha ? ` · ${r.sha.slice(0, 7)}` : ""}${r.reason ? ` · ${r.reason}` : ""}`}
               actions={r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
           ))}

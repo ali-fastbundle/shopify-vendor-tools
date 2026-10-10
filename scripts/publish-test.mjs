@@ -38,6 +38,7 @@ register("data:text/javascript," + encodeURIComponent(hook));
 /* GitHub, stubbed: serves the real file, records the PUT. */
 const puts = [];
 let putStatus = 200;
+let putBody = null; // set to override what a successful-looking PUT returns
 globalThis.fetch = async (url, init = {}) => {
   const u = String(url);
   if (!u.startsWith("https://api.github.com/repos/")) throw new Error(`unexpected network call: ${u}`);
@@ -47,7 +48,8 @@ globalThis.fetch = async (url, init = {}) => {
   }
   const body = JSON.parse(init.body);
   puts.push({ path, ...body, source: Buffer.from(body.content, "base64").toString("utf8") });
-  if (putStatus !== 200) return Response.json({ message: "conflict" }, { status: putStatus });
+  if (putStatus !== 200) return Response.json({ message: putStatus === 409 ? "conflict" : "Resource not accessible by personal access token" }, { status: putStatus });
+  if (putBody) return Response.json(putBody);
   return Response.json({ commit: { sha: "def4567890", html_url: "https://github.com/x/y/commit/def456" } });
 };
 
@@ -196,6 +198,32 @@ ok(disc[0]?.id === dd.id && disc[0]?.reason === "Out of scope: merchant-facing" 
 ok(liveDiscards(disc, fileKeys()).length === 0, "while the entry is still in the deployed file, the discard does not stand yet");
 ok(liveDiscards(disc, new Set()).length === 1, "once it is gone from the file, it stands");
 ok((await readPublishLog(5))[0]?.outcome === "discarded", "the discard is in the publish log");
+
+console.log("\na write that cannot complete says so:");
+{
+  const lines = [];
+  const orig = console.log;
+  console.log = (...a) => { lines.push(a.join(" ")); };
+  const pick = Object.entries(catalogues).flatMap(([kind, list]) => drafted(list).map((e) => [kind, e])).find(([k]) => k === "event") || [DK, dd];
+  const [FK, fe] = pick;
+  putBody = { content: {} }; // 2xx, no commit
+  const a = await call({ action: "discard-file-draft", kind: FK, id: fe.id, reason: "test" }, sess("admin@example.com"));
+  const aMsg = await a.text();
+  putBody = null; putStatus = 403;
+  const b = await call({ action: "publish-file-draft", kind: K, id: mp.id }, sess("admin@example.com"));
+  const bMsg = await b.text();
+  putStatus = 200;
+  console.log = orig;
+  ok(a.status === 502 && /returned no commit/.test(aMsg), "GitHub answering 2xx with no commit is a failure, not a success", `${a.status} ${aMsg}`);
+  ok(b.status === 502 && /GitHub answered 403: Resource not accessible/.test(bMsg), "GitHub refusing comes back with its own status and words", `${b.status} ${bMsg}`);
+  const log = await readPublishLog(10);
+  ok(log.some((r) => r.outcome === "failed" && r.action === "discard-file-draft" && r.id === fe.id && /no commit/.test(r.error)), "the failed discard is in the publish log, with why");
+  ok(log.some((r) => r.outcome === "failed" && r.action === "publish-file-draft" && /403/.test(r.error)), "and so is the failed publish");
+  ok(lines.some((l) => l.startsWith(`[drafts] discard-file-draft ${FK}:${fe.id} -> 502`)), "each outcome is one log line naming the action, the entry and the status", lines.join(" | ").slice(0, 160));
+  ok(!lines.some((l) => /@/.test(l)), "and no log line carries an address");
+  const { getDiscards: gd } = await L("lib/draftOutcomes.js");
+  ok(!(await gd()).some((d) => d.id === fe.id), "a failed discard records nothing as discarded");
+}
 
 console.log("\nhold:");
 const putsAtHold = puts.length;

@@ -241,6 +241,18 @@ compares the page's build (`VERCEL_GIT_COMMIT_SHA`) with its own, matches the id
 checks the name the page showed against the name in this build, and says which of those
 disagreed. A lookup that misses silently is not acceptable once one of the actions deletes.
 
+**A draft action that cannot complete says so, and every outcome leaves a trail.** Success
+is a commit hash: GitHub answering 2xx without a commit is reported as a failure, and the
+panel shows nothing as done without a hash. GitHub's own status and message come back to
+the button (502), and every Publish, Discard, Hold and un-hold logs one `[drafts]` line with
+the action, `kind:id` and status (ids only, never an address) and writes failures to the
+publish log beside the successes, where Committed from here shows them with their reason.
+This exists because "Discard does not persist" once had no trail: the platform log said a
+request returned 200, and nothing said which action it was. A draft the log says was
+committed away, in a build that has not deployed yet, shows "waiting for Vercel to deploy
+it" with no buttons, so a refresh in that minute does not look like a press that did
+nothing.
+
 **The panel is collapsed per draft**: name, type and the one-line summary. Everything else,
 and every outcome button, is inside the expanded row, after the note and the watch in full,
 so nothing can be published, held or discarded without the text a button cannot check
