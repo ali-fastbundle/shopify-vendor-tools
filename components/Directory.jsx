@@ -448,7 +448,9 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
                 /* The placeholder is the explainer the heading and the two-line
                    paragraph used to be. It says the same thing in the place the
                    person is already looking. */
-                placeholder="Describe it in your own words. We bill through Mantle and need somewhere to go before 30 September…"
+                /* No dates in the example: it read "before 30 September" and was
+                   wrong from 1 October. Mantle is already the first example below. */
+                placeholder="Describe it in your own words. We have one app, no budget yet, and want to see which keywords we rank for…"
                 rows={2}
                 style={{
                   flex: 1, minWidth: 200, minHeight: 60, resize: "vertical",
