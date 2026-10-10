@@ -978,7 +978,18 @@ editorial.
 are otherwise identical on the wire: both go to the admin address. Without the
 flag, clearing test rows out of the log means guessing.
 
-**`Reset test data` clears votes, reviews, subscribers and the mail log.** The
+**A row is deleted by what it is, never by where it was.** Mail log rows have no id and
+were deleted by position, but the log is newest first and grows with every sign-in link and
+digest, so one send between loading the panel and pressing Delete moved every row down a
+place and the press removed the row next to the one marked. `mailRowId` (time, event, side,
+recipient) is the identity now, and exactly one row must match or nothing goes. Reviews are
+`<toolId>:<reviewId>` and subscribers and accounts are the address, which were already stable.
+
+**`Reset test data` clears votes, reviews, subscribers and the mail log, all of it.** It is
+not a test-data filter: it deletes reviews real people wrote and every confirmation and
+exclusion on them, so its confirm states the four counts it is about to delete, and the
+panel says to delete test rows one at a time when real ones exist. Follows are not part of
+it. The
 list lives in `lib/inventory.js`, so the confirmation text and what is actually
 deleted are read from one place, and the button names all four on the confirm
 rather than in a paragraph above it: the click is the approval, so everything

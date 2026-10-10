@@ -127,11 +127,22 @@ console.log("\nmarking one row at a time:");
   ok(r.ok, "a subscriber goes");
   ok((await store.read(K.subscribers, [])).length === 1, "and the list is one shorter");
 
-  r = await inv.deleteRow("mail", "0");
-  ok(r.ok, "a mail log row goes by position", r.error || "");
+  /* By what the row is, the id the panel renders, never by position. */
+  const marked = (await store.readMailLog(50))[0];
+  const markedId = inv.mailRowId(marked);
+  /* A send lands between the panel loading and the press: newest first, so it
+     takes position 0 and every row the panel showed moves down one. Deleting
+     by position would now remove this new row instead of the one marked. */
+  const fresh = { at: "2026-10-10T23:59:00.000Z", event: "signin_link", cls: "user", to: "someone@real.invalid", ok: true };
+  await store.writeCapped("svt:maillog", [fresh, ...(await store.readMailLog(50))], 500);
+  r = await inv.deleteRow("mail", markedId);
+  ok(r.ok, "a mail log row goes by what it is, not where it was", r.error || "");
   const log = await store.readMailLog(50);
-  ok(log.length === 2, "the log is one shorter", `${log.length}`);
-  ok(log[0].event === "subscribe", "and the rest keep their order, newest first", log.map((l) => l.event).join(", "));
+  ok(log.length === 3, "the log is one shorter", `${log.length}`);
+  ok(log[0].event === "signin_link" && !log.some((l) => inv.mailRowId(l) === markedId),
+    "the row marked is the one gone, though a send moved it down a place", log.map((l) => l.event).join(", "));
+  ok(log.slice(1).map((l) => l.event).join() === "subscribe,review", "and the rest keep their order, newest first", log.map((l) => l.event).join(", "));
+  ok(/no longer there/.test((await inv.deleteRow("mail", markedId)).error || ""), "pressing it again finds it gone and says so");
 
   /* Deleting the last review on a tool should take the tool's key with it,
      rather than leaving an empty array that reads as "reviewed, zero reviews". */
@@ -146,7 +157,7 @@ console.log("\nand refusing what it is not for:");
     ok(Boolean(r.error), `"${target || "(empty)"}" is not a target this can delete`, r.error || "IT DELETED SOMETHING");
   }
   ok((await inv.deleteRow("review", "applora:nope")).error, "an id that is not there is an error, not a silent no-op");
-  ok((await inv.deleteRow("mail", "99")).error, "and so is a position past the end of the log");
+  ok((await inv.deleteRow("mail", "0")).error, "and a bare position is not an identity at all");
 }
 
 /* ---------------------------------------------------------------- */

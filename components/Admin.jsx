@@ -734,6 +734,8 @@ function Housekeeping({ inventory = [] }) {
   }
 
   const total = rows.reduce((n, r) => n + Math.max(0, r.count), 0);
+  const countOf = (label) => Math.max(0, rows.find((r) => r.label === label)?.count || 0);
+  const resetCounts = `${countOf("Votes")} vote rows, ${countOf("Reviews")} reviews, ${countOf("Subscribers")} subscribers and ${countOf("Mail log")} mail log rows`;
 
   return (
     <Collapsible title="Store contents" count={total}
@@ -797,14 +799,19 @@ function Housekeeping({ inventory = [] }) {
       <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.lg, paddingTop: S.lg }}>
         <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, maxWidth: "76ch", margin: 0 }}>
           <b style={{ color: C.text }}>Reset test data</b> deletes every vote, every review, every
-          subscriber and the whole mail log. It does not touch the catalogue, vendor edits, published
+          subscriber on the site-wide list and the whole mail log: everything, not only test rows,
+          so reviews a real person wrote and the confirmations and exclusions on them go too. To
+          keep the real ones, delete the test rows one at a time above instead. Follows of a
+          newsletter or event are not part of it. It does not touch the catalogue, vendor edits, published
           entries, claims, suggestions, reports, the monitor snapshots or the counters. The snapshots
           especially: without them the next weekly run has nothing to compare against and reports
           every tool in the directory as changed.
         </p>
         <div className="flex flex-wrap items-center mt-3" style={{ gap: S.md }}>
+          {/* The numbers are on the confirm, because this deletes every review,
+              real ones included, along with every decision made about them. */}
           <ConfirmBtn onConfirm={reset} busy={busy === "reset"}
-            confirm="Delete votes, reviews, subscribers and the mail log">
+            confirm={`Delete ${resetCounts}`}>
             Reset test data
           </ConfirmBtn>
           {done && <span style={{ fontSize: F.xs, color: C.accentInk }}>{done}</span>}
