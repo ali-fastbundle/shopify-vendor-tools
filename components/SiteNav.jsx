@@ -1,5 +1,5 @@
 import React from "react";
-import { C, S, R, F } from "@/lib/tools";
+import { C, S, F } from "@/lib/tools";
 
 /*
  * The top-level views, on the pages that are one: Directory, Newsletters,
@@ -10,9 +10,9 @@ import { C, S, R, F } from "@/lib/tools";
  * in-place views. The directory itself keeps its own copy of this row inside
  * Directory.jsx, because there Recent updates is a tab it can render in place.
  *
- * Same visual contract as that row: the current view takes the neutral
- * inversion, the device a selected state uses everywhere on this site. No
- * category colour and no accent.
+ * Same visual contract as the directory's top bar: the current view takes the
+ * neutral inversion, the device a selected state uses everywhere on this site.
+ * No category colour and no accent.
  */
 export const SITE_VIEWS = [
   { id: "directory", label: "Directory", href: "/" },
@@ -22,27 +22,22 @@ export const SITE_VIEWS = [
   { id: "blog", label: "Blog", href: "/blog" },
 ];
 
-export const viewStyle = (on) => ({
-  textDecoration: "none",
-  background: on ? C.text : C.panel,
-  color: on ? C.bg : C.muted,
-  border: `1px solid ${on ? C.text : C.line}`,
-  borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
-  fontFamily: "inherit", whiteSpace: "nowrap",
-});
-
 export default function SiteNav({ current }) {
+  /* The same frame as the directory's top bar (.topbar, .navtab in
+     globals.css): wordmark, then the sections as text tabs, the current one
+     in the neutral inversion. */
   return (
-    <nav aria-label="Sections" style={{ paddingTop: S["2xl"] }}>
-      <div className="flex flex-wrap items-center" style={{ gap: S.xs }}>
-        <a href="/" style={{ color: C.text, fontWeight: 800, fontSize: F.md, textDecoration: "none", marginRight: S.md }}>
+    <nav aria-label="Sections" style={{ paddingTop: S.lg }}>
+      <div className="topbar">
+        <a href="/" className="topbar-brand" style={{ color: C.text, fontWeight: 800, fontSize: F.lg, textDecoration: "none", whiteSpace: "nowrap" }}>
           watchfor.tools
         </a>
-        {SITE_VIEWS.map((v) => (
-          <a key={v.id} href={v.href} className="ctl press"
-            aria-current={v.id === current ? "page" : undefined}
-            style={viewStyle(v.id === current)}>{v.label}</a>
-        ))}
+        <div className="topbar-tabs">
+          {SITE_VIEWS.map((v) => (
+            <a key={v.id} href={v.href} className="navtab"
+              aria-current={v.id === current ? "page" : undefined}>{v.label}</a>
+          ))}
+        </div>
       </div>
     </nav>
   );

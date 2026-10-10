@@ -1525,8 +1525,9 @@ yourself passing a `changes` prop into a listing component, that is this rule
 being broken.
 
 **The directory has two views, and the catalogue is always the default.**
-A switcher above the filters, matching the view toggle's shape: `role="group"`
-and `aria-pressed`, not `role="tab"`, because neither implements the arrow-key
+The views are tabs in the one top bar (`.topbar`, `.navtab`), between the wordmark
+and the account controls, beside the links to Newsletters, Events and Blog. Directory
+and Recent updates take `aria-pressed`, not `role="tab"`, because neither implements the arrow-key
 contract `role="tab"` promises. Selected is a state rather than an action, so it
 takes the neutral inversion, the same device as the "All" chip. No category
 colour, because it is not a category, and no accent, because green does things.
@@ -1572,8 +1573,8 @@ costs the count and nothing else, and a corrupt mark fails closed to no count,
 which is the direction to fail in.
 
 **Anything added above the grid comes out of the fold budget** (invariant F).
-The switcher costs roughly 50px and the header's bottom padding gave back 4 of
-them. Measure before adding a third thing.
+The tabs live in the top bar now and cost nothing of their own. Measure before
+adding anything.
 
 **RSS lives at `/changes/rss`**, declared through `alternates.types` on the page
 so a reader finds it without being told. It is the one surface here that a person
@@ -2076,7 +2077,8 @@ and the filter chips.
   the same 3px turned on its side at the head of a list row or a matcher result
 - the category label set in `ink(colour)` directly under the tool name, which is
   also a real link to `/categories/<id>` (invariant 36)
-- the category filter chips, and the kind chips in the suggest modal, which are the
+- the category filter chips (a rail beside the grid, with the hue as the chip's
+  2px edge), and the kind chips in the suggest modal, which are the
   same device
 
 Nowhere else. Not the lettermark, not a badge, not a border, not a button, not a link,
@@ -2138,6 +2140,29 @@ one-line subhead and stats on the left, the matcher on the right, stacked below 
 The matcher is a control, not a hero: no heading paragraph, a two-row textarea, and the
 examples behind a disclosure. Once it has an answer the grid drops to one column, since
 the answer is a list of tools and wants the width.
+
+**One top bar, a sentence of stats, a category rail (2026-10-10).** The 400px budget had
+crept back to 470 with the first row cut off, because three layers of navigation stacked
+above the grid at one weight: the wordmark row, a view switcher, and eleven chips wrapping
+to two rows. Now:
+
+- **One frame row** (`.topbar`): wordmark, section tabs, account and theme. `SiteNav`
+  renders the same row on every other index page. Below 1024px the tabs take their own
+  row and scroll sideways; below 640px the theme toggle moves to the footer, because
+  the wordmark, Sign in and three theme buttons do not fit a 390px row.
+- **The stats are one sentence** under the headline. No newsletter count (the tab says
+  it) and no review count (it was zero; rule E).
+- **The matcher's heading is its textarea's label**, padding 12. On a phone it starts as
+  one full-width button that opens it in place, decided in CSS (`.matcher-toggle`,
+  `.matcher-body`) so the server render is right at every width.
+- **Categories are a rail** (`.dir-body`, `.rail`) beside the grid from 1024px, with Free
+  plan below them, sticky, and a sideways-scrolling row of chips below 1024px. The grid
+  is three cards wide at 1366 rather than four.
+- **Add a tool is neutral.** Find tools is the one green button above the fold; the
+  invite card at the end of the grid keeps its green.
+
+Measured at 1366x727 (a 768 laptop after browser chrome): first card at 295px, the whole
+first row visible. At 390px: 501px, down from over 900.
 
 Anything added to the masthead comes out of the fold budget. Measure before and after.
 

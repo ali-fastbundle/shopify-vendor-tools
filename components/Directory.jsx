@@ -369,6 +369,7 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [editing, setEditing] = useState(true);
+  const [opened, setOpened] = useState(false);
 
   /* What the matcher may recommend. See invariant 35. */
   const pool = useMemo(() => tools.filter(recommendable), [tools]);
@@ -414,10 +415,24 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
   );
 
   return (
-    <div>
-      <div style={{
+    <div className={opened ? "matcher-open" : ""}>
+      {/* On a phone the matcher starts as this one button and opens in
+          place; from 1024px it is always open (globals.css). CSS decides, so
+          the server render is right at every width. */}
+      <button type="button" className="matcher-toggle ctl press" onClick={() => setOpened(true)}
+        aria-controls="matcher-body" aria-expanded={opened}
+        style={{
+          width: "100%", alignItems: "center", justifyContent: "space-between", gap: S.md,
+          background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
+          padding: "12px 16px", fontSize: F.md, fontWeight: 600, color: C.text,
+          cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+        }}>
+        <span>Describe a problem, get matched to tools</span>
+        <span aria-hidden="true" style={{ color: C.dim, fontWeight: 400 }}>+</span>
+      </button>
+      <div id="matcher-body" className="matcher-body" style={{
         background: C.hero,
-        border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg,
+        border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.md,
       }}>
         {!editing && result ? (
           /* Asked and answered: the question shrinks to one line so the answer leads. */
@@ -436,12 +451,14 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
           </div>
         ) : (
           <>
-            <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
+            {/* The heading is the textarea's label: one element doing the job
+                two did, and a click on it puts the cursor in the box. */}
+            <label htmlFor="matcher-q" style={{ display: "block", fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
               What are you trying to solve?
-            </h2>
-            <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.md }}>
+            </label>
+            <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.sm }}>
               <textarea
-                aria-label="Describe what you need, in your own words"
+                id="matcher-q"
                 value={problem}
                 onChange={(e) => setProblem(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }}
@@ -1043,151 +1060,76 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
       <div className="mx-auto" style={{ maxWidth: 1280, padding: "0 20px", position: "relative" }}>
 
         {/*
-          * Masthead.
+          * The frame and the masthead.
           *
-          * The headline and the matcher used to be stacked, and between them
-          * they put the first tool card 709px down the page: on a 1366x768
-          * laptop the directory itself was below the fold. They sit side by
-          * side now, the matcher is a control rather than a hero panel, and
-          * the row of category swatches that sat here is gone. The wordmark
-          * already states that legend, and the filter chips below state it
-          * again where it is also a control.
+          * Three layers of navigation used to sit above the grid at the same
+          * weight: the wordmark row, a view switcher, and two wrapping rows of
+          * category chips. The first card started 470px down a 1366x768
+          * laptop and its row was cut off. Now the frame is one bar (the
+          * section tabs between the wordmark and the account controls), the
+          * stats are a sentence under the headline, and the categories are a
+          * rail beside the grid. The first card starts under 300px.
           *
-          * Two columns above 900px, stacked below.
+          * Recent updates is a tab in the frame, which is where a returning
+          * visitor looks. It is a real anchor to /changes: a plain left click
+          * is intercepted and the rows render here; a middle click, a modifier
+          * click, a crawler and a browser with no JavaScript all get the
+          * standalone page. aria-pressed rather than role="tab", because
+          * neither this nor the view toggle implements the arrow-key contract
+          * role="tab" promises. Selected is a state, so the neutral
+          * inversion: no category colour, no accent.
           */}
-        <header style={{ paddingTop: S["3xl"], paddingBottom: S.xl }}>
-          <div className="flex flex-wrap items-center justify-between" style={{ gap: S.lg, marginBottom: S["2xl"] }}>
-            <Wordmark />
-            {/* minHeight is the signed-out bar's own height (38px): it renders
-                nothing until the session loads, and the row grew 6px when it
-                did, moving the whole masthead. */}
-            <div className="flex flex-wrap items-center" style={{ gap: S.md, minHeight: 38 }}>
-              {/* Recent updates used to sit here, a small link between the
-                  wordmark and the account controls, which is where links go to
-                  be ignored. It is one of the two things the directory is for,
-                  so it is a view now, in the switcher above the grid. */}
+        <header style={{ paddingTop: S.lg }}>
+          <div className="topbar">
+            <div className="topbar-brand"><Wordmark /></div>
+            <nav aria-label="Sections" className="topbar-tabs">
+              <button className="navtab" aria-pressed={view2 === "directory"} onClick={() => setView2("directory")}>Directory</button>
+              <a className="navtab" href="/newsletters">Newsletters</a>
+              <a className="navtab" href="/events">Events</a>
+              <a className="navtab" aria-pressed={view2 === "updates"} href="/changes"
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                  e.preventDefault();
+                  showUpdates();
+                }}>
+                Recent updates
+                {/* Only above zero, and never a coloured dot. A first-time
+                    visitor has nothing stored to be new against. Rule E. */}
+                {unread > 0 && view2 !== "updates" && (
+                  <span className="tnum" style={{ color: C.text, fontWeight: 700 }}>{unread}</span>
+                )}
+              </a>
+              <a className="navtab" href="/blog">Blog</a>
+            </nav>
+            {/* minHeight is the signed-out bar's own height: it renders nothing
+                until the session loads, and the row grew when it did. */}
+            <div className="topbar-account flex items-center" style={{ gap: S.md, minHeight: 38 }}>
               <AccountBar session={session} refresh={refreshSession} />
-              <ThemeToggle />
+              {/* On a phone the theme toggle is in the footer instead: the
+                  wordmark, Sign in and three theme buttons do not fit one row
+                  at 390px, and Auto already follows the phone. */}
+              <span className="theme-top"><ThemeToggle /></span>
             </div>
           </div>
 
-          <div className={answered ? "masthead masthead-answered" : "masthead"}>
+          <div className={answered ? "masthead masthead-answered" : "masthead"} style={{ marginTop: S["2xl"], paddingBottom: S.xl }}>
             <div style={{ minWidth: 0 }}>
-              <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
+              <h1 className="hero-title" style={{ fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.1, margin: 0 }}>
                 {HEADLINE}
               </h1>
-              <p style={{ fontSize: F.lg, color: C.muted, maxWidth: "48ch", lineHeight: 1.5, margin: `${S.md}px 0 0` }}>
-                Every tool the people who build Shopify apps actually reach for.
-                Open directory, community rated.
+              {/* The stats as a sentence. A row of five counts read as five
+                  things to look at, one of them zero; this is one line saying
+                  what the directory is. No review count: it was 0, and when
+                  there is nothing, render nothing (rule E). */}
+              <p className="tnum" style={{ fontSize: F.lg, color: C.muted, maxWidth: "52ch", lineHeight: 1.5, margin: `${S.sm}px 0 0` }}>
+                {tools.length} tools for the people who build Shopify apps, in {CATEGORIES.length} categories,
+                community rated. <span style={{ color: C.dim }}>Updated {LAST_UPDATED}.</span>
               </p>
-              <div className="flex flex-wrap items-center tnum" style={{ gap: S.lg, fontSize: F.sm, color: C.muted, marginTop: S.lg }}>
-                <span><b style={{ color: C.text }}>{tools.length}</b> tools</span>
-                <span><b style={{ color: C.text }}>{CATEGORIES.length}</b> categories</span>
-                {newsletterCount > 0 && (
-                  <a href="/newsletters" style={{ color: C.muted, textDecoration: "none" }}>
-                    <b style={{ color: C.text }}>{newsletterCount}</b> newsletters
-                  </a>
-                )}
-                <span><b style={{ color: C.text }}>{loading ? "\u2026" : totalReviews}</b> community reviews</span>
-                <span style={{ color: C.dim }}>Updated {LAST_UPDATED}</span>
-              </div>
             </div>
             <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest}
               onAnswered={setAnswered} />
           </div>
         </header>
-
-        {/*
-          * The two things the directory is for, as a view switcher.
-          *
-          * Recent updates was a small link between the wordmark and the account
-          * controls, which is where links go to be ignored. It is half of what
-          * the site is: the catalogue says what exists, this says what moved.
-          *
-          * The tab is a real anchor to /changes. A plain left click is
-          * intercepted and the rows render here; a middle click, a modifier
-          * click, a crawler and a browser with no JavaScript all get the
-          * standalone page, which keeps its own title, description and
-          * JSON-LD. That page is the one that changes weekly, so it has to stay
-          * a page rather than become a tab somebody has to know to press.
-          *
-          * A selected tab is a state rather than an action, so it takes the
-          * neutral inversion, the same device as the "All" chip and the view
-          * toggle. No category colour: it is not a category. No accent: green
-          * is for things that do something.
-          */}
-        {/* A nav landmark around the views, the same "Sections" landmark the
-            other index pages get from SiteNav. The group inside keeps its
-            aria-pressed contract. */}
-        <nav aria-label="Sections">
-        <div role="group" aria-label="Directory views" className="flex flex-wrap items-center"
-          style={{ gap: S.xs, marginBottom: S.md, borderBottom: `1px solid ${C.line}`, paddingBottom: S.sm }}>
-          <button aria-pressed={view2 === "directory"}
-            onClick={() => setView2("directory")}
-            className="ctl press"
-            style={{
-              background: view2 === "directory" ? C.text : C.panel,
-              color: view2 === "directory" ? C.bg : C.muted,
-              border: `1px solid ${view2 === "directory" ? C.text : C.line}`,
-              borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit",
-            }}>Directory</button>
-
-          {/* Real pages, not in-place views: plain links to /newsletters and
-              /events, never the selected state on this page because selecting
-              one leaves this page. Styled like the others unselected, and in
-              the same order as SiteNav on those pages. */}
-          <a href="/newsletters" className="ctl press"
-            style={{
-              textDecoration: "none", background: C.panel, color: C.muted,
-              border: `1px solid ${C.line}`, borderRadius: R.control,
-              padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
-            }}>Newsletters</a>
-
-          <a href="/events" className="ctl press"
-            style={{
-              textDecoration: "none", background: C.panel, color: C.muted,
-              border: `1px solid ${C.line}`, borderRadius: R.control,
-              padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
-            }}>Events</a>
-
-          {/* An anchor rather than a button, because it goes somewhere real.
-              aria-pressed matches the view toggle: neither this nor that
-              implements the arrow-key contract that role="tab" promises, so
-              neither claims it. */}
-          <a aria-pressed={view2 === "updates"} href="/changes"
-            onClick={(e) => {
-              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-              e.preventDefault();
-              showUpdates();
-            }}
-            className="ctl press flex items-center"
-            style={{
-              gap: S.sm, textDecoration: "none",
-              background: view2 === "updates" ? C.text : C.panel,
-              color: view2 === "updates" ? C.bg : C.muted,
-              border: `1px solid ${view2 === "updates" ? C.text : C.line}`,
-              borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit",
-            }}>
-            <span>Recent updates</span>
-            {/* Only above zero, and never a coloured dot. A first-time visitor
-                has no mark stored, so there is nothing to be new against and
-                the tab is just a tab. Rule E: when there is nothing, render
-                nothing. */}
-            {unread > 0 && view2 !== "updates" && (
-              <span className="tnum" style={{ color: C.text, fontWeight: 700 }}>{unread}</span>
-            )}
-          </a>
-
-          <a href="/blog" className="ctl press"
-            style={{
-              textDecoration: "none", background: C.panel, color: C.muted,
-              border: `1px solid ${C.line}`, borderRadius: R.control,
-              padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
-            }}>Blog</a>
-        </div>
-        </nav>
 
         <main id="main" tabIndex={-1} style={{ outline: "none" }}>
         {view2 === "updates" ? (
@@ -1200,20 +1142,40 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
           </div>
         ) : (
         <>
-        {/* Filters */}
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-          {/* No category behind it, so no category colour to borrow: All fills
-              with the text colour and inks with the background, which is the
-              one pair that inverts correctly in both themes. */}
-          <FilterChip active={cat === "all"} color={C.text} ink={C.bg}
-            onClick={() => setCat("all")} label="All" count={tools.length} />
-          {CATEGORIES.map((c) => (
-            <FilterChip key={c.id} active={cat === c.id} color={c.color} onClick={() => setCat(c.id)}
-              label={c.label} count={tools.filter((t) => isInCat(t, c.id)).length} />
-          ))}
-        </div>
+        {/*
+          * The categories are a rail beside the grid from 1024px, a sideways
+          * scrolling row of chips below it. Colour stays on the chip, which is
+          * one of the three places category colour may appear (invariant A).
+          * Free plan is a filter too, so it lives with them.
+          */}
+        <div className="dir-body">
+        <aside aria-label="Filter by category">
+          <div className="rail">
+            <p className="rail-head" style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, margin: `0 0 ${S.xs}px` }}>Categories</p>
+            {/* No category behind it, so no category colour to borrow: All
+                fills with the text colour and inks with the background. */}
+            <FilterChip active={cat === "all"} color={C.text} ink={C.bg}
+              onClick={() => setCat("all")} label="All" count={tools.length} />
+            {CATEGORIES.map((c) => (
+              <FilterChip key={c.id} active={cat === c.id} color={c.color} onClick={() => setCat(c.id)}
+                label={c.label} count={tools.filter((t) => isInCat(t, c.id)).length} />
+            ))}
+            {/* A filter that is on is a state, not an action, so it takes the
+                neutral inversion rather than the action green. */}
+            <button onClick={() => setFreeOnly((f) => !f)} aria-pressed={freeOnly}
+              className="ctl press chip"
+              style={{
+                display: "inline-flex", alignItems: "center",
+                background: freeOnly ? C.text : C.panel, color: freeOnly ? C.bg : C.text,
+                border: `1px solid ${freeOnly ? C.text : C.line}`, borderRadius: R.control,
+                padding: "6px 10px", fontSize: F.sm, fontWeight: freeOnly ? 600 : 500, cursor: "pointer",
+                fontFamily: "inherit", marginTop: S.sm,
+              }}>Free plan only</button>
+          </div>
+        </aside>
 
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+        <div style={{ minWidth: 0 }}>
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
           <span style={{ position: "relative", flex: 1, minWidth: 200, display: "inline-flex", alignItems: "center" }}>
             <MagnifyingGlass size={15} color={C.dim} weight="bold"
               style={{ position: "absolute", left: 10, pointerEvents: "none" }} />
@@ -1225,14 +1187,6 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                 color: C.text, fontFamily: "inherit",
               }} />
           </span>
-          {/* A filter that is on is a state, not an action, so it takes the
-              neutral inversion rather than the action green. */}
-          <button onClick={() => setFreeOnly((f) => !f)} aria-pressed={freeOnly}
-            style={{
-              background: freeOnly ? C.text : C.panel, color: freeOnly ? C.bg : C.muted,
-              border: `1px solid ${freeOnly ? C.text : C.line}`, borderRadius: R.control,
-              padding: "8px 16px", fontSize: F.sm, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-            }} className="ctl press">Free plan</button>
           <select value={sort} aria-label="Sort tools by" className="ctl"
             onChange={(e) => { setSort(e.target.value); setDir(SORTS[e.target.value].dir); }}
             style={{
@@ -1249,11 +1203,14 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             )}
           </select>
           <ViewToggle view={view} onView={setView} />
+          {/* Neutral, not green: Find tools in the matcher is the one action
+              above the fold, and two green buttons competed for it. The invite
+              card at the end of the grid keeps the green. */}
           <button onClick={() => setShowSuggest("tool")}
             className="ctl press tnum"
             style={{
-              background: C.accent, color: C.onAccent, border: 0,
-              borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
+              background: C.panel, color: C.text, border: `1px solid ${C.line}`,
+              borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 600,
               cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
             }}>Add a tool {suggestions.length ? `(${suggestions.length})` : ""}</button>
         </div>
@@ -1272,7 +1229,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 
         {/* Cards or rows. Same tools, same order — one is for browsing and
             the other for comparing, and the person says which they are doing. */}
-        <div ref={gridRef} style={{ marginTop: S.lg, paddingBottom: picked.length ? 96 : BAND.desktop }}>
+        <div ref={gridRef} style={{ marginTop: S.md, paddingBottom: picked.length ? 96 : BAND.desktop }}>
           {rows.length === 0 && (
             <div style={{ padding: "48px 0" }}>
               <p style={{ fontSize: F.lg }}>Nothing matches that.</p>
@@ -1334,6 +1291,8 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             />
           )}
         </div>
+        </div>
+        </div>
         </>
         )}
 
@@ -1341,6 +1300,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
         </main>
 
         <footer style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.lg, paddingBottom: BAND.desktop }}>
+          <div className="theme-foot" style={{ marginBottom: S.lg }}><ThemeToggle /></div>
 
           <FooterLinks />
           <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
@@ -1447,7 +1407,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 function FilterChip({ active, color, ink: onFill = C.onAccent, onClick, label, count }) {
   return (
     <button onClick={onClick} aria-pressed={active}
-      className="ctl press tnum"
+      className="ctl press tnum chip"
       style={{
         display: "inline-flex", alignItems: "center", gap: S.sm,
         background: active ? color : C.panel,

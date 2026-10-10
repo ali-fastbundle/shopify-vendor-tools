@@ -186,6 +186,141 @@
 }
 
 /*
+ * The site frame: one top bar. Wordmark, the section tabs, then the account
+ * and theme controls, in one row from 1024px. Below that the tabs drop to
+ * their own row and scroll sideways rather than wrap, so the frame is two
+ * fixed-height rows on a phone however many sections there are.
+ *
+ * It replaced two stacked rows (frame, then a view switcher), which with the
+ * category chips made three layers of navigation above the grid, all at the
+ * same weight. See CLAUDE.md, invariant F.
+ */
+.topbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "brand account" "tabs tabs";
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 8px;
+}
+.topbar-brand { grid-area: brand; }
+.topbar-account { grid-area: account; justify-self: end; }
+.topbar-tabs {
+  grid-area: tabs;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+.topbar-tabs::-webkit-scrollbar { display: none; }
+.topbar-tabs > * { flex: none; }
+
+@media (min-width: 1024px) {
+  .topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "brand tabs account";
+    column-gap: 32px;
+  }
+  .topbar-tabs { margin: 0; padding: 0; overflow: visible; }
+}
+
+/* The theme toggle: in the top bar from 640px, in the footer below it. */
+.theme-top { display: none; }
+.theme-foot { display: block; }
+@media (min-width: 640px) {
+  .theme-top { display: inline-flex; }
+  .theme-foot { display: none; }
+}
+
+/* A section tab: plain text until it is the current one, which takes the
+   neutral inversion (colour invariant C). */
+.navtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.navtab:hover { color: var(--c-text); background: var(--c-subtle); }
+.navtab[aria-pressed="true"], .navtab[aria-current="page"] {
+  color: var(--c-bg);
+  background: var(--c-text);
+}
+
+/* The headline: 36px from 768px, 28 below, where two lines of 36 cost a
+   third of the screen before anything useful. */
+.hero-title { font-size: 28px; }
+@media (min-width: 768px) { .hero-title { font-size: 36px; } }
+
+/*
+ * The matcher on a phone starts closed: one full-width button that opens the
+ * textarea on tap, with no animation. From 1024px it is always open, which is
+ * why this is CSS rather than state: the server render is right at every
+ * width and nothing changes after hydration.
+ */
+.matcher-toggle { display: flex; }
+.matcher-body { display: none; }
+.matcher-open .matcher-toggle { display: none; }
+.matcher-open .matcher-body { display: block; }
+@media (min-width: 1024px) {
+  .matcher-toggle { display: none; }
+  .matcher-body { display: block; }
+}
+
+/*
+ * The directory body: a category rail beside the grid from 1024px, so the
+ * categories stop being two wrapping rows of chips above it. Below 1024px the
+ * rail becomes one row of chips that scrolls sideways.
+ */
+.dir-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.rail {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 -20px;
+  padding: 0 20px 2px;
+}
+.rail::-webkit-scrollbar { display: none; }
+.rail > * { flex: none; }
+.rail-head { display: none; }
+
+@media (min-width: 1024px) {
+  .dir-body {
+    grid-template-columns: 208px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+  .rail {
+    flex-direction: column;
+    gap: 4px;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+    position: sticky;
+    top: 16px;
+  }
+  .rail > * { flex: initial; }
+  .rail-head { display: block; }
+  .rail .chip { width: 100%; justify-content: space-between; padding-top: 4px !important; padding-bottom: 4px !important; }
+}
+
+/*
  * The roadmap list. Two columns of rows above md, one below. Rows rather
  * than cards: nothing in these sections exists yet, so there is no content
  * for a card to hold and no hierarchy for its elevation to express.

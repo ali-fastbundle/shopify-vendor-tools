@@ -181,7 +181,7 @@ export function AccountBar({ session, refresh }) {
       <button onClick={() => setOpen((o) => !o)} className="ctl press" style={{
         background: C.panel, border: `1px solid ${C.line}`, color: C.text,
         borderRadius: R.control, padding: "8px 12px", fontSize: F.sm, fontWeight: 600,
-        cursor: "pointer", fontFamily: "inherit",
+        cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
       }}>
         Sign in
       </button>
