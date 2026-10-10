@@ -123,6 +123,20 @@ export async function POST(request) {
    * reason only). `reason: null` counts it again. Answers with the refreshed
    * signals list so the panel re-renders from the server's view.
    */
+  /*
+   * Take one address off every list, for a bounce or somebody who asked by
+   * reply. Answers removed or not and nothing else: the list is rendered into
+   * /admin and no route returns it (invariant 8). The address is not logged.
+   */
+  if (action === "remove-subscriber") {
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return new Response("That is not an address.", { status: 400 });
+    const { removeEverywhere } = await import("@/lib/subscriberList");
+    const res = await removeEverywhere(email);
+    if (!res.removed) return new Response("That address is not on any list. Reload to see the current list.", { status: 409 });
+    return Response.json({ removed: true });
+  }
+
   if (action === "exclude-review" || action === "unexclude-review") {
     const toolId = String(body.toolId || "");
     const reason = action === "unexclude-review" || body.reason == null || body.reason === "" ? null : String(body.reason);

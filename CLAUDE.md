@@ -98,8 +98,25 @@ never pulls data into the render tree. Do not move a read above that check.
 `/api/subscribe` returns the same response for a new address and a known one, so it
 cannot be used to test who is on the list, and it only emails a genuinely new address so
 it cannot be used to mail-bomb a stranger. `/api/subscribe/remove` answers the same page
-whether or not the address was there. Nothing reads the list back out over HTTP — the
-admin page renders a count, and `Copy all` is client-side. Keep it that way.
+whether or not the address was there. **No route reads the list back out.** The one place
+it is shown is the Subscribers panel on the People tab, rendered by `/admin` itself after the
+isAdmin check (`lib/subscriberList.js`, one row per address across the site-wide list and
+per-item follows, newest first). It used to render a count only, which was more caution than
+a page behind an admin check needs, and it left no way to remove a bounce.
+
+- **Blurred until revealed.** Reveal is component state only, never storage, so a reload
+  or a new session starts blurred and a screenshot or a glance does not carry the list off.
+- **Confirmed is stated per source**, because the two lists are not the same consent. A
+  follow is stored only after its link is clicked. The site-wide list adds on the first
+  request, so an address there reads "confirmed by sign-in" when a magic-link sign-in
+  proved the inbox, and "not confirmed" otherwise.
+- **Remove takes the address off every list**, for a bounce or somebody who asked by
+  reply. The action answers removed or not and never returns the list, and nothing in
+  that path logs an address or writes the mail log.
+- `Copy all` is still client-side and still says to send with the addresses in Bcc.
+
+`scripts/subscribers-test.mjs` checks the merge, the consent labels, the remove, the
+console and the mail log, and that no route returns the list.
 
 **9. Unsubscribe tokens are HMACs of the address under `AUTH_SECRET`.**
 No per-address state is stored and a token cannot be edited to unsubscribe somebody
@@ -1798,6 +1815,7 @@ fetched and that no run carries an address.
 | `lib/auth.js` | HMAC session cookies, magic-link tokens, admin check |
 | `lib/store.js` | Redis with an in-memory dev fallback. Accepts `UPSTASH_*` or `KV_*` names |
 | `lib/subscribers.js` | List add/remove, unsubscribe token mint and verify |
+| `lib/subscriberList.js` | The admin view of everybody on a list, and removing an address from all of them. Server only |
 | `lib/mail.js` | The event matrix and `sendEvent()`. The only caller of Resend |
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, the `published()` filter every catalogue passes through, and `readiness()` |
@@ -2525,6 +2543,7 @@ node scripts/housekeeping-test.mjs   # the reset clears four things and protects
 node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, and does nothing else
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers
+node scripts/subscribers-test.mjs    # the subscriber list: one row per address, consent, remove, nothing logged
 node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong

@@ -73,6 +73,7 @@ export default function AdminPanel({
   suggestions = [],
   claims = {},
   subscribers = [],
+  subscriberRows = [],
   reports = [],
   accounts = {},
   stats = { fields: {}, queries: [] },
@@ -289,6 +290,7 @@ export default function AdminPanel({
             claims={claimRows}
             verified={verifiedClaims}
             subscribers={subscribers || []}
+            subscriberRows={subscriberRows}
             feed={feed}
             reviews={reviewRows}
             act={act}
@@ -432,7 +434,7 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
   );
 }
 
-function People({ accounts = {}, claims = {}, verified = [], subscribers = [], feed = [], reviews = [], act, busy }) {
+function People({ accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], feed = [], reviews = [], act, busy }) {
   return (
     <>
       <Reviews groups={reviews} act={act} busy={busy} />
@@ -446,7 +448,7 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], f
           : verified.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} verified />)}
       </Section>
       <Accounts accounts={accounts} claims={claims} />
-      <Subscribers list={subscribers} />
+      <Subscribers list={subscribers} rows={subscriberRows} />
       <Compose count={subscribers.length} feed={feed} />
     </>
   );
@@ -2344,44 +2346,98 @@ function NotificationTest() {
 }
 
 
-function Subscribers({ list = [] }) {
+/*
+ * Everybody on a list, one row per address: the site-wide list and per-item
+ * follows, newest first (lib/subscriberList.js, rendered on the server behind
+ * the admin check and returned by no route).
+ *
+ * Addresses are blurred until Reveal is pressed, so a screenshot or a glance
+ * over a shoulder does not carry the list away. Reveal lives in this
+ * component's state only: a reload, a new tab or a new session starts blurred.
+ *
+ * "Confirmed" is stated per source because the two lists are not the same
+ * consent. A follow is stored only after its confirm link is clicked. The
+ * site-wide list adds on the first request, so an address there is confirmed
+ * only when something else proved the inbox, a sign-in by magic link, and
+ * otherwise says so.
+ *
+ * Remove takes the address off every list, for a bounce or somebody who asked
+ * by reply. It is the one destructive control here, so it asks twice.
+ */
+function Subscribers({ list = [], rows = [] }) {
   const [copied, setCopied] = useState("");
+  const [revealed, setRevealed] = useState(false);
+  const [people, setPeople] = useState(rows);
+  const [siteList, setSiteList] = useState(list);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
 
   async function copy() {
-    const text = list.map((s) => s.email).join("\n");
+    const text = siteList.map((s) => s.email).join("\n");
     try {
       await navigator.clipboard.writeText(text);
-      setCopied("Copied " + list.length + " to the clipboard.");
+      setCopied(`Copied ${siteList.length} to the clipboard. Send with the addresses hidden from each other (Bcc).`);
     } catch {
       setCopied("Could not reach the clipboard. This needs HTTPS or localhost.");
     }
-    setTimeout(() => setCopied(""), 3000);
+    setTimeout(() => setCopied(""), 4000);
   }
 
+  async function remove(email) {
+    setBusy(email); setErr("");
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove-subscriber", email }),
+      });
+      if (!res.ok) { setErr(await res.text()); return; }
+      setPeople((p) => p.filter((r) => r.email !== email));
+      setSiteList((l) => l.filter((s) => String(s.email).toLowerCase() !== email));
+    } catch {
+      setErr("Could not reach the server.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const hidden = { filter: "blur(5px)", userSelect: "none" };
+  const confirmedLabel = (r) => r.confirmed === "follow" ? "confirmed by follow link"
+    : r.confirmed === "sign-in" ? "confirmed by sign-in" : "not confirmed";
+
   return (
-    <section className="pb-10">
-      <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>Subscribers</h2>
-      <p style={{ fontSize: F.sm, color: C.muted, margin: "4px 0 0", maxWidth: "72ch", lineHeight: 1.55 }}>
-        Addresses are not listed here on purpose. Copy them when you are actually sending,
-        and send with the addresses hidden from each other.
-      </p>
-      <div className="mt-3 flex flex-wrap items-center" style={{
-        background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
-        padding: "16px 20px", gap: S.lg,
-      }}>
-        <span style={{ fontSize: F.display, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1 }}>{list.length}</span>
-        <span style={{ fontSize: F.sm, color: C.muted, flex: 1, minWidth: 140 }}>
-          {list.length === 1 ? "address" : "addresses"} on the list
+    <Collapsible title="Subscribers" count={people.length}
+      hint="Everybody on the site-wide list or following a newsletter or event, newest first. Addresses are blurred until you reveal them, and stay revealed only until this page is reloaded.">
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm, padding: "12px 0" }}>
+        <Btn onClick={() => setRevealed((v) => !v)}>{revealed ? "Hide addresses" : "Reveal addresses"}</Btn>
+        <Btn onClick={copy} disabled={!siteList.length} tone="go"
+          title="The site-wide list, one address per line">Copy all {siteList.length} site-wide</Btn>
+        <span style={{ fontSize: F.xs, color: C.muted }}>
+          When you send, put the addresses in Bcc so nobody on the list sees anybody else.
         </span>
-        <button onClick={copy} disabled={!list.length} style={{
-          background: list.length ? C.accent : C.subtle,
-          color: list.length ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
-          padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
-          cursor: list.length ? "pointer" : "default", fontFamily: "inherit",
-        }}>Copy all</button>
       </div>
-      {copied && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "8px 0 0" }}>{copied}</p>}
-    </section>
+      {copied && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "0 0 8px" }}>{copied}</p>}
+      {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "0 0 8px" }}>{err}</p>}
+      {people.length === 0
+        ? <Empty>Nobody is subscribed or following anything yet.</Empty>
+        : people.map((r) => (
+          <Row key={r.email}
+            title={<span style={{ fontSize: F.md, ...(revealed ? {} : hidden) }} aria-hidden={!revealed}>{r.email}</span>}
+            badges={<>
+              {r.site && <Pill>site-wide list</Pill>}
+              {r.items.length > 0 && <Pill>follows {r.items.length}</Pill>}
+              <Pill>{confirmedLabel(r)}</Pill>
+            </>}
+            body={r.items.length > 0
+              ? <p style={{ margin: 0, lineHeight: 1.55 }}>
+                {r.items.map((i) => `${i.name} (since ${i.since})`).join(" · ")}
+              </p>
+              : null}
+            meta={`joined ${r.joined || "date not recorded"}${r.site ? ` · site-wide since ${r.site.since || "?"}` : ""}`}
+            actions={<ConfirmBtn busy={busy === r.email} onConfirm={() => remove(r.email)}
+              confirm="Remove from every list">Remove</ConfirmBtn>}
+          />
+        ))}
+    </Collapsible>
   );
 }
 

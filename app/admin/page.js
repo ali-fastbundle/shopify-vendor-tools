@@ -70,6 +70,9 @@ export default async function AdminPage({ searchParams }) {
     { key: "suggestions", load: () => read(KEYS.suggestions, []), empty: [] },
     { key: "claims", load: () => getClaims(), empty: {} },
     { key: "subscribers", load: () => getSubscribers(), empty: [] },
+    /* One row per address across the site-wide list and per-item follows.
+       Rendered here, behind the check above, and returned by no route. */
+    { key: "subscriberRows", load: async () => (await import("@/lib/subscriberList")).subscriberRows(), empty: [] },
     { key: "reports", load: () => read(KEYS.reports, []), empty: [] },
     { key: "accounts", load: () => getAccounts(), empty: {} },
     { key: "stats", load: () => readStats(), empty: { fields: {}, queries: [] } },
