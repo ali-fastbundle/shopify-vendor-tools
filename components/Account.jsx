@@ -177,8 +177,8 @@ export function AccountBar({ session, refresh }) {
 
   return (
     <div style={{ position: "relative" }}>
-      <button onClick={() => setOpen((o) => !o)} style={{
-        background: C.subtle, border: `1px solid ${C.line}`, color: C.text,
+      <button onClick={() => setOpen((o) => !o)} className="ctl press" style={{
+        background: C.panel, border: `1px solid ${C.line}`, color: C.text,
         borderRadius: R.control, padding: "8px 12px", fontSize: F.sm, fontWeight: 600,
         cursor: "pointer", fontFamily: "inherit",
       }}>

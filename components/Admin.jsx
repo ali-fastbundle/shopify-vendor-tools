@@ -1135,8 +1135,8 @@ function Btn({ onClick, busy, tone, disabled, children, title }) {
   const color = tone === "go" ? "#00E08A" : tone === "stop" ? "#FF6B8A" : "";
   const off = busy || disabled;
   return (
-    <button onClick={onClick} disabled={off} title={title} style={{
-      background: busy ? C.subtle : disabled ? "transparent" : color ? color + "1E" : "transparent",
+    <button onClick={onClick} disabled={off} title={title} className="ctl" style={{
+      background: busy ? C.subtle : disabled ? "transparent" : color ? color + "1E" : C.panel,
       color: off ? C.dim : color ? ink(color) : C.muted,
       border: `1px solid ${disabled ? C.line : color ? color + "44" : C.edge}`, borderRadius: R.control,
       padding: "4px 12px", fontSize: F.xs, fontWeight: 600,

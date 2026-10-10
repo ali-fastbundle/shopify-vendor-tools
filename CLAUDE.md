@@ -1909,16 +1909,23 @@ fetched and that no run carries an address.
 
 ## Design conventions
 
-The site borrows the conventions that make the Shopify admin feel familiar — the
-typeface, the spacing rhythm, the radii — and none of Shopify's own design system.
+The site is styled to sit comfortably beside the Shopify admin its readers spend the day
+in: a light grey canvas, white cards with a hairline and a soft shadow, raised controls,
+Inter, a 4px spacing grid and soft corners. **All of it is our own code and our own
+values.** None of Shopify's design system is used.
 
-**Polaris is not an option, and this is not a matter of taste.** Its licence limits use
-to applications that interoperate with Shopify, and a directory *about* Shopify vendors
-is not that. Polaris React is deprecated besides. And the footer promises this is an
-independent directory not affiliated with Shopify — a UI that looks like the Shopify
-admin argues the opposite of the disclaimer directly under it. Do not adopt Polaris,
-its component library, or its tokens. Borrow the conventions, keep our own identity:
-the category palette, the dark theme, and the card structure are ours and stay.
+**Polaris is not an option, and the reason is its licence, read on 2026-10-10.** The
+LICENSE.md on `@shopify/polaris`, `-tokens` and `-icons` grants its rights only "to
+develop and distribute applications that integrate or interoperate with Shopify software
+or services", and for stand-alone applications not embedded in Shopify only where they are
+"dissimilar and visually distinct from Shopify products and services (including the
+internal administration page of a Shopify merchant store), as determined by Shopify in its
+sole discretion". This site is stand-alone and integrates with nothing, and applying
+Polaris to make it look like the admin is exactly the use that clause excludes. Polaris
+React is deprecated besides, and the web components that replace it are for apps embedded
+in the admin. So: no Polaris package, token, component or icon, and no values copied out
+of them. The admin-like look is built in `globals.css` and `lib/tools.js` from our own
+numbers, and the category palette stays ours.
 
 **Typeface: Inter**, and it stays. Frontend design advice reliably lists Inter as the
 default to avoid, and that advice is about landing pages competing on distinctiveness.
@@ -1940,7 +1947,7 @@ stylesheet.
 | `C` | Colour. Every value is a CSS variable declared per theme in `globals.css` |
 | `S` | Spacing on a 4px grid: `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 20, `2xl` 24, `3xl` 32, `4xl` 48, `5xl` 64 |
 | `BAND` | The gap between major bands of the page. `desktop` 64, `mobile` 32, and nothing else does that job |
-| `R` | Radius: `control` 6, `card` 8, `modal` 12, `pill` 999 |
+| `R` | Radius: `control` 8, `card` 12, `modal` 16, `badge` 6, `pill` 999 |
 | `F` | Type: `xs` 12, `sm` 13, `md` 14, `lg` 16, `xl` 20, `2xl` 24, `display` 28, `hero` 36 |
 | `TRACK` | Negative tracking, two steps. `tighter` from 24px up, `tight` below |
 
@@ -1956,16 +1963,26 @@ the nearest step, not a new one. The type scale is eight sizes because it used t
 twenty: 13.5 sitting next to 14 is not a decision anybody made, it is two people
 rounding differently.
 
-**Two themes, and the visitor picks.** `globals.css` declares dark on `:root` and light
-on `:root[data-theme="light"]`, and nothing else — there is deliberately no
+**Two themes, and the visitor picks.** `globals.css` declares light on `:root` and dark
+on `:root[data-theme="dark"]`, and nothing else — there is deliberately no
 `prefers-color-scheme` copy of either palette, because a second copy is how a token ends
 up defined in one theme and missing from the other. Resolving "follow the system" to a
 concrete value is `THEME_SCRIPT`'s job: it runs before the body paints, reads the stored
 choice or the system preference, sets `data-theme`, and updates the `theme-color` meta
 tag. The toggle is three-state — Auto, Light, Dark — because a two-way switch can say
 "I want light" but cannot say "follow the machine", and once touched there would be no
-way back. With scripting off the page is dark, which is what it was before there was a
-choice.
+way back. With scripting off the page is light, the look the site leads with. Dark is a
+neutral grey to match, not the green-black it used to be. `scripts/contrast-test.mjs`
+reads both palettes out of the stylesheet and fails on any text token under 4.5:1 on the
+page, a panel or a raised fill, which is invariant H as a number.
+
+**Controls carry `.ctl`**: a raised bottom edge, a hover tint and a pressed inset, from
+three tokens per theme. A control is a button, tab, chip or select that is a surface of
+its own; unselected ones are white (`C.panel`) on the grey canvas, selected ones keep the
+dark inversion, and actions keep green. Colour stays inline with the component, so the
+class adds depth and states and never decides what a control means. Bare text and icon
+links have `.press` without `.ctl`. Cards carry a resting `--c-card-shadow`, which is the
+edge of a surface drawn once, not atmosphere (invariant I).
 
 Components never read a raw colour. They read `C`, and `C` is exactly the set of names
 declared in `globals.css`, so a colour that works in one theme and not the other is a
@@ -2006,8 +2023,9 @@ Nowhere else. Not the lettermark, not a badge, not a border, not a button, not a
 not the panel a vendor edits their listing in. The wordmark and the masthead bars are
 the palette shown as a legend, which is the same job.
 
-**B. Every other badge is a neutral outline.** `C.edge` border, `C.muted` text, no
-fill. It lives in `components/Pill.jsx` and is imported, never re-declared: a second copy
+**B. Every other badge is a neutral grey tag.** `C.subtle` fill, `C.text`, no border,
+`R.badge` corners. (It was an outline; a border drew more attention than the word inside
+it.) It lives in `components/Pill.jsx` and is imported, never re-declared: a second copy
 of those eight lines is how a neutral badge ends up neutral in one place and not in
 another. Free plan, unverified, suite membership, same-owner, by-owner, claimed, price,
 "Shopify-specific" and "not Shopify-only" are *attributes*, not categories — giving each its own hue put five
@@ -2577,6 +2595,7 @@ node scripts/blog-test.mjs           # links resolve, nothing copied from a list
 node scripts/recommend-test.mjs      # flagged and over-budget tools never picked, no address kept
 node scripts/publish-test.mjs        # publish changes exactly two things, discard removes exactly one entry, hold commits nothing
 node scripts/og-test.mjs [baseUrl]   # the share card's URL version moves with what it draws, and matches live
+node scripts/contrast-test.mjs       # every text token clears 4.5:1 on every surface, both themes
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>
 ```

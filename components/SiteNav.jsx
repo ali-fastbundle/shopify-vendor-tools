@@ -24,7 +24,7 @@ export const SITE_VIEWS = [
 
 export const viewStyle = (on) => ({
   textDecoration: "none",
-  background: on ? C.text : "transparent",
+  background: on ? C.text : C.panel,
   color: on ? C.bg : C.muted,
   border: `1px solid ${on ? C.text : C.line}`,
   borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
@@ -39,7 +39,7 @@ export default function SiteNav({ current }) {
           watchfor.tools
         </a>
         {SITE_VIEWS.map((v) => (
-          <a key={v.id} href={v.href} className="press"
+          <a key={v.id} href={v.href} className="ctl press"
             aria-current={v.id === current ? "page" : undefined}
             style={viewStyle(v.id === current)}>{v.label}</a>
         ))}

@@ -8,7 +8,7 @@ const KEY = "svt:theme";
 /* The page background of each theme, for the browser-chrome meta tag. Kept in
    step with --c-bg in globals.css by hand; there are two values and they are
    the two most visible ones on the site, so a drift shows immediately. */
-const CHROME = { dark: "#06110D", light: "#F3F6F4" };
+const CHROME = { dark: "#141516", light: "#F1F2F3" };
 
 const MODES = [
   ["system", "Auto"],
@@ -19,12 +19,11 @@ const MODES = [
 /*
  * Runs before the body paints, so the first frame is already the right theme.
  *
- * globals.css declares dark on :root and light on [data-theme="light"] and
+ * globals.css declares light on :root and dark on [data-theme="dark"] and
  * nothing else — no prefers-color-scheme copy of either palette — so resolving
  * "system" to a concrete value is this script's job rather than the
  * stylesheet's. That is the trade: one palette per theme in CSS, and a visitor
- * with scripting off gets dark, which is what the site was before there was a
- * choice at all.
+ * with scripting off gets light, the look the site leads with.
  *
  * Every line is inside a try. localStorage throws in a private window with
  * site data blocked, and a theme is not worth taking the page down for.

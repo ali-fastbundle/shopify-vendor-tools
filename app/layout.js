@@ -1,5 +1,5 @@
 import { Inter } from "next/font/google";
-import { HEADLINE, DARK } from "@/lib/tools";
+import { HEADLINE } from "@/lib/tools";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeScript } from "@/components/Theme";
@@ -55,7 +55,9 @@ export const metadata = {
  * follow the system and would keep painting a dark bar above a light page for
  * anyone who chose light with the toggle.
  */
-export const viewport = { themeColor: DARK.bg };
+/* The light canvas: with scripting off the page is light (globals.css), and
+   the theme script replaces this with the resolved theme before first paint. */
+export const viewport = { themeColor: "#F1F2F3" };
 
 export default function RootLayout({ children }) {
   return (

@@ -16,7 +16,7 @@ import { outbound } from "@/lib/outbound";
 export default function VisitSite({ url, children = "Visit site", size = F.xs }) {
   return (
     <a href={outbound(url)} target="_blank" rel="noopener noreferrer"
-      className="press inline-flex items-center"
+      className="ctl press inline-flex items-center"
       style={{
         gap: S.xs, background: C.text, color: C.bg, borderRadius: R.control,
         padding: "5px 12px", fontSize: size, fontWeight: 700, textDecoration: "none",

@@ -24,8 +24,8 @@ export default function Vote({ dir, active, n, onClick, label }) {
     <button type="button"
       onClick={(e) => { e.stopPropagation(); e.preventDefault(); onClick(); }}
       aria-pressed={active} aria-label={label || (dir === 1 ? "Like" : "Dislike")}
-      className="press flex items-center tnum" style={{
-        gap: S.xs, background: active ? on.background : C.subtle,
+      className="ctl press flex items-center tnum" style={{
+        gap: S.xs, background: active ? on.background : C.panel,
         color: active ? on.color : C.muted,
         border: `1px solid ${active ? on.border : C.line}`, borderRadius: R.control,
         padding: "4px 8px", fontSize: F.xs, cursor: "pointer", fontFamily: "inherit", fontWeight: 600,

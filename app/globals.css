@@ -5,16 +5,20 @@
 /* ==================================================================
    Themes.
 
-   Dark is :root. Light is one block on [data-theme="light"], and it is
-   the only place light values are written — the theme script in
+   Light is :root. Dark is one block on [data-theme="dark"], and it is
+   the only place dark values are written — the theme script in
    components/Theme.jsx resolves "system" to a concrete dark or light
    before first paint and re-resolves when the system preference
    changes, so the stylesheet never needs a prefers-color-scheme copy
    of either palette. A second copy is how a token ends up defined in
    one theme and missing from the other.
 
-   With scripting off the page renders dark, which is the designed
-   default and what the site was before there was a choice at all.
+   With scripting off the page renders light: the site is styled to sit
+   comfortably beside the admin its readers spend the day in, a light
+   grey canvas with white cards, and that is the look it leads with.
+   Every value here is our own; no Polaris code, token or icon is used,
+   because Polaris's licence does not cover a site like this (CLAUDE.md,
+   Design conventions).
 
    No value below is referenced by a component directly. Components
    read the C object in lib/tools.js, which is these names and nothing
@@ -22,37 +26,105 @@
    missing line here rather than a colour hard-coded somewhere.
    ================================================================== */
 
+/*
+ * The light theme, and the default. A neutral grey canvas, white cards that
+ * are told apart from it by a hairline and a soft shadow rather than by a
+ * tint, and type in near-black and two greys. Contrast is measured, not
+ * eyeballed: scripts/contrast-test.mjs checks every text token against every
+ * surface it sits on, in both themes.
+ */
 :root {
+  color-scheme: light;
+
+  --c-bg: #F1F2F3;
+  --c-panel: #FFFFFF;
+  --c-raised: #F7F7F8;
+  --c-line: #E1E3E5;
+  --c-text: #1F2124;
+  --c-muted: #55585D;
+  --c-dim: #62656A;
+
+  --c-subtle: rgba(31, 33, 36, 0.055);
+  --c-stripe: rgba(31, 33, 36, 0.028);
+  /* Badge fill and control border. Badges are filled now, not outlined. */
+  --c-edge: #C9CCD0;
+  --c-field: #FFFFFF;
+  --c-scrim: rgba(31, 33, 36, 0.45);
+  --c-tray: rgba(255, 255, 255, 0.94);
+  --c-thumb: #C9CCD0;
+
+  --c-glow: none;
+  --c-hero: #FFFFFF;
+  --c-invite: #F7F7F8;
+
+  /* A card at rest: a hairline below and a whisper of depth. Not atmosphere
+     (invariant I): it is the edge of a surface, drawn the once. */
+  --c-card-shadow: 0 1px 0 rgba(31, 33, 36, 0.05), 0 1px 3px rgba(31, 33, 36, 0.06);
+  /* A control's raised bottom edge, its hover tint, and the inset it takes
+     when pressed. See .ctl below. */
+  --c-control-shadow: inset 0 -1px 0 rgba(31, 33, 36, 0.16), 0 1px 0 rgba(31, 33, 36, 0.05);
+  --c-control-hover: rgba(31, 33, 36, 0.045);
+  --c-control-pressed: inset 0 1px 2px rgba(31, 33, 36, 0.18);
+  --c-shadow-sm: 0 2px 4px rgba(31, 33, 36, 0.06), 0 6px 16px rgba(31, 33, 36, 0.08);
+  --c-shadow-md: 0 8px 24px rgba(31, 33, 36, 0.12);
+  --c-shadow-lg: 0 20px 48px rgba(31, 33, 36, 0.18);
+
+  --c-accent-ink: #04794E;
+  --c-accent-soft: rgba(4, 121, 78, 0.10);
+  --c-accent-edge: rgba(4, 121, 78, 0.35);
+  --c-warn-ink: #9A4300;
+  --c-bad-ink: #B81742;
+  --c-bad-soft: rgba(184, 23, 66, 0.07);
+  --c-bad-edge: rgba(184, 23, 66, 0.35);
+
+  --c-star: #946400;
+  --c-star-off: rgba(31, 33, 36, 0.26);
+
+  /* Category colours as text: each hue taken down until it reads on white. */
+  --ink-00e08a: #04794E;
+  --ink-4cc9f0: #0B6E8C;
+  --ink-ffb020: #8A5200;
+  --ink-ff6b8a: #B81742;
+  --ink-b08cff: #6A3FD1;
+  --ink-48e5c2: #076F5D;
+  --ink-ff9052: #9A4300;
+  --ink-ffd166: #7A5A00;
+  --ink-7fd1f0: #18657E;
+  --ink-8c9eff: #4453C9;
+}
+
+/*
+ * The dark theme, reached by an explicit data-theme the theme script sets,
+ * including when the choice is Auto and the system asks for dark. Neutral
+ * greys to match the light theme, rather than the green-black it used to be.
+ */
+:root[data-theme="dark"] {
   color-scheme: dark;
 
-  --c-bg: #06110D;
-  --c-panel: #0D1F19;
-  --c-raised: #132A22;
-  --c-line: rgba(255, 255, 255, 0.09);
-  --c-text: #E8F2EC;
-  --c-muted: #8CA79B;
-  /* 5.35:1 on panel, 4.75 on raised. The old #5E7A6E was 3.65 and 3.25, and it
-     carried review counts, capture dates and the whole footer disclaimer. */
-  --c-dim: #7B9689;
+  --c-bg: #141516;
+  --c-panel: #1E1F21;
+  --c-raised: #26282A;
+  --c-line: rgba(255, 255, 255, 0.10);
+  --c-text: #ECEDEE;
+  --c-muted: #A9ACB0;
+  --c-dim: #989BA0;
 
-  --c-subtle: rgba(255, 255, 255, 0.045);
-  --c-stripe: rgba(255, 255, 255, 0.025);
-  /* The neutral badge border. --c-line is a hairline between surfaces and is
-     too faint to draw a pill on its own; this is the same idea one step up. */
-  --c-edge: rgba(255, 255, 255, 0.2);
-  --c-field: rgba(0, 0, 0, 0.3);
-  --c-scrim: rgba(2, 8, 6, 0.78);
-  --c-tray: rgba(8, 22, 18, 0.93);
-  --c-thumb: #1D3B31;
+  --c-subtle: rgba(255, 255, 255, 0.07);
+  --c-stripe: rgba(255, 255, 255, 0.03);
+  --c-edge: rgba(255, 255, 255, 0.22);
+  --c-field: rgba(0, 0, 0, 0.25);
+  --c-scrim: rgba(0, 0, 0, 0.7);
+  --c-tray: rgba(20, 21, 22, 0.93);
+  --c-thumb: #3A3C3F;
 
-  /* Was two radial glows behind the masthead. A tinted haze at the top of a
-     dark page is the stock look of every generated landing page, it cost two
-     full-width repaints, and a reference tool does not need atmosphere. Kept
-     as a token so the surfaces below still have one name to read. */
   --c-glow: none;
-  --c-hero: #0D1F19;
-  --c-invite: #0F241D;
+  --c-hero: #1E1F21;
+  --c-invite: #222426;
 
+  --c-card-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  --c-control-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.45), 0 1px 0 rgba(0, 0, 0, 0.3);
+  --c-control-hover: rgba(255, 255, 255, 0.05);
+  --c-control-pressed: inset 0 1px 2px rgba(0, 0, 0, 0.5);
   --c-shadow-sm: 0 10px 28px rgba(0, 0, 0, 0.5);
   --c-shadow-md: 0 16px 48px rgba(0, 0, 0, 0.45);
   --c-shadow-lg: 0 32px 80px rgba(0, 0, 0, 0.6);
@@ -66,9 +138,9 @@
   --c-bad-edge: rgba(255, 107, 138, 0.45);
 
   --c-star: #FFC93C;
-  --c-star-off: rgba(255, 255, 255, 0.18);
+  --c-star-off: rgba(255, 255, 255, 0.2);
 
-  /* Category colours as text. On dark they are already the hue itself. */
+  /* On dark the category hue is already readable as text. */
   --ink-00e08a: #00E08A;
   --ink-4cc9f0: #4CC9F0;
   --ink-ffb020: #FFB020;
@@ -79,67 +151,6 @@
   --ink-ffd166: #FFD166;
   --ink-7fd1f0: #7FD1F0;
   --ink-8c9eff: #8C9EFF;
-}
-
-/*
- * The light theme. Reached by an explicit data-theme, which the theme script
- * sets on every load — including when the choice is "system" and it has read
- * the system preference on the visitor's behalf.
- */
-:root[data-theme="light"] {
-  color-scheme: light;
-
-  --c-bg: #F0F4F1;
-  /* Not #FFFFFF. Pure white flattens the card against the page and leaves the
-     border doing all the separation on its own. */
-  --c-panel: #FCFDFC;
-  --c-raised: #F4F7F5;
-  --c-line: rgba(6, 17, 13, 0.12);
-  --c-text: #0F1A15;
-  --c-muted: #55665E;
-  --c-dim: #5A6B62;
-
-  --c-subtle: rgba(6, 17, 13, 0.045);
-  --c-stripe: rgba(6, 17, 13, 0.028);
-  --c-edge: rgba(6, 17, 13, 0.22);
-  --c-field: #FFFFFF;
-  --c-scrim: rgba(20, 32, 27, 0.42);
-  --c-tray: rgba(255, 255, 255, 0.93);
-  --c-thumb: #C3CEC8;
-
-  --c-glow: none;
-  --c-hero: #FFFFFF;
-  --c-invite: #F3F9F6;
-
-  --c-shadow-sm: 0 8px 20px rgba(6, 17, 13, 0.08);
-  --c-shadow-md: 0 12px 32px rgba(6, 17, 13, 0.09);
-  --c-shadow-lg: 0 24px 60px rgba(6, 17, 13, 0.16);
-
-  --c-accent-ink: #04794E;
-  --c-accent-soft: rgba(4, 121, 78, 0.10);
-  --c-accent-edge: rgba(4, 121, 78, 0.35);
-  --c-warn-ink: #9A4300;
-  --c-bad-ink: #B81742;
-  --c-bad-soft: rgba(184, 23, 66, 0.07);
-  --c-bad-edge: rgba(184, 23, 66, 0.35);
-
-  /* #C48A00 was 2.95:1 on the panel: the directory's own primary signal was
-     the least legible thing on the light theme. */
-  --c-star: #946400;
-  --c-star-off: rgba(6, 17, 13, 0.26);
-
-  --ink-00e08a: #04794E;
-  --ink-4cc9f0: #0B6E8C;
-  --ink-ffb020: #8A5200;
-  --ink-ff6b8a: #B81742;
-  --ink-b08cff: #6A3FD1;
-  --ink-48e5c2: #076F5D;
-  --ink-ff9052: #9A4300;
-  --ink-ffd166: #7A5A00;
-  --ink-7fd1f0: #18657E;
-  /* 5.69:1 on the page, 6.19:1 on a panel. The hue itself is 1.9:1 on white,
-     which is why every category colour has a twin here rather than a filter. */
-  --ink-8c9eff: #4453C9;
 }
 
 /* ==================================================================
@@ -350,7 +361,23 @@ a:focus-visible,
  * and never opens the card. A new control inside a card is covered by this
  * rule without anybody remembering to stop propagation.
  */
-.card { position: relative; }
+.card { position: relative; box-shadow: var(--c-card-shadow); }
+
+/*
+ * A control: a button, tab, chip or select that is a surface of its own.
+ * It sits on the page with a raised bottom edge, tints on hover and sinks
+ * when pressed, which is most of what makes a control read as one at a
+ * glance. Colour stays with the component (inline, from C), so this class
+ * adds depth and states and never decides what a control means: green is
+ * still the action colour and a selected state is still the dark inversion.
+ * Bare text and icon links carry .press without .ctl and get none of this.
+ */
+.ctl { box-shadow: var(--c-control-shadow); }
+.ctl:hover:not(:disabled):not([aria-disabled="true"]) {
+  background-image: linear-gradient(var(--c-control-hover), var(--c-control-hover));
+}
+.ctl:active:not(:disabled) { box-shadow: var(--c-control-pressed); }
+.ctl:disabled { box-shadow: none; }
 .card-link::after {
   content: "";
   position: absolute;

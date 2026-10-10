@@ -461,7 +461,7 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
               <button
                 onClick={() => run()}
                 disabled={busy || !problem.trim()}
-                className="press"
+                className="ctl press"
                 style={{
                   alignSelf: "stretch", minWidth: 104, border: 0, borderRadius: R.control,
                   background: problem.trim() ? C.accent : C.subtle,
@@ -533,7 +533,7 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
               </p>
               <button
                 onClick={() => onSuggest({ kind: "tool", why: result.query })}
-                className="press mt-3"
+                className="ctl press mt-3"
                 style={{
                   background: C.accent, color: C.onAccent, border: 0, borderRadius: R.control,
                   padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer",
@@ -1124,9 +1124,9 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
           style={{ gap: S.xs, marginBottom: S.md, borderBottom: `1px solid ${C.line}`, paddingBottom: S.sm }}>
           <button aria-pressed={view2 === "directory"}
             onClick={() => setView2("directory")}
-            className="press"
+            className="ctl press"
             style={{
-              background: view2 === "directory" ? C.text : "transparent",
+              background: view2 === "directory" ? C.text : C.panel,
               color: view2 === "directory" ? C.bg : C.muted,
               border: `1px solid ${view2 === "directory" ? C.text : C.line}`,
               borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
@@ -1137,16 +1137,16 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               /events, never the selected state on this page because selecting
               one leaves this page. Styled like the others unselected, and in
               the same order as SiteNav on those pages. */}
-          <a href="/newsletters" className="press"
+          <a href="/newsletters" className="ctl press"
             style={{
-              textDecoration: "none", background: "transparent", color: C.muted,
+              textDecoration: "none", background: C.panel, color: C.muted,
               border: `1px solid ${C.line}`, borderRadius: R.control,
               padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
             }}>Newsletters</a>
 
-          <a href="/events" className="press"
+          <a href="/events" className="ctl press"
             style={{
-              textDecoration: "none", background: "transparent", color: C.muted,
+              textDecoration: "none", background: C.panel, color: C.muted,
               border: `1px solid ${C.line}`, borderRadius: R.control,
               padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
             }}>Events</a>
@@ -1161,10 +1161,10 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               e.preventDefault();
               showUpdates();
             }}
-            className="press flex items-center"
+            className="ctl press flex items-center"
             style={{
               gap: S.sm, textDecoration: "none",
-              background: view2 === "updates" ? C.text : "transparent",
+              background: view2 === "updates" ? C.text : C.panel,
               color: view2 === "updates" ? C.bg : C.muted,
               border: `1px solid ${view2 === "updates" ? C.text : C.line}`,
               borderRadius: R.control, padding: "6px 14px", fontSize: F.sm, fontWeight: 600,
@@ -1180,9 +1180,9 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             )}
           </a>
 
-          <a href="/blog" className="press"
+          <a href="/blog" className="ctl press"
             style={{
-              textDecoration: "none", background: "transparent", color: C.muted,
+              textDecoration: "none", background: C.panel, color: C.muted,
               border: `1px solid ${C.line}`, borderRadius: R.control,
               padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
             }}>Blog</a>
@@ -1232,8 +1232,8 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               background: freeOnly ? C.text : C.panel, color: freeOnly ? C.bg : C.muted,
               border: `1px solid ${freeOnly ? C.text : C.line}`, borderRadius: R.control,
               padding: "8px 16px", fontSize: F.sm, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-            }} className="press">Free plan</button>
-          <select value={sort} aria-label="Sort tools by"
+            }} className="ctl press">Free plan</button>
+          <select value={sort} aria-label="Sort tools by" className="ctl"
             onChange={(e) => { setSort(e.target.value); setDir(SORTS[e.target.value].dir); }}
             style={{
               background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
@@ -1250,7 +1250,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
           </select>
           <ViewToggle view={view} onView={setView} />
           <button onClick={() => setShowSuggest("tool")}
-            className="press tnum"
+            className="ctl press tnum"
             style={{
               background: C.accent, color: C.onAccent, border: 0,
               borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
@@ -1392,7 +1392,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               style={{ background: "transparent", border: `1px solid ${C.line}`, color: C.muted, borderRadius: R.control, padding: "8px 12px", fontSize: F.sm, cursor: "pointer", fontFamily: "inherit" }}>
               Clear
             </button>
-            <button onClick={() => setCompare(true)} disabled={picked.length < 2} className="press"
+            <button onClick={() => setCompare(true)} disabled={picked.length < 2} className="ctl press"
               style={{
                 background: picked.length > 1 ? C.accent : C.subtle,
                 color: picked.length > 1 ? C.onAccent : C.dim,
@@ -1447,10 +1447,10 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 function FilterChip({ active, color, ink: onFill = C.onAccent, onClick, label, count }) {
   return (
     <button onClick={onClick} aria-pressed={active}
-      className="press tnum"
+      className="ctl press tnum"
       style={{
         display: "inline-flex", alignItems: "center", gap: S.sm,
-        background: active ? color : C.subtle,
+        background: active ? color : C.panel,
         color: active ? onFill : C.text,
         border: `1px solid ${active ? color : C.line}`,
         /* 2px underscore of the category hue when the chip is off, the hue as
@@ -1473,7 +1473,7 @@ function FilterChip({ active, color, ink: onFill = C.onAccent, onClick, label, c
  */
 function ViewToggle({ view, onView }) {
   return (
-    <div role="group" aria-label="Layout" className="flex" style={{
+    <div role="group" aria-label="Layout" className="ctl flex" style={{
       border: `1px solid ${C.line}`, borderRadius: R.control, overflow: "hidden",
     }}>
       {[["grid", "Grid"], ["list", "List"]].map(([v, label]) => {
@@ -1814,7 +1814,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
               disabled={pickFull}
               aria-pressed={picked}
               title={pickFull ? "Four tools maximum" : picked ? "Remove from comparison" : "Add to comparison"}
-              className="press flex items-center"
+              className="ctl press flex items-center"
               style={{
                 flexShrink: 0, gap: S.xs, borderRadius: R.control, padding: "4px 8px",
                 background: picked ? C.accent : "transparent",
@@ -1840,7 +1840,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
 /* ================================================================== */
 function CloseButton({ onClose }) {
   return (
-    <button onClick={onClose} aria-label="Close" className="press" style={{
+    <button onClick={onClose} aria-label="Close" className="ctl press" style={{
       background: C.subtle, border: `1px solid ${C.line}`, color: C.muted,
       borderRadius: R.control, width: 30, height: 30, cursor: "pointer",
       display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -2062,7 +2062,7 @@ function ReportProblem({ tool }) {
       <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
         <input value={email} onChange={(e) => setEmail(e.target.value)}
           placeholder="Your email (optional)" style={{ ...field, width: 240 }} />
-        <button onClick={submit} disabled={busy} className="press" style={{
+        <button onClick={submit} disabled={busy} className="ctl press" style={{
           background: busy ? C.subtle : C.accent, color: busy ? C.dim : C.onAccent,
           border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
           cursor: busy ? "default" : "pointer", fontFamily: "inherit",
@@ -2123,9 +2123,9 @@ function Helpful({ review, signedIn, onMark }) {
       {/* Same gesture as liking a tool, so the same active colour. */}
       <button onClick={click} aria-pressed={on} disabled={busy}
         aria-label={on ? "Remove your helpful vote" : "Mark this review helpful"}
-        className="press inline-flex items-center tnum" style={{
+        className="ctl press inline-flex items-center tnum" style={{
           gap: S.xs,
-          background: on ? C.accent : C.subtle,
+          background: on ? C.accent : C.panel,
           color: on ? C.onAccent : C.muted,
           border: `1px solid ${on ? C.accent : C.line}`, borderRadius: R.control,
           padding: "3px 10px", fontSize: F.xs, fontWeight: 600,
@@ -2277,7 +2277,7 @@ function ReviewForm({ toolId, name, onSubmit, initialRating = 0, session = {}, e
           onSubmit={submit}
           placeholder="What did you actually find using it?"
           style={{ ...field, flex: 1, minWidth: 200 }} />
-        <button onClick={submit} disabled={!rating || busy} className="press" style={{
+        <button onClick={submit} disabled={!rating || busy} className="ctl press" style={{
           background: rating && !busy ? C.accent : C.subtle, color: rating && !busy ? C.onAccent : C.dim,
           border: 0, borderRadius: R.control, padding: "8px 16px", fontSize: F.md, fontWeight: 700,
           cursor: rating && !busy ? "pointer" : "default", fontFamily: "inherit",
@@ -2521,7 +2521,7 @@ function Subscribe() {
             padding: S.md, fontSize: F.md, color: C.text, fontFamily: "inherit",
           }}
         />
-        <button type="submit" disabled={!valid || state === "busy"} className="press" style={{
+        <button type="submit" disabled={!valid || state === "busy"} className="ctl press" style={{
           background: valid ? C.accent : C.subtle,
           color: valid ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
           padding: "12px 20px", fontSize: F.md, fontWeight: 700,
@@ -2644,7 +2644,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
               <p style={{ fontSize: F.xs, color: C.dim, margin: "0px 0 0", lineHeight: 1.5 }}>
                 An email only gets you a note when this is looked at. It is not added to the mailing list.
               </p>
-              <button onClick={submit} disabled={!name.trim() || busy} className="press" style={{
+              <button onClick={submit} disabled={!name.trim() || busy} className="ctl press" style={{
                 alignSelf: "flex-start", background: name.trim() && !busy ? C.accent : C.subtle,
                 color: name.trim() && !busy ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
                 padding: "12px 20px", fontSize: F.md, fontWeight: 700,
@@ -2760,7 +2760,7 @@ function SuggestResult({ result, onOpenTool, onClose }) {
       </p>
       <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
         {listed.kind === "tool" && onOpenTool ? (
-          <button onClick={() => { onClose(); onOpenTool(listed.id); }} className="press" style={{
+          <button onClick={() => { onClose(); onOpenTool(listed.id); }} className="ctl press" style={{
             background: C.text, color: C.bg, border: 0, borderRadius: R.control,
             padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
           }}>Read the {listed.name} entry</button>
