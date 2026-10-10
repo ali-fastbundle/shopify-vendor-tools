@@ -170,7 +170,10 @@ function Stars({ value, onPick, size = 14, title }) {
         );
         if (!onPick) return <span key={n} style={{ display: "inline-flex" }}>{star}</span>;
         return (
-          <button key={n} type="button" aria-label={`Rate ${n} star${n === 1 ? "" : "s"}`}
+          <button key={n} type="button"
+            // The tooltip names the tool, but the accessible name overrides a
+            // title, so the name has to be in the label itself.
+            aria-label={`${title ? `${title}, ` : "Rate "}${n} star${n === 1 ? "" : "s"}`}
             title={title}
             onMouseEnter={() => setHover(n)} onMouseLeave={() => setHover(0)}
             onClick={(e) => { e.stopPropagation(); onPick(n); }}
@@ -438,6 +441,7 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
             </h2>
             <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.md }}>
               <textarea
+                aria-label="Describe what you need, in your own words"
                 value={problem}
                 onChange={(e) => setProblem(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }}
@@ -1106,6 +1110,10 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
           * toggle. No category colour: it is not a category. No accent: green
           * is for things that do something.
           */}
+        {/* A nav landmark around the views, the same "Sections" landmark the
+            other index pages get from SiteNav. The group inside keeps its
+            aria-pressed contract. */}
+        <nav aria-label="Sections">
         <div role="group" aria-label="Directory views" className="flex flex-wrap items-center"
           style={{ gap: S.xs, marginBottom: S.md, borderBottom: `1px solid ${C.line}`, paddingBottom: S.sm }}>
           <button aria-pressed={view2 === "directory"}
@@ -1173,6 +1181,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               padding: "6px 14px", fontSize: F.sm, fontWeight: 600, fontFamily: "inherit",
             }}>Blog</a>
         </div>
+        </nav>
 
         <main id="main" tabIndex={-1} style={{ outline: "none" }}>
         {view2 === "updates" ? (
@@ -1777,8 +1786,11 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
               )}
             </div>
             <div className="flex items-center" style={{ gap: S.xs }}>
-              <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} />
-              <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
+              {/* Named for the tool: 46 buttons all called "Like" are 46 identical
+                  buttons to a screen reader or an agent. Same as the newsletter
+                  and event cards. */}
+              <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} label={`Like ${tool.name}`} />
+              <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} label={`Dislike ${tool.name}`} />
             </div>
           </div>
 
@@ -1917,8 +1929,8 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
           <VisitSite url={tool.url} size={F.md}>{tool.domain}</VisitSite>
           <Social social={tool.social} />
           <div className="flex items-center" style={{ gap: S.xs, marginLeft: "auto" }}>
-            <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} />
-            <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} />
+            <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} label={`Like ${tool.name}`} />
+            <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} label={`Dislike ${tool.name}`} />
           </div>
         </div>
 

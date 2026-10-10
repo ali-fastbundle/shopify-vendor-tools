@@ -55,6 +55,8 @@ for (const [file, what] of [["components/Directory.jsx", "tool cards"], ["compon
 ok(/CardVotes/.test(read("components/Newsletters.jsx")) && /CardVotes/.test(read("components/EventParts.jsx")), "newsletter and event cards carry CardVotes");
 ok(/\.card-link::after/.test(read("app/globals.css")) && /\.card :is\(a, button/.test(read("app/globals.css")), "the overlay and the raised controls are defined once, in globals.css");
 ok(!/function Vote\(/.test(read("components/Directory.jsx")) && !/function VoteButton/.test(read("components/Engagement.jsx")), "there is one vote button, components/Vote.jsx");
+const voteCalls = [...read("components/Directory.jsx").matchAll(/<Vote [\s\S]*?\/>/g)].map((m) => m[0]);
+ok(voteCalls.length > 0 && voteCalls.every((c) => /label=\{`(Like|Dislike) \$\{tool\.name\}`\}/.test(c)), `every tool vote button is named for its tool (${voteCalls.length})`);
 
 console.log("\nthe contact address is not in the repository:");
 const walk = (d) => readdirSync(d).flatMap((f) => {
