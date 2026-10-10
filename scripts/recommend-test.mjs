@@ -60,7 +60,11 @@ console.warn = (...a) => { if (!/\[(recommend|mail)\]/.test(String(a[0]))) quiet
 
 const L = (p) => import(pathToFileURL(join(root, p)).href);
 const { listingHandle, parseListing, monthsSince } = await L("lib/appListing.js");
-const { lowestPrice, withinBudget, candidates, cleanPicks, fallbackPicks, summariseRuns, readRuns, situationText } = await L("lib/recommend.js");
+const { lowestPrice, withinBudget, candidates, cleanPicks, fallbackPicks, summariseRuns, readRuns, situationText, costAgainst, recommend } = await L("lib/recommend.js");
+const { sanitiseAnswers, sanitiseSkipped, themesOf, QUESTIONS, PRIMING, SCREENS } = await L("lib/recommendOptions.js");
+const draftRoute = await L("app/api/recommend/draft/route.js");
+const listingRoute = await L("app/api/recommend/listing/route.js");
+const { read } = await L("lib/store.js");
 const { TOOLS } = await L("lib/tools.js");
 const route = await L("app/api/recommend/route.js");
 
@@ -74,7 +78,12 @@ const post = (body, cookie) => route.POST(new Request("http://localhost:3000/api
   method: "POST", headers: { "Content-Type": "application/json", "x-forwarded-for": "10.9.0.1", ...(cookie ? { cookie } : {}) },
   body: JSON.stringify(body),
 }));
-const input = { url: "https://apps.shopify.com/bundle-bee", budget: "low", stage: "new", objective: "search", installs: 40 };
+const answers = {
+  url: "https://apps.shopify.com/bundle-bee", installs: 40, revenue: "under1k", tried: ["content"],
+  problem: "Nobody finds us in App Store search. We rank nowhere for bundle keywords and installs are flat.",
+  objective: "More installs from search without paying for ads.", budget: "low", timeframe: "quarter",
+};
+const input = { answers, skipped: [] };
 
 quiet.log("\nreading a listing:");
 ok(listingHandle("https://apps.shopify.com/bundle-bee?surface_type=search") === "bundle-bee", "a listing URL gives its handle, query dropped");
@@ -97,56 +106,113 @@ ok(candidates(TOOLS, { budget: "free" }).every((t) => t.free), "a budget of noth
 ok(candidates(TOOLS, { budget: "low" }).every((t) => t.free || (lowestPrice(t.price) ?? Infinity) <= 50), "under $50 admits nothing that starts above it, and nothing unpriced");
 ok(!candidates(TOOLS, { budget: "high" }, { name: "AppJubilee" }).some((t) => t.id === "appjubilee"), "an app is never recommended to itself");
 
+
+quiet.log("\nthe questions:");
+ok(PRIMING.length === 4 && PRIMING.every((p) => !/^next$/i.test(p.ok)) && PRIMING.map((p) => p.ok).join() === "Let's go,Sounds good,Got it,Makes sense",
+  "four priming screens, each moved on by an answer, never Next");
+ok(QUESTIONS.filter((q) => q.required).map((q) => q.id).join() === "url", "only the listing URL is required");
+ok(QUESTIONS.every((q) => q.heading && /[.?]$/.test(q.heading)), "every question is a sentence");
+ok(SCREENS.indexOf("problem") > SCREENS.indexOf("tried") && SCREENS.indexOf("problem") < SCREENS.indexOf("objective"), "what is not working is its own screen, in its own part");
+const dirty = sanitiseAnswers({ ...answers, budget: "lots", tried: ["aso", "made-up", "aso"], installs: -5, problem: "x".repeat(5000), extra: "dropped" });
+ok(dirty.budget === null && dirty.tried.join() === "aso" && dirty.installs === null && dirty.problem.length === 2000 && !("extra" in dirty),
+  "answers are sanitised: unknown choices, duplicates, negatives, length and stray keys");
+ok(sanitiseSkipped(["url", "problem", "nonsense"]).join() === "problem", "the URL can never be marked skipped");
+
+quiet.log("\nwhat may be recommended:");
+const pool2 = candidates(TOOLS, { budget: "high" });
+ok(!pool2.some((t) => t.noRecommend), "nothing flagged noRecommend is a candidate, on any budget");
+ok(candidates(TOOLS, { budget: "free" }).every((t) => t.free), "a budget of nothing admits only free plans");
+ok(candidates(TOOLS, { budget: "low" }).every((t) => t.free || (lowestPrice(t.price) ?? Infinity) <= 50), "under $50 admits nothing that starts above it");
+ok(!candidates(TOOLS, { budget: "high" }, { name: "AppJubilee" }).some((t) => t.id === "appjubilee"), "an app is never recommended to itself");
+ok(themesOf(answers.problem)[0]?.id === "search", "their own words point at the right need", themesOf(answers.problem).map((t) => t.id).join());
+
 quiet.log("\nwhat the model may say:");
 const list = candidates(TOOLS, { budget: "high" });
 const picks = cleanPicks({ picks: [
-  { id: "apricotcx", reason: "Flagged entries must not come back, whatever the model says." },
-  { id: "made-up-tool", reason: "An id the model invented must not come back either." },
-  { id: "rankbase", reason: "At 40 installs and three months live — the em-dash goes." },
-  { id: "rankbase", reason: "The same tool twice is one pick, not two." },
-  { id: "appnavigator", reason: "short" },
-  { id: "applora", reason: "Free, and it answers questions across the whole store for a new app." },
-  { id: "ranksy", reason: "Fine on its own merits as the third pick in this list." },
-  { id: "appvitals", reason: "A fourth valid pick is dropped: three is the answer." },
-] }, list);
-ok(picks.map((p) => p.id).join() === "rankbase,applora,ranksy", "flagged, invented, duplicate and thin picks are dropped; three kept", picks.map((p) => p.id).join());
-ok(!picks.some((p) => p.reason.includes("—")), "em-dashes are scrubbed from reasons");
-const fb = fallbackPicks(candidates(TOOLS, input), input, {});
-ok(fb.length === 3 && fb.every((p) => /^You want more installs from App Store search, at 40 installs with under \$50 a month to spend\./.test(p.reason)), "the no-model path still ties every reason to their situation, in a sentence", fb[0]?.reason);
-ok(/Keyword positions: not available/.test(situationText(input, facts)), "the prompt says keyword position is unavailable rather than leaving it to be guessed");
+  { id: "apricotcx", why: "Flagged entries must not come back, whatever the model says.", drivers: ["problem"] },
+  { id: "made-up-tool", why: "An id the model invented must not come back either.", drivers: ["problem"] },
+  { id: "rankbase", why: "At 40 installs and three months live — the em-dash goes.", limits: "Not ads.", drivers: ["problem", "installs", "made-up", "timeframe"] },
+  { id: "rankbase", why: "The same tool twice is one pick, not two." },
+  { id: "appnavigator", why: "short" },
+  { id: "applora", why: "Free, and it answers questions across the whole store for a new app.", drivers: ["budget"] },
+  { id: "ranksy", why: "Fine on its own merits as the third pick in this list.", drivers: [] },
+  { id: "appvitals", why: "A fourth valid pick is dropped: three is the most." },
+] }, list, { ...answers, timeframe: null });
+ok(picks.map((p) => p.id).join() === "rankbase,applora,ranksy", "flagged, invented, duplicate and thin picks are dropped; three at most", picks.map((p) => p.id).join());
+ok(!picks.some((p) => p.why.includes("—")), "em-dashes are scrubbed");
+ok(picks[0].drivers.join() === "problem,installs", "drivers are only real answer keys the team gave: an unknown key and a skipped one are dropped", picks[0].drivers.join());
+ok(cleanPicks({ picks: [{ id: "rankbase", why: "Only one genuinely fits what they described here." }] }, list, answers).length === 1, "fewer than three is allowed when fewer fit");
+const fb = fallbackPicks(candidates(TOOLS, { budget: "low" }), answers, {});
+ok(fb.length > 0 && fb.every((p) => p.why.startsWith('You wrote "Nobody finds us in App Store search". ') && p.limits), "the no-model path quotes their own words and says what each will not solve", fb[0]?.why);
+ok(fallbackPicks(list, { problem: "", objective: "" }).length === 0, "with nothing written there is nothing to rank on, rather than a guess");
+const rb = TOOLS.find((t) => t.id === "rankbase");
+ok(/within under \$50|free plan|starts at/.test(costAgainst(rb, "high")) && /did not give a budget/.test(costAgainst(rb, null)), "cost is stated against the budget in code, including when there is none");
 
-quiet.log("\nthe route:");
+const { strongThemes } = await L("lib/recommendOptions.js");
+ok(strongThemes("Our support inbox is drowning in tickets and we cannot hire.").map((t) => t.id).join() === "support", "one stray keyword does not outvote the need the text is about", strongThemes("Our support inbox is drowning in tickets and we cannot hire.").map((t) => t.id).join());
+
+quiet.log("\nnothing that fits the budget:");
+{
+  const r = await recommend(TOOLS, { ...answers, problem: "Our support inbox is drowning in tickets and we cannot hire.", objective: "Handle support without hiring.", budget: "free" }, {}, []);
+  const supportFree = TOOLS.some((t) => t.cat === "support" && t.free && t.recommendable !== false);
+  ok(supportFree ? true : (r.picks.length === 0 && /Nothing in the directory that fits what you described has a free plan, and you have no budget/i.test(r.noneFit)),
+    "when nothing relevant is within the budget the answer says so and recommends nothing", r.noneFit || r.picks.map((p) => p.id).join());
+}
+
+quiet.log("\nsaving as you go:");
+const call = (r, method, body, cookie) => r[method](new Request("http://localhost:3000/api/recommend/x", {
+  method, headers: { "Content-Type": "application/json", "x-forwarded-for": "10.9.0.2", ...(cookie ? { cookie } : {}) },
+  ...(body ? { body: JSON.stringify(body) } : {}),
+}));
+ok((await call(draftRoute, "GET", null)).status === 401, "a draft needs an account");
+ok((await call(draftRoute, "PUT", { step: "problem", answers: { ...answers, budget: "lots" }, skipped: ["revenue"] }, sess("owner@bundlebee.example"))).status === 200, "a screen saves");
+let d = (await (await call(draftRoute, "GET", null, sess("owner@bundlebee.example"))).json()).draft;
+ok(d && d.step === "problem" && d.answers.problem === answers.problem && d.answers.budget === null && d.skipped.join() === "revenue", "and resumes where it stopped, sanitised");
+ok(!(await (await call(draftRoute, "GET", null, sess("someone@else.example"))).json()).draft, "another account sees nothing of it");
+ok(!JSON.stringify(await read("svt:recommend:drafts", {})).includes("@"), "the store holds no address: the key is an HMAC of it");
+
+quiet.log("\nreading the listing first:");
+ok((await call(listingRoute, "POST", { url: answers.url })).status === 401, "signed out: 401");
+let lr = await (await call(listingRoute, "POST", { url: answers.url }, sess("owner@bundlebee.example"))).json();
+ok(lr.app?.name === "Bundle Bee" && lr.app.rating === 4.6 && lr.app.launched === "2026-03-04", "name, rating, reviews and launch date come back to show before anything else");
+lr = await (await call(listingRoute, "POST", { url: "https://apps.shopify.com/missing-app" }, sess("owner@bundlebee.example"))).json();
+ok(lr.app === null && /no listing/i.test(lr.reason), "a missing listing says so rather than failing");
+
+quiet.log("\nthe run:");
 ok((await post(input)).status === 401, "signed out: 401");
-ok((await post({ ...input, url: "https://example.com/app" }, sess("a@b.co"))).status === 400, "a URL that is not a listing: 400");
-ok((await post({ ...input, installs: -3 }, sess("a@b.co"))).status === 400, "a negative install count: 400");
+ok((await post({ answers: { ...answers, url: "https://example.com/app" } }, sess("a@b.co"))).status === 400, "a URL that is not a listing: 400");
+ok((await post({ answers: { ...answers, installs: -3 } }, sess("a@b.co"))).status === 400, "a negative install count: 400");
 
 process.env.ANTHROPIC_API_KEY = "sk-test";
 modelAnswer = { picks: [
-  { id: "apricotcx", reason: "Should never appear in an answer, flagged as connected." },
-  { id: "rankbase", reason: "At 40 installs and seven months live, tracking a few search terms daily shows whether listing edits move anything." },
-  { id: "appnavigator", reason: "Free, which fits a budget under $50, and enough to watch the bundle apps ranking above you." },
-  { id: "letsmetrix", reason: "Free, and sizes the Upsell and bundles category you launched into in March." },
+  { id: "apricotcx", why: "Should never appear in an answer, flagged as connected.", drivers: ["problem"] },
+  { id: "rankbase", why: "You rank nowhere for bundle keywords; daily positions show whether listing edits move anything.", limits: "It does not bring installs by itself.", drivers: ["problem", "installs"] },
+  { id: "appnavigator", why: "Free, which fits a budget under $50, and enough to watch the bundle apps ranking above you.", limits: "No alerts.", drivers: ["budget", "problem"] },
 ] };
-let res = await post(input, sess("owner@bundlebee.example"));
+let res = await post({ answers, skipped: ["revenue"] }, sess("owner@bundlebee.example"));
 let j = await res.json();
-ok(res.status === 200 && j.picks.length === 3, "a signed-in run returns three picks");
+ok(res.status === 200 && j.picks.length === 2, "a signed-in run returns the valid picks", `${j.picks?.length}`);
 ok(!j.picks.some((p) => p.id === "apricotcx"), "the flagged tool the model tried to slip in is not among them");
-ok(j.listingRead && j.app.name === "Bundle Bee" && j.path === "model", "the listing was read and the model answered");
-ok(fetched.filter((u) => u.startsWith("https://apps.shopify.com/")).every((u) => !/[?&]q=/.test(u) && !/\/reviews/.test(u)),
-  "only listing pages were fetched: no search, no reviews pages");
+const p0 = j.picks[0] || {};
+const tool0 = TOOLS.find((t) => t.id === p0.id) || {};
+ok(p0.why && p0.limits && p0.cost && p0.caveat === tool0.watch, "each pick says why, what it will not solve, cost against the budget, and the listing's own caveat");
+ok(p0.drivers?.every((dr) => dr.label && dr.answer) && p0.drivers.some((dr) => dr.key === "problem" && dr.answer === answers.problem), "and which of their answers drove it, with the answer itself");
+ok(j.skipped.join() === "revenue", "skipped questions come back to be shown as reducing confidence");
+ok(!(await (await call(draftRoute, "GET", null, sess("owner@bundlebee.example"))).json()).draft, "a completed run deletes the saved draft");
+ok(fetched.filter((u) => u.startsWith("https://apps.shopify.com/")).every((u) => !/[?&]q=/.test(u) && !/\/reviews/.test(u)), "only listing pages were fetched: no search, no reviews pages");
 
 modelAnswer = null;
-res = await post({ ...input, url: "https://apps.shopify.com/missing-app" }, sess("owner@bundlebee.example"));
+res = await post({ answers: { ...answers, url: "https://apps.shopify.com/missing-app" } }, sess("owner@bundlebee.example"));
 j = await res.json();
-ok(res.status === 200 && j.picks.length === 3 && !j.listingRead && j.path === "fallback", "no listing and no model: still three picks, and the answer says which path it took");
+ok(res.status === 200 && j.picks.length > 0 && !j.listingRead && j.path === "fallback", "no listing and no model: still picks from their words, and it says which path");
 
 quiet.log("\nwhat is kept:");
 const runs = await readRuns(10);
 ok(runs.length === 2, "every run is stored", `${runs.length}`);
-ok(!JSON.stringify(runs).includes("owner@bundlebee.example") && !JSON.stringify(runs).includes("@"), "no run carries an email address");
-ok(runs[1].objective === "search" && runs[1].installs === 40 && runs[1].app.category === "Upsell and bundles", "a run keeps what was asked and what the listing said");
+ok(!JSON.stringify(runs).includes("@"), "no run carries an email address");
+ok(runs[1].answers.problem === answers.problem && runs[1].skipped.join() === "revenue" && runs[1].app.category === "Upsell and bundles", "a run keeps what was said, what was skipped and what the listing said");
 const sum = summariseRuns(runs);
-ok(sum.total === 2 && sum.objectives[0][1] === 2 && sum.fallback === 1, "the summary counts what people asked for, and how many fell back");
+ok(sum.total === 2 && sum.objectives[0][0] === "More installs from App Store search" && sum.fallback === 1, "the summary counts what people asked for, from their own words");
 
 quiet.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

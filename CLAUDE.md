@@ -1781,11 +1781,37 @@ nobody here checked.
 - **The Article's `mentions` are the listings' WebPage nodes**, never a second
   SoftwareApplication, which would be a priceless duplicate of the tool.
 
-**42. The growth recommender: signed in, one public page read, three picks, every run kept without an address.**
-`/recommend` (linked from the matcher's examples line, so it costs no fold height). A
-signed-in person gives their App Store listing URL, budget, stage, objective and install
-count, and gets three tools from the catalogue, each with a reason tied to that
-situation. `lib/recommend.js`, through the matcher's provider chain.
+**42. The growth recommender: signed in, one question per screen, one public page read, up to three picks, every run kept without an address.**
+`/recommend` (linked from the matcher's examples line, so it costs no fold height), noindex
+as a whole. `components/Recommender.jsx`, with every question, choice and answer limit in
+`lib/recommendOptions.js` so the flow and the routes cannot disagree.
+
+**The shape is a conversation, not a form.** Four priming screens first, each moved on by
+a button whose label is an answer ("Let's go", "Sounds good", "Got it", "Makes sense"),
+with dots showing it is short. Then one question per screen in five parts (your app,
+where you are, what is not working, what you want, review), with the part, a progress bar
+and Start over always visible. Each question is a sentence that is also the label of its
+one input, with a line of help, OK, Skip and Back. The listing comes first and is read
+and shown (name, category, rating, reviews, launch date) before anything else is asked,
+with one click to fix a wrong app. What is not working gets its own screen and says why.
+Review lists every answer, each editable in place.
+
+- **Only the listing URL is required.** A skipped question is passed to the model as not
+  known and shown in the answer as reducing confidence.
+- **Back never clears an answer, and progress saves after every screen** to
+  `svt:recommend:drafts` (`lib/recommendDraft.js`), keyed by an HMAC of the address rather
+  than the address, deleted on a completed run, on Start over, or after 60 days. The
+  sign-in sentence says so, per Accounts.
+- **Each pick carries four things, and two of them are code.** Why this one and what it
+  will not solve are the model's, from the tool's summary, price, tags and caveat. Cost
+  against the budget (`costAgainst`) and the caveat (the listing's own `watch`) are
+  attached in code. Which answers drove a pick is the model's choice, validated against
+  the answers that exist, and shown with the answer itself.
+- **Fewer than three is allowed, and none is an answer.** When nothing relevant is within
+  the budget the run says so and recommends nothing, naming the nearest price rather than
+  a tool. The no-model path ranks on the needs the person's own words point at
+  (`strongThemes`: a theme is kept only within one hit of the strongest, because a keyword
+  table cannot read "we cannot hire").
 
 **What it may read, and why only that.** Checked on 2026-10-10:
 
@@ -1865,9 +1891,9 @@ fetched and that no run carries an address.
 | `lib/blog.js` `lib/posts/` | Posts as data, the inline link and unverified marks, and the page, RSS and text renderings |
 | `components/JsonLd.jsx` | The one way a page emits structured data: adds the site, organization and author nodes (`withSiteNodes` in `lib/seo.js`, ids from `IDS`) so no page refers to a node it does not define, and escapes `<`. validate-jsonld checks every page type |
 | `components/Blog.jsx` `app/blog` | The blog index, a post, and `/blog/rss`. Server-rendered, no client state |
-| `lib/recommend.js` `lib/recommendOptions.js` | The growth recommender: candidates, prompt, validation, fallback, runs; and the form's choices (client-safe) |
+| `lib/recommend.js` `lib/recommendOptions.js` `lib/recommendDraft.js` | The growth recommender: candidates, prompt, validation, fallback, cost, runs; the questions, choices and answer shape (client-safe); and saved progress per account |
 | `lib/appListing.js` | Reads one public App Store listing page. Nothing else on apps.shopify.com |
-| `app/recommend` `components/Recommender.jsx` `app/api/recommend` | The recommender's page, form and route |
+| `app/recommend` `components/Recommender.jsx` `app/api/recommend` | The recommender's page, flow and routes (run, `draft`, `listing`) |
 | `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
 | `components/EventLogo.jsx` | An event's mark: hosted logo, favicon, then the status-coloured lettermark |
 | `components/SiteNav.jsx` | The top-level views on the index pages that are not the directory: Directory, Newsletters, Events, Recent updates, Blog |
@@ -2592,7 +2618,7 @@ node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
-node scripts/recommend-test.mjs      # flagged and over-budget tools never picked, no address kept
+node scripts/recommend-test.mjs      # the flow's questions, drafts, drivers, cost, nothing-fits, no address kept
 node scripts/publish-test.mjs        # publish changes exactly two things, discard removes exactly one entry, hold commits nothing
 node scripts/og-test.mjs [baseUrl]   # the share card's URL version moves with what it draws, and matches live
 node scripts/contrast-test.mjs       # every text token clears 4.5:1 on every surface, both themes

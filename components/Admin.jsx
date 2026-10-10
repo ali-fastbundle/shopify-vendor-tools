@@ -990,7 +990,10 @@ function RecommenderRuns({ runs = [], summary = null }) {
             title={r.app?.name || r.handle}
             tag={r.path === "model" ? "" : r.path}
             badges={<a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>{r.handle}</a>}
-            body={`Wants: ${r.objective}. ${Number(r.installs).toLocaleString("en-US")} installs, ${r.stage}, budget ${r.budget}. Got: ${(r.picks || []).map((p) => p.name).join(", ")}.`}
+            body={r.answers
+              /* Newer runs carry the person's own words; older ones a fixed objective id. */
+              ? `${r.answers.problem ? `Not working: ${r.answers.problem.slice(0, 220)}${r.answers.problem.length > 220 ? "…" : ""} ` : ""}${r.answers.objective ? `Wants: ${r.answers.objective.slice(0, 160)}. ` : ""}${r.answers.installs != null ? `${Number(r.answers.installs).toLocaleString("en-US")} installs. ` : ""}${r.answers.budget ? `Budget ${r.answers.budget}. ` : ""}${(r.skipped || []).length ? `Skipped: ${r.skipped.join(", ")}. ` : ""}${r.noneFit ? "Nothing fit the budget." : `Got: ${(r.picks || []).map((p) => p.name).join(", ")}.`}`
+              : `Wants: ${r.objective}. ${Number(r.installs).toLocaleString("en-US")} installs, ${r.stage}, budget ${r.budget}. Got: ${(r.picks || []).map((p) => p.name).join(", ")}.`}
             meta={`${String(r.at).slice(0, 16).replace("T", " ")}${r.app?.category ? ` · ${r.app.category}` : ""}${r.app?.rating !== undefined ? ` · ${r.app.rating} from ${r.app.reviews} reviews` : ""}${r.listingRead ? "" : " · listing unread"}${r.provider ? ` · ${r.provider}` : ""}`}
           />
         ))}
