@@ -11,6 +11,7 @@ import {
   ratingOf, isForVendors,
 } from "@/lib/seo";
 import NewsletterPage from "@/components/NewsletterPage";
+import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -59,10 +60,7 @@ export default async function Page({ params }) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(newsletterGraph(n, reviews)) }}
-      />
+      <JsonLd data={newsletterGraph(n, reviews)} />
       <NewsletterPage
         newsletter={n}
         related={related}

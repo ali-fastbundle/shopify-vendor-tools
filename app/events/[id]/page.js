@@ -7,6 +7,7 @@ import { publicReviews } from "@/lib/reviews";
 import { LAST_UPDATED } from "@/lib/tools";
 import { eventUrl, eventDescription, eventGraph } from "@/lib/seo";
 import EventPage from "@/components/EventPage";
+import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ export default async function Page({ params }) {
   const { e, all, today, reviews } = found;
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(eventGraph(e)) }} />
+      <JsonLd data={eventGraph(e)} />
       <EventPage e={e} all={all} today={today} reviews={reviews} lastUpdated={LAST_UPDATED} />
     </>
   );

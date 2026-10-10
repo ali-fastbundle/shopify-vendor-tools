@@ -3,6 +3,7 @@ import { mergedTools } from "@/lib/listings";
 import { LAST_UPDATED } from "@/lib/tools";
 import { categoryCounts, categoriesGraph, CATEGORIES_URL } from "@/lib/seo";
 import { CategoryIndex } from "@/components/Categories";
+import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +33,7 @@ export default async function Page() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(categoriesGraph(counts)) }}
-      />
+      <JsonLd data={categoriesGraph(counts)} />
       <CategoryIndex counts={counts} lastUpdated={LAST_UPDATED} />
     </>
   );

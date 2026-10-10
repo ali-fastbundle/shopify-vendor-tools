@@ -11,6 +11,7 @@ import {
   SITE, toolUrl, toolDescription, toolGraph, relatedTools, logoAlt, ratingOf,
 } from "@/lib/seo";
 import ToolPage from "@/components/ToolPage";
+import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -106,10 +107,7 @@ export default async function Page({ params }) {
         * The graph goes in the server HTML, not into a useEffect. A crawler
         * that does not run JavaScript is the audience for this tag.
         */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(toolGraph(tool, reviews)) }}
-      />
+      <JsonLd data={toolGraph(tool, reviews)} />
       <ToolPage
         tool={tool}
         related={related}

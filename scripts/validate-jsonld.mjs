@@ -187,5 +187,27 @@ for (const doc of await graphOf("/blog/shopify-app-store-aso-tools-compared")) {
   if (ns.some((n) => n["@type"] === "SoftwareApplication")) err("post carries a SoftwareApplication node");
 }
 
+/*
+ * Every page: the shared site, organization and author nodes are defined in
+ * that page's own graph, and every bare {"@id"} reference resolves within it.
+ * Google resolves @id per document, so a reference to a node another page
+ * defines is a reference to nothing. Ids have one spelling (lib/seo.js IDS).
+ */
+console.log("\nshared nodes and references, every page type:");
+const SHARED = ["https://watchfor.tools#website", "https://watchfor.tools#organization", "https://watchfor.tools#author"];
+for (const path of ["/", "/tools/appstoreresearch", "/categories", "/categories/biz", "/newsletters", "/events", "/blog", "/changes", "/contact"]) {
+  const docs = await graphOf(path);
+  const all = docs.flatMap((d) => nodes(d));
+  const defined = new Set(all.filter((n) => n["@type"] && n["@id"]).map((n) => n["@id"]));
+  const refs = [];
+  const walk = (o) => { if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === "object") { if (o["@id"] && Object.keys(o).length === 1) refs.push(o["@id"]); Object.values(o).forEach(walk); } };
+  docs.forEach(walk);
+  const missing = SHARED.filter((id) => !defined.has(id));
+  const dangling = [...new Set(refs.filter((r) => !defined.has(r) && r.startsWith("https://watchfor.tools")))];
+  const slash = JSON.stringify(docs).includes("watchfor.tools/#");
+  if (missing.length || dangling.length || slash) err(`${path}: ${[missing.length && `missing ${missing.join(" ")}`, dangling.length && `dangling ${dangling.join(" ")}`, slash && "a /# id spelling"].filter(Boolean).join("; ")}`);
+  else ok(`${path}: shared nodes defined, ${refs.length} references resolve`);
+}
+
 console.log(`\n${errors} errors, ${warnings} warnings`);
 process.exit(errors ? 1 : 0);

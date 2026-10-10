@@ -7,6 +7,7 @@ import { feedEntries } from "@/lib/feed";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { HEADLINE } from "@/lib/tools";
 import { ogFacts, ogVersion } from "@/lib/ogCard";
+import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -47,10 +48,7 @@ export default async function Page() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(homeGraph(tools, reviews)) }}
-      />
+      <JsonLd data={homeGraph(tools, reviews)} />
       <Directory tools={tools} feed={feed} newsletterCount={NEWSLETTERS.length} />
     </>
   );

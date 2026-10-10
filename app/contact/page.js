@@ -4,6 +4,8 @@ import SiteNav from "@/components/SiteNav";
 import ContactForm from "@/components/ContactForm";
 import FooterLinks from "@/components/FooterLinks";
 import { withShareImage } from "@/lib/ogCard";
+import { SITE, IDS } from "@/lib/seo";
+import JsonLd from "@/components/JsonLd";
 
 /* Dynamic, because the form carries a token signed at render time and a
    cached page would hand everybody the same, ever older, timestamp. */
@@ -27,6 +29,11 @@ export async function generateMetadata() {
 export default function Page() {
   return (
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+      {/* No email in it: the address is kept out of the page source (invariant 38). */}
+      <JsonLd data={{
+        "@type": "ContactPage", "@id": `${SITE}/contact#page`, url: `${SITE}/contact`, name: "Contact",
+        isPartOf: { "@id": IDS.website }, about: { "@id": IDS.organization },
+      }} />
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
         <SiteNav current="contact" />
         <header style={{ marginTop: S["3xl"] }}>

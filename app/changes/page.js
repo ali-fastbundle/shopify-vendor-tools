@@ -3,6 +3,7 @@ import { feedEntries } from "@/lib/feed";
 import { mergedTools } from "@/lib/listings";
 import { SITE } from "@/lib/seo";
 import ChangesFeed from "@/components/ChangesFeed";
+import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,7 @@ export default async function Page() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(graph) }} />
+      <JsonLd data={graph} />
       <ChangesFeed entries={entries} tools={tools} />
     </>
   );

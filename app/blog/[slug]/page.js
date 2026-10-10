@@ -6,6 +6,7 @@ import { NEWSLETTERS } from "@/lib/newsletters";
 import { EVENTS } from "@/lib/events";
 import { postUrl, articleGraph } from "@/lib/seo";
 import { BlogPost } from "@/components/Blog";
+import JsonLd from "@/components/JsonLd";
 
 /* Dynamic so the share image version is read per request, like every other
    page; a version frozen at build time is the drift lib/ogCard.js exists to stop. */
@@ -44,7 +45,7 @@ export default function Page({ params }) {
   const mentions = mentionsOf(post).map((m) => ({ ...m, name: nameOf(m) }));
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleGraph(post, mentions)) }} />
+      <JsonLd data={articleGraph(post, mentions)} />
       <BlogPost post={post} lastUpdated={LAST_UPDATED} />
     </>
   );

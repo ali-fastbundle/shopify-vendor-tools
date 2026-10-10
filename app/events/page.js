@@ -4,6 +4,7 @@ import { mergedEvents } from "@/lib/listings";
 import { LAST_UPDATED } from "@/lib/tools";
 import { SITE, EVENTS_URL } from "@/lib/seo";
 import Events from "@/components/Events";
+import JsonLd from "@/components/JsonLd";
 
 /* Dynamic so past, imminent and upcoming are worked out on the day the page is
    read, never on the day it was built. */
@@ -41,7 +42,7 @@ export default async function Page() {
     url: EVENTS_URL,
     name: "Events",
     description,
-    isPartOf: { "@id": `${SITE}/#website` },
+    isPartOf: { "@id": `${SITE}#website` },
     mainEntity: {
       "@type": "ItemList",
       numberOfItems: upcoming.length,
@@ -53,7 +54,7 @@ export default async function Page() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(graph) }} />
+      <JsonLd data={graph} />
       <Events plan={plan} events={placed(EVENTS, today)} lastUpdated={LAST_UPDATED} />
     </>
   );

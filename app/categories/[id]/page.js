@@ -8,6 +8,7 @@ import {
   categoryUrl, categoryMembers, categoryDescription, categoryGraph, relatedCategories,
 } from "@/lib/seo";
 import { CategoryPage } from "@/components/Categories";
+import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -66,10 +67,7 @@ export default async function Page({ params }) {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(categoryGraph(cat, members, reviews)) }}
-      />
+      <JsonLd data={categoryGraph(cat, members, reviews)} />
       <CategoryPage cat={cat} members={members} related={related} lastUpdated={LAST_UPDATED} />
     </>
   );

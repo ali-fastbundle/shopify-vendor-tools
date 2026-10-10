@@ -1750,6 +1750,7 @@ fetched and that no run carries an address.
 | `app/api/cron/notify` | The daily run's endpoint |
 | `lib/notice.js` | The one-screen page answered to a link clicked in an email |
 | `lib/blog.js` `lib/posts/` | Posts as data, the inline link and unverified marks, and the page, RSS and text renderings |
+| `components/JsonLd.jsx` | The one way a page emits structured data: adds the site, organization and author nodes (`withSiteNodes` in `lib/seo.js`, ids from `IDS`) so no page refers to a node it does not define, and escapes `<`. validate-jsonld checks every page type |
 | `components/Blog.jsx` `app/blog` | The blog index, a post, and `/blog/rss`. Server-rendered, no client state |
 | `lib/recommend.js` `lib/recommendOptions.js` | The growth recommender: candidates, prompt, validation, fallback, runs; and the form's choices (client-safe) |
 | `lib/appListing.js` | Reads one public App Store listing page. Nothing else on apps.shopify.com |
