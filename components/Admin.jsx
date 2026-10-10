@@ -8,7 +8,7 @@ import { ALL_COMMUNITIES } from "@/lib/communities";
 import { ALL_PODCASTS } from "@/lib/podcasts";
 import { ALL_EVENTS } from "@/lib/events";
 import { drafted, published, readiness } from "@/lib/drafts";
-import { timesAsked } from "@/lib/suggestions";
+import { timesAsked, findDiscarded, normaliseDomain } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
 import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
 import { effectiveConfidence, errorRates, CAP, VERIFICATION_LABEL } from "@/lib/findings";
@@ -98,6 +98,8 @@ export default function AdminPanel({
   health = null,
   inventory = [],
   reviewSignals = [],
+  discards = [],
+  holds = {},
   initialTab = "inbox",
 }) {
   /*
@@ -186,6 +188,7 @@ export default function AdminPanel({
   }
 
   return (
+    <StandingDiscards.Provider value={discards.filter((d) => d.standing)}>
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
       <div className="mx-auto px-5" style={{ maxWidth: 1140 }}>
         <header className="pt-8" style={{ paddingBottom: S.lg }}>
@@ -263,6 +266,8 @@ export default function AdminPanel({
         {tab === "catalogue" && (
           <Catalogue
             publishing={publishing}
+            holds={holds}
+            discards={discards}
             reviewed={[...reviewed].sort(byDemand)}
             entries={entryRows}
             onEntries={setEntryRows}
@@ -305,6 +310,7 @@ export default function AdminPanel({
         <div style={{ height: 60 }} />
       </div>
     </main>
+    </StandingDiscards.Provider>
   );
 }
 
@@ -395,12 +401,12 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
       <PublishingNote />
-      <Drafts publishing={publishing} />
+      <Drafts publishing={publishing} holds={holds} discards={discards} />
       <NeedsVerifying />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
@@ -1495,39 +1501,63 @@ function factValue(v) {
 }
 
 /*
- * The Publish control on one draft. Two presses: the first says exactly what
- * will be committed, the second commits it. Disabled, with the reason, when
- * the entry is not ready or there is no token to commit with.
+ * What one draft can become, from inside its expanded row: published,
+ * discarded, or put on hold (or, when held, moved back). Every outcome asks
+ * twice, the first press saying exactly what the second will do, which is the
+ * confirmation Publish always had.
+ *
+ * Publish and Discard commit to the entry's source file on GitHub and need the
+ * token; Hold is admin state and does not. All three are revertible: a
+ * publish or a discard by reverting its commit, a hold by moving it back.
+ *
+ * The readiness checklist shows for every outcome. It gates Publish only:
+ * discarding an entry that is not ready is the usual case.
  */
-function PublishDraft({ kind, entry, canCommit }) {
+function DraftActions({ kind, entry, canCommit, hold, onHolds }) {
   const problems = readiness(entry, kind);
-  const [state, setState] = useState({ status: "idle", msg: "", url: "", sha: "" });
+  const [mode, setMode] = useState("idle");      // idle | publish | discard | hold | unhold
+  const [text, setText] = useState("");
+  const [state, setState] = useState({ status: "idle", msg: "", url: "", sha: "", what: "" });
   const sectionClosed = !kindOf(kind).live;
+  const file = FILE_OF[kind] || "its source file";
+  const reset = () => { setMode("idle"); setText(""); setState({ status: "idle", msg: "", url: "", sha: "", what: "" }); };
 
-  async function commit() {
-    setState({ status: "busy", msg: "", url: "", sha: "" });
+  async function send(action, extra, what) {
+    setState({ status: "busy", msg: "", url: "", sha: "", what });
     try {
       const res = await fetch("/api/admin", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "publish-file-draft", kind, id: entry.id }),
+        body: JSON.stringify({ action, kind, id: entry.id, ...extra }),
       });
-      if (!res.ok) { setState({ status: "error", msg: await res.text(), url: "", sha: "" }); return; }
+      if (!res.ok) { setState({ status: "error", msg: await res.text(), url: "", sha: "", what }); return; }
       const d = await res.json();
-      setState({ status: "done", msg: "", url: d.url, sha: d.sha });
+      if (d.holds) { onHolds(d.holds); reset(); return; }
+      setState({ status: "done", msg: "", url: d.url, sha: d.sha, what });
     } catch {
-      setState({ status: "error", msg: "Could not reach the server.", url: "", sha: "" });
+      setState({ status: "error", msg: "Could not reach the server.", url: "", sha: "", what });
     }
   }
 
   if (state.status === "done") {
     return (
       <p style={{ fontSize: F.sm, color: C.accentInk, margin: `${S.sm}px 0 0`, lineHeight: 1.55 }}>
-        Committed{state.sha ? ` ${state.sha.slice(0, 7)}` : ""}.{" "}
+        {state.what === "discard" ? "Discarded" : "Committed"}{state.sha ? ` ${state.sha.slice(0, 7)}` : ""}.{" "}
         {state.url && <a href={state.url} target="_blank" rel="noopener noreferrer" style={{ color: C.accentInk }}>See the commit</a>}
-        {" "}It goes live when Vercel finishes building it, usually a minute or two, and stays in this list until then.
+        {" "}{state.what === "discard"
+          ? "It leaves this list when Vercel finishes building, and the reason is kept in Discarded below."
+          : "It goes live when Vercel finishes building it, usually a minute or two, and stays in this list until then."}
       </p>
     );
   }
+
+  const busy = state.status === "busy";
+  const field = (placeholder) => (
+    <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} maxLength={200}
+      autoFocus style={{
+        flex: "1 1 280px", minWidth: 0, fontSize: F.sm, fontFamily: "inherit", color: C.text,
+        background: C.bg, border: `1px solid ${C.edge}`, borderRadius: R.control, padding: "4px 8px",
+      }} />
+  );
 
   return (
     <div style={{ marginTop: S.md }}>
@@ -1536,31 +1566,69 @@ function PublishDraft({ kind, entry, canCommit }) {
           {problems.map((p) => <li key={p}>{p}</li>)}
         </ul>
       )}
-      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-        {state.status === "armed" ? (
-          <>
-            <Btn onClick={commit} tone="go">Commit to main</Btn>
-            <Btn onClick={() => setState({ status: "idle", msg: "", url: "", sha: "" })}>Cancel</Btn>
-            <span style={{ fontSize: F.xs, color: C.muted }}>
-              Removes <code>draft: true</code> from {entry.id} in its source file and sets <code>updated</code> to today.
+
+      {mode === "idle" && (
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+          <Btn onClick={() => setMode("publish")} tone="go" disabled={!canCommit || problems.length > 0}
+            title={!canCommit ? "GITHUB_TOKEN is not set" : problems.length ? "Not ready yet" : "Publish this entry"}>Publish</Btn>
+          {hold
+            ? <Btn onClick={() => setMode("unhold")}>Move back to drafts</Btn>
+            : <Btn onClick={() => setMode("hold")}>Hold</Btn>}
+          <Btn onClick={() => setMode("discard")} tone="stop" disabled={!canCommit}
+            title={!canCommit ? "GITHUB_TOKEN is not set" : "Remove this draft from the file"}>Discard</Btn>
+          {!canCommit && (
+            <span style={{ fontSize: F.xs, color: C.dim }}>
+              Publish and Discard need a GITHUB_TOKEN in the Vercel environment to commit with. Until then they are hand edits to the file.
             </span>
-          </>
-        ) : (
-          <Btn onClick={() => setState({ status: "armed", msg: "", url: "", sha: "" })}
-            busy={state.status === "busy"} disabled={!canCommit || problems.length > 0}
-            title={!canCommit ? "GITHUB_TOKEN is not set" : problems.length ? "Not ready yet" : "Publish this entry"}>
-            {state.status === "busy" ? "Committing…" : "Publish"}
-          </Btn>
-        )}
-        {!canCommit && (
-          <span style={{ fontSize: F.xs, color: C.dim }}>
-            Needs a GITHUB_TOKEN in the Vercel environment to commit with. Until then, publish by deleting <code>draft: true</code> in the file.
+          )}
+          {canCommit && problems.length > 0 && (
+            <span style={{ fontSize: F.xs, color: C.dim }}>Fix the items above in the file before publishing.</span>
+          )}
+        </div>
+      )}
+
+      {mode === "publish" && (
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+          <Btn onClick={() => send("publish-file-draft", {}, "publish")} busy={busy} tone="go">Commit to main</Btn>
+          <Btn onClick={reset}>Cancel</Btn>
+          <span style={{ fontSize: F.xs, color: C.muted }}>
+            Removes <code>draft: true</code> from {entry.id} in {file} and sets <code>updated</code> to today. The note and watch above are what goes live.
           </span>
-        )}
-        {canCommit && problems.length > 0 && state.status !== "armed" && (
-          <span style={{ fontSize: F.xs, color: C.dim }}>Fix the items above in the file first.</span>
-        )}
-      </div>
+        </div>
+      )}
+
+      {mode === "discard" && (
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+          {field("Why it is not being listed, in one line")}
+          <Btn onClick={() => send("discard-file-draft", { reason: text }, "discard")} busy={busy} tone="stop"
+            disabled={!text.trim()}>Remove from file and commit</Btn>
+          <Btn onClick={reset}>Cancel</Btn>
+          <span style={{ fontSize: F.xs, color: C.muted, flexBasis: "100%" }}>
+            Deletes the {entry.id} entry from {file}, with the reason in the commit message, and keeps the reason and the research in Discarded below.
+            Revert the commit to bring it back as a draft.
+          </span>
+        </div>
+      )}
+
+      {mode === "hold" && (
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+          {field("What it is waiting on")}
+          <Btn onClick={() => send("hold-draft", { note: text }, "hold")} busy={busy} disabled={!text.trim()}>Put on hold</Btn>
+          <Btn onClick={reset}>Cancel</Btn>
+          <span style={{ fontSize: F.xs, color: C.muted, flexBasis: "100%" }}>
+            Stays a draft and moves to On hold with this note. Nothing is committed and nothing a visitor sees changes.
+          </span>
+        </div>
+      )}
+
+      {mode === "unhold" && (
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+          <Btn onClick={() => send("unhold-draft", {}, "unhold")} busy={busy}>Move back to drafts</Btn>
+          <Btn onClick={reset}>Cancel</Btn>
+          <span style={{ fontSize: F.xs, color: C.muted }}>Clears the hold note and returns it to the active drafts.</span>
+        </div>
+      )}
+
       {sectionClosed && (
         <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>
           The {kindOf(kind).label.toLowerCase()} section is not open yet, so a published entry shows nowhere until its kind is set live.
@@ -1571,95 +1639,152 @@ function PublishDraft({ kind, entry, canCommit }) {
   );
 }
 
-function Drafts({ publishing = { canPublish: false, log: [] } }) {
-  const rows = SOURCES.flatMap(({ kind, entries }) =>
-    drafted(entries).map((entry) => ({ kind, entry })));
+const FILE_OF = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", event: "lib/events.js", group: "lib/communities.js", podcast: "lib/podcasts.js" };
 
-  /* Grouped by type, because "what is half written" is usually asked about one
-     kind at a time: the newsletters are a batch, the communities are a batch. */
-  const byKind = SOURCES.map(({ kind }) => ({
-    kind,
-    label: kindOf(kind).label,
-    items: rows.filter((r) => r.kind === kind),
-  })).filter((g) => g.items.length);
-
+/*
+ * One draft, shut by default: name, type and the one-line summary. Eleven
+ * drafts with every field open was a wall nobody read to the end of.
+ *
+ * The outcome buttons live only inside the expanded body, after the facts and
+ * after the note and the watch in full, so nothing can be published, held or
+ * discarded without the text a button cannot check having been on screen.
+ */
+function DraftRow({ kind, entry, canCommit, hold, onHolds }) {
+  const [open, setOpen] = useState(false);
+  const facts = Object.entries(entry).filter(([key, v]) => !SKIP.includes(key) && factValue(v) !== "");
   return (
-    <Section
-      title="Drafts"
-      count={rows.length}
-      hint="Written but not published: absent from the grid, the search, the matcher, every count, the share card and every API response. Publish commits the change to the entry's source file on GitHub (draft removed, updated set to today) and Vercel deploys it. Read the note and the watch first: that is the part a button cannot check."
-    >
-      {rows.length === 0
-        ? <Empty>Nothing in progress. An entry becomes a draft by carrying `draft: true`.</Empty>
-        : byKind.map((group) => (
-          <div key={group.kind}>
-            <p style={{
-              fontSize: F.xs, color: ink(kindOf(group.kind).color), fontWeight: 700,
-              margin: `${S.lg}px 0 0`, textTransform: "uppercase", letterSpacing: "0.04em",
-            }}>{group.label} · {group.items.length}</p>
-            {group.items.map(({ kind, entry }) => {
-              const facts = Object.entries(entry)
-                .filter(([key, v]) => !SKIP.includes(key) && factValue(v) !== "");
-              return (
-                <Row key={`${kind}:${entry.id}`}
-                  title={entry.name}
-                  footer={<PublishDraft kind={kind} entry={entry} canCommit={publishing.canPublish} />}
-                  badges={<>
-                    <span style={{ fontSize: F.xs, color: C.dim }}>{entry.id}</span>
-                    {/* A positive tag. Absent means nothing is rendered: a
-                        publication that is not about Shopify is not thereby
-                        worse, and a "not Shopify-specific" note would read as
-                        one. */}
-                    {entry.shopifySpecific && <Pill>Shopify-specific</Pill>}
-                    {!entry.watch && <Pill tone="warn">no watch note</Pill>}
-                  </>}
-                  body={<>
-                    {entry.one && <p style={{ color: C.text, margin: 0, lineHeight: 1.5 }}>{entry.one}</p>}
-                    <dl className="drafts-facts" style={{ margin: `${S.md}px 0 0` }}>
-                      {facts.map(([key, v]) => (
-                        <React.Fragment key={key}>
-                          <dt style={{ fontSize: F.xs, color: C.dim, fontWeight: 600 }}>{key}</dt>
-                          <dd style={{ fontSize: F.xs, color: C.muted, margin: 0, wordBreak: "break-word" }}>
-                            {factValue(v)}
-                          </dd>
-                        </React.Fragment>
-                      ))}
-                    </dl>
-                    {entry.note && (
-                      <p style={{ margin: `${S.md}px 0 0`, lineHeight: 1.6 }}>{entry.note}</p>
-                    )}
-                    {entry.watch
-                      ? <p style={{ margin: "8px 0 0", lineHeight: 1.6 }}>
-                        <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
-                      </p>
-                      : <p style={{ color: C.badInk, margin: "8px 0 0" }}>
-                        No watch note. Not publishable without one.
-                      </p>}
-                  </>}
-                />
-              );
-            })}
-          </div>
-        ))}
-      {publishing.log?.length > 0 && (
-        <div style={{ marginTop: S.lg }}>
-          <p style={{ fontSize: F.xs, color: C.dim, fontWeight: 700, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            Published from here
+    <div style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0" }}>
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} style={{
+        display: "block", width: "100%", textAlign: "left", background: "none", border: 0, padding: 0,
+        cursor: "pointer", fontFamily: "inherit", color: C.text,
+      }}>
+        <span className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+          <span aria-hidden="true" style={{ fontSize: F.xs, color: C.dim, width: 10, display: "inline-block" }}>{open ? "▾" : "▸"}</span>
+          <span style={{ fontSize: F.lg, fontWeight: 700 }}>{entry.name}</span>
+          <Pill>{kindOf(kind).label}</Pill>
+          {!entry.watch && <Pill tone="warn">no watch note</Pill>}
+        </span>
+        {entry.one && <span style={{ display: "block", fontSize: F.sm, color: C.muted, margin: "4px 0 0 18px", lineHeight: 1.5 }}>{entry.one}</span>}
+        {hold && (
+          <span style={{ display: "block", fontSize: F.xs, color: C.dim, margin: "4px 0 0 18px", lineHeight: 1.5 }}>
+            On hold: {hold.note} · {hold.by} · {String(hold.at || "").slice(0, 10)}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div style={{ margin: "8px 0 0 18px", fontSize: F.sm, color: C.muted, maxWidth: "76ch" }}>
+          <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>
+            {entry.id}
+            {/* A positive tag; absent renders nothing. */}
+            {entry.shopifySpecific ? " · Shopify-specific" : ""}
           </p>
-          {publishing.log.map((r) => (
-            <Row key={`${r.at}-${r.id}`} title={r.name || r.id} tag={r.kind}
-              meta={`${String(r.at).slice(0, 16).replace("T", " ")} · ${r.by}${r.sha ? ` · ${r.sha.slice(0, 7)}` : ""}`}
-              actions={r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
-          ))}
+          <dl className="drafts-facts" style={{ margin: `${S.md}px 0 0` }}>
+            {facts.map(([key, v]) => (
+              <React.Fragment key={key}>
+                <dt style={{ fontSize: F.xs, color: C.dim, fontWeight: 600 }}>{key}</dt>
+                <dd style={{ fontSize: F.xs, color: C.muted, margin: 0, wordBreak: "break-word" }}>{factValue(v)}</dd>
+              </React.Fragment>
+            ))}
+          </dl>
+          {entry.note && <p style={{ margin: `${S.md}px 0 0`, lineHeight: 1.6 }}>{entry.note}</p>}
+          {entry.watch
+            ? <p style={{ margin: "8px 0 0", lineHeight: 1.6 }}>
+              <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
+            </p>
+            : <p style={{ color: C.badInk, margin: "8px 0 0" }}>No watch note. Not publishable without one.</p>}
+          <DraftActions kind={kind} entry={entry} canCommit={canCommit} hold={hold} onHolds={onHolds} />
         </div>
       )}
-    </Section>
+    </div>
+  );
+}
+
+function Drafts({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [] }) {
+  const [holdMap, setHoldMap] = useState(holds);
+  const rows = SOURCES.flatMap(({ kind, entries }) => drafted(entries).map((entry) => ({ kind, entry })));
+  const holdOf = ({ kind, entry }) => holdMap[`${kind}:${entry.id}`] || null;
+  const active = rows.filter((r) => !holdOf(r));
+  const held = rows.filter((r) => holdOf(r));
+  const row = (r) => (
+    <DraftRow key={`${r.kind}:${r.entry.id}`} kind={r.kind} entry={r.entry}
+      canCommit={publishing.canPublish} hold={holdOf(r)} onHolds={setHoldMap} />
+  );
+
+  return (
+    <>
+      <Section
+        title="Drafts"
+        count={active.length}
+        hint="Written but not published, and invisible everywhere a visitor looks. Open one to read it in full and decide: Publish commits it live, Hold parks it below with a note, Discard removes it from the file with a reason that is kept. Read the note and the watch first: that is the part a button cannot check."
+      >
+        {active.length === 0
+          ? <Empty>{held.length ? "Nothing active. Everything still in draft is on hold." : "Nothing in progress. An entry becomes a draft by carrying `draft: true`."}</Empty>
+          : active.map(row)}
+      </Section>
+
+      {held.length > 0 && (
+        <Collapsible title="On hold" count={held.length}
+          hint="Still drafts, waiting on something named in the note. Move one back to drafts when it is unblocked.">
+          {held.map(row)}
+        </Collapsible>
+      )}
+
+      {discards.length > 0 && (
+        <Collapsible title="Discarded" count={discards.length}
+          hint="Drafts removed from their file, with the reason. A suggestion or a discovery that names one is labelled previously discarded. Revert the commit to bring one back; it stops counting as discarded once it is in a file again.">
+          {discards.map((d) => (
+            <Row key={d.key} title={d.name} tag={kindOf(d.kind).label} dim={!d.standing}
+              badges={!d.standing ? <Pill>restored</Pill> : null}
+              body={<p style={{ margin: 0, lineHeight: 1.55 }}>{d.reason}</p>}
+              meta={`${String(d.at || "").slice(0, 10)} · ${d.by || ""}${d.domain ? ` · ${d.domain}` : ""}${d.sha ? ` · ${d.sha.slice(0, 7)}` : ""}`}
+              actions={d.commitUrl ? <a href={d.commitUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
+          ))}
+        </Collapsible>
+      )}
+
+      {publishing.log?.length > 0 && (
+        <Collapsible title="Committed from here" count={publishing.log.length}
+          hint="Every publish and discard made from this panel, newest first.">
+          {publishing.log.map((r) => (
+            <Row key={`${r.at}-${r.id}`} title={r.name || r.id} tag={r.outcome === "discarded" ? `${r.kind}, discarded` : r.kind}
+              meta={`${String(r.at).slice(0, 16).replace("T", " ")} · ${r.by}${r.sha ? ` · ${r.sha.slice(0, 7)}` : ""}${r.reason ? ` · ${r.reason}` : ""}`}
+              actions={r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
+          ))}
+        </Collapsible>
+      )}
+    </>
   );
 }
 
 
 
+/*
+ * Discards that still stand, for every row that might name one. A context
+ * rather than a prop because SuggestionRow is rendered from two tabs and the
+ * discovery list, and threading one list through all three is how one of them
+ * ends up without it.
+ */
+const StandingDiscards = React.createContext([]);
+
+/* The discard a suggestion or finding names, or null: lib/suggestions.js rule. */
+function useDiscarded({ name, url, kind = "tool" }) {
+  const standing = React.useContext(StandingDiscards);
+  return findDiscarded({ name, url: url || "", domain: normaliseDomain(url || ""), kind }, standing);
+}
+
+/* "Previously discarded: <reason>", so a name researched once is not researched again by accident. */
+function DiscardedNote({ d }) {
+  if (!d) return null;
+  return (
+    <p style={{ fontSize: F.xs, color: C.text, margin: "0 0 6px", lineHeight: 1.5 }}>
+      <b>Previously discarded:</b> {d.reason} <span style={{ color: C.dim }}>({String(d.at || "").slice(0, 10)}{d.name ? `, as ${d.name}` : ""})</span>
+    </p>
+  );
+}
+
 function SuggestionRow({ s, children, footer }) {
+  const discarded = useDiscarded({ name: s.name, url: s.url, kind: s.kind || "tool" });
   const k = kindOf(s.kind);
   const asked = timesAsked(s);
   const also = Array.isArray(s.also) ? s.also : [];
@@ -1676,8 +1801,10 @@ function SuggestionRow({ s, children, footer }) {
             separately: one row, and a number on it you can sort by. */}
         {asked > 1 && <Pill>suggested by {asked} people</Pill>}
         {s.publishedId && <Pill>published as {s.publishedId}</Pill>}
+        {discarded && <Pill tone="warn">previously discarded</Pill>}
       </>}
       body={<>
+        <DiscardedNote d={discarded} />
         {s.why && <p style={{ margin: 0, lineHeight: 1.55 }}>{s.why}</p>}
         {also.length > 0 && (
           <div style={{ margin: "8px 0 0", paddingLeft: S.md, borderLeft: `2px solid ${C.line}` }}>
@@ -3797,8 +3924,13 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
             {shown.map((f) => (
               <Row key={f.name}
                 title={f.name}
-                badges={f.count > 1 ? <Pill>named by {f.count}</Pill> : null}
+                badges={<>
+                  {f.count > 1 && <Pill>named by {f.count}</Pill>}
+                  {f.discarded && <Pill tone="warn">previously discarded</Pill>}
+                </>}
                 body={<>
+                  {/* Labelled on the server, against the same rule (lib/discovery.js). */}
+                  <DiscardedNote d={f.discarded} />
                   <p style={{ margin: 0, lineHeight: 1.55 }}>
                     Named as a competitor by <b style={{ color: C.text }}>{f.namedBy.join(", ")}</b>, not in the directory.
                   </p>

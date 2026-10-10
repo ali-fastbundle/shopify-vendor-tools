@@ -94,6 +94,15 @@ export default async function AdminPage({ searchParams }) {
     { key: "inventory", load: () => storeInventory(), empty: [] },
     /* Server side because the domain marker reads reviewer addresses. */
     { key: "reviewSignals", load: () => reviewSignals(), empty: [] },
+    /* Draft outcomes. Discards are every record, for the Discarded panel;
+       which still stand is worked out against the files on the server. */
+    { key: "discards", load: async () => {
+      const { getDiscards, liveDiscards, fileKeys } = await import("@/lib/draftOutcomes");
+      const all = await getDiscards();
+      const live = new Set(liveDiscards(all, fileKeys()).map((d) => d.key));
+      return all.map((d) => ({ ...d, standing: live.has(d.key) }));
+    }, empty: [] },
+    { key: "holds", load: async () => (await import("@/lib/draftOutcomes")).getHolds(), empty: {} },
     /* Summarised here, on the server: lib/recommend imports the model chain,
        which no client component may import (invariant 20). */
     /* Whether the Publish button can commit (GITHUB_TOKEN is set), and what it

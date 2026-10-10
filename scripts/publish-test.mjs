@@ -5,7 +5,8 @@
  *   node scripts/publish-test.mjs
  *
  * No server, no keys, no network. The edit is run against every real draft in
- * every catalogue file and must change exactly two things. GitHub is a stub
+ * every catalogue file and must change exactly two things. Discard is run against
+ * every draft too and must remove that one entry and nothing else. GitHub is a stub
  * that serves the real file and records what would have been committed.
  */
 import { register } from "node:module";
@@ -51,7 +52,7 @@ globalThis.fetch = async (url, init = {}) => {
 };
 
 const L = (p) => import(pathToFileURL(join(root, p)).href);
-const { publishInSource, commitPublish, FILES, readPublishLog } = await L("lib/publish.js");
+const { publishInSource, discardInSource, commitPublish, commitDiscard, FILES, readPublishLog } = await L("lib/publish.js");
 const { readiness, drafted } = await L("lib/drafts.js");
 const catalogues = {
   tool: (await L("lib/tools.js")).ALL_TOOLS, newsletter: (await L("lib/newsletters.js")).ALL_NEWSLETTERS,
@@ -89,6 +90,27 @@ for (const [kind, list] of Object.entries(catalogues)) {
 }
 ok(total > 0, `${total} drafts checked`);
 
+console.log("\ndiscard, on every real draft:");
+const { parse } = await import("acorn");
+const idsIn = (src) => [...src.matchAll(/^\s*id: "([^"]+)"/gm)].map((m) => m[1]);
+let dtotal = 0;
+for (const [kind, list] of Object.entries(catalogues)) {
+  const src = readFileSync(join(root, FILES[kind]), "utf8");
+  for (const entry of drafted(list)) {
+    dtotal++;
+    const r = discardInSource(src, entry.id);
+    if (r.error) { ok(false, `discard ${kind} ${entry.id}`, r.error); continue; }
+    const before = idsIn(src), after = idsIn(r.source);
+    const sameOthers = JSON.stringify(before.filter((x) => x !== entry.id)) === JSON.stringify(after);
+    let parses = true; try { parse(r.source, { ecmaVersion: "latest", sourceType: "module" }); } catch { parses = false; }
+    const { added } = changed(src, r.source);
+    ok(parses && sameOthers && !after.includes(entry.id) && added.length === 0 && !/\n\s*\n\s*\n/.test(r.source.replace(src.match(/\n\s*\n\s*\n/g)?.join("") || "\u0000", "")),
+      `${kind} ${entry.id}: that entry gone, every other id intact, nothing added`);
+  }
+}
+ok(dtotal > 0, `${dtotal} discards checked`);
+ok(/not a draft/.test(discardInSource(readFileSync(join(root, "lib/tools.js"), "utf8"), "kollectify").error || ""), "a published entry cannot be discarded");
+
 console.log("\nedge cases:");
 const tools = readFileSync(join(root, "lib/tools.js"), "utf8");
 ok(/already be published/.test(publishInSource(tools, "kollectify", TODAY).error || ""), "an entry with no draft flag is refused");
@@ -122,6 +144,16 @@ r = await commitPublish({ kind: K, id: mp.id, entry: mp, today: TODAY });
 ok(/changed on GitHub/.test(r.error || ""), "a file that moved between read and write is reported, not overwritten");
 putStatus = 200;
 
+console.log("\ndiscard, the commit:");
+const [DK, dd] = Object.entries(catalogues).flatMap(([kind, list]) => drafted(list).map((e) => [kind, e]))[0];
+r = await commitDiscard({ kind: DK, id: dd.id, entry: dd, reason: "" });
+ok(/one line/.test(r.error || ""), "no reason: refused before GitHub is asked");
+const putsBefore = puts.length;
+r = await commitDiscard({ kind: DK, id: dd.id, entry: { ...dd, watch: "" }, reason: "Out of scope: merchant-facing" });
+const dput = puts[putsBefore] || {};
+ok(r.sha && dput.path === FILES[DK] && !idsIn(dput.source || "").includes(dd.id), "an unready draft can still be discarded, and the commit removes it");
+ok(dput.message?.startsWith(`Discard ${dd.name} (${DK}): Out of scope: merchant-facing`) && !/@/.test(dput.message || ""), "the commit message carries the reason and no address");
+
 console.log("\nthe admin route:");
 const route = await L("app/api/admin/route.js");
 const sess = (email) => { const b = Buffer.from(JSON.stringify({ t: "session", email, exp: Date.now() + 3600e3 })).toString("base64url"); return `svt_session=${b}.${createHmac("sha256", process.env.AUTH_SECRET).update(b).digest("base64url")}`; };
@@ -135,6 +167,27 @@ const res = await call({ action: "publish-file-draft", kind: K, id: mp.id }, ses
 ok(res.status === 200 && (await res.json()).sha === "def4567890", "an admin publish returns the commit");
 const log = await readPublishLog(5);
 ok(log[0]?.id === mp.id && log[0]?.by === "admin@example.com" && log[0]?.sha, "and it is logged with who and which commit");
+
+ok((await call({ action: "discard-file-draft", kind: DK, id: dd.id, reason: "x" })).status === 404, "discard signed out: 404");
+const dres = await call({ action: "discard-file-draft", kind: DK, id: dd.id, reason: "  Out of scope:\n merchant-facing  " }, sess("admin@example.com"));
+ok(dres.status === 200, "an admin discard commits");
+const { getDiscards, liveDiscards, fileKeys, getHolds } = await L("lib/draftOutcomes.js");
+const disc = await getDiscards();
+ok(disc[0]?.id === dd.id && disc[0]?.reason === "Out of scope: merchant-facing" && disc[0]?.entry?.watch === dd.watch && disc[0]?.sha,
+  "the reason, collapsed to one line, and the entry as it stood are kept in svt:discarded");
+ok(liveDiscards(disc, fileKeys()).length === 0, "while the entry is still in the deployed file, the discard does not stand yet");
+ok(liveDiscards(disc, new Set()).length === 1, "once it is gone from the file, it stands");
+ok((await readPublishLog(5))[0]?.outcome === "discarded", "the discard is in the publish log");
+
+console.log("\nhold:");
+const putsAtHold = puts.length;
+ok((await call({ action: "hold-draft", kind: DK, id: dd.id, note: "" }, sess("admin@example.com"))).status === 400, "a hold without a note is refused");
+const hres = await call({ action: "hold-draft", kind: DK, id: dd.id, note: "waiting on the pricing page" }, sess("admin@example.com"));
+ok(hres.status === 200 && (await getHolds())[`${DK}:${dd.id}`]?.note === "waiting on the pricing page", "a hold stores the note");
+ok(puts.length === putsAtHold, "and commits nothing");
+await call({ action: "unhold-draft", kind: DK, id: dd.id }, sess("admin@example.com"));
+ok(!(await getHolds())[`${DK}:${dd.id}`], "moving it back clears the hold");
+ok((await call({ action: "hold-draft", kind: "tool", id: "kollectify", note: "x" }, sess("admin@example.com"))).status === 400, "a published entry cannot be held");
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

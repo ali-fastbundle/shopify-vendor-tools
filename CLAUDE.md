@@ -195,6 +195,31 @@ pressed it is in `svt:publishlog` on /admin.
 (Invariant 22's button is a different thing: an entry drafted from a suggestion, which lives
 in Redis and never touches a file.)
 
+**A draft has three outcomes, not one.** Publish, Discard and Hold, all from the Drafts
+panel, all two presses with the readiness checklist on screen, all revertible.
+
+- **Discard** is Publish's mechanism with a different edit: `discardInSource` in
+  `lib/publish.js` removes the whole entry from its file, the commit message carries a
+  required one-line reason, and it is refused for anything that is not a draft on main
+  (removing a published entry is editing the directory, which is a hand edit). The
+  decision is also kept in `svt:discarded` with the name, domain, reason, who, when, the
+  commit and the entry as it stood, **so the research is not lost and the name is not
+  researched again**: the suggestion queue and the discovery list label a match as
+  "previously discarded: <reason>", by the same `findDiscarded` rule as listed and queued
+  (invariant 17). It is a label, not a filter, because the editor may decide the reason no
+  longer holds. Undo is reverting the commit; a discard whose id is back in a file stops
+  labelling anything by itself (`liveDiscards`), and is shown as restored.
+- **Hold** keeps it a draft and moves it into a collapsed On hold group with a required
+  note, for an unverified figure or a wait on somebody. It is admin state in
+  `svt:drafts:hold` and never a file edit: being on hold says nothing a visitor can see and
+  nothing about published-ness, which stays the file's alone. Undo is Move back to drafts.
+
+**The panel is collapsed per draft**: name, type and the one-line summary. Everything else,
+and every outcome button, is inside the expanded row, after the note and the watch in full,
+so nothing can be published, held or discarded without the text a button cannot check
+having been on screen. `scripts/publish-test.mjs` runs Discard against every real draft
+the same way it runs Publish, and `scripts/discovery-settled.mjs` covers the label.
+
 `LAST_UPDATED` is computed from the published list, so writing a draft does not move the
 site-wide date. Nothing a visitor can see has changed, so the date of the last change has
 not either. Give the entry an `updated` of the day you publish it, not the day you drafted
@@ -1752,7 +1777,8 @@ fetched and that no run carries an address.
 | `lib/mail.js` | The event matrix and `sendEvent()`. The only caller of Resend |
 | `lib/outbound.js` | `outbound()`, the render-time `utm_source` on links that leave the site |
 | `lib/drafts.js` | `draft: true`, the `published()` filter every catalogue passes through, and `readiness()` |
-| `lib/publish.js` | Publishing a file draft from /admin: the parsed edit and the commit to GitHub |
+| `lib/publish.js` | Publishing or discarding a file draft from /admin: the parsed edit and the commit to GitHub |
+| `lib/draftOutcomes.js` | What was discarded and why (`svt:discarded`), which discards still stand, and drafts on hold (`svt:drafts:hold`) |
 | `lib/ogCard.js` | What the share card draws, the URL version hashed from exactly that, and `withShareImage()`, which every page that sets its own `openGraph` must go through: Next replaces the layout's openGraph rather than merging it, so a page that skips it ships with no image. og-test enforces it |
 | `lib/announce.js` | The announcement prompt and the house-voice examples. Drafts, never publishes |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
@@ -2483,7 +2509,7 @@ AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement 
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/recommend-test.mjs      # flagged and over-budget tools never picked, no address kept
-node scripts/publish-test.mjs        # publishing a file draft changes exactly two things, and only by commit
+node scripts/publish-test.mjs        # publish changes exactly two things, discard removes exactly one entry, hold commits nothing
 node scripts/og-test.mjs [baseUrl]   # the share card's URL version moves with what it draws, and matches live
 node scripts/validate-jsonld.mjs     # needs a running server
 node scripts/admin-smoke.mjs <cookie>

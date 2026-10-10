@@ -173,5 +173,31 @@ await discovery.dismissFinding({ name: "Shopalyser", reason: "defunct", by: "adm
   ok(raw.at === "2026-08-01T09:00:00.000Z", "and the last pass date is kept, so the health strip still reads");
 }
 
+/* ---------------------------------------------------------------- */
+console.log("\na name somebody researched and discarded:");
+await seed();
+await store.write(store.KEYS.suggestions, []);
+await store.write("svt:discarded", {
+  "tool:wappalyzer": { key: "tool:wappalyzer", kind: "tool", id: "wappalyzer", name: "Wappalyzer", domain: "wappalyzer.com",
+    url: "https://www.wappalyzer.com", reason: "General tool, nothing native it does better", at: "2026-09-01T00:00:00.000Z", by: "admin@test" },
+});
+{
+  const d = await discovery.getDiscovery();
+  const f = d.findings.find((x) => x.name === "Wappalyzer");
+  ok(Boolean(f), "it stays on the list rather than vanishing", names(d).join(", "));
+  ok(f?.discarded?.reason === "General tool, nothing native it does better", "labelled with the reason it was discarded", JSON.stringify(f?.discarded));
+  ok(!d.findings.find((x) => x.name === "Apptics")?.discarded, "and nothing else is labelled");
+
+  const { findDiscarded } = await load("lib/suggestions.js");
+  const standing = [{ kind: "tool", name: "Shopalyser", domain: "shopalyser.invalid", reason: "x" }];
+  ok(Boolean(findDiscarded({ name: "shopalyser", url: "", kind: "tool" }, standing)), "the suggestion queue matches it by name, the same rule");
+  ok(Boolean(findDiscarded({ name: "Shop Analyser Pro", url: "https://shopalyser.invalid/x", domain: "shopalyser.invalid", kind: "tool" }, standing)), "and by domain");
+  ok(!findDiscarded({ name: "Shopalyser", url: "", kind: "podcast" }, standing), "but only within the same kind");
+
+  const { liveDiscards } = await load("lib/draftOutcomes.js");
+  ok(liveDiscards([{ kind: "tool", id: "shopalyser" }], new Set(["tool:shopalyser"])).length === 0,
+    "a discard whose entry is back in a file (the commit was reverted) no longer labels anything");
+}
+
 console.log(`\n${bad === 0 ? "all passed" : `${bad} FAILED`}\n`);
 process.exit(bad === 0 ? 0 : 1);

@@ -416,6 +416,42 @@ export async function POST(request) {
     return Response.json({ ok: true, sha: result.sha, url: result.url });
   }
 
+  /*
+   * Discard a drafted file entry: the same commit path as Publish, removing
+   * the entry from its file with the reason in the commit message, then the
+   * decision recorded in svt:discarded so the research is findable and the
+   * name is labelled when it comes back as a suggestion or a discovery.
+   * Recorded only after the commit succeeds: a discard that did not happen
+   * must not label anything.
+   */
+  if (action === "discard-file-draft") {
+    const lists = { tool: ALL_TOOLS, newsletter: ALL_NEWSLETTERS, event: ALL_EVENTS, group: ALL_COMMUNITIES, podcast: ALL_PODCASTS };
+    const kind = String(body.kind || "");
+    const entry = (lists[kind] || []).find((e) => e.id === id && e.draft);
+    if (!entry) return new Response("No draft with that id here. It may already be published or discarded.", { status: 400 });
+    const { commitDiscard, logPublish } = await import("@/lib/publish");
+    const result = await commitDiscard({ kind, id, entry, reason: body.reason });
+    if (result.error) return new Response(result.error, { status: 400 });
+    const { recordDiscard, clearHold } = await import("@/lib/draftOutcomes");
+    const record = await recordDiscard({ kind, entry, reason: body.reason, by: session.email, sha: result.sha, url: result.url });
+    await clearHold({ kind, id });
+    await logPublish({ at: record.at, by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url, outcome: "discarded", reason: record.reason });
+    return Response.json({ ok: true, sha: result.sha, url: result.url });
+  }
+
+  /* Hold and un-hold: admin state only, never a file edit (lib/draftOutcomes.js). */
+  if (action === "hold-draft" || action === "unhold-draft") {
+    const lists = { tool: ALL_TOOLS, newsletter: ALL_NEWSLETTERS, event: ALL_EVENTS, group: ALL_COMMUNITIES, podcast: ALL_PODCASTS };
+    const kind = String(body.kind || "");
+    if (!(lists[kind] || []).some((e) => e.id === id && e.draft)) return new Response("No draft with that id here.", { status: 400 });
+    const { setHold, clearHold } = await import("@/lib/draftOutcomes");
+    const r = action === "hold-draft"
+      ? await setHold({ kind, id, note: body.note, by: session.email })
+      : await clearHold({ kind, id });
+    if (r.error) return new Response(r.error, { status: 400 });
+    return Response.json({ holds: r.holds });
+  }
+
   if (action === "publish-entry") {
     const suggestions = await read(KEYS.suggestions, []);
     const suggestion = suggestions.find((s) => s.id === id);
