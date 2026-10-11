@@ -3,7 +3,6 @@ import { C, S, R, F, TRACK } from "@/lib/tools";
 import { EventBody, placeOf } from "@/components/EventParts";
 import Engagement from "@/components/Engagement";
 import FollowBox from "@/components/FollowBox";
-import FooterLinks from "@/components/FooterLinks";
 
 /*
  * One event at its own URL. No client state in this file, same contract as
@@ -38,7 +37,7 @@ export default function EventPage({ e, all, today, reviews = [], lastUpdated }) 
   const related = relatedEvents(e, all);
 
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
@@ -86,15 +85,9 @@ export default function EventPage({ e, all, today, reviews = [], lastUpdated }) 
           <a href="/events" style={{ color: C.muted }}>All events</a>
         </p>
 
-        <footer style={{ marginTop: S["3xl"], paddingBottom: S["4xl"] }}>
-
-          <FooterLinks />
-          <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
-            <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
-            Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify, or by any
-            organiser listed here. No affiliate links and no paid placement. Directory last updated {lastUpdated}.
-          </p>
-        </footer>
+<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
+            Not affiliated with, endorsed by, or sponsored by any organiser listed here.
+</p>
       </div>
     </main>
   );

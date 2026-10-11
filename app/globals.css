@@ -356,6 +356,10 @@
    ================================================================== */
 
 html,
+/* The scrollbar's room is kept on short pages too, so the centred header does
+   not move sideways between a long page and a short one. */
+html { scrollbar-gutter: stable; }
+
 body {
   background: var(--c-bg);
 }

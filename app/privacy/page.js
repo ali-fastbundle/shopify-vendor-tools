@@ -1,6 +1,4 @@
 import { C, S, F, TRACK, LAST_UPDATED } from "@/lib/tools";
-import SiteNav from "@/components/SiteNav";
-import FooterLinks from "@/components/FooterLinks";
 import { withShareImage } from "@/lib/ogCard";
 import { SITE, IDS } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
@@ -49,13 +47,12 @@ const Ul = ({ children }) => <ul style={{ margin: `${S.md}px 0 0`, paddingLeft: 
 
 export default function Page() {
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       <JsonLd data={{
         "@type": "WebPage", "@id": `${SITE}/privacy#page`, url: `${SITE}/privacy`, name: "Privacy",
         isPartOf: { "@id": IDS.website }, dateModified: REVISED,
       }} />
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <SiteNav current="privacy" />
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Privacy</h1>
           <P>
@@ -157,14 +154,6 @@ export default function Page() {
           the person who runs the site, and deletion is done by hand, completely.
         </P>
 
-        <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
-          <FooterLinks />
-          <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: 0 }}>
-            <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
-            Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.
-            Directory last updated {LAST_UPDATED}.
-          </p>
-        </footer>
       </div>
     </main>
   );

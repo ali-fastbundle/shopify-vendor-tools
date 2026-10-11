@@ -1,7 +1,5 @@
 import { C, S, F, TRACK, LAST_UPDATED } from "@/lib/tools";
-import SiteNav from "@/components/SiteNav";
 import Recommender from "@/components/Recommender";
-import FooterLinks from "@/components/FooterLinks";
 import { withShareImage } from "@/lib/ogCard";
 import SectionView from "@/components/SectionView";
 
@@ -26,9 +24,8 @@ export async function generateMetadata() {
 
 export default function Page() {
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <SiteNav current="recommend" />
         <SectionView id="recommend" />
         {/* The priming screens are the introduction, so the page heading is a
             label, not a second hero competing with them. */}
@@ -38,14 +35,6 @@ export default function Page() {
 
         <Recommender />
 
-        <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
-          <FooterLinks />
-          <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: 0 }}>
-            <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
-            Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.
-            No affiliate links and no paid placement. Directory last updated {LAST_UPDATED}.
-          </p>
-        </footer>
       </div>
     </main>
   );

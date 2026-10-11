@@ -3,6 +3,7 @@ import { HEADLINE } from "@/lib/tools";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeScript } from "@/components/Theme";
+import { SiteFrameProvider, SiteHeader, SiteFooter } from "@/components/SiteFrame";
 import "./globals.css";
 
 /*
@@ -70,7 +71,13 @@ export default function RootLayout({ children }) {
       <body>
         {/* First in the body, so the theme is resolved before anything paints. */}
         <ThemeScript />
-        {children}
+        {/* One header and one footer for every route (components/SiteFrame.jsx).
+            Pages render their content and nothing around it. */}
+        <SiteFrameProvider>
+          <SiteHeader />
+          {children}
+          <SiteFooter />
+        </SiteFrameProvider>
         {/*
           * Page traffic lives here, not in Redis. Views, referrers and paths are
           * what Vercel Analytics already does well and what this app has no

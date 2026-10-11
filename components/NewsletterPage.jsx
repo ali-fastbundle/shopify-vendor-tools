@@ -4,7 +4,6 @@ import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
 import Engagement from "@/components/Engagement";
 import FollowBox from "@/components/FollowBox";
-import FooterLinks from "@/components/FooterLinks";
 
 /*
  * One newsletter, at its own URL, rendered on the server.
@@ -78,7 +77,7 @@ export default function NewsletterPage({ newsletter: n, related, reviews = [], r
   const socials = Object.entries(n.social || {}).filter(([, href]) => href);
 
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 20px" }}>
 
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
@@ -202,15 +201,6 @@ export default function NewsletterPage({ newsletter: n, related, reviews = [], r
           </section>
         )}
 
-        <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"] }}>
-
-          <FooterLinks />
-          <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
-            <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
-            Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.
-            No affiliate links and no paid placement. Directory last updated {lastUpdated}.
-          </p>
-        </footer>
       </div>
     </main>
   );

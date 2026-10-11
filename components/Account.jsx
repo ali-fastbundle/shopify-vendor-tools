@@ -1,12 +1,25 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, createContext, useContext } from "react";
 import { C, S, R, F, SOCIALS } from "@/lib/tools";
 
 /* ------------------------------------------------------------------ */
 /*  Session hook                                                       */
 /* ------------------------------------------------------------------ */
+/* The session fetched once by the site frame (components/SiteFrame.jsx), so
+   the header and the page share one request. Null outside the frame. */
+export const SessionContext = createContext(null);
+
+/* The shared answer when the frame provides one; otherwise this component's
+   own fetch, which is what it always was. Hooks run in the same order either
+   way, and the local fetch is skipped when it is not needed. */
 export function useSession() {
+  const shared = useContext(SessionContext);
+  const local = useSessionState(!shared);
+  return shared || local;
+}
+
+export function useSessionState(enabled = true) {
   const [session, setSession] = useState({ loading: true, signedIn: false, owned: [] });
 
   const refresh = async () => {
@@ -19,7 +32,7 @@ export function useSession() {
     }
   };
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { if (enabled) refresh(); }, [enabled]);
   return [session, refresh];
 }
 

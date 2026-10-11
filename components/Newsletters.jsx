@@ -1,12 +1,10 @@
 import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
-import SiteNav from "@/components/SiteNav";
 import IndexSearch from "@/components/IndexSearch";
 import { searchText } from "@/lib/search";
 import { CardVotes } from "@/components/Engagement";
 import VisitSite from "@/components/VisitSite";
-import FooterLinks from "@/components/FooterLinks";
 
 /*
  * The Newsletters index, server-rendered with no client state, same contract
@@ -111,10 +109,9 @@ export default function Newsletters({ newsletters, lastUpdated }) {
   const merchant = newsletters.filter((n) => !n.shopifySpecific);
 
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 20px" }}>
 
-        <SiteNav current="newsletters" />
 
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
@@ -148,16 +145,9 @@ export default function Newsletters({ newsletters, lastUpdated }) {
         />
         </div>
 
-        <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
-
-          <FooterLinks />
-          <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
-            <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
-            Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.
-            No affiliate links and no paid placement. Directory last updated {lastUpdated}.
+<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
             Every entry keeps its watch note, and it is no more the publisher's to edit than a tool's is.
-          </p>
-        </footer>
+</p>
       </div>
     </main>
   );

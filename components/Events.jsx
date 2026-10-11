@@ -5,10 +5,8 @@ import { EventRow, placeOf, eventSearch } from "@/components/EventParts";
 import { CardVotes } from "@/components/Engagement";
 import EventDialog from "@/components/EventDialog";
 import TimelineScroll from "@/components/TimelineScroll";
-import SiteNav from "@/components/SiteNav";
 import IndexSearch from "@/components/IndexSearch";
 import NearbyEvents from "@/components/NearbyEvents";
-import FooterLinks from "@/components/FooterLinks";
 
 /*
  * The Events index. Server-rendered, whole in the first response, the same
@@ -151,9 +149,8 @@ export default function Events({ plan, events, lastUpdated }) {
   const { today, strip, timeline, nowMonth, unscheduled } = plan;
 
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <SiteNav current="events" />
 
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
@@ -220,16 +217,10 @@ export default function Events({ plan, events, lastUpdated }) {
 
         </div>
 
-        <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
-
-          <FooterLinks />
-          <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
+<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
             Dates are checked by hand against each organiser's own site, and an event with no confirmed
-            date is never shown as scheduled. <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is
-            an independent directory for Shopify app vendors. Not affiliated with, endorsed by, or sponsored
-            by Shopify. No affiliate links and no paid placement. Directory last updated {lastUpdated}.
-          </p>
-        </footer>
+            date is never shown as scheduled.
+</p>
       </div>
 
       <EventDialog events={events} today={today} />

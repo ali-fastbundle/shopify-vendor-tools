@@ -4,7 +4,6 @@ import {
   C, S, R, F, TRACK, ink, catOf, ownerOf, priceLine } from "@/lib/tools";
 import { logoAlt } from "@/lib/seo";
 import { Pill } from "@/components/Pill";
-import FooterLinks from "@/components/FooterLinks";
 import PostLinks from "@/components/PostLinks";
 import { postsForCategory } from "@/lib/blog";
 
@@ -44,17 +43,9 @@ const Crumbs = ({ cat }) => (
 );
 
 const Shell = ({ children, lastUpdated }) => (
-  <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+  <main style={{ background: C.bg, color: C.text, }}>
     <div className="mx-auto" style={{ maxWidth: 900, padding: "0 20px" }}>
       {children}
-      <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"] }}>
-        <FooterLinks />
-        <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch" }}>
-          <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory of
-          tools for Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.
-          No affiliate links and no paid placement. Directory last updated {lastUpdated}.
-        </p>
-      </footer>
     </div>
   </main>
 );

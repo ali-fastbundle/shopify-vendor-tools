@@ -13,11 +13,9 @@ import CopyLink from "./CopyLink";
 import GrowText from "./GrowText";
 import Vote from "./Vote";
 import VisitSite from "./VisitSite";
-import { FeedRows } from "./ChangesFeed";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
-import { AccountBar, OwnerPanel, SignInPrompt, useSession } from "./Account";
-import { ThemeToggle } from "./Theme";
-import FooterLinks from "@/components/FooterLinks";
+import { OwnerPanel, SignInPrompt, useSession } from "./Account";
+import { useFeedForCount } from "./SiteFrame";
 
 /* ================================================================== */
 /*  Bits                                                               */
@@ -96,21 +94,6 @@ if (typeof window !== "undefined") {
     if (document.visibilityState === "hidden") flushStats();
   });
   window.addEventListener("pagehide", flushStats);
-}
-
-function Wordmark() {
-  return (
-    <div className="flex items-center" style={{ gap: S.sm }}>
-      <span className="flex" style={{ gap: 2 }} aria-hidden="true">
-        {CATEGORIES.map((c) => (
-          <span key={c.id} style={{ width: 3, height: 16, borderRadius: 1.5, background: c.color, display: "inline-block" }} />
-        ))}
-      </span>
-      <span style={{ fontSize: F.xl, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1, whiteSpace: "nowrap" }}>
-        Watch For <span style={{ color: C.accentInk }}>Tools</span>
-      </span>
-    </div>
-  );
 }
 
 /*
@@ -643,26 +626,6 @@ const externalOf = (t) =>
  * and review tallies, because two of these orders are not properties of the
  * tool at all.
  */
-/*
- * How many updates have landed since this visitor was last here.
- *
- * localStorage, not an account: the question is "what is new to me", which is
- * per browser and nobody's business but theirs. It is stamped when the tab is
- * opened rather than on page load, so arriving, not looking, and coming back
- * tomorrow still shows the same count.
- *
- * Every access is wrapped. A browser with storage blocked reports nothing new,
- * which is the right failure: no count is a quiet tab, and a wrong count on a
- * tab people learn to trust is worse than none.
- */
-const SEEN_KEY = "svt:updates:seen";
-
-const readSeen = () => {
-  try { return localStorage.getItem(SEEN_KEY) || ""; } catch { return ""; }
-};
-const stampSeen = () => {
-  try { localStorage.setItem(SEEN_KEY, new Date().toISOString()); } catch { /* fine */ }
-};
 
 /*
  * The address bar follows the modal.
@@ -730,8 +693,6 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
    * and always will be: somebody arriving cold has never heard of any of these
    * tools, and "Ranksy raised Starter to $79" means nothing until it does.
    */
-  const [view2, setView2] = useState("directory");
-  const [seenAt, setSeenAt] = useState("");
 
   const [cat, setCat] = useState("all");
   const [q, setQ] = useState("");
@@ -938,44 +899,8 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 
   const totalReviews = Object.values(reviews).reduce((a, b) => a + b.length, 0);
   /* `rating` is set when the person got here by clicking a star. */
-  /* After mount only: localStorage does not exist on the server, and reading it
-     during render would make the first paint disagree with the HTML. */
-  useEffect(() => { setSeenAt(readSeen()); }, []);
-
-  const unread = useMemo(
-    () => (seenAt ? feed.filter((e) => String(e.at || "") > seenAt).length : 0),
-    [feed, seenAt],
-  );
-
-  /*
-   * Opening the tab marks everything in it seen. Stamped on the click rather
-   * than on a timer, because "I have looked at this" is a thing somebody does,
-   * not a thing that happens to them. The count clears on the next visit, not
-   * under the pointer: watching a number vanish as you arrive is the animation
-   * this page does not do.
-   */
-  const showUpdates = () => {
-    if (view2 !== "updates") {
-      /* The address bar follows the view, as it follows the tool modal, so
-         Recent updates has a URL that can be copied and sent. A reload of it
-         gets the standalone page, which is the same rows. */
-      try { window.history.pushState({ svtView: "updates" }, "", "/changes"); } catch { /* fine */ }
-    }
-    setView2("updates");
-    stampSeen();
-    trackSection("updates");
-  };
-
-  /* Back to the catalogue goes back when the entry under us is ours, so the
-     tab and the back button agree; otherwise it rewrites the address in place. */
-  const showDirectory = () => {
-    if (view2 === "directory") return;
-    try {
-      if (window.history.state?.svtView === "updates") window.history.back();
-      else window.history.replaceState(null, "", "/");
-    } catch { /* fine */ }
-    setView2("directory");
-  };
+  /* The header counts updates new to this browser; this page has the feed. */
+  useFeedForCount(feed);
 
   /* One directory view per page load, counted with the rest of the batch. */
   useEffect(() => { trackSection("directory"); }, []);
@@ -1026,11 +951,6 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
    */
   useEffect(() => {
     const onPop = () => {
-      try {
-        const st = window.history.state;
-        if (st?.svtView === "updates") setView2("updates");
-        else if (!st?.svtTool) setView2("directory");
-      } catch { /* fine */ }
       const id = historyToolId();
       if (id && tools.some((t) => t.id === id)) { setDetail(id); setDetailRating(0); }
       else setDetail(null);
@@ -1080,7 +1000,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
      * by next/font. A stylesheet injected from here could only describe one
      * theme, and would have to be rewritten to describe the other.
      */
-    <div style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <div style={{ background: C.bg, color: C.text }}>
       {/* The first focusable element: past the masthead and chips to the grid,
           for anyone on a keyboard. Hidden until focused. See .skip-link. */}
       <a href="#main" className="skip-link">Skip to tools</a>
@@ -1092,59 +1012,9 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 
       <div className="mx-auto" style={{ maxWidth: 1280, padding: "0 20px", position: "relative" }}>
 
-        {/*
-          * The frame and the masthead.
-          *
-          * Three layers of navigation used to sit above the grid at the same
-          * weight: the wordmark row, a view switcher, and two wrapping rows of
-          * category chips. The first card started 470px down a 1366x768
-          * laptop and its row was cut off. Now the frame is one bar (the
-          * section tabs between the wordmark and the account controls), the
-          * stats are a sentence under the headline, and the categories are a
-          * rail beside the grid. The first card starts under 300px.
-          *
-          * Recent updates is a tab in the frame, which is where a returning
-          * visitor looks. It is a real anchor to /changes: a plain left click
-          * is intercepted and the rows render here; a middle click, a modifier
-          * click, a crawler and a browser with no JavaScript all get the
-          * standalone page. aria-pressed rather than role="tab", because
-          * neither this nor the view toggle implements the arrow-key contract
-          * role="tab" promises. Selected is a state, so the neutral
-          * inversion: no category colour, no accent.
-          */}
-        <header style={{ paddingTop: S.lg }}>
-          <div className="topbar">
-            <div className="topbar-brand"><Wordmark /></div>
-            <nav aria-label="Sections" className="topbar-tabs">
-              <button className="navtab" aria-pressed={view2 === "directory"} onClick={showDirectory}>Directory</button>
-              <a className="navtab" href="/newsletters">Newsletters</a>
-              <a className="navtab" href="/events">Events</a>
-              <a className="navtab" aria-pressed={view2 === "updates"} href="/changes"
-                onClick={(e) => {
-                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-                  e.preventDefault();
-                  showUpdates();
-                }}>
-                Recent updates
-                {/* Only above zero, and never a coloured dot. A first-time
-                    visitor has nothing stored to be new against. Rule E. */}
-                {unread > 0 && view2 !== "updates" && (
-                  <span className="tnum" style={{ color: C.text, fontWeight: 700 }}>{unread}</span>
-                )}
-              </a>
-              <a className="navtab" href="/blog">Blog</a>
-            </nav>
-            {/* minHeight is the signed-out bar's own height: it renders nothing
-                until the session loads, and the row grew when it did. */}
-            <div className="topbar-account flex items-center" style={{ gap: S.md, minHeight: 38 }}>
-              <AccountBar session={session} refresh={refreshSession} />
-              {/* On a phone the theme toggle is in the footer instead: the
-                  wordmark, Sign in and three theme buttons do not fit one row
-                  at 390px, and Auto already follows the phone. */}
-              <span className="theme-top"><ThemeToggle /></span>
-            </div>
-          </div>
-
+        {/* The frame (wordmark, sections, account) is the site header in
+            app/layout.js. This is the masthead under it. */}
+        <header>
           <div className={answered ? "masthead masthead-answered" : "masthead"} style={{ marginTop: S["2xl"], paddingBottom: S.xl }}>
             <div style={{ minWidth: 0 }}>
               <h1 className="hero-title" style={{ fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.1, margin: 0 }}>
@@ -1165,16 +1035,6 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
         </header>
 
         <main id="main" tabIndex={-1} style={{ outline: "none" }}>
-        {view2 === "updates" ? (
-          <div style={{ paddingBottom: BAND.desktop }}>
-            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.6, maxWidth: "62ch", margin: 0 }}>
-              Pricing moves, new features, rebrands and wind-downs across the directory, dated and in
-              order. <a href="/changes" style={{ color: C.text }}>Open as its own page</a>.
-            </p>
-            <FeedRows entries={feed} tools={tools} />
-          </div>
-        ) : (
-        <>
         {/*
           * The categories are a rail beside the grid from 1024px, a sideways
           * scrolling row of chips below it. Colour stays on the chip, which is
@@ -1326,35 +1186,10 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
         </div>
         </div>
         </div>
-        </>
-        )}
 
         <Roadmap onSuggest={setShowSuggest} />
         </main>
 
-        <footer style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.lg, paddingBottom: BAND.desktop }}>
-          <div className="theme-foot" style={{ marginBottom: S.lg }}><ThemeToggle /></div>
-
-          <FooterLinks />
-          <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65 }}>
-            By{" "}
-            {AUTHOR_URL
-              ? <a href={outbound(AUTHOR_URL)} target="_blank" rel="noopener noreferrer"
-                  style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
-              : AUTHOR}
-            {". "}
-            {/* One middle dot on the line, per the dashes-and-dots rule, so the
-                second separator is a full stop rather than a second dot. */}
-            <a href="/changes" style={{ color: C.muted }}>Recent updates</a>{" · "}
-            <a href="/categories" style={{ color: C.muted }}>Categories</a>{". "}
-            watchfor.tools is an independent directory. Not affiliated with, endorsed by, or sponsored by
-            Shopify. Shopify is a trademark of Shopify Inc.
-            No tool here paid to be listed and none of the links are affiliate links.
-            Notes were last updated {LAST_UPDATED}. They are an editorial view, not an endorsement, and pricing moves. Social
-            profiles are linked only where the vendor publishes them. Ratings, reviews and suggestions are
-            contributed by visitors and shared with everyone.
-          </p>
-        </footer>
       </div>
 
       {/* Compare tray */}

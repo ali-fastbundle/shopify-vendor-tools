@@ -1524,22 +1524,11 @@ is the problem the feed was built to solve rather than to relocate. If you find
 yourself passing a `changes` prop into a listing component, that is this rule
 being broken.
 
-**The directory has two views, and the catalogue is always the default.**
-The views are tabs in the one top bar (`.topbar`, `.navtab`), between the wordmark
-and the account controls, beside the links to Newsletters, Events and Blog. Directory
-and Recent updates take `aria-pressed`, not `role="tab"`, because neither implements the arrow-key
-contract `role="tab"` promises. Selected is a state rather than an action, so it
-takes the neutral inversion, the same device as the "All" chip. No category
-colour, because it is not a category, and no accent, because green does things.
-
-**The Recent updates tab is a real `<a href="/changes">`.** A plain left click
-is intercepted and the rows render in place, and the address bar becomes `/changes`
-(pushed like the tool modal's `/tools/<id>`, `svtView` on the entry, Directory and
-back both return), so the view on screen always has a URL to send; a middle click, a modifier click, a
-crawler and a browser with no JavaScript all get the standalone page. That page
-keeps its own title, description and JSON-LD and stays the thing that updates
-weekly, so it cannot become a tab somebody has to know to press. Same pattern as
-a card title linking to `/tools/[id]`.
+**Recent updates is a page, and its tab is a plain link to `/changes`.** It used to
+render in place on the homepage, which left the view on screen with no address. Now
+the tab navigates like every other section tab, so the URL in the bar is always the
+thing to send, and the page keeps its own title, description and JSON-LD. The catalogue
+is still the default: `/` is the directory.
 
 **Every entry has an address of its own, and it is a fragment.** The feed is one
 stream across every tool, so an entry has no page to be the subject of and does
@@ -1554,9 +1543,7 @@ RSS follows: an item's `link` is `/changes#<id>` rather than the tool page, and
 the guid says `isPermaLink="true"` because now it is one. It used to point at the
 tool page because the fragment resolved to nothing.
 
-**`FeedRows` in `components/ChangesFeed.jsx` is the shared body.** The page wraps
-it in a `<main>` with a heading; the tab drops it under the switcher. One
-implementation, because two would drift.
+**`FeedRows` in `components/ChangesFeed.jsx` is the body of the page.**
 
 **The count is per browser, and absent by default.** `localStorage` under
 `svt:updates:seen`, never an account: "what is new to me" is a per-browser
@@ -1670,8 +1657,8 @@ file.
 - **A failed send is reported to the person** (502), not thanked, because nothing
   else holds the message.
 
-Every footer carries `FooterLinks`: the maintainer's LinkedIn (`AUTHOR_URL`) as a
-Phosphor icon, and Contact.
+The site footer carries `FooterLinks`: the maintainer's LinkedIn (`AUTHOR_URL`) as a
+Phosphor icon, Contact and Privacy.
 
 **39. A visitor's location never leaves their browser.**
 "Events near me" on `/events` sorts upcoming in-person events by distance.
@@ -1889,6 +1876,28 @@ drafts a feed entry. Five seeds (tool and category pages, Recent updates, newsle
 the recommender) live in `SEEDS` with figures computed on read, merge into the queue until first
 touched, and are stored from then on.
 
+## The site frame
+
+**One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
+`components/SiteFrame.jsx` holds both. The header is the barred wordmark (always a link
+home), the section tabs (Directory, Newsletters, Events, Recent updates, Blog) with the
+current one marked from the path, and the account and theme controls. A tool page and a
+category page count as Directory. The footer is `FooterLinks`, the byline and the
+disclaimer.
+
+Each page used to draw its own, and there were four versions: the homepage's barred
+wordmark with account controls, `SiteNav`'s plain-text one on the index pages, a
+breadcrumb and nothing else on the detail pages, and a footer per page, one of them
+missing. A page now renders its content; a note that belongs to one page (the events
+date policy, the blog's RSS link) stays in that page's body above the footer. Adding a
+page means adding nothing to the frame.
+
+The session is fetched once by the frame and shared through `SessionContext`, so the
+header and every `useSession()` on the page read one request. `/admin` keeps its own
+header, so the frame renders nothing there. The Recent updates count is in the header;
+the homepage hands it the feed through `useFeedForCount`, and opening `/changes` stamps
+the mark.
+
 ## Layout
 
 | Path | Role |
@@ -1916,7 +1925,7 @@ touched, and are stored from then on.
 | `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
 | `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
-| `components/FooterLinks.jsx` | LinkedIn and Contact, on every footer |
+| `components/FooterLinks.jsx` | LinkedIn, Contact and Privacy, in the site footer |
 | `lib/follows.js` `lib/followCopy.js` | Who follows what (confirmed only), stop tokens, and the one-sentence promise |
 | `lib/notify.js` `lib/feeds.js` | The daily run: detect news, queue it per person, send one digest each; the RSS and Atom reader |
 | `components/FollowBox.jsx` `app/api/follow` | Following a newsletter or an event: the box, the request, confirm and stop |
@@ -1933,7 +1942,7 @@ touched, and are stored from then on.
 | `app/recommend` `components/Recommender.jsx` `app/api/recommend` | The recommender's page, flow and routes (run, `draft`, `listing`) |
 | `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
 | `components/EventLogo.jsx` | An event's mark: hosted logo, favicon, then the status-coloured lettermark |
-| `components/SiteNav.jsx` | The top-level views on the index pages that are not the directory: Directory, Newsletters, Events, Recent updates, Blog |
+| `components/SiteFrame.jsx` | The site header and footer, rendered by `app/layout.js` on every route but `/admin`, and the one shared session fetch |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists. Client-safe, so no model import |
 | `lib/dedup.js` | Model-first dedup with the string matching as fallback, and the verdict log |
 | `lib/model.js` | The provider chain. The only reader of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
@@ -2148,8 +2157,8 @@ crept back to 470 with the first row cut off, because three layers of navigation
 above the grid at one weight: the wordmark row, a view switcher, and eleven chips wrapping
 to two rows. Now:
 
-- **One frame row** (`.topbar`): wordmark, section tabs, account and theme. `SiteNav`
-  renders the same row on every other index page. Below 1024px the tabs take their own
+- **One frame row** (`.topbar`): wordmark, section tabs, account and theme, rendered by
+  the layout on every route (see The site frame). Below 1024px the tabs take their own
   row and scroll sideways; below 640px the theme toggle moves to the footer, because
   the wordmark, Sign in and three theme buttons do not fit a 390px row.
 - **The stats are one sentence** under the headline. No newsletter count (the tab says
@@ -2392,8 +2401,7 @@ both is what lets a reader check the run for gaps.
 
 **Events are live**, opened on 2026-10-07: an index at `/events`, a page per entry
 at `/events/[id]`, sitemap entries, `llms.txt`, and a place in the top-level views
-(Directory, Newsletters, Events, Recent updates), which `SiteNav` renders on every
-index page and `Directory.jsx` renders on the home page. The catalogue stays the
+(Directory, Newsletters, Events, Recent updates, Blog) in the site header. The catalogue stays the
 default view.
 
 - **Status is never stored.** Past, imminent (within 30 days) and upcoming are

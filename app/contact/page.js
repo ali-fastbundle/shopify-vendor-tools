@@ -1,8 +1,6 @@
 import { C, S, F, TRACK, LAST_UPDATED } from "@/lib/tools";
 import { mintFormToken } from "@/lib/auth";
-import SiteNav from "@/components/SiteNav";
 import ContactForm from "@/components/ContactForm";
-import FooterLinks from "@/components/FooterLinks";
 import { withShareImage } from "@/lib/ogCard";
 import { SITE, IDS } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
@@ -28,14 +26,13 @@ export async function generateMetadata() {
 
 export default function Page() {
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       {/* No email in it: the address is kept out of the page source (invariant 38). */}
       <JsonLd data={{
         "@type": "ContactPage", "@id": `${SITE}/contact#page`, url: `${SITE}/contact`, name: "Contact",
         isPartOf: { "@id": IDS.website }, about: { "@id": IDS.organization },
       }} />
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <SiteNav current="contact" />
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
             Contact
@@ -49,14 +46,6 @@ export default function Page() {
 
         <ContactForm token={mintFormToken("contact")} />
 
-        <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
-          <FooterLinks />
-          <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: 0 }}>
-            <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
-            Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.
-            Directory last updated {LAST_UPDATED}.
-          </p>
-        </footer>
       </div>
     </main>
   );

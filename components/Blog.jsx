@@ -2,8 +2,6 @@ import React from "react";
 import { C, S, R, F, TRACK, formatDay, AUTHOR, AUTHOR_URL } from "@/lib/tools";
 import { inline, resolveRef, minutesToRead, UNVERIFIED_LEGEND } from "@/lib/blog";
 import { outbound } from "@/lib/outbound";
-import SiteNav from "@/components/SiteNav";
-import FooterLinks from "@/components/FooterLinks";
 import Engagement from "@/components/Engagement";
 import { postKey } from "@/lib/comments";
 
@@ -116,22 +114,15 @@ const Byline = ({ post }) => (
 );
 
 const Footer = ({ lastUpdated }) => (
-  <footer style={{ marginTop: S["4xl"], paddingBottom: S["4xl"], borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
-    <FooterLinks />
-    <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: 0 }}>
-      <a href="/" style={{ color: C.muted }}>watchfor.tools</a> is an independent directory for
-      Shopify app vendors. Not affiliated with, endorsed by, or sponsored by Shopify.
-      No affiliate links and no paid placement. <a href="/blog/rss" style={{ color: C.muted }}>RSS</a>.
-      Directory last updated {lastUpdated}.
-    </p>
-  </footer>
+<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
+  <a href="/blog/rss" style={{ color: C.muted }}>RSS</a> for every post, in full.
+</p>
 );
 
 export function BlogIndex({ posts, lastUpdated }) {
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <SiteNav current="blog" />
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Blog</h1>
           <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
@@ -160,7 +151,7 @@ export function BlogIndex({ posts, lastUpdated }) {
 
 export function BlogPost({ post, lastUpdated, comments = [] }) {
   return (
-    <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
+    <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>

@@ -57,11 +57,14 @@ ok(unread(FEED, "not-a-date") === 0, "a corrupt mark shows no count rather than 
 /* The component must not read localStorage during render: the server has none,
    so the first client paint would disagree with the HTML it is hydrating. */
 console.log("\nthe component:");
-const raw = (await import("fs")).readFileSync(new URL("../components/Directory.jsx", import.meta.url), "utf8");
+/* The count lives in the site header now, which every page shares. */
+const { readFileSync } = await import("fs");
+const raw = ["../components/SiteFrame.jsx", "../components/Directory.jsx"]
+  .map((f) => readFileSync(new URL(f, import.meta.url), "utf8")).join("\n");
 /* Comments talk about role="tab" to explain why it is not used, so they come
    out before the check looks for it. */
 const src = raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-ok(/useEffect\(\(\) => \{ setSeenAt\(readSeen\(\)\); \}, \[\]\);/.test(src),
+ok(/useEffect\(\(\) => \{[^}]*setSeenAt\(readSeen\(\)\);\s*\}, \[path\]\);/.test(src),
   "the stored mark is read after mount, not during render");
 ok(/try \{ return localStorage\.getItem/.test(src) && /catch \{ return ""; \}/.test(src),
   "and every access is wrapped, so blocked storage costs the count and nothing else");
