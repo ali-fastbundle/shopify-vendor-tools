@@ -21,7 +21,7 @@
 
 const COOKIE = process.argv[2];
 const BASE = (process.argv[3] || "http://localhost:3000").replace(/\/$/, "");
-const TABS = ["", "?tab=catalogue", "?tab=people", "?tab=audience", "?tab=system"];
+const TABS = ["", "?tab=catalogue", "?tab=announcements", "?tab=people", "?tab=audience", "?tab=system"];
 
 if (!COOKIE) {
   console.error("usage: node scripts/admin-smoke.mjs <svt_session cookie value> [baseUrl]");

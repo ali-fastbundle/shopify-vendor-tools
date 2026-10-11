@@ -955,9 +955,26 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
    * this page does not do.
    */
   const showUpdates = () => {
+    if (view2 !== "updates") {
+      /* The address bar follows the view, as it follows the tool modal, so
+         Recent updates has a URL that can be copied and sent. A reload of it
+         gets the standalone page, which is the same rows. */
+      try { window.history.pushState({ svtView: "updates" }, "", "/changes"); } catch { /* fine */ }
+    }
     setView2("updates");
     stampSeen();
     trackSection("updates");
+  };
+
+  /* Back to the catalogue goes back when the entry under us is ours, so the
+     tab and the back button agree; otherwise it rewrites the address in place. */
+  const showDirectory = () => {
+    if (view2 === "directory") return;
+    try {
+      if (window.history.state?.svtView === "updates") window.history.back();
+      else window.history.replaceState(null, "", "/");
+    } catch { /* fine */ }
+    setView2("directory");
   };
 
   /* One directory view per page load, counted with the rest of the batch. */
@@ -1009,6 +1026,11 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
    */
   useEffect(() => {
     const onPop = () => {
+      try {
+        const st = window.history.state;
+        if (st?.svtView === "updates") setView2("updates");
+        else if (!st?.svtTool) setView2("directory");
+      } catch { /* fine */ }
       const id = historyToolId();
       if (id && tools.some((t) => t.id === id)) { setDetail(id); setDetailRating(0); }
       else setDetail(null);
@@ -1094,7 +1116,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
           <div className="topbar">
             <div className="topbar-brand"><Wordmark /></div>
             <nav aria-label="Sections" className="topbar-tabs">
-              <button className="navtab" aria-pressed={view2 === "directory"} onClick={() => setView2("directory")}>Directory</button>
+              <button className="navtab" aria-pressed={view2 === "directory"} onClick={showDirectory}>Directory</button>
               <a className="navtab" href="/newsletters">Newsletters</a>
               <a className="navtab" href="/events">Events</a>
               <a className="navtab" aria-pressed={view2 === "updates"} href="/changes"

@@ -52,6 +52,10 @@ import { STAT_SECTIONS } from "@/lib/beacon";
 const TABS = [
   ["inbox", "Inbox"],
   ["catalogue", "Catalogue"],
+  /* Announcements are their own job, writing for LinkedIn about what shipped,
+     not a decision about the directory, so they get a tab rather than a panel
+     somewhere down Catalogue. */
+  ["announcements", "Announcements"],
   ["people", "People"],
   /* Audience is not system health. Tool opens, matcher queries and interest
      counts say what visitors are doing, which is a different question from
@@ -158,6 +162,7 @@ export default function AdminPanel({
   const counts = {
     inbox: inboxCount,
     catalogue: catalogueCount,
+    announcements: (announcements || []).filter((r) => r.status === "draft" || r.status === "ready").length,
     people: Object.keys(accounts || {}).length,
     system: 0,
   };
@@ -274,7 +279,6 @@ export default function AdminPanel({
 
         {tab === "catalogue" && (
           <Catalogue
-            announcements={announcements}
             publishing={publishing}
             holds={holds}
             discards={discards}
@@ -292,6 +296,8 @@ export default function AdminPanel({
             busy={busy}
           />
         )}
+
+        {tab === "announcements" && <Announcements initial={announcements} />}
 
         {tab === "people" && (
           <People
@@ -420,13 +426,12 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
   );
 }
 
-function Catalogue({ announcements = [], publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
       <PublishingNote />
       <Drafts publishing={publishing} holds={holds} discards={discards} />
-      <Announcements initial={announcements} />
       <NeedsVerifying />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />

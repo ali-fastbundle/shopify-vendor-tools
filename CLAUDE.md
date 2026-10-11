@@ -925,8 +925,8 @@ hand-written entry and a published one both get it.
   of the link they asked for. `scripts/interest-test.mjs` runs against a live
   server and checks exactly this, including the fourth submission in an hour.
 
-**25. `/admin` is four tabs, ordered by whether there is anything to do.**
-Inbox, Catalogue, People, System. It had grown to thirteen headings in one
+**25. `/admin` is tabs, ordered by whether there is anything to do.**
+Inbox, Catalogue, Announcements, People, Audience, System. It had grown to thirteen headings in one
 column, and finding the two that needed a decision meant scrolling past eleven
 that did not.
 
@@ -1533,7 +1533,9 @@ takes the neutral inversion, the same device as the "All" chip. No category
 colour, because it is not a category, and no accent, because green does things.
 
 **The Recent updates tab is a real `<a href="/changes">`.** A plain left click
-is intercepted and the rows render in place; a middle click, a modifier click, a
+is intercepted and the rows render in place, and the address bar becomes `/changes`
+(pushed like the tool modal's `/tools/<id>`, `svtView` on the entry, Directory and
+back both return), so the view on screen always has a URL to send; a middle click, a modifier click, a
 crawler and a browser with no JavaScript all get the standalone page. That page
 keeps its own title, description and JSON-LD and stays the thing that updates
 weekly, so it cannot become a tab somebody has to know to press. Same pattern as
@@ -1877,7 +1879,7 @@ pattern means the matching is wrong for that tool. Then most recommended, most r
 every comment in full with its inputs. `lib/recommendFeedback.js`, `scripts/shipping-test.mjs`.
 
 **43. Announcements: drafted on a button, grounded in the catalogue, posted by hand.**
-The Announcements section on Catalogue (`lib/announcements.js`) queues a LinkedIn post for
+The Announcements tab on `/admin` (`?tab=announcements`, `lib/announcements.js`) queues a LinkedIn post for
 something that shipped. Nothing queues itself: the editor says what shipped and presses Draft.
 The model is given figures from the published catalogue at that moment and may state no
 others; `unsupportedNumbers` and `hypeIn` check the result in code and the panel shows any
