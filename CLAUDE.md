@@ -706,7 +706,7 @@ also what it says about a tool with nothing new. `lib/coverage.js` derives one
 state per published tool and newsletter from the snapshot store: Monitored (and
 whether in part, or stale past three weeks), Blocked, Unreachable, or No source.
 Every run records what each page did (`pages`, `checkedAt` on the snapshot
-record) so "read through its changelog, homepage refused" is visible. The Inbox
+record) so "read through its changelog, homepage refused" is visible. Recent updates
 says under the monitor's summary which listings it cannot see, and the System
 strip counts them.
 
@@ -954,10 +954,16 @@ Inbox, Catalogue, Recent updates, Announcements, People, Audience, System. It ha
 column, and finding the two that needed a decision meant scrolling past eleven
 that did not.
 
-- **Inbox is the default and the only tab with a deadline**: suggestions to
-  review (sorted by interest), open reports, claims to check, and monitor alerts.
-  Its count is in the tab label, so "is there anything for me" is answered
-  without clicking. **When it is empty it says so in one line** rather than
+- **Inbox is the default**: suggestions to review (sorted by interest), open
+  reports, claims to check and comments to read. Its count is in the tab label,
+  so "is there anything for me" is answered without clicking.
+- **Monitor findings are decided on Recent updates** (`?tab=updates`), which
+  carries their count in its own tab label, in the accent like the Inbox's. Most
+  findings end as a feed entry or as nothing, so they sit beside the vendor
+  announcement form and everything already on the feed, where the decision is
+  made. They were in the Inbox, and a vendor announcement had to be hunted for in
+  Catalogue. The Inbox keeps one line saying how many are waiting, with a link,
+  so moving them did not hide them. **When it is empty it says so in one line** rather than
   rendering four empty panels, which is the state it is in most days.
 - **Any list that can exceed about ten rows is collapsed by default, with a
   count in its header.** `Collapsible` does this. The count is the part you
@@ -970,11 +976,11 @@ that did not.
 - **Changes are grouped by tool, not listed chronologically.** One collapsed
   line per tool with a count, ordered by whether it needs a decision and then
   by recency, under a single summary sentence that is usually the whole answer.
-  A tool leaves the Inbox once every one of its changes has a destination.
-- **The Inbox holds the latest run, matched on its exact timestamp.** Every row
+  A tool leaves the list once every one of its changes has a destination.
+- **The findings panel holds the latest run, matched on its exact timestamp.** Every row
   from one sweep shares an `at` stamped once in `runMonitor`. Matching on the
   *day* looks equivalent and is not: three runs in an afternoon collapse into
-  one, which put 90 changes in the Inbox instead of the 8 the last sweep found.
+  one, which put 90 changes in the panel instead of the 8 the last sweep found.
   Older unhandled findings go to Earlier, collapsed.
 - **System answers "is anything broken" above the fold.** A status strip of
   store, mail, monitor, discovery, cron, coverage and env, each green or a
@@ -1515,7 +1521,7 @@ Inbox, because a new capability is usually both news and a description change.
 when there are none: "looked and did nothing" is what Dismiss is for, and the two
 must not be indistinguishable afterwards. Records written before this carry no
 `awaitsResolve` and count as handled. `isHandled` in `components/Admin.jsx` is the
-one copy of that rule, used by both the Inbox count and the monitor panel.
+one copy of that rule, used by both the Recent updates count and the monitor panel.
 
 **The voice examples are lifted from the catalogue, not written for the prompt.**
 `houseVoice()` reads real `one` and `watch` lines out of `TOOLS`, so the examples

@@ -161,17 +161,33 @@ export default function AdminPanel({
   /* Most asked first, everywhere a queue is shown. Demand decides order. */
   const byDemand = (a, b) => timesAsked(b) - timesAsked(a);
 
-  const inboxCount = pending.length + openReports.length + pendingClaims.length + openChanges.length + unreadComments.length;
+  /* Monitor findings are counted on Recent updates, where they are decided:
+     most of them end as an entry on the feed or as nothing. */
+  const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
     + drafted(ALL_PODCASTS).length + drafted(ALL_EVENTS).length;
   const counts = {
     inbox: inboxCount,
     catalogue: catalogueCount,
+    updates: openChanges.length,
     announcements: (announcements || []).filter((r) => r.status === "draft" || r.status === "ready").length,
     people: Object.keys(accounts || {}).length,
     system: 0,
   };
+
+  function go(id) {
+    setTab(id);
+    /* Keep the URL honest without a navigation, so a reload and a
+       copied link both land where the person is looking. */
+    try {
+      const u = new URL(window.location.href);
+      if (id === "inbox") u.searchParams.delete("tab");
+      else u.searchParams.set("tab", id);
+      window.history.replaceState(null, "", u);
+      window.scrollTo(0, 0);
+    } catch { /* history is not essential to switching tabs */ }
+  }
 
   /* Stamp the visit once, after the render that used the old value. */
   useEffect(() => {
@@ -232,17 +248,7 @@ export default function AdminPanel({
             const on = tab === id;
             const n = counts[id];
             return (
-              <button key={id} onClick={() => {
-                setTab(id);
-                /* Keep the URL honest without a navigation, so a reload and a
-                   copied link both land where the person is looking. */
-                try {
-                  const u = new URL(window.location.href);
-                  if (id === "inbox") u.searchParams.delete("tab");
-                  else u.searchParams.set("tab", id);
-                  window.history.replaceState(null, "", u);
-                } catch { /* history is not essential to switching tabs */ }
-              }} aria-current={on ? "page" : undefined}
+              <button key={id} onClick={() => go(id)} aria-current={on ? "page" : undefined}
                 style={{
                   background: "none", border: 0, borderBottom: `2px solid ${on ? C.accent : "transparent"}`,
                   padding: "8px 14px", marginBottom: -1, cursor: "pointer", fontFamily: "inherit",
@@ -252,7 +258,7 @@ export default function AdminPanel({
                 {n > 0 && (
                   <span className="tnum" style={{
                     marginLeft: S.sm, fontSize: F.xs, fontWeight: 700,
-                    color: id === "inbox" && n > 0 ? C.accentInk : C.dim,
+                    color: (id === "inbox" || id === "updates") && n > 0 ? C.accentInk : C.dim,
                   }}>{n}</span>
                 )}
               </button>
@@ -265,18 +271,12 @@ export default function AdminPanel({
             pending={[...pending].sort(byDemand)}
             reports={reportRows}
             claims={pendingClaims}
-            changes={changelog || []}
+            openChanges={openChanges}
             sinceVisit={sinceVisit}
-            monitor={monitor}
-            seen={seen}
-            appliedChanges={appliedChanges || {}}
-            publishedChanges={publishedChanges || {}}
-            rewrittenChanges={rewrittenChanges || {}}
-            verifiedChanges={verifiedChanges || {}}
+            onTab={go}
             discovery={discovery}
             coverage={coverage}
             comments={unreadComments}
-            onSeen={setSeen}
             act={act}
             busy={busy}
             onSuggestions={setRows}
@@ -304,7 +304,12 @@ export default function AdminPanel({
           />
         )}
 
-        {tab === "updates" && <RecentUpdates feed={feed} />}
+        {tab === "updates" && (
+          <RecentUpdates feed={feed}
+            changes={changelog || []} sinceVisit={sinceVisit} monitor={monitor} seen={seen} coverage={coverage}
+            appliedChanges={appliedChanges || {}} publishedChanges={publishedChanges || {}}
+            rewrittenChanges={rewrittenChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen} />
+        )}
 
         {tab === "announcements" && <Announcements initial={announcements} />}
 
@@ -345,10 +350,22 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, discovery = { findings: [] }, coverage = [], comments = [], onSeen, act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinceVisit = [], onTab, discovery = { findings: [] }, coverage = [], comments = [], act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
-  const openChanges = changes.filter((r) => !isHandled(r.id, seen, publishedChanges, appliedChanges));
-  const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length && !comments.length;
+  const nothing = !pending.length && !openReports.length && !claims.length && !comments.length;
+
+  /* The monitor's findings are decided on Recent updates. One line here says
+     they are waiting, so moving them did not hide them. */
+  const pointer = openChanges.length > 0 && (
+    <p style={{ fontSize: F.sm, color: C.accentInk, margin: `0 0 ${S["2xl"]}px`, lineHeight: 1.6, fontWeight: 600 }}>
+      {openChanges.length} monitor finding{openChanges.length === 1 ? "" : "s"} waiting
+      {sinceVisit.length > 0 ? `, ${sinceVisit.length} since your last visit` : ""}.{" "}
+      <button onClick={() => onTab("updates")} style={{
+        background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+        fontSize: "inherit", fontWeight: 600, color: C.accentInk, textDecoration: "underline",
+      }}>Open Recent updates</button>
+    </p>
+  );
 
   /*
    * `nothing` is about deadlines, and discovery findings are not one: they are
@@ -364,10 +381,11 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
   if (nothing) {
     return (
       <>
+        {pointer}
         <section className="pb-10">
           <p style={{ fontSize: F.lg, color: C.muted, margin: 0, lineHeight: 1.6, maxWidth: "62ch" }}>
-            Nothing is waiting on you. No suggestions to review, no open reports, no claims to check,
-            no blog comments to read, and no listing changes since your last visit.
+            Nothing else is waiting on you. No suggestions to review, no open reports, no claims to check
+            and no blog comments to read.
           </p>
           <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "62ch" }}>
             The Catalogue tab has the drafts and what is published. The monitor runs on Mondays.
@@ -381,14 +399,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
 
   return (
     <>
-      {sinceVisit.length > 0 && (
-        <p style={{
-          fontSize: F.sm, color: C.accentInk, margin: `0 0 ${S["2xl"]}px`,
-          lineHeight: 1.6, fontWeight: 600,
-        }}>
-          {sinceVisit.length} listing change{sinceVisit.length === 1 ? "" : "s"} since your last visit.
-        </p>
-      )}
+      {pointer}
 
       <Section
         title="Suggestions to review"
@@ -426,10 +437,6 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
           ? <Empty>No claims waiting.</Empty>
           : claims.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} />)}
       </Section>
-
-      <ChangeMonitor rows={changes} monitor={monitor} seen={seen} coverage={coverage}
-        appliedChanges={appliedChanges} publishedChanges={publishedChanges}
-        rewrittenChanges={rewrittenChanges} verifiedChanges={verifiedChanges} onSeen={onSeen} />
 
       <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
     </>
@@ -4596,7 +4603,7 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
  * seen on the vendor's own site, which is a check to make before pressing:
  * the form says so rather than trusting it to be remembered.
  */
-function RecentUpdates({ feed = [] }) {
+function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, onSeen }) {
   const tools = useMemo(() => published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name)), []);
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
@@ -4645,6 +4652,14 @@ function RecentUpdates({ feed = [] }) {
 
   return (
     <>
+      {sinceVisit.length > 0 && (
+        <p style={{ fontSize: F.sm, color: C.accentInk, margin: `0 0 ${S["2xl"]}px`, lineHeight: 1.6, fontWeight: 600 }}>
+          {sinceVisit.length} monitor finding{sinceVisit.length === 1 ? "" : "s"} since your last visit.
+        </p>
+      )}
+      <ChangeMonitor rows={changes} monitor={monitor} seen={seen} coverage={coverage}
+        appliedChanges={appliedChanges} publishedChanges={publishedChanges}
+        rewrittenChanges={rewrittenChanges} verifiedChanges={verifiedChanges} onSeen={onSeen} />
       <Section title="Post a vendor announcement"
         hint="News a vendor told us about, by email or on a call, for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all. News the monitor found is published from its finding in the Inbox.">
       <div style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, marginBottom: S.md }}>
