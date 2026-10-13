@@ -950,7 +950,7 @@ hand-written entry and a published one both get it.
   server and checks exactly this, including the fourth submission in an hour.
 
 **25. `/admin` is tabs, ordered by whether there is anything to do.**
-Inbox, Catalogue, Announcements, People, Audience, System. It had grown to thirteen headings in one
+Inbox, Catalogue, Recent updates, Announcements, People, Audience, System. It had grown to thirteen headings in one
 column, and finding the two that needed a decision meant scrolling past eleven
 that did not.
 
@@ -1448,7 +1448,9 @@ A pricing move is usually both: the feed records that it happened, the listing
 says what is true now.
 
 **A vendor announcement is a feed entry the vendor told us about.** Posted from
-Vendor announcements in Catalogue, for news the monitor could not have seen. The
+the Recent updates tab on `/admin` (`?tab=updates`), for news the monitor could not
+have seen. That tab also lists everything on the feed, from either door, with an
+Unpublish on each; it was a collapsed panel in Catalogue and could not be found. The
 row carries `source: "vendor"` and `announcedOn`, and the page and RSS say "Vendor
 announcement" on it, because the vendor's word and our reading of their site are
 different strengths of claim. Only what has shipped, checked on the vendor's own

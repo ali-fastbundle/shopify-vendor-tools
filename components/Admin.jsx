@@ -53,6 +53,11 @@ import { STAT_SECTIONS } from "@/lib/beacon";
 const TABS = [
   ["inbox", "Inbox"],
   ["catalogue", "Catalogue"],
+  /* Recent updates is the public feed, and writing to it is its own job: a
+     vendor's announcement had nowhere obvious to go when the form sat in a
+     collapsed panel half way down Catalogue. Everything that is on the feed,
+     and the one form for adding to it by hand, lives here. */
+  ["updates", "Recent updates"],
   /* Announcements are their own job, writing for LinkedIn about what shipped,
      not a decision about the directory, so they get a tab rather than a panel
      somewhere down Catalogue. */
@@ -292,13 +297,14 @@ export default function AdminPanel({
             outOfScope={outOfScopeRows}
             deleted={deletedRows}
             coverage={coverage}
-            feed={feed}
             stats={stats}
             allSuggestions={rows}
             act={act}
             busy={busy}
           />
         )}
+
+        {tab === "updates" && <RecentUpdates feed={feed} />}
 
         {tab === "announcements" && <Announcements initial={announcements} />}
 
@@ -430,7 +436,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], feed = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
@@ -443,10 +449,6 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
         openWhen={uncovered(coverage).length > 0}
         hint="Every published tool and newsletter, and whether the weekly monitor can actually read it. A listing it cannot see produces no findings, which looks exactly like a listing with nothing new, so silence only means something for the ones marked Monitored.">
         <CoverageList rows={coverage} />
-      </Collapsible>
-      <Collapsible title="Vendor announcements" count={feed.filter((f) => f.source === "vendor").length}
-        hint="News a vendor told us about, for Recent updates. Mostly for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all.">
-        <VendorAnnouncements feed={feed} />
       </Collapsible>
       <OutOfScope rows={outOfScope} />
       <Deleted rows={deleted} act={act} busy={busy} />
@@ -4594,11 +4596,11 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
  * seen on the vendor's own site, which is a check to make before pressing:
  * the form says so rather than trusting it to be remembered.
  */
-function VendorAnnouncements({ feed = [] }) {
+function RecentUpdates({ feed = [] }) {
   const tools = useMemo(() => published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name)), []);
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
-  const [rows, setRows] = useState(feed.filter((f) => f.source === "vendor"));
+  const [rows, setRows] = useState(feed);
   const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
@@ -4632,13 +4634,19 @@ function VendorAnnouncements({ feed = [] }) {
     }
   }
 
-  async function unpublish(id) {
-    const d = await post("unpublish-announcement", id);
-    if (d?.removed) setRows((r) => r.filter((x) => x.id !== id));
+  /* A vendor row is removed by its own id. A monitor row goes back through the
+     finding it came from, so the finding stops saying it is on the feed. */
+  async function unpublish(r) {
+    const d = r.source === "vendor"
+      ? await post("unpublish-announcement", r.id)
+      : await post("unpublish-from-feed", r.changeId);
+    if (d) setRows((x) => x.filter((y) => y.id !== r.id));
   }
 
   return (
     <>
+      <Section title="Post a vendor announcement"
+        hint="News a vendor told us about, by email or on a call, for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all. News the monitor found is published from its finding in the Inbox.">
       <div style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, marginBottom: S.md }}>
         <div className="flex flex-wrap" style={{ gap: S.md }}>
           <div style={{ flex: "1 1 220px" }}>
@@ -4702,19 +4710,31 @@ function VendorAnnouncements({ feed = [] }) {
         </div>
         {err && <p style={{ fontSize: F.xs, color: C.warnInk, margin: "8px 0 0" }}>{err}</p>}
       </div>
-      {rows.length === 0
-        ? <Empty>No vendor announcements published.</Empty>
-        : rows.map((r) => (
-          <Row key={r.id} title={r.toolName} tag={`announced ${r.announcedOn || ""}`}
-            body={r.headline}
-            meta={<>
-              published {String(r.date || "").slice(0, 10)}{r.publishedBy ? ` by ${r.publishedBy}` : ""}
-              {r.sourceNote ? ` \u00b7 ${r.sourceNote}` : ""}
-              {" \u00b7 "}<a href={`/changes#${r.id}`} style={{ color: C.muted }}>on the feed</a>
-            </>}
-            actions={<ConfirmBtn onConfirm={() => unpublish(r.id)} busy={busy === "unpublish-announcement" + r.id}>Unpublish</ConfirmBtn>}
-          />
-        ))}
+      </Section>
+      <Section title="On Recent updates" count={rows.length}
+        hint="Everything published to the feed, newest first, as visitors see it at /changes. Unpublishing is soft: the row is kept and marked removed.">
+        {rows.length === 0
+          ? <Empty>Nothing published yet.</Empty>
+          : rows.map((r) => {
+            const vendor = r.source === "vendor";
+            const canRemove = vendor || r.changeId;
+            const action = vendor ? "unpublish-announcement" + r.id : "unpublish-from-feed" + r.changeId;
+            return (
+              <Row key={r.id} title={r.toolName}
+                tag={vendor ? `vendor announcement ${r.announcedOn || ""}` : "from the monitor"}
+                body={r.headline}
+                meta={<>
+                  published {String(r.date || "").slice(0, 10)}{r.publishedBy ? ` by ${r.publishedBy}` : ""}
+                  {r.sourceNote ? ` \u00b7 ${r.sourceNote}` : ""}
+                  {" \u00b7 "}<a href={`/changes#${r.id}`} style={{ color: C.muted }}>on the feed</a>
+                </>}
+                actions={canRemove
+                  ? <ConfirmBtn onConfirm={() => unpublish(r)} busy={busy === action}>Unpublish</ConfirmBtn>
+                  : null}
+              />
+            );
+          })}
+      </Section>
     </>
   );
 }
