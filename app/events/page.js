@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const title = "Events for Shopify app vendors | watchfor.tools";
 const description =
-  "Conferences and meetups worth an app vendor's time, with who is actually in the room. Dates checked against each organiser's site, and nothing unconfirmed shown as scheduled.";
+  "Conferences and meetups worth an app vendor's time, with who is actually in the room. Dates checked against each organizer's site, and nothing unconfirmed shown as scheduled.";
 
 const baseMetadata = {
   title,
@@ -30,7 +30,7 @@ export async function generateMetadata() {
 
 export default async function Page() {
   const today = todayISO();
-  // Merged, so an organiser's edit to the summary or link shows here too.
+  // Merged, so an organizer's edit to the summary or link shows here too.
   const EVENTS = await mergedEvents();
   const plan = agenda(EVENTS, today);
   const upcoming = plan.timeline.flatMap((g) => g.items)

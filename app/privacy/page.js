@@ -109,8 +109,8 @@ export default function Page() {
         <P>Only from people who gave one, and only for the reason they gave it:</P>
         <Ul>
           <Li>Signing in: your address, when you first signed in and when you last did. Nothing else.</Li>
-          <Li>A review or a comment: your address is stored with it so you can edit yours and so one
-            account cannot pose as many. It is never shown; the name you choose is.</Li>
+          <Li>A review or a comment: your address is stored with it. This lets you edit yours, and it
+            stops one account from posing as many. Your address is never shown. The name you choose is.</Li>
           <Li>The mailing list, or following a newsletter or an event: your address, until you
             unsubscribe. A follow is stored only after you click the confirmation link.</Li>
           <Li>A suggestion or a report: only if you chose to add an address, to thank you or ask a question.</Li>

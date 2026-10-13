@@ -5,7 +5,7 @@ import SectionView from "@/components/SectionView";
 
 const title = "Growth picks for your app | watchfor.tools";
 const description =
-  "Five short parts about your Shopify app, one question at a time, and up to three tools from the directory, each tied to what you told us.";
+  "Five short parts about your Shopify app, one question at a time. You get up to three tools from the directory, each tied to what you told us.";
 
 const baseMetadata = {
   title,

@@ -162,7 +162,7 @@ function eventsBlock() {
   return `## Events
 
 Conferences and meetups an app vendor might travel for. Dates are checked
-against each organiser's own site. Each has a page at ${SITE}/events/<id>.
+against each organizer's own site. Each has a page at ${SITE}/events/<id>.
 
 ### Coming up
 

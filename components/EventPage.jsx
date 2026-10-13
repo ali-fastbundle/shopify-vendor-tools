@@ -14,7 +14,7 @@ import FollowBox from "@/components/FollowBox";
  */
 
 /*
- * Related events: the same organiser first, then the same country. Never
+ * Related events: the same organizer first, then the same country. Never
  * padding: fewer than the limit shows fewer, including none, the rule every
  * related list on this site follows.
  */
@@ -86,7 +86,7 @@ export default function EventPage({ e, all, today, reviews = [], lastUpdated }) 
         </p>
 
 <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
-            Not affiliated with, endorsed by, or sponsored by any organiser listed here.
+            Not affiliated with, endorsed by, or sponsored by any organizer listed here.
 </p>
       </div>
     </main>

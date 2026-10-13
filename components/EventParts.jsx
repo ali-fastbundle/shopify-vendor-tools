@@ -23,7 +23,7 @@ import { CardVotes } from "@/components/Engagement";
  * Certainty. The month is the information, so it is set exactly like a
  * confirmed day. An inferred date carries one quiet signal, "date TBC" on the
  * bottom line of the box and on the row, and the whole explanation lives in
- * the tooltip and the detail view. An approximate one shows the organiser's
+ * the tooltip and the detail view. An approximate one shows the organizer's
  * own words on the row.
  */
 
@@ -95,7 +95,7 @@ export const placeOf = (e) =>
   [e.city, e.country].filter((x) => x && !/^n\/a$/i.test(x)).filter((x, i, a) => a.indexOf(x) === i).join(", ");
 
 /*
- * One line of when and where. An approximate date gives the organiser's words;
+ * One line of when and where. An approximate date gives the organizer's words;
  * an inferred one says "Date TBC" and nothing longer, with the last-held date
  * in the tooltip and the detail view.
  */
@@ -163,7 +163,7 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
   const where = [e.venue && !/^(tbd|n\/a)$/i.test(e.venue) ? e.venue : "", placeOf(e)].filter(Boolean).join(", ");
   const facts = [
     e.organizer && `by ${e.organizer}`,
-    e.attendees && `${e.attendees} attendees, by the organiser's count`,
+    e.attendees && `${e.attendees} attendees, by the organizer's count`,
     e.focus,
   ].filter(Boolean);
 
@@ -172,7 +172,7 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
   else if (at.mode === "approx") when = `${at.label}. No exact date was published.`;
   else if (at.mode === "year") when = `${at.label}.`;
   else if (at.mode === "inferred")
-    when = `Date not confirmed. Last held ${dayLabel(at.lastHeld)}, so placed around ${dayLabel(at.date)} until the organiser announces the next one.`;
+    when = `Date not confirmed. Last held ${dayLabel(at.lastHeld)}, so placed around ${dayLabel(at.date)} until the organizer announces the next one.`;
   else when = at.label ? `Dates not announced. ${at.label}.` : "Dates not announced.";
 
   /* Imminent says so in the countdown and discontinued has its own badge. An
@@ -244,7 +244,7 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
 
       {e.updated && (
         <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xl}px 0 0`, lineHeight: 1.55 }}>
-          Dates last checked against the organiser's site {formatDay(e.updated)}.
+          Dates last checked against the organizer's site {formatDay(e.updated)}.
         </p>
       )}
     </div>

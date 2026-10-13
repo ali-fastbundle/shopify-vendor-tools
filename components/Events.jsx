@@ -173,8 +173,8 @@ export default function Events({ plan, events, lastUpdated }) {
           * With scripting off it starts at the oldest month, which is the
           * one honest default a server can give it.
           */}
-        <IndexSearch scope="event-list" placeholder="Search events, cities, organisers"
-          label="Search events, cities and organisers" />
+        <IndexSearch scope="event-list" placeholder="Search events, cities, organizers"
+          label="Search events, cities and organizers" />
         <NearbyEvents events={nearbyOf(events)} />
 
         <div id="event-list">
@@ -196,7 +196,7 @@ export default function Events({ plan, events, lastUpdated }) {
           <section aria-labelledby="unscheduled" data-search-group="" style={{ marginTop: S["4xl"] }}>
             <H2 id="unscheduled">Dates not announced</H2>
             <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, maxWidth: "64ch", lineHeight: 1.55 }}>
-              Running, or recently run, with no next date we could find on the organiser's own site.
+              Running, or recently run, with no next date we could find on the organizer's own site.
             </p>
             <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
               {unscheduled.map((e) => (
@@ -218,7 +218,7 @@ export default function Events({ plan, events, lastUpdated }) {
         </div>
 
 <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
-            Dates are checked by hand against each organiser's own site, and an event with no confirmed
+            Dates are checked by hand against each organizer's own site, and an event with no confirmed
             date is never shown as scheduled.
 </p>
       </div>

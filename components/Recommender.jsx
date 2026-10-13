@@ -257,7 +257,7 @@ export default function Recommender() {
       if (!res.ok) { setError(await res.text()); setStep("review"); return; }
       setResult(await res.json());
     } catch {
-      setError("Could not reach the server. Your answers are kept; try again.");
+      setError("Could not reach the server. Your answers are kept. Try again.");
       setStep("review");
     } finally {
       setRunning(false);

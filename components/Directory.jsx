@@ -2551,8 +2551,8 @@ function SuggestResult({ result, onOpenTool, onClose }) {
           Thank you, and this one will not be listed. This directory covers tools for the people who
           build Shopify apps: rank trackers, revenue analytics, store databases, partner platforms.
           <b style={{ color: C.text }}> {result.outOfScope.name}</b> looks like a Shopify app for
-          merchants running a shop, which is a different thing and belongs in the Shopify App Store,
-          where far more people will find it than here.
+          merchants running a shop. That is a different thing. It belongs in the Shopify App Store,
+          where far more people will find it.
         </p>
         <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5, maxWidth: "52ch" }}>
           We have kept a note of it. What people come here looking for is worth knowing, and if we
