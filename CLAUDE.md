@@ -1957,6 +1957,7 @@ the mark.
 | `lib/draftOutcomes.js` | What was discarded and why (`svt:discarded`), which discards still stand, and drafts on hold (`svt:drafts:hold`) |
 | `lib/ogCard.js` | What the share card draws, the URL version hashed from exactly that, and `withShareImage()`, which every page that sets its own `openGraph` must go through: Next replaces the layout's openGraph rather than merging it, so a page that skips it ships with no image. og-test enforces it |
 | `lib/announce.js` | The announcement prompt and the house-voice examples. Drafts, never publishes |
+| `lib/voice.js` | Ali's voice for every model prompt that writes public text, and `voiceIssues`, the checks. Pure, client-safe |
 | `lib/newsletters.js` | The newsletter catalogue and its own shape. Not the tool shape |
 | `lib/communities.js` | The groups and communities catalogue, and its own shape again |
 | `lib/events.js` | The events catalogue, and `placeEvent`, the only place past, imminent and upcoming are decided |
@@ -2516,9 +2517,14 @@ without it:
 - American spelling. Listing copy is neutral with no first person; site copy is second
   person.
 
-The prompts that draft public text for a model (`lib/announce.js`, `lib/announcements.js`,
-`lib/rewrite.js`, `lib/research.js`) should say the same thing. Text already on the site
-predates this and has not all been checked against it.
+Every prompt that drafts public text (`lib/announce.js`, `lib/announcements.js`,
+`lib/rewrite.js`, `lib/research.js`) includes `VOICE_RULES` from `lib/voice.js`, the one
+copy of what a model is told. `voiceIssues` is the code half: it flags an em dash,
+semicolons, exclamation marks, marketing words, hedges and sentences past 25 words, and
+the LinkedIn panel shows them. It flags and never rewrites, because splitting a sentence
+is a judgement. The house-voice examples lift only catalogue sentences of 20 words or
+fewer, because an example of a 45-word sentence teaches a 45-word sentence. Text already
+on the site predates this and has not all been checked against it.
 
 ## Writing style for tool entries
 

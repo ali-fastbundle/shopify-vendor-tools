@@ -101,12 +101,24 @@ ok(/never why|only what was observed/i.test(system), "the system prompt pins it 
  * prompt, so that they cannot drift from the site. That only holds while the
  * ids resolve.
  */
-const examples = prompt.slice(prompt.indexOf("THE VOICE")).split("\n").filter((l) => l.startsWith("- "));
+const examples = prompt.slice(prompt.indexOf("THE VOICE"), prompt.indexOf("Notice:")).split("\n").filter((l) => l.startsWith("- "));
+ok(prompt.includes("first reading") && /semicolons/i.test(prompt), "and the voice rules follow the examples");
 ok(examples.length >= 6, `the voice section has examples in it`, `${examples.length} lines`);
 const catalogue = readFileSync(join(ROOT, "lib", "tools.js"), "utf8");
 const strays = examples.filter((l) => !catalogue.includes(l.slice(2).replace(/\.$/, "")));
 ok(strays.length === 0, "and every one is lifted from the catalogue",
   strays.length ? `invented: ${strays[0].slice(0, 60)}` : "");
+
+console.log("\nvoice checks:");
+const { voiceIssues, VOICE_RULES } = await import(join(ROOT, "lib", "voice.js"));
+const off = voiceIssues("We are excited to unlock a seamless journey; it is powerful \u2014 truly! " +
+  "This sentence keeps going and going with many more words than anybody reading it on a phone in a second language would want to hold in their head at once.");
+ok(off.emDash && off.semicolons === 1 && off.exclamations === 1, "em dash, semicolon and exclamation are caught");
+ok(["excited", "unlock", "seamless", "journey", "powerful"].every((w) => off.marketing.includes(w)), "marketing words are caught", off.marketing.join(", "));
+ok(off.long.length === 1, "a sentence past 25 words is flagged", off.long[0] || "");
+const good = voiceIssues("Added Category Comparisons. It sets App Store categories side by side on pricing, ratings and reviews. The $1.4M figure is the vendor's own.");
+ok(!good.emDash && !good.semicolons && !good.marketing.length && !good.long.length, "plain text passes clean");
+ok(!/\u2014/.test(VOICE_RULES) && !/;/.test(VOICE_RULES), "the rules break none of their own punctuation rules");
 
 console.log("\nRSS escaping:");
 const rss = readFileSync(join(ROOT, "app", "changes", "rss", "route.js"), "utf8");

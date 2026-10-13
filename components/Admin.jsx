@@ -1235,6 +1235,8 @@ function AnnouncementRow({ r, busy, post }) {
     c.numbers.length ? `Figures not in the facts or the description: ${c.numbers.join(", ")}` : "",
     c.hype.length ? `Hype: ${c.hype.join(", ")}` : "",
     c.emDash ? "Has an em-dash" : "",
+    c.semicolons ? "Has a semicolon" : "",
+    c.long?.length ? `Long sentence: ${c.long.join("; ")}` : "",
   ].filter(Boolean);
   const tag = (s) => `${s}:${r.id}`;
   return (
