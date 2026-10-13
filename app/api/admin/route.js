@@ -12,7 +12,7 @@ import { storeInventory, resetTestData, deleteRow } from "@/lib/inventory";
 import { timesAsked, findListed, findDuplicate, normaliseDomain } from "@/lib/suggestions";
 import { readChangelog } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
-import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry } from "@/lib/feed";
+import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry, getFeed } from "@/lib/feed";
 import { tally } from "@/lib/tallies";
 import { setExclusion, confirmReview } from "@/lib/reviews";
 import { reviewSignals } from "@/lib/reviewSignals";
@@ -673,6 +673,49 @@ export async function POST(request) {
     await write(KEYS.changesPublished, published);
 
     return Response.json({ published, feedEntry: saved });
+  }
+
+  /*
+   * A vendor announcement: news the vendor told us, rather than news the
+   * monitor read.
+   *
+   * It exists because of SAMI. SAMI refuses the monitor, so when its founder
+   * emailed to say Category Comparisons had shipped there was no finding to
+   * publish from, and the only way onto the feed ran through one. The row is
+   * marked `source: "vendor"` and says so on the page, because a vendor's own
+   * word and our reading of their site are different strengths of claim.
+   *
+   * Same rules as every feed row: written by a person in the editor, refused
+   * with an em-dash, and the source link must be http(s). Published tools only,
+   * through catalogueTools(), so a draft cannot be announced into existence.
+   * `id` is the tool id.
+   */
+  if (action === "post-vendor-announcement") {
+    const tool = (await catalogueTools()).find((t) => t.id === id);
+    if (!tool) return new Response("No published tool with that id.", { status: 400 });
+    const KINDS = ["new-capability", "pricing", "free-tier", "wind-down", "acquisition", "scale", "ownership"];
+    const { entry, error } = sanitiseFeedEntry({
+      headline: body.headline,
+      sourceUrl: body.sourceUrl || tool.url,
+      kind: KINDS.includes(body.kind) ? body.kind : "new-capability",
+      source: "vendor",
+      announcedOn: body.announcedOn,
+      sourceNote: body.sourceNote,
+    });
+    if (error) return new Response(error, { status: 400 });
+    const saved = await addFeedEntry(entry, { tool, publishedBy: session.email });
+    console.log(`[feed] vendor announcement ${tool.id} ${saved.id}`);
+    return Response.json({ feedEntry: saved });
+  }
+
+  /* Soft, like every other removal. Only a vendor announcement goes this way;
+     a row published from a finding is unpublished from the finding, so its
+     record of having been published goes with it. */
+  if (action === "unpublish-announcement") {
+    const row = (await getFeed()).find((r) => r.id === id && !r.deletedAt);
+    if (!row || row.source !== "vendor") return new Response("No vendor announcement with that id.", { status: 400 });
+    await removeFeedEntry(id, { by: session.email });
+    return Response.json({ removed: id });
   }
 
   if (action === "unpublish-from-feed") {

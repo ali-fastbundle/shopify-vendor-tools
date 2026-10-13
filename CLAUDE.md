@@ -697,8 +697,32 @@ exactly which pages were fetched and forbids saying anything about the others.
 is live and refusing us, usually because a WAF dislikes the datacentre range a
 serverless function runs from. That is **a property of our coverage, not an
 event in the vendor's week**, so it is recorded as `blocked` on the snapshot,
-alerted on never, and surfaced once in "Cannot be monitored" in Catalogue. One
+alerted on never, and surfaced in Monitor coverage in Catalogue. One
 successful read clears the flag by itself.
+
+**Coverage is stated per listing, because silence is ambiguous.** SAMI refused
+the monitor for weeks, shipped a feature, and the monitor said nothing, which is
+also what it says about a tool with nothing new. `lib/coverage.js` derives one
+state per published tool and newsletter from the snapshot store: Monitored (and
+whether in part, or stale past three weeks), Blocked, Unreachable, or No source.
+Every run records what each page did (`pages`, `checkedAt` on the snapshot
+record) so "read through its changelog, homepage refused" is visible. The Inbox
+says under the monitor's summary which listings it cannot see, and the System
+strip counts them.
+
+**A blocked homepage is not the end of coverage.** Look for a page the monitor can
+read and declare it as `changelogUrl`: a changelog, a blog, or an RSS feed, which
+the monitor reads as dated titles only (`feedText`). A client-rendered page that
+ships its text as JSON (Inertia's `data-page`, Next's `__NEXT_DATA__`) is read from
+that data (`readableText`). Ranksy is watched through `/changelog` and Retail Insider
+through its feed. SAMI has nothing else to read and stays blocked; its news comes in
+as vendor announcements (invariant 31). A reading with any declared page refused is
+incomplete, so absence on it never accumulates towards a removal.
+
+**Features have a field.** The snapshot records `capabilities`, the named features
+the pages present, so a shipped feature can be seen at all; before it, only the
+headline and integrations could move. A snapshot from before the field adopts the
+first reading's list as its baseline rather than reporting every feature as new.
 
 Each page is tried with a second user agent before giving up, which helps where
 a filter keys on the UA string and does nothing where it keys on the IP, which
@@ -1423,6 +1447,16 @@ finding can rightly need two of them:
 A pricing move is usually both: the feed records that it happened, the listing
 says what is true now.
 
+**A vendor announcement is a feed entry the vendor told us about.** Posted from
+Vendor announcements in Catalogue, for news the monitor could not have seen. The
+row carries `source: "vendor"` and `announcedOn`, and the page and RSS say "Vendor
+announcement" on it, because the vendor's word and our reading of their site are
+different strengths of claim. Only what has shipped, checked on the vendor's own
+site before pressing; something announced but unreleased is said to be in
+development or left out, and stays out of the listing until it exists. Where it
+came from goes in `sourceNote`, which is private with `publishedBy`: every public
+read goes through `publicRow` in `lib/feed.js`.
+
 **Feed entries are written by a person, every time.** `Publish to feed` calls
 `/api/admin/announce` first, which drafts a line and writes nothing, then opens
 the editor on the draft. Nothing reaches the feed until somebody has read it and
@@ -1950,6 +1984,7 @@ the mark.
 | `lib/rewrite.js` | Rewrites a listing's description to take in a monitor finding. Proposes, never saves |
 | `lib/sentencediff.js` | The sentence-level diff and length check the rewrite editor shows. Pure, client-safe |
 | `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, carry-forward of unobserved values, billing-toggle detection, the strict diff and calibration |
+| `lib/coverage.js` | Which listings the monitor can actually read: monitored, in part, blocked, unreachable, no source. Pure, client-safe |
 | `lib/findings.js` | What a finding's confidence means, and the error rate per finding type. Pure, client-safe |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
@@ -2714,6 +2749,7 @@ node scripts/subscribers-test.mjs    # the subscriber list: one row per address,
 node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
+node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
 node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links

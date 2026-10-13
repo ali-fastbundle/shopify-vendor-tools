@@ -146,6 +146,14 @@ export function FeedRows({ entries = [], tools = [] }) {
                     </a>
                     <span style={{ fontSize: F.xs, color: ink(catOf(e.cat).color) }}>{catOf(e.cat).label}</span>
                     {e.kind && <span style={{ fontSize: F.xs, color: C.dim }}>{KIND_LABEL[e.kind] || e.kind}</span>}
+                    {/* The vendor told us; we did not read it off their site.
+                        Type, not a badge (rule G), and stated on the row it
+                        qualifies rather than in a footnote. */}
+                    {e.source === "vendor" && (
+                      <span style={{ fontSize: F.xs, color: C.dim }}>
+                        Vendor announcement{e.announcedOn ? `, ${formatDay(e.announcedOn)}` : ""}
+                      </span>
+                    )}
                     {/* The date is the permalink, which is the convention a
                         feed already has and costs nothing to honour: same type,
                         same colour, and a right click or a middle click now

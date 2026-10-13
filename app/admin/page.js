@@ -8,7 +8,7 @@ import AdminPanel from "@/components/Admin";
 import { getAccounts } from "@/lib/accounts";
 import { getEntries } from "@/lib/entries";
 import { readDedupeLog } from "@/lib/dedup";
-import { readChangelog, getMonitorState, blockedEntries } from "@/lib/monitor";
+import { readChangelog, getMonitorState, getSnapshots } from "@/lib/monitor";
 import { getInterest } from "@/lib/interest";
 import { getDiscovery } from "@/lib/discovery";
 import { storeInventory } from "@/lib/inventory";
@@ -86,13 +86,24 @@ export default async function AdminPage({ searchParams }) {
     { key: "adminSeen", load: () => read(KEYS.adminSeen, {}), empty: {} },
     { key: "appliedChanges", load: () => read(KEYS.changesApplied, {}), empty: {} },
     { key: "discovery", load: () => getDiscovery(), empty: { findings: [], dismissed: [] } },
-    { key: "blocked", load: () => blockedEntries(), empty: [] },
+    /* Every published tool and newsletter against what the monitor last read,
+       which is the same list the cron sweeps (app/api/cron/monitor). */
+    { key: "coverage", load: async () => {
+      const [{ coverageOf }, { catalogueTools }, { NEWSLETTERS }, snapshots] = await Promise.all([
+        import("@/lib/coverage"), import("@/lib/entries"), import("@/lib/newsletters"), getSnapshots(),
+      ]);
+      const entries = [
+        ...(await catalogueTools()).map((t) => ({ ...t, kind: "tool" })),
+        ...NEWSLETTERS.map((n) => ({ ...n, kind: "newsletter" })),
+      ];
+      return coverageOf(entries, snapshots);
+    }, empty: [] },
     { key: "publishedChanges", load: () => read(KEYS.changesPublished, {}), empty: {} },
     { key: "rewrittenChanges", load: () => read(KEYS.changesRewritten, {}), empty: {} },
     { key: "rewriteLog", load: () => readCapped(KEYS.rewriteLog, 100), empty: [] },
     { key: "monitorErrors", load: () => readCapped(KEYS.monitorErrors, 200), empty: [] },
     { key: "verifiedChanges", load: () => read(KEYS.changesVerified, {}), empty: {} },
-    { key: "feed", load: () => feedEntries({ limit: 60 }), empty: [] },
+    { key: "feed", load: () => feedEntries({ limit: 60, withPrivate: true }), empty: [] },
     { key: "health", load: () => health(), empty: null },
     { key: "inventory", load: () => storeInventory(), empty: [] },
     /* Server side because the domain marker reads reviewer addresses. */

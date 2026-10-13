@@ -45,7 +45,7 @@ export async function GET() {
       <guid isPermaLink="true">${esc(`${SITE}/changes#${e.id}`)}</guid>
       <pubDate>${rfc822(e.at)}</pubDate>
       <category>${esc(catOf(e.cat).label)}</category>
-      <description>${esc(e.headline)}${e.sourceUrl ? esc(` Source: ${e.sourceUrl}`) : ""}</description>
+      <description>${esc(e.headline)}${e.source === "vendor" ? esc(` Announced by ${e.toolName}${e.announcedOn ? ` on ${e.announcedOn}` : ""}.`) : ""}${e.sourceUrl ? esc(` Source: ${e.sourceUrl}`) : ""}</description>
     </item>`).join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

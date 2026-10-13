@@ -30,7 +30,7 @@ for (const f of readdirSync(join(ROOT, "lib"))) {
 const load = (f) => import(pathToFileURL(join(shim, f)).href);
 
 const { sanitiseEntry, addEntry, feedEntries, feedByTool, feedSince, removeEntry } = await load("feed.js");
-const { read } = await load("store.js");
+const { read, write } = await load("store.js");
 
 let bad = 0;
 const ok = (c, l, d = "") => {
@@ -63,7 +63,18 @@ const EVENT_PROPS = new Set([
   "target", "currentTarget", "preventDefault", "stopPropagation",
   "key", "metaKey", "ctrlKey", "shiftKey", "altKey", "button",
 ]);
-const produced = new Set([...Object.keys(saved), "domain", "logo"]);
+/* A row has two shapes, observed and vendor-announced, and the page reads
+   both, so what counts as produced is either one's fields. */
+const vendor = sanitiseEntry({
+  headline: "Added Category Comparisons across App Store categories.",
+  source: "vendor", announcedOn: "2026-10-11", sourceNote: "email",
+});
+ok(Boolean(vendor.entry), "a vendor announcement with its date sanitises", vendor.error || "");
+ok(sanitiseEntry({ headline: "Added a thing worth a line.", source: "vendor" }).error, "and without its date it is refused");
+const vendorSaved = await addEntry(vendor.entry, { tool, publishedBy: "ali@x" });
+const produced = new Set([...Object.keys(saved), ...Object.keys(vendorSaved), "domain", "logo"]);
+/* Taken back out, so the counts below are about the rows they were written for. */
+await write("svt:feed", (await read("svt:feed", [])).filter((r) => r.id !== vendorSaved.id));
 const fieldsRead = (file, varName) => {
   const src = readFileSync(join(ROOT, file), "utf8");
   return [...new Set([...src.matchAll(new RegExp(`\\b${varName}\\.([a-zA-Z]+)`, "g"))].map((m) => m[1]))]

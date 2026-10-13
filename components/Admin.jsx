@@ -12,6 +12,7 @@ import { timesAsked, findDiscarded, normaliseDomain } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
 import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
 import { effectiveConfidence, errorRates, CAP, VERIFICATION_LABEL } from "@/lib/findings";
+import { COVERAGE_LABEL, coverageCounts, uncovered } from "@/lib/coverage";
 import { Pill } from "./Pill";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
@@ -97,7 +98,7 @@ export default function AdminPanel({
   lastVisit = "",
   appliedChanges = {},
   discovery = { findings: [] },
-  blocked = [],
+  coverage = [],
   publishedChanges = {},
   rewrittenChanges = {},
   rewriteLog = [],
@@ -268,6 +269,7 @@ export default function AdminPanel({
             rewrittenChanges={rewrittenChanges || {}}
             verifiedChanges={verifiedChanges || {}}
             discovery={discovery}
+            coverage={coverage}
             comments={unreadComments}
             onSeen={setSeen}
             act={act}
@@ -289,7 +291,8 @@ export default function AdminPanel({
             interest={interest || {}}
             outOfScope={outOfScopeRows}
             deleted={deletedRows}
-            blocked={blocked || []}
+            coverage={coverage}
+            feed={feed}
             stats={stats}
             allSuggestions={rows}
             act={act}
@@ -321,7 +324,7 @@ export default function AdminPanel({
         {tab === "system" && (
           <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []} rewriteLog={rewriteLog || []}
             monitorErrors={monitorErrors || []} verifiedChanges={verifiedChanges || {}}
-            health={health} blocked={blocked || []} changelog={changelog || []}
+            health={health} coverage={coverage} changelog={changelog || []}
             inventory={inventory || []} />
         )}
 
@@ -336,7 +339,7 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, discovery = { findings: [] }, comments = [], onSeen, act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, discovery = { findings: [] }, coverage = [], comments = [], onSeen, act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
   const openChanges = changes.filter((r) => !isHandled(r.id, seen, publishedChanges, appliedChanges));
   const nothing = !pending.length && !openReports.length && !claims.length && !openChanges.length && !comments.length;
@@ -363,6 +366,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
           <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "62ch" }}>
             The Catalogue tab has the drafts and what is published. The monitor runs on Mondays.
           </p>
+          <CoverageLine rows={coverage} />
         </section>
         <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
       </>
@@ -417,7 +421,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
           : claims.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} />)}
       </Section>
 
-      <ChangeMonitor rows={changes} monitor={monitor} seen={seen}
+      <ChangeMonitor rows={changes} monitor={monitor} seen={seen} coverage={coverage}
         appliedChanges={appliedChanges} publishedChanges={publishedChanges}
         rewrittenChanges={rewrittenChanges} verifiedChanges={verifiedChanges} onSeen={onSeen} />
 
@@ -426,7 +430,7 @@ function Inbox({ pending = [], reports = [], claims = [], changes = [], sinceVis
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], blocked = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], feed = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
@@ -435,9 +439,14 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
       <NeedsVerifying />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
-      <Collapsible title="Cannot be monitored" count={blocked.length}
-        hint="Live sites that refuse our fetches: a 403, a challenge page, or a 200 with nothing readable in it. The monitor has no coverage of these, so their entries only change when somebody edits them by hand.">
-        <CannotMonitor rows={blocked} />
+      <Collapsible title="Monitor coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
+        openWhen={uncovered(coverage).length > 0}
+        hint="Every published tool and newsletter, and whether the weekly monitor can actually read it. A listing it cannot see produces no findings, which looks exactly like a listing with nothing new, so silence only means something for the ones marked Monitored.">
+        <CoverageList rows={coverage} />
+      </Collapsible>
+      <Collapsible title="Vendor announcements" count={feed.filter((f) => f.source === "vendor").length}
+        hint="News a vendor told us about, for Recent updates. Mostly for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all.">
+        <VendorAnnouncements feed={feed} />
       </Collapsible>
       <OutOfScope rows={outOfScope} />
       <Deleted rows={deleted} act={act} busy={busy} />
@@ -672,10 +681,10 @@ const BURST_DAYS = 7;
  * look. A dumping ground with the diagnosis buried in it is a tab people stop
  * opening.
  */
-function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, blocked = [], changelog = [], inventory = [] }) {
+function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, coverage = [], changelog = [], inventory = [] }) {
   return (
     <>
-      <StatusStrip health={health} maillog={maillog} blocked={blocked} />
+      <StatusStrip health={health} maillog={maillog} coverage={coverage} />
 
       <Housekeeping inventory={inventory} />
 
@@ -688,11 +697,6 @@ function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog =
       <Collapsible title="Test an event" count=""
         hint="Fires a real send through the same dispatcher the routes use, with dummy data, to your address only.">
         <NotificationTest />
-      </Collapsible>
-
-      <Collapsible title="Cannot be monitored" count={blocked.length}
-        hint="Live sites that refuse our fetches. The monitor has no coverage of these.">
-        <CannotMonitor rows={blocked} />
       </Collapsible>
 
       <Collapsible title="Dedup decisions" count={dedupelog.length}
@@ -890,7 +894,9 @@ function Housekeeping({ inventory = [] }) {
  * consequence of it being wrong, because "RESEND_API_KEY missing" is a fact and
  * "no email is being sent, including sign-in links" is the thing to act on.
  */
-function StatusStrip({ health, maillog = [], blocked = [] }) {
+function StatusStrip({ health, maillog = [], coverage = [] }) {
+  const cov = coverageCounts(coverage);
+  const notCovered = uncovered(coverage).length;
   if (!health) {
     return (
       <section className="pb-6">
@@ -947,9 +953,9 @@ function StatusStrip({ health, maillog = [], blocked = [] }) {
     {
       label: "Coverage",
       bad: false,
-      warn: blocked.length > 0,
-      value: blocked.length ? `${blocked.length} site${blocked.length === 1 ? "" : "s"} block us` : "every site readable",
-      note: "",
+      warn: notCovered > 0,
+      value: `${cov.monitored} of ${cov.total} monitored`,
+      note: notCovered ? `${notCovered} not covered: ${uncovered(coverage).map((r) => r.name).join(", ")}. Catalogue, Monitor coverage.` : "",
     },
   ];
 
@@ -3293,7 +3299,7 @@ const isHandled = (id, seen = {}, published = {}, applied = {}) => Boolean(
   || (published[id] && !published[id].awaitsResolve)
   || (applied[id] && !applied[id].awaitsResolve));
 
-function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, onSeen }) {
+function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, onSeen }) {
   const [busy, setBusy] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
@@ -3418,6 +3424,8 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, appliedChanges = {}
           </span>
         )}
       </p>
+
+      <CoverageLine rows={coverage} />
 
       {result && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "0 0 12px", lineHeight: 1.55 }}>{result}</p>}
 
@@ -4573,38 +4581,215 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
 }
 
 /*
- * Entries the monitor has no coverage of.
+ * Posting a vendor's own announcement to Recent updates.
  *
- * Not an alert and not a queue. A blocked site is live, healthy and refusing
- * our requests, usually because a WAF does not like the datacentre range a
- * serverless function runs in, and no user agent changes that. Reported once
- * here rather than every Monday as "unreachable", because the useful sentence
- * is "we are not watching these three" and it only needs saying when the list
- * changes.
+ * The feed's only door used to be a monitor finding, which left nothing to
+ * publish from for a tool the monitor cannot read: SAMI emailed to say a
+ * feature had shipped and there was no row to press Publish on. This is that
+ * door, with the feed's rules intact. A person writes the line, the source
+ * link is the vendor's page that shows it, the date is when the vendor said
+ * it, and the row goes out marked as the vendor's announcement.
  *
- * The flag clears itself: one successful read and the entry drops off this
- * list without anybody tidying up.
+ * Two presses, and the first shows exactly what will appear. "Shipped" means
+ * seen on the vendor's own site, which is a check to make before pressing:
+ * the form says so rather than trusting it to be remembered.
  */
-function CannotMonitor({ rows = [] }) {
-  if (!rows.length) return <Empty>Every listed site lets the monitor read it.</Empty>;
+function VendorAnnouncements({ feed = [] }) {
+  const tools = useMemo(() => published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name)), []);
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
+  const [rows, setRows] = useState(feed.filter((f) => f.source === "vendor"));
+  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const set = (k, v) => { setArmed(false); setForm((f) => ({ ...f, [k]: v })); };
+  const tool = tools.find((t) => t.id === form.toolId);
+  const ready = tool && form.headline.trim().length >= 12 && /^\d{4}-\d{2}-\d{2}$/.test(form.announcedOn);
+
+  async function post(action, id, extra = {}) {
+    setBusy(action + id); setErr("");
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, id, ...extra }),
+      });
+      if (!res.ok) { setErr(await res.text()); return null; }
+      return await res.json();
+    } catch { setErr("Could not reach the server."); return null; }
+    finally { setBusy(""); }
+  }
+
+  async function publish() {
+    if (!armed) { setArmed(true); return; }
+    const d = await post("post-vendor-announcement", form.toolId, {
+      headline: form.headline, sourceUrl: form.sourceUrl || tool.url, kind: form.kind,
+      announcedOn: form.announcedOn, sourceNote: form.sourceNote,
+    });
+    if (d?.feedEntry) {
+      setRows((r) => [d.feedEntry, ...r]);
+      setForm({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
+      setArmed(false);
+    }
+  }
+
+  async function unpublish(id) {
+    const d = await post("unpublish-announcement", id);
+    if (d?.removed) setRows((r) => r.filter((x) => x.id !== id));
+  }
+
   return (
     <>
-      {rows.map((b) => {
-        const tool = ALL_TOOLS.find((t) => t.id === b.id);
-        return (
-          <Row key={b.id}
-            title={tool ? tool.name : b.id}
-            tag={tool ? catOf(tool.cat).label : ""}
-            tagColor={tool ? ink(catOf(tool.cat).color) : C.muted}
-            badges={<Pill tone="warn">no coverage</Pill>}
-            body={b.why}
+      <div style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, marginBottom: S.md }}>
+        <div className="flex flex-wrap" style={{ gap: S.md }}>
+          <div style={{ flex: "1 1 220px" }}>
+            <Field label="Listing">
+              <select value={form.toolId} onChange={(e) => {
+                const t = tools.find((x) => x.id === e.target.value);
+                setArmed(false);
+                setForm((f) => ({ ...f, toolId: e.target.value, sourceUrl: f.sourceUrl || t?.url || "" }));
+              }} style={FIELD}>
+                <option value="">Choose a tool</option>
+                {tools.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </Field>
+          </div>
+          <div style={{ flex: "1 1 160px" }}>
+            <Field label="Kind">
+              <select value={form.kind} onChange={(e) => set("kind", e.target.value)} style={FIELD}>
+                <option value="new-capability">New capability</option>
+                <option value="pricing">Pricing</option>
+                <option value="free-tier">Free tier</option>
+                <option value="wind-down">Winding down</option>
+                <option value="acquisition">Acquired</option>
+                <option value="scale">Scale</option>
+                <option value="ownership">Ownership</option>
+              </select>
+            </Field>
+          </div>
+          <div style={{ flex: "0 1 160px" }}>
+            <Field label="Announced on">
+              <input type="date" value={form.announcedOn} onChange={(e) => set("announcedOn", e.target.value)} style={FIELD} />
+            </Field>
+          </div>
+        </div>
+        <Field label="The update, as it will read on Recent updates"
+          hint="House voice: what shipped and what it does, no adjectives. Only what is live. Something announced and not released is said to be in development, or left out. No em-dash.">
+          <Grow value={form.headline} onChange={(e) => set("headline", e.target.value)} rows={3} />
+        </Field>
+        <Field label="Source link" hint="The vendor's page that shows it. Shown under the update.">
+          <input value={form.sourceUrl} onChange={(e) => set("sourceUrl", e.target.value)} style={FIELD} placeholder="https://" />
+        </Field>
+        <Field label="Where it came from (private)" hint="For the record, e.g. an email from the founder. Never shown on the site.">
+          <input value={form.sourceNote} onChange={(e) => set("sourceNote", e.target.value)} style={FIELD} />
+        </Field>
+        {armed && tool && (
+          <div style={{ marginTop: S.md, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>
+              Will appear on /changes today as {tool.name}, marked as a vendor announcement of {form.announcedOn}:
+            </p>
+            <p style={{ fontSize: F.md, color: C.text, margin: "6px 0 0", lineHeight: 1.6, maxWidth: "64ch" }}>{form.headline.trim()}</p>
+            <p style={{ fontSize: F.xs, color: C.warnInk, margin: "6px 0 0", lineHeight: 1.5 }}>
+              Anything it calls shipped, check on {(form.sourceUrl || tool.url).replace(/^https?:\/\//, "")} first.
+            </p>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+          <Btn onClick={publish} busy={busy === "post-vendor-announcement" + form.toolId} tone="go" disabled={!ready}>
+            {armed ? "Publish to Recent updates" : "Review before publishing"}
+          </Btn>
+          {armed && <Btn onClick={() => setArmed(false)}>Back to editing</Btn>}
+          {!ready && <span style={{ fontSize: F.xs, color: C.dim }}>Needs a listing, a line of at least a sentence, and a date.</span>}
+        </div>
+        {err && <p style={{ fontSize: F.xs, color: C.warnInk, margin: "8px 0 0" }}>{err}</p>}
+      </div>
+      {rows.length === 0
+        ? <Empty>No vendor announcements published.</Empty>
+        : rows.map((r) => (
+          <Row key={r.id} title={r.toolName} tag={`announced ${r.announcedOn || ""}`}
+            body={r.headline}
             meta={<>
-              {b.since ? `blocked since ${String(b.since).slice(0, 10)}` : "blocked"}
-              {tool && <> {"\u00b7"} <a href={`/tools/${tool.id}`} style={{ color: C.muted }}>open the entry</a></>}
+              published {String(r.date || "").slice(0, 10)}{r.publishedBy ? ` by ${r.publishedBy}` : ""}
+              {r.sourceNote ? ` \u00b7 ${r.sourceNote}` : ""}
+              {" \u00b7 "}<a href={`/changes#${r.id}`} style={{ color: C.muted }}>on the feed</a>
             </>}
+            actions={<ConfirmBtn onConfirm={() => unpublish(r.id)} busy={busy === "unpublish-announcement" + r.id}>Unpublish</ConfirmBtn>}
           />
-        );
-      })}
+        ))}
     </>
+  );
+}
+
+/*
+ * What the monitor can see, one row per published listing.
+ *
+ * SAMI shipped a feature while the monitor reported nothing about it, because
+ * SAMI refuses our fetches, and an entry the monitor cannot read produces no
+ * findings, which is exactly what an entry with nothing new produces. Every
+ * listing says which of the two it is here. Rules and states: lib/coverage.js.
+ *
+ * Not an alert and not a queue. A blocked site is usually a WAF that dislikes
+ * the datacentre range a serverless function runs in; the remedy is a page it
+ * does let us read (a changelog, a blog, a feed) declared as `changelogUrl`,
+ * or accepting the gap and leaving its news to vendor announcements. The flag
+ * clears itself on the next good read.
+ */
+function CoverageList({ rows = [] }) {
+  const [showAll, setShowAll] = useState(false);
+  if (!rows.length) return <Empty>No coverage recorded yet. It fills in after the next monitor run.</Empty>;
+  const listingHref = (r) => (r.kind === "newsletter" ? `/newsletters/${r.id}` : `/tools/${r.id}`);
+  const watched = rows.filter((r) => r.state === "monitored" && !r.partial && !r.stale);
+  const rest = rows.filter((r) => !watched.includes(r));
+  const row = (r) => {
+    const bad = r.state !== "monitored";
+    return (
+      <Row key={r.kind + r.id}
+        title={r.name}
+        tag={COVERAGE_LABEL[r.state] + (r.partial ? ", in part" : "") + (r.stale ? ", stale" : "")}
+        tagColor={bad || r.stale ? C.warnInk : C.muted}
+        badges={r.kind !== "tool" ? <Pill>{r.kind}</Pill> : null}
+        body={r.detail || null}
+        meta={<>
+          {r.lastRead ? `last read ${String(r.lastRead).slice(0, 10)}` : "never read"}
+          {r.since ? ` \u00b7 blocked since ${String(r.since).slice(0, 10)}` : ""}
+          {` \u00b7 watches ${r.declared.join(", ")}`}
+          {" \u00b7 "}<a href={listingHref(r)} style={{ color: C.muted }}>open the entry</a>
+        </>}
+      />
+    );
+  };
+  return (
+    <>
+      {rest.length === 0
+        ? <Empty>Every listing was read in full on its last run.</Empty>
+        : rest.map(row)}
+      {watched.length > 0 && (
+        <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
+          <button onClick={() => setShowAll((v) => !v)} style={{
+            background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+            fontSize: F.sm, color: C.muted, textDecoration: "underline",
+          }}>
+            {showAll ? "Hide" : `${watched.length} read in full on the last run`}
+          </button>
+          {showAll && watched.map(row)}
+        </div>
+      )}
+    </>
+  );
+}
+
+/* The one sentence under the monitor's own summary, so a quiet run is never
+   read as a clean bill for listings it could not see. */
+function CoverageLine({ rows = [] }) {
+  if (!rows.length) return null;
+  const c = coverageCounts(rows);
+  const out = uncovered(rows);
+  return (
+    <p style={{ fontSize: F.xs, color: out.length ? C.warnInk : C.dim, margin: "0 0 12px", lineHeight: 1.55, maxWidth: "76ch" }}>
+      {`The monitor can read ${c.monitored} of ${c.total} listings`}
+      {c.partial ? `, ${c.partial} of them only in part` : ""}
+      {out.length
+        ? `. Not covered, so silence about them means nothing: ${out.map((r) => `${r.name} (${COVERAGE_LABEL[r.state].toLowerCase()}${r.stale ? ", stale" : ""})`).join(", ")}. Catalogue, Monitor coverage.`
+        : "."}
+    </p>
   );
 }
