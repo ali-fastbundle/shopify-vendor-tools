@@ -2497,6 +2497,29 @@ Newsletters are live: seven published entries in the file, the section opened on
 (the write routes validate newsletter ids through `isListedId`/`listedEntity`, and
 `mergedNewsletters()` is the newsletter equivalent of `mergedTools()`).
 
+## Public-facing text: Ali's voice
+
+Everything a visitor, subscriber or LinkedIn reader sees is written in Ali's voice:
+listing copy, feed entries, vendor announcements, section intros, site and in-app copy,
+emails from the site, LinkedIn posts, blog posts, video scripts. The full guide is the
+`ali-voice` skill at `.claude/skills/ali-voice/SKILL.md`; load it before drafting any of
+these. `.claude/` is gitignored, so the hard rules are restated here for a machine
+without it:
+
+- A non-native English speaker understands every sentence on first pass.
+- Short sentences, one idea each. Past about 20 words, it is two sentences.
+- Common words. Exact technical nouns. No idioms, metaphors or analogies.
+- No marketing words (excited, powerful, seamless, unlock, leverage, solution, journey...).
+- No em dash, no semicolons, exclamation marks almost never.
+- Fact first, no preamble. Numbers over adjectives. State what is missing before
+  anyone finds it. Mark claims that came from the vendor.
+- American spelling. Listing copy is neutral with no first person; site copy is second
+  person.
+
+The prompts that draft public text for a model (`lib/announce.js`, `lib/announcements.js`,
+`lib/rewrite.js`, `lib/research.js`) should say the same thing. Text already on the site
+predates this and has not all been checked against it.
+
 ## Writing style for tool entries
 
 `one` is one line, lowercase-ish, no marketing. `note` is what it actually does and who
