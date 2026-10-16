@@ -4,6 +4,7 @@ import React, { useState, useEffect, createContext, useContext } from "react";
 import { C, S, R, F, SOCIALS } from "@/lib/tools";
 import EditorUseControl from "./EditorUseControl";
 import MediaEditor from "./MediaEditor";
+import WatchEditor from "./WatchEditor";
 
 /* ------------------------------------------------------------------ */
 /*  Session hook                                                       */
@@ -345,6 +346,8 @@ export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
             You can change {copy.can}. {copy.keeps}
           </p>
         )}
+        {/* The caveat, admin only (CLAUDE.md, invariant 1). Never for an owner. */}
+        {session.admin && kind === "tool" && <WatchEditor tool={tool} />}
         {/* Screenshots and a demo link, the vendor's own, reviewed before they show. */}
         {kind === "tool" && <MediaEditor tool={tool} />}
         {/* Editor use is the admin's, never an owner's (lib/editorUse.js). */}

@@ -544,7 +544,6 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
       <Collapsible title="Monitor coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
-        openWhen={uncovered(coverage).length > 0}
         hint="Every published tool and newsletter, and whether the weekly monitor can actually read it. A listing it cannot see produces no findings, which looks exactly like a listing with nothing new, so silence only means something for the ones marked Monitored.">
         <CoverageList rows={coverage} />
       </Collapsible>
@@ -562,7 +561,7 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
             />
           ))}
       </Collapsible>
-      <Section title="Reviewed suggestions" count={reviewed.length}
+      <Collapsible title="Reviewed suggestions" count={reviewed.length}
         hint="Public on the site. Still suggestions, not listings. Sorted by how many people asked.">
         {reviewed.length === 0
           ? <Empty>No suggestions yet.</Empty>
@@ -573,7 +572,7 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
                 busy={busy === "delete-suggestion" + s.id}>Delete</ConfirmBtn>
             </SuggestionRow>
           ))}
-      </Section>
+      </Collapsible>
     </>
   );
 }
@@ -1980,6 +1979,8 @@ function Announcements({ initial = [] }) {
 }
 
 function AnnouncementRow({ r, busy, post }) {
+  /* One line per post until opened: nineteen open editors made the tab a wall. */
+  const [open, setOpen] = useState(false);
   const [text, setText] = useState(r.text);
   const [postedAt, setPostedAt] = useState(r.postedAt || new Date().toISOString().slice(0, 10));
   const [copied, setCopied] = useState(false);
@@ -1996,7 +1997,9 @@ function AnnouncementRow({ r, busy, post }) {
   const tag = (s) => `${s}:${r.id}`;
   return (
     <Row
-      title={r.what.length > 90 ? `${r.what.slice(0, 90)}…` : r.what}
+      title={<button onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ background: "none", border: 0, padding: 0, font: "inherit", color: C.text, cursor: "pointer", textAlign: "left" }}>
+        {r.what.length > 90 ? `${r.what.slice(0, 90)}…` : r.what}
+      </button>}
       tag={ANN_STATUS[r.status]}
       tagColor={r.status === "ready" ? C.accentInk : C.muted}
       badges={<>
@@ -2007,7 +2010,13 @@ function AnnouncementRow({ r, busy, post }) {
       </>}
       dim={r.status === "dropped"}
       meta={`Shipped ${r.shipped || String(r.createdAt).slice(0, 10)}${r.status === "posted" ? ` · posted ${r.postedAt}` : ""} · ${c.words} words${r.provider ? ` · drafted by ${r.provider}` : r.seeded ? " · written in code, figures from today's catalogue" : ""}${r.note ? ` · model note: ${r.note}` : ""}`}
-      body={(
+      body={!open ? (
+        <p style={{ margin: 0, color: C.muted }}>
+          {r.hold ? <span style={{ color: C.warnInk }}>{r.hold}. </span> : null}
+          {fails.length ? <span style={{ color: C.warnInk }}>{fails.length} check{fails.length > 1 ? "s" : ""} failing. </span> : null}
+          {String(text).split("\n").find((l) => l.trim()) || ""}
+        </p>
+      ) : (
         <>
           {r.hold && <p style={{ margin: "0 0 8px", color: C.warnInk, fontWeight: 600 }}>{r.hold}. It lifts by itself when the count is there.</p>}
           {fails.length > 0 && <p style={{ margin: "0 0 8px", color: C.warnInk, fontWeight: 600 }}>{fails.join(". ")}.</p>}
@@ -2016,7 +2025,7 @@ function AnnouncementRow({ r, busy, post }) {
           <Grow value={text} onChange={(e) => setText(e.target.value)} rows={8} style={{ ...FIELD, color: C.text }} aria-label="Post text" />
         </>
       )}
-      actions={<>
+      actions={!open ? null : <>
         {dirty && <Btn tone="go" busy={busy === tag("save")} onClick={() => post({ action: "update", id: r.id, text }, tag("save"))}>Save edit</Btn>}
         <Btn onClick={async () => {
           try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
@@ -2322,7 +2331,7 @@ function Interest({ interest = {}, entries = {} }) {
     ALL_TOOLS.find((t) => t.id === id)?.name || entries?.[id]?.name || id;
 
   return (
-    <Section title="Interest in listed tools" count={rows.length}
+    <Collapsible title="Interest in listed tools" count={rows.length}
       hint="People who suggested something already in the catalogue. Nothing was filed, they were sent the link, and the asking was counted. Shown on the card from two upwards.">
       {rows.length === 0
         ? <Empty>Nobody has suggested a tool that is already listed.</Empty>
@@ -2344,7 +2353,7 @@ function Interest({ interest = {}, entries = {} }) {
             ) : null}
           />
         ))}
-    </Section>
+    </Collapsible>
   );
 }
 /* ------------------------------------------------------------------ */
@@ -3407,7 +3416,7 @@ function Accounts({ accounts = {}, claims = {} }) {
     .map(([toolId]) => (ALL_TOOLS.find((t) => t.id === toolId)?.name) || toolId);
 
   return (
-    <Section title="Accounts" count={all.length}
+    <Collapsible title="Accounts" count={all.length}
       hint="Created on first sign-in. Email, first seen and last seen, and nothing else: no IP, no user agent, no page history. The sign-in copy promises exactly this, so adding a field here means changing that copy in the same commit.">
       {all.length === 0 ? <Empty>Nobody has signed in yet.</Empty> : (
         <>
@@ -3429,7 +3438,7 @@ function Accounts({ accounts = {}, claims = {} }) {
           })}
         </>
       )}
-    </Section>
+    </Collapsible>
   );
 }
 
@@ -5114,7 +5123,7 @@ function RewriteEditor({ r, busy, onAct, onClose }) {
 function OutOfScope({ rows = [] }) {
   const [open, setOpen] = useState(false);
   return (
-    <Section title="Out of scope" count={rows.length}
+    <Collapsible title="Out of scope" count={rows.length}
       hint="Merchant-facing Shopify apps, classified on whose budget they come out of. Stored, flagged, kept out of the public list, and answered at the time. No action needed.">
       {rows.length === 0
         ? <Empty>Nobody has suggested a merchant app.</Empty>
@@ -5141,7 +5150,7 @@ function OutOfScope({ rows = [] }) {
             ))}
           </>
         )}
-    </Section>
+    </Collapsible>
   );
 }
 
@@ -5210,7 +5219,7 @@ function Tallies({ stats = { fields: {} }, rows = [] }) {
 function Deleted({ rows = [], act, busy }) {
   const [open, setOpen] = useState(false);
   return (
-    <Section title="Deleted" count={rows.length}
+    <Collapsible title="Deleted" count={rows.length}
       hint="Marked deleted rather than removed. They are out of the queue, out of the public list and out of every count of what is waiting, and they are still here.">
       {rows.length === 0
         ? <Empty>Nothing has been deleted.</Empty>
@@ -5246,7 +5255,7 @@ function Deleted({ rows = [], act, busy }) {
             ))}
           </>
         )}
-    </Section>
+    </Collapsible>
   );
 }
 
@@ -5712,7 +5721,7 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
         {err && <p style={{ fontSize: F.xs, color: C.warnInk, margin: "8px 0 0" }}>{err}</p>}
       </div>
       </Section>
-      <Section title="On Recent updates" count={rows.length}
+      <Collapsible title="On Recent updates" count={rows.length}
         hint="Everything published to the feed, newest first, as visitors see it at /changes. Unpublishing is soft: the row is kept and marked removed.">
         {rows.length === 0
           ? <Empty>Nothing published yet.</Empty>
@@ -5735,7 +5744,7 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
               />
             );
           })}
-      </Section>
+      </Collapsible>
     </>
   );
 }

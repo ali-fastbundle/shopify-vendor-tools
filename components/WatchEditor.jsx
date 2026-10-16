@@ -15,7 +15,15 @@ import { readiness } from "@/lib/drafts";
 
 const box = { border: `1px solid ${C.line}`, borderRadius: R.control, padding: S.md, fontSize: F.sm, lineHeight: 1.6, whiteSpace: "pre-wrap" };
 
-export default function WatchEditor({ tool, log = [] }) {
+export default function WatchEditor({ tool, log: initialLog = null }) {
+  /* The tool page passes the history from the server. The directory's modal
+     has none, so it asks for it when it opens. */
+  const [log, setLog] = useState(initialLog || []);
+  useEffect(() => {
+    if (initialLog) return;
+    fetch("/api/admin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "watch-log", id: tool.id, toolId: tool.id }) })
+      .then((r) => (r.ok ? r.json() : null)).then((d) => d && setLog(d.log || [])).catch(() => {});
+  }, [initialLog, tool.id]);
   const [after, setAfter] = useState(tool.watch);
   const [reason, setReason] = useState("");
   const [armed, setArmed] = useState(false);

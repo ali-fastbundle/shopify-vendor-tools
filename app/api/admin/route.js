@@ -592,6 +592,12 @@ export async function POST(request) {
    * monitor and every AI rewrite still cannot touch the field; nothing here
    * changes that.
    */
+  /* The caveat's change history for one tool, for the editor in the modal. */
+  if (action === "watch-log") {
+    const { readWatchLog } = await import("@/lib/publish");
+    return Response.json({ log: (await readWatchLog(500)).filter((l) => l.id === String(body.toolId || id || "")) });
+  }
+
   if (action === "edit-watch") {
     const tool = TOOLS.find((t) => t.id === String(body.toolId || ""));
     if (!tool) return new Response("Only a published tool from lib/tools.js can have its caveat edited here.", { status: 400 });

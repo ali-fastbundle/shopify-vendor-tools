@@ -33,7 +33,9 @@ said 200 for a long time after the code stopped doing it. The protection is the 
 not the status code.)
 
 **The one path that can change a caveat is an admin's, and it goes through git.** An admin
-editing a tool page sees the caveat editor (`components/WatchEditor.jsx`). It shows the
+editing a tool sees the caveat editor (`components/WatchEditor.jsx`), on the tool page and
+in the "Editing as admin" panel of the directory's modal, which loads its history when it
+opens. It shows the
 current text and takes the new one and a required one-line reason. It asks twice with the
 full before and after on screen, like Publish. Then it commits to `lib/tools.js` on main
 through the same GitHub mechanism (`editWatchInSource` and `commitWatchEdit` in
@@ -998,7 +1000,10 @@ that did not.
   so moving them did not hide them. **When it is empty it says so in one line** rather than
   rendering four empty panels, which is the state it is in most days.
 - **Any list that can exceed about ten rows is collapsed by default, with a
-  count in its header.** `Collapsible` does this. The count is the part you
+  count in its header.** Nothing opens itself into a full list: Monitor coverage used to open
+  whenever a listing was not covered, which in production is always. A row with an editor
+  in it (an announcement, an idea, a structured-data draft) is one line until clicked.
+  `scripts/admin-panels-test.mjs` holds this. `Collapsible` does this. The count is the part you
   read; the rows are what you open when the count says something. A page of
   open panels answers "what happened" and buries "what needs me", and this
   console has had to be rescued from that twice.
@@ -3148,6 +3153,7 @@ node scripts/media-test.mjs          # vendor media: claimant only, alt required
 node scripts/lists-test.mjs          # saved lists: owner only, private until published, a name not an address, indexed after review
 node scripts/suggestion-published-test.mjs  # a published suggestion leaves the queue, either path, interest carried once
 node scripts/outreach-test.mjs       # outreach: addresses from their sites only and never in a bundle, copy default, Resend guarded
+node scripts/admin-panels-test.mjs    # admin lists past ten rows are collapsed; rows with editors start closed
 node scripts/watch-edit-test.mjs     # the admin caveat edit: exactly watch and updated, a reason, readiness; protection unchanged for everyone else
 node scripts/qa-test.mjs             # questions: signed in, vendor answers from the claims store, no address served, moderation
 node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then
