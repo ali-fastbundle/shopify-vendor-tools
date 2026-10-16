@@ -2190,6 +2190,35 @@ in the owner panel).
 `scripts/media-test.mjs`, with the commit injected. The real GitHub commit is exercised
 only in production.
 
+**52. Outreach to vendors (temporary): addresses only from their own site, copy by default, Resend guarded.**
+The Outreach tab on `/admin` writes to a listed vendor about their listing. Remove the tab,
+`lib/outreach.js`, `lib/outreachTemplate.js` and `app/api/admin/outreach` when the round is
+done. Keep `lib/vendorContacts.js`: the addresses are research.
+
+- **Addresses come from `lib/vendorContacts.js`**, read from each vendor's own site (footer,
+  contact, privacy, terms) on 2026-10-16, each with the page it was found on, the pages
+  looked at, and a `caution` where it is doubtful (a legal or privacy inbox, a domain with
+  no mail server, two conflicting addresses). Nothing is guessed from a pattern. **They are
+  not on the tool entries in `lib/tools.js`**, which is bundled into the public directory,
+  so an address there would ship in every visitor's JavaScript. Only the admin page, after
+  its check, and the outreach route import them. outreach-test checks no component does.
+  Where none is published, the panel offers the tool's LinkedIn.
+- **The template** (`lib/outreachTemplate.js`) fills from the catalogue: the listing link,
+  the summary, the price, the caveat in full. It says how to claim, and that the caveat
+  stays editorial. It follows the ali-voice email rules.
+- **Copy is the default**: the address, the subject and the email, sent from the admin's
+  own mailbox so a vendor replies to a person. "I sent it" records it.
+- **Resend from watchfor.tools** only to a recorded address with no caution, never a typed
+  one. Five a day across every vendor. It refuses a vendor already contacted unless "send
+  again" is ticked, and the first send needs an acknowledgement that cold outbound shares a
+  domain with the sign-in links. `reply_to` is the admin (`outreach` in the mail matrix, a
+  letter with no heading).
+- **Tracking** (`svt:outreach`): not contacted, contacted with date and how, replied.
+  Claimed is read from the claims store. The picker shows it on every tool. Every send, either
+  path, is a row in `svt:maillog`.
+
+`scripts/outreach-test.mjs`.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -2276,6 +2305,7 @@ the mark.
 | `lib/qa.js` `components/QA.jsx` `app/api/qa` | Questions and answers per tool: the store, the public strip, moderation, the ask and answer component |
 | `lib/lists.js` `lib/limits.js` `components/ListsManager.jsx` `components/SaveToList.jsx` `app/lists` `app/api/lists` | Saved lists: store, publishing, moderation; shared input limits (client-safe); the manage page and the save control |
 | `lib/media.js` `components/MediaEditor.jsx` `components/VendorMedia.jsx` `app/api/media` | Vendor screenshots and demo link: submission, approval by commit, the editor in the owner panel, the labelled display |
+| `lib/vendorContacts.js` `lib/outreach.js` `lib/outreachTemplate.js` `app/api/admin/outreach` | Outreach (temporary): vendors' published addresses with their sources (server only), the tracking, the template |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2933,6 +2963,7 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `monitor_digest` | yes, and only when something changed | nothing |
 | `question` | yes | nothing |
 | `answer` | no | the asker, once, unless they answered it themselves |
+| `outreach` | no | the vendor, only when the admin presses Send; reply_to the admin |
 | `media_submitted` | yes | nothing |
 | `media_decided` | no | the vendor who sent it: live, or not and why |
 | `contact` | to `CONTACT_EMAIL`, `reply_to` the sender | nothing, ever (invariant 38) |
@@ -3095,6 +3126,7 @@ node scripts/coverage-test.mjs       # coverage per listing, feeds and page data
 node scripts/media-test.mjs          # vendor media: claimant only, alt required, approved before shown, committed, link not embed
 node scripts/lists-test.mjs          # saved lists: owner only, private until published, a name not an address, indexed after review
 node scripts/suggestion-published-test.mjs  # a published suggestion leaves the queue, either path, interest carried once
+node scripts/outreach-test.mjs       # outreach: addresses from their sites only and never in a bundle, copy default, Resend guarded
 node scripts/qa-test.mjs             # questions: signed in, vendor answers from the claims store, no address served, moderation
 node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then
 node scripts/structured-test.mjs     # attributes, pricing tiers, integrations: drafts valid, nothing public before confirm, derived price, stale rule

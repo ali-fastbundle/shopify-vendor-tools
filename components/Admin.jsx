@@ -1633,7 +1633,9 @@ function Outreach({ initial = { contacts: {}, state: {}, meta: {} }, claims = {}
               <p style={{ margin: "4px 0 0" }}><b>Claimed.</b> {claimedOf(tool.id) ? `Yes, by ${claims[tool.id].email}` : "No"} · <b>Ownership.</b> {ownershipLine(tool) || "none recorded"}</p>
               <p style={{ margin: "4px 0 0" }}>
                 <b>Contact.</b>{" "}
-                {contact?.email ? <>{contact.email}, found at <a href={contact.source} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{contact.source}</a> on {contact.checked}</>
+                {contact?.email ? <>{contact.email}, found at <a href={contact.source} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{contact.source}</a> on {contact.checked}
+                  {contact.caution && <span style={{ display: "block", color: C.warnInk }}>Caution: {contact.caution} Copy only.</span>}
+                  {contact.others?.length > 0 && <span style={{ display: "block", color: C.dim, fontSize: F.xs }}>Also published: {contact.others.map((o) => o.email).join(", ")}</span>}</>
                   : <>No address published on their site{contact?.note ? ` (${contact.note})` : ""}.{" "}
                     {tool.social?.li ? <a href={tool.social.li} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>Write on LinkedIn instead</a> : "No LinkedIn profile recorded either."}</>}
               </p>
@@ -1670,7 +1672,7 @@ function Outreach({ initial = { contacts: {}, state: {}, meta: {} }, claims = {}
 
             <div style={{ marginTop: S.md }}>
               <label style={{ fontSize: F.sm, marginRight: S.lg }}><input type="radio" checked={path === "copy"} onChange={() => setPath("copy")} /> Copy, and send from my own mailbox (default)</label>
-              <label style={{ fontSize: F.sm }}><input type="radio" checked={path === "resend"} onChange={() => setPath("resend")} disabled={!contact?.email} /> Send from watchfor.tools{!contact?.email ? " (no address)" : ""}</label>
+              <label style={{ fontSize: F.sm }}><input type="radio" checked={path === "resend"} onChange={() => setPath("resend")} disabled={!contact?.email || Boolean(contact?.caution)} /> Send from watchfor.tools{!contact?.email ? " (no address)" : contact?.caution ? " (address marked for caution)" : ""}</label>
             </div>
 
             {path === "copy" ? (
