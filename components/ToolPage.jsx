@@ -15,6 +15,7 @@ import { Pill } from "@/components/Pill";
 import { OwnerFact, AlsoFrom } from "@/components/OwnerLine";
 import StructuredDetails from "@/components/StructuredDetails";
 import QA from "@/components/QA";
+import SaveToList from "@/components/SaveToList";
 import EditorUseControl from "@/components/EditorUseControl";
 import { editorUseBadge } from "@/lib/editorUse";
 import PostLinks from "@/components/PostLinks";
@@ -330,6 +331,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
                 <a key={key} href={outbound(href)} target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: F.sm, color: C.muted }}>{socialLabel(key)}</a>
               ))}
+              <SaveToList toolId={tool.id} toolName={tool.name} />
             </div>
 
             <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xl}px 0 0`, lineHeight: 1.55 }}>

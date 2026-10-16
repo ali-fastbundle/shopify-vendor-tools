@@ -140,6 +140,8 @@ export default async function AdminPage({ searchParams }) {
        hype, figures not in the facts, an em-dash. */
     /* Blog comments with their addresses: rendered here, behind the check. */
     /* Questions on tools with their addresses: rendered here, behind the check. */
+    /* Published lists with their owners' addresses, behind the check. */
+    { key: "lists", load: async () => Object.values((await (await import("@/lib/lists")).readLists()) || {}).filter((l) => l?.public), empty: [] },
     { key: "questions", load: async () => {
       const { readQA, adminQA } = await import("@/lib/qa");
       const { catalogueTools } = await import("@/lib/entries");

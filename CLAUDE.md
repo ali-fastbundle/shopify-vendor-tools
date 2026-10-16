@@ -2128,6 +2128,30 @@ it do X", so it has no stars, no rating, its own heading, and "Q." and "A." on e
 
 `scripts/qa-test.mjs`.
 
+**50. Saved lists are the visitor's, private until published, and indexed only after a person read them.**
+`lib/lists.js`, `/api/lists`, `/lists` (manage, noindex), `/lists/[id]` (public), and Save
+to a list on the tool page and the modal (`components/SaveToList.jsx`).
+
+- **Signed in for everything.** A list is stored with its owner's address, which leaves
+  through `publicList` and `ownList` only. Twenty lists, fifty tools each, a plain-text
+  note per tool, with links refused.
+- **Publishing needs a name to show**, and it cannot be an address or a link. The public
+  page says the list was made by a visitor and not by the directory, and every tool on it
+  keeps its own caveat.
+- **Live at once, indexed later.** A published list is in the Inbox ("Lists published").
+  It is `noindex` and out of the sitemap until an admin marks it fine, because a page anyone
+  can publish is the first thing a spammer finds. Changing a published list sends it back.
+  Hide takes it off the site with a reason and keeps it.
+- The account sentence in `components/Account.jsx` and `/privacy` both say lists are
+  stored (Accounts).
+
+`scripts/lists-test.mjs`.
+
+**Client components import limits from `lib/limits.js`, never from a server library.** A
+client component that imported `QUESTION_MAX` from `lib/qa.js` pulled the store into the
+browser bundle, and `/lists` shipped 133 kB until the constants moved. lists-test checks
+that no client component imports `lib/lists`, `lib/qa` or `lib/store`.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -2212,6 +2236,7 @@ the mark.
 | `lib/categories.js` `lib/structured.js` `lib/structuredStore.js` `components/StructuredDetails.jsx` | Structured data: attribute sets, integrations and pricing rules (client-safe); the drafts from the notes (admin only); what was confirmed; the details table |
 | `lib/rivals.js` `lib/rivalsData.js` `components/Comparisons.jsx` `app/alternatives` `app/compare` | Which tools genuinely compete, the differences built from confirmed data, and the alternatives and head-to-head pages |
 | `lib/qa.js` `components/QA.jsx` `app/api/qa` | Questions and answers per tool: the store, the public strip, moderation, the ask and answer component |
+| `lib/lists.js` `lib/limits.js` `components/ListsManager.jsx` `components/SaveToList.jsx` `app/lists` `app/api/lists` | Saved lists: store, publishing, moderation; shared input limits (client-safe); the manage page and the save control |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -3016,6 +3041,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/lists-test.mjs          # saved lists: owner only, private until published, a name not an address, indexed after review
 node scripts/qa-test.mjs             # questions: signed in, vendor answers from the claims store, no address served, moderation
 node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then
 node scripts/structured-test.mjs     # attributes, pricing tiers, integrations: drafts valid, nothing public before confirm, derived price, stale rule

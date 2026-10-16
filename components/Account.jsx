@@ -143,8 +143,8 @@ export function SignInPrompt({ reason, returnTo = "" }) {
         <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0" }}>{state.message}</p>
       )}
       <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5 }}>
-        We store your email address and when you signed in, and nothing else, except an
-        unfinished growth-picks form if you start one, deleted when you run it.
+        We store your email address, when you signed in, and any lists you save, and nothing
+        else, except an unfinished growth-picks form if you start one, deleted when you run it.
       </p>
     </div>
   );
@@ -167,10 +167,12 @@ export function AccountBar({ session, refresh }) {
   if (session.signedIn) {
     return (
       <div className="flex items-center" style={{ gap: S.md }}>
-        <span style={{ fontSize: F.sm, color: C.muted }}>
+        {/* Truncated, so a long address cannot push into the section tabs. */}
+        <span title={session.email} style={{ fontSize: F.sm, color: C.muted, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {session.email}
           {session.owned?.length ? ` · ${session.owned.length} claimed` : ""}
         </span>
+        <a href="/lists" style={{ fontSize: F.sm, color: C.muted, whiteSpace: "nowrap" }}>Lists</a>
         {session.admin && (
           <a href="/admin" style={{
             background: C.accentSoft, border: `1px solid ${C.accentEdge}`,
@@ -234,7 +236,7 @@ export function AccountBar({ session, refresh }) {
                 <p style={{ fontSize: F.xs, color: C.badInk, marginTop: S.sm }}>{state.message}</p>
               )}
               <p style={{ fontSize: F.xs, color: C.dim, marginTop: S.md, lineHeight: 1.5 }}>
-                No password. We store your email address and when you signed in, and nothing else, except an unfinished growth-picks form if you start one, deleted when you run it.
+                No password. We store your email address, when you signed in, and any lists you save, and nothing else, except an unfinished growth-picks form if you start one, deleted when you run it.
               </p>
             </>
           )}

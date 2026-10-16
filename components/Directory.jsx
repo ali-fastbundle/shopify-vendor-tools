@@ -16,6 +16,7 @@ import VisitSite from "./VisitSite";
 import { OwnerFact, AlsoFrom } from "./OwnerLine";
 import StructuredDetails from "./StructuredDetails";
 import QA from "./QA";
+import SaveToList from "./SaveToList";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { ownershipOf as resolveOwnership } from "@/lib/owners";
 import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
@@ -1834,6 +1835,7 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
 
         <div className="flex flex-wrap items-center mt-5" style={{ gap: S.lg }}>
           <VisitSite url={tool.url} size={F.md}>{tool.domain}</VisitSite>
+          <SaveToList toolId={tool.id} toolName={tool.name} />
           <Social social={tool.social} />
           <div className="flex items-center" style={{ gap: S.xs, marginLeft: "auto" }}>
             <Vote dir={1} active={myVote === 1} n={votes.up} onClick={() => onVote(1)} label={`Like ${tool.name}`} />

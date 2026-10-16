@@ -14,7 +14,7 @@ import { C, S, R, F, TRACK } from "@/lib/tools";
 import { Pill } from "./Pill";
 import GrowText from "./GrowText";
 import { SignInPrompt, useSession } from "./Account";
-import { QUESTION_MAX, ANSWER_MAX } from "@/lib/qa";
+import { QUESTION_MAX, ANSWER_MAX } from "@/lib/limits";
 
 const field = {
   background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,

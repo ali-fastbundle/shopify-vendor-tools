@@ -7,6 +7,7 @@ import { POSTS } from "@/lib/blog";
 import { ownersWithPages } from "@/lib/ownerIndex";
 import { rivalPairs, alternativesOf, pairSlug, confirmed } from "@/lib/rivals";
 import { read } from "@/lib/store";
+import { isIndexable } from "@/lib/lists";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +25,8 @@ export const dynamic = "force-dynamic";
  * published list.
  */
 export default async function sitemap() {
-  const [tools, newsletters, changes, discovery] = await Promise.all([
-    mergedTools(), mergedNewsletters(), feedEntries({ limit: 1 }), read("svt:discovery", {}),
+  const [tools, newsletters, changes, discovery, lists] = await Promise.all([
+    mergedTools(), mergedNewsletters(), feedEntries({ limit: 1 }), read("svt:discovery", {}), read("svt:lists", {}),
   ]);
 
   return [
@@ -112,6 +113,10 @@ export default async function sitemap() {
       lastModified: new Date(p.updated || p.date),
       changeFrequency: "monthly",
       priority: 0.7,
+    })),
+    /* Published lists an admin marked fine (lib/lists.js). */
+    ...Object.values(lists || {}).filter(isIndexable).map((l) => ({
+      url: `${SITE}/lists/${l.id}`, lastModified: new Date(l.updatedAt), changeFrequency: "monthly", priority: 0.3,
     })),
     /* Alternatives and head-to-heads (lib/rivals.js), listed only once they
        carry confirmed details: before that the pages are noindex, and a

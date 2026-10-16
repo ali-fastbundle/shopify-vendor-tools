@@ -105,6 +105,7 @@ export default function AdminPanel({
   announcements = [],
   comments = [],
   questions = [],
+  lists = [],
   publishing = { canPublish: false, log: [] },
   maillog = [],
   entries = {},
@@ -154,6 +155,8 @@ export default function AdminPanel({
   const [commentRows, setCommentRows] = useState(comments);
   const unreadComments = commentRows.filter((c) => !c.reviewed);
   const [questionRows, setQuestionRows] = useState(questions);
+  const [listRows, setListRows] = useState(lists);
+  const unreadLists = listRows.filter((l) => !l.reviewed && !l.hidden);
   const unreadQuestions = questionRows.filter((q) => !q.reviewed);
   const [seen, setSeen] = useState(changesSeen || {});
   const [busy, setBusy] = useState("");
@@ -184,7 +187,7 @@ export default function AdminPanel({
 
   /* Monitor findings are counted on Recent updates, where they are decided:
      most of them end as an entry on the feed or as nothing. */
-  const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length;
+  const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length + unreadLists.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
     + drafted(ALL_PODCASTS).length + drafted(ALL_EVENTS).length;
@@ -239,6 +242,7 @@ export default function AdminPanel({
       if (d.reviewSignals) setReviewRows(d.reviewSignals);
       if (d.comments) setCommentRows(d.comments);
       if (d.questions) setQuestionRows(d.questions);
+      if (d.lists) setListRows(d.lists);
     } catch {
       setErr("Could not reach the server.");
     } finally {
@@ -302,6 +306,7 @@ export default function AdminPanel({
             coverage={coverage}
             comments={unreadComments}
             questions={unreadQuestions}
+            lists={unreadLists}
             act={act}
             busy={busy}
             onSuggestions={setRows}
@@ -382,9 +387,9 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinceVisit = [], onTab, discovery = { findings: [] }, coverage = [], comments = [], questions = [], act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinceVisit = [], onTab, discovery = { findings: [] }, coverage = [], comments = [], questions = [], lists = [], act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
-  const nothing = !pending.length && !openReports.length && !claims.length && !comments.length && !questions.length;
+  const nothing = !pending.length && !openReports.length && !claims.length && !comments.length && !questions.length && !lists.length;
 
   /* The monitor's findings are decided on Recent updates. One line here says
      they are waiting, so moving them did not hide them. */
@@ -457,6 +462,13 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
         <Section title="Comments to read" count={comments.length}
           hint="Blog comments are live the moment they are posted. Read each one: Looks fine takes it out of here, Hide takes it off the post with a reason and keeps it, Delete removes it for good.">
           {comments.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
+        </Section>
+      )}
+
+      {lists.length > 0 && (
+        <Section title="Lists published" count={lists.length}
+          hint="Lists visitors made public. They are live at once and not indexed until you mark one fine. Hide takes one off the site with a reason and keeps it.">
+          {lists.map((l) => <ListRow key={l.id} l={l} act={act} busy={busy} />)}
         </Section>
       )}
 
@@ -587,6 +599,35 @@ function CommentRow({ c, act, busy }) {
         )}
         {c.hidden && <Btn busy={busy === k("unhide-comment")} onClick={() => act("unhide-comment", c.id, { slug: c.slug })}>Unhide</Btn>}
         <ConfirmBtn busy={busy === k("delete-comment")} onConfirm={() => act("delete-comment", c.id, { slug: c.slug })} confirm="Delete for good">Delete</ConfirmBtn>
+      </>}
+    />
+  );
+}
+
+/* A list a visitor published (lib/lists.js). */
+function ListRow({ l, act, busy }) {
+  const [reason, setReason] = useState("");
+  const [hiding, setHiding] = useState(false);
+  return (
+    <Row
+      title={<a href={`/lists/${l.id}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{l.name}</a>}
+      tag={l.hidden ? "hidden" : l.reviewed ? "indexed" : "not read"}
+      tagColor={l.hidden ? C.warnInk : C.muted}
+      dim={Boolean(l.hidden)}
+      body={<p style={{ margin: 0 }}>By “{l.byName}”, {l.items.length} tools. {l.items.filter((x) => x.note).map((x) => `${x.toolId}: ${x.note}`).join(" · ")}</p>}
+      meta={`${l.owner} · updated ${String(l.updatedAt).slice(0, 10)}${l.hidden ? ` · hidden: ${l.hiddenReason}` : ""}`}
+      actions={<>
+        {!l.reviewed && !l.hidden && <Btn tone="go" busy={busy === "list-fine" + l.id} onClick={() => act("list-fine", l.id)}>Looks fine</Btn>}
+        {!l.hidden && !hiding && <Btn onClick={() => setHiding(true)}>Hide</Btn>}
+        {!l.hidden && hiding && (
+          <span className="inline-flex items-center" style={{ gap: S.xs }}>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why it is hidden (required)" maxLength={200}
+              aria-label="Why it is hidden" style={{ ...FIELD, width: 240, padding: "2px 8px", fontSize: F.xs }} />
+            <Btn disabled={reason.trim().length < 3} busy={busy === "list-hide" + l.id} onClick={() => act("list-hide", l.id, { reason })}>Hide it</Btn>
+            <Btn onClick={() => setHiding(false)}>Cancel</Btn>
+          </span>
+        )}
+        {l.hidden && <Btn busy={busy === "list-unhide" + l.id} onClick={() => act("list-unhide", l.id)}>Unhide</Btn>}
       </>}
     />
   );

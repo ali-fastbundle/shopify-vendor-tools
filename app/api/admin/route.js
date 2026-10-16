@@ -131,6 +131,17 @@ export async function POST(request) {
    * question or an answer with a reason, unhide, or delete. Keyed by tool,
    * question id and answer id, never by position.
    */
+  /* Published lists (lib/lists.js): fine makes one indexable, hide takes it
+     off the site with a reason, unhide puts it back. */
+  if (["list-fine", "list-hide", "list-unhide"].includes(action)) {
+    const { readLists, saveLists, moderateList } = await import("@/lib/lists");
+    const all = await readLists();
+    const r = moderateList(all, String(id || ""), action.replace("list-", ""), { reason: body.reason, by: session.email });
+    if (r.error) return new Response(r.error, { status: 400 });
+    await saveLists(r.all);
+    return Response.json({ lists: Object.values(r.all).filter((l) => l.public) });
+  }
+
   if (["qa-fine", "qa-hide", "qa-unhide", "qa-delete"].includes(action)) {
     const { readQA, saveQA, moderateQA, adminQA } = await import("@/lib/qa");
     const all = await readQA();
