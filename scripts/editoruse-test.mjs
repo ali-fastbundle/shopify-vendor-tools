@@ -65,6 +65,12 @@ ok(EU.editorUseLine({ value: "using" }) === "Editor uses this.", "using", EU.edi
 ok(EU.editorUseLine({ value: "used", date: "2026-03-04" }) === "Editor used this until March 2026.", "used, with the month", EU.editorUseLine({ value: "used", date: "2026-03-04" }));
 ok(EU.editorUseLine({ value: "tested" }) === "Editor tested this.", "tested");
 ok(EU.editorUseLine(undefined) === "" && EU.editorUseLine({ value: "" }) === "", "unset says nothing at all");
+ok(EU.editorUseBadge({ value: "using" }) === "Editor uses this", "the badge: using");
+ok(EU.editorUseBadge({ value: "used", date: "2026-03-04" }) === "Editor used until Mar 2026", "the badge: used, short month", EU.editorUseBadge({ value: "used", date: "2026-03-04" }));
+ok(EU.editorUseBadge({}) === "", "the badge: nothing when unset");
+for (const f of ["components/ToolPage.jsx", "components/Directory.jsx"]) {
+  ok(/<Pill>\{editorUseBadge\(/.test(src(f)), `${f} shows it as a neutral Pill`);
+}
 ok(EU.sanitiseEditorUse({ value: "loved" }).error, "an unknown value is refused");
 ok(EU.sanitiseEditorUse({ value: "using", note: "Good — mostly" }).error, "an em dash in the public note is refused");
 ok(EU.sanitiseEditorUse({ value: "using", note: "x".repeat(EU.NOTE_MAX + 1) }).error, "a note longer than one line is refused");

@@ -13,7 +13,7 @@ import CopyLink from "./CopyLink";
 import GrowText from "./GrowText";
 import Vote from "./Vote";
 import VisitSite from "./VisitSite";
-import { editorUseLine, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
+import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { useFeedForCount } from "./SiteFrame";
@@ -582,10 +582,8 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
                       </span>
                       {/* Context only, attached in the browser: the model never
                           saw it, so it cannot have preferred the tool for it. */}
-                      {editorUseLine(t.editorUse) && (
-                        <span className="block mt-1" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5 }}>
-                          {editorUseLine(t.editorUse)}
-                        </span>
+                      {editorUseBadge(t.editorUse) && (
+                        <span className="block mt-1"><Pill>{editorUseBadge(t.editorUse)}</Pill></span>
                       )}
                     </span>
                   </button>
@@ -1769,16 +1767,17 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
           <Facts tool={tool} />
           {tool.dying && <Pill tone="warn">winding down</Pill>}
           <NotShopifyOnly tool={tool} />
+          {editorUseBadge(tool.editorUse) && <Pill>{editorUseBadge(tool.editorUse)}</Pill>}
         </div>
 
         <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
         <p className="mt-3" style={{ fontSize: F.md, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
           <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
         </p>
-        {/* Editor use: a quiet line, nothing when unset (lib/editorUse.js). */}
-        {editorUseLine(tool.editorUse) && (
+        {/* The editor's note, under the caveat. The badge is in the facts row. */}
+        {editorUseBadge(tool.editorUse) && tool.editorUse.note && (
           <p className="mt-2" style={{ fontSize: F.sm, lineHeight: 1.55, maxWidth: "68ch", color: C.muted }}>
-            {editorUseLine(tool.editorUse)}{tool.editorUse.note ? ` ${tool.editorUse.note}` : ""}
+            <span style={{ fontWeight: 600, color: C.text }}>Editor's note. </span>{tool.editorUse.note}
           </p>
         )}
         {tool.claimed && (

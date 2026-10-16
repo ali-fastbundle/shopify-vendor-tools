@@ -1928,10 +1928,13 @@ listing modal (`components/EditorUseControl.jsx`, one control for all three).
 - **Redis, not the file** (`svt:editoruse`, `lib/editorUseStore.js`), so a change is
   reversible and needs no commit. Each record keeps the date the toggle changed, who
   changed it (private) and up to 20 earlier values. Clearing it keeps the record.
-- **Public as a quiet line**, after the watch note on the tool page and the modal:
-  "Editor uses this.", "Editor used this until October 2026.", "Editor tested this.",
-  plus the optional one-line note. Not on the card (rule J), not a badge. **Unset renders
-  nothing**, because an absence that announces itself reads as a verdict (rule E).
+- **Public as a neutral `Pill`**, on the editor's instruction (2026-10-16): in the facts
+  row of the modal, under the facts line on the tool page, and under a matcher pick.
+  "Editor uses this", "Editor used until Oct 2026", "Editor tested this". It is the one
+  attribute rule G lets stay a badge besides the two scope badges, because it was asked
+  for as one. The optional note renders under the watch note as "Editor's note." Not on
+  the card (rule J) unless asked. **Unset renders nothing**, because an absence that
+  announces itself reads as a verdict (rule E).
 - **A filter and a sort on the directory**, both shown only once something is set. The
   policy is stated once, above the grid, when either is in use (`editorUsePolicy`).
 - **It feeds nothing.** Not the community average, not `aggregateRating`, not the

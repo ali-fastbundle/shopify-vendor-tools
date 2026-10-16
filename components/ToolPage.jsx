@@ -13,7 +13,7 @@ import { toolDescription, logoAlt } from "@/lib/seo";
  */
 import { Pill } from "@/components/Pill";
 import EditorUseControl from "@/components/EditorUseControl";
-import { editorUseLine } from "@/lib/editorUse";
+import { editorUseBadge } from "@/lib/editorUse";
 import PostLinks from "@/components/PostLinks";
 import { postsForTool } from "@/lib/blog";
 import { RATING_POLICY, exclusionNote } from "@/lib/reviews";
@@ -272,6 +272,10 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             </p>
 
             <Facts tool={tool} />
+            {/* Editor use as a neutral badge, and nothing when unset. */}
+            {editorUseBadge(tool.editorUse) && (
+              <p style={{ margin: `${S.sm}px 0 0` }}><Pill>{editorUseBadge(tool.editorUse)}</Pill></p>
+            )}
 
             <p style={{ fontSize: F.lg, lineHeight: 1.62, margin: `${S.xl}px 0 0` }}>{tool.note}</p>
 
@@ -281,12 +285,11 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
               <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
             </p>
 
-            {/* Editor use (lib/editorUse.js): a quiet line, never a badge, and
-                nothing at all when unset, because an absence that announces
-                itself reads as a verdict. */}
-            {editorUseLine(tool.editorUse) && (
+            {/* The editor's note, under the caveat. The badge itself is up by
+                the facts line (lib/editorUse.js). */}
+            {editorUseBadge(tool.editorUse) && tool.editorUse.note && (
               <p style={{ fontSize: F.sm, lineHeight: 1.55, margin: `${S.sm}px 0 0`, color: C.muted }}>
-                {editorUseLine(tool.editorUse)}{tool.editorUse.note ? ` ${tool.editorUse.note}` : ""}
+                <span style={{ fontWeight: 600, color: C.text }}>Editor's note. </span>{tool.editorUse.note}
               </p>
             )}
 

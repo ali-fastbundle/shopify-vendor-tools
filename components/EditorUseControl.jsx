@@ -11,7 +11,7 @@
  */
 import React, { useState } from "react";
 import { C, S, R, F } from "@/lib/tools";
-import { EDITOR_USE, NOTE_MAX, editorUseLine } from "@/lib/editorUse";
+import { EDITOR_USE, NOTE_MAX, editorUseBadge } from "@/lib/editorUse";
 
 const OPTIONS = [{ id: "", label: "Unset" }, ...EDITOR_USE];
 const today = () => new Date().toISOString().slice(0, 10);
@@ -46,7 +46,7 @@ export default function EditorUseControl({ tool, initial = null, onSaved, compac
       if (!res.ok) { setMsg(await res.text()); return; }
       const d = await res.json();
       setSaved(d.editorUse); setDate(d.editorUse.date || ""); setNote(d.editorUse.note || "");
-      setMsg(d.editorUse.value ? `Saved. Shows: "${editorUseLine(d.editorUse)}"` : "Saved. Nothing shows.");
+      setMsg(d.editorUse.value ? `Saved. The badge reads "${editorUseBadge(d.editorUse)}".` : "Saved. Nothing shows.");
       onSaved?.(tool.id, d.editorUse);
     } catch {
       setMsg("Could not reach the server.");
