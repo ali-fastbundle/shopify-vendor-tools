@@ -160,8 +160,8 @@ export default async function AdminPage({ searchParams }) {
       return adminComments(await readComments(), (s) => POSTS.find((p) => p.slug === s)?.title || s);
     }, empty: [] },
     { key: "announcements", load: async () => {
-      const { getAnnouncements, checksFor } = await import("@/lib/announcements");
-      return (await getAnnouncements()).map((r) => ({ ...r, checks: checksFor(r) }));
+      const { getAnnouncements } = await import("@/lib/announcements");
+      return getAnnouncements();
     }, empty: [] },
     { key: "recommend", load: async () => {
       const { readFeedback, summariseFeedback } = await import("@/lib/recommendFeedback");

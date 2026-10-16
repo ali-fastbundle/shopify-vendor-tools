@@ -86,9 +86,14 @@ const an = await L("lib/announcements.js");
 const rows = await an.getAnnouncements();
 ok(an.SEEDS.length >= 5 && an.SEEDS.every((x) => rows.some((r) => r.id === x.id)), "every seed is in the queue before anything is stored", `${an.SEEDS.length} seeds`);
 for (const row of rows) {
-  const c = an.checksFor(row);
-  ok(!c.hype.length && !c.numbers.length && !c.emDash, `seed "${row.id}" has no hype, no invented figure, no em-dash`, [...c.hype, ...c.numbers].join(", "));
+  /* The queue's own checks, made against every fact including the live ones. */
+  const c = row.checks;
+  ok(!c.hype.length && !c.numbers.length && !c.emDash && !c.long.length && !c.semicolons, `seed "${row.id}" has no hype, no invented figure, no long sentence, no em-dash`, [...c.hype, ...c.numbers, ...c.long].join(", "));
 }
+ok(new Set(an.SEEDS.map((x) => x.rank)).size === an.SEEDS.length && an.SEEDS.every((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.shipped)), "every seed has its own rank and a ship date");
+ok(rows.filter((r) => r.status === "draft").map((r) => r.rank).every((n, i, arr) => i === 0 || arr[i - 1] <= n), "open drafts come in posting order");
+ok(rows.find((r) => r.id === "seed-qa").hold && rows.find((r) => r.id === "seed-integrations").hold, "thin features are held while the store is empty");
+ok(!rows.find((r) => r.id === "seed-growth").hold && !rows.find((r) => r.id === "seed-newsletters").hold, "and the first posts are not");
 ok(an.unsupportedNumbers("We hit 300 merchants with 47 tools", ["Tools listed: 47"]).join() === "300", "an invented figure is caught");
 ok(an.hypeIn("Excited to announce this game-changing tool!").length >= 3, "hype is caught");
 let u = await an.updateAnnouncement("seed-events", { status: "posted", postedAt: "2026-10-11" }, "admin@x");

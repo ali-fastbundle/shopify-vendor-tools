@@ -1811,14 +1811,18 @@ function AnnouncementRow({ r, busy, post }) {
       tag={ANN_STATUS[r.status]}
       tagColor={r.status === "ready" ? C.accentInk : C.muted}
       badges={<>
+        {r.rank && (r.status === "draft" || r.status === "ready") && <Pill>{`post #${r.rank}`}</Pill>}
         <Pill>{KIND_NAMES[r.kind] || r.kind}</Pill>
         {r.seeded && <Pill>seeded</Pill>}
+        {r.hold && <Pill tone="warn">hold</Pill>}
       </>}
       dim={r.status === "dropped"}
       meta={`Shipped ${r.shipped || String(r.createdAt).slice(0, 10)}${r.status === "posted" ? ` · posted ${r.postedAt}` : ""} · ${c.words} words${r.provider ? ` · drafted by ${r.provider}` : r.seeded ? " · written in code, figures from today's catalogue" : ""}${r.note ? ` · model note: ${r.note}` : ""}`}
       body={(
         <>
+          {r.hold && <p style={{ margin: "0 0 8px", color: C.warnInk, fontWeight: 600 }}>{r.hold}. It lifts by itself when the count is there.</p>}
           {fails.length > 0 && <p style={{ margin: "0 0 8px", color: C.warnInk, fontWeight: 600 }}>{fails.join(". ")}.</p>}
+          <p style={{ margin: "0 0 8px", color: C.muted }}>{r.what}</p>
           {r.thin && <p style={{ margin: "0 0 8px", color: C.warnInk }}>The model said the description was thin.</p>}
           <Grow value={text} onChange={(e) => setText(e.target.value)} rows={8} style={{ ...FIELD, color: C.text }} aria-label="Post text" />
         </>

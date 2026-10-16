@@ -18,7 +18,9 @@ export const maxDuration = 60;
  */
 const DENY = () => new Response("Not found", { status: 404 });
 
-const withChecks = (rows) => rows.map((r) => ({ ...r, checks: checksFor(r) }));
+/* getAnnouncements computes each row's checks against every fact, live ones
+   included, so they are kept rather than redone against the catalogue alone. */
+const withChecks = (rows) => rows.map((r) => (r.checks ? r : { ...r, checks: checksFor(r) }));
 
 export async function POST(request) {
   const session = sessionFrom(request);

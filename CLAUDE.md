@@ -3036,6 +3036,16 @@ yet visible get no seed. A feature that is live but not ready to talk about (pag
 state nothing until data is confirmed) gets a seed whose `what` says when to post it.
 Nothing posts itself: the seed waits in the Announcements tab for the editor.
 
+**The queue is ordered and holds itself.** Each seed has a `rank` (posting order; open
+drafts sort by it) and may have a `hold(f)` that returns a reason not to post yet, for
+something built but thin: a feature whose value is other people's content (questions,
+lists, vendor media) or data not yet confirmed (comparisons, pricing, integrations). Counts
+that live in the store (editor use, confirmed tools, feed entries, questions, lists, media)
+come from `liveFacts()` when the tab loads, so a draft states today's figure and a hold
+lifts by itself. History that does not move (the launch count, the count a week later) is
+`HISTORY`, read from git. `getAnnouncements()` computes each row's checks against all of it;
+do not recompute them against `catalogueFacts()` alone, which flags every live figure.
+
 **Where the live check cannot close the loop, say so rather than implying it
 did.** A draft changes nothing a visitor can reach, so an unchanged site is both
 the correct outcome and exactly what a deploy that never ran would look like; the
