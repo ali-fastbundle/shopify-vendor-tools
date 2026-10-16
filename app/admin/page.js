@@ -83,6 +83,7 @@ export default async function AdminPage({ searchParams }) {
     { key: "monitor", load: () => getMonitorState(), empty: {} },
     { key: "changesSeen", load: () => read(KEYS.changesSeen, {}), empty: {} },
     { key: "interest", load: () => getInterest(), empty: {} },
+    { key: "aboutPhoto", load: async () => (await import("@/lib/aboutStore")).aboutPhotoUrl(), empty: "" },
     { key: "about", load: async () => (await import("@/lib/aboutStore")).getAboutRecord(), empty: null },
     { key: "ideas", load: async () => (await import("@/lib/ideaStore")).getIdeas(), empty: [] },
     { key: "editorUse", load: async () => (await import("@/lib/editorUseStore")).getEditorUse(), empty: {} },

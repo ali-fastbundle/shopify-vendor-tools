@@ -16,7 +16,7 @@ import { COVERAGE_LABEL, coverageCounts, uncovered } from "@/lib/coverage";
 import { Pill } from "./Pill";
 import EditorUseControl from "./EditorUseControl";
 import { editorUseLine } from "@/lib/editorUse";
-import { DEFAULT as ABOUT_DEFAULT, bodyOf, aboutIssues } from "@/lib/aboutText";
+import { DEFAULT as ABOUT_DEFAULT, bodyOf, paragraphsOf, aboutIssues, inlineTokens, isAllowedHref, LINKS_MAX } from "@/lib/aboutText";
 import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash } from "@/lib/ideas";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
@@ -105,6 +105,7 @@ export default function AdminPanel({
   editorUse = {},
   ideas = [],
   about = null,
+  aboutPhoto = "",
   dedupelog = [],
   changelog = [],
   monitor = {},
@@ -307,6 +308,7 @@ export default function AdminPanel({
             interest={interest || {}}
             editorUse={editorUse}
             about={about}
+            aboutPhoto={aboutPhoto}
             outOfScope={outOfScopeRows}
             deleted={deletedRows}
             coverage={coverage}
@@ -458,7 +460,7 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, aboutPhoto = "", outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
@@ -466,7 +468,7 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
       <Drafts publishing={publishing} holds={holds} discards={discards} />
       <NeedsVerifying />
       <EditorUse editorUse={editorUse} entries={entries} />
-      <AboutPage initial={about} />
+      <AboutPage initial={about} photo={aboutPhoto} />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
       <Collapsible title="Monitor coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
@@ -2077,62 +2079,173 @@ function EditorUse({ editorUse = {}, entries = {} }) {
 }
 
 /*
- * The /about text (lib/aboutText.js). Ali's own words, so nothing here checks
- * voice or style. The one rule is his: no email address and no phone number,
- * checked as you type and again on the server. Saving needs no commit and is
- * live on the next load; Reset goes back to the text in the file. Each save
- * keeps the version it replaced.
+ * The /about page (lib/aboutText.js): photo, name, role line, text and links.
+ * Ali's own words, so nothing here checks voice or style. The one rule is his:
+ * no email address and no phone number, checked as you type and again on the
+ * server. Saving needs no commit and is live on the next load; Reset goes back
+ * to the text in the file. Each save keeps the version it replaced.
+ *
+ * Formatting is **bold**, *italic* and [label](url), written by the buttons
+ * around the selection, with a preview below. The page renders it as elements,
+ * never as HTML.
  */
-function AboutPage({ initial = null }) {
+function AboutInline({ text }) {
+  return inlineTokens(text).map((t, i) =>
+    t.t === "b" ? <strong key={i}>{t.v}</strong>
+      : t.t === "i" ? <em key={i}>{t.v}</em>
+        : t.t === "a" ? <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{t.v}</a>
+          : <React.Fragment key={i}>{t.v}</React.Fragment>);
+}
+
+/* Resize to at most 640px on the long side and re-encode as JPEG. Re-encoding
+   through a canvas also drops EXIF, so a phone photo's location never ships. */
+function resizePhoto(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 640 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file is not an image this browser can read.")); };
+    img.src = url;
+  });
+}
+
+function AboutPage({ initial = null, photo = "" }) {
   const current = initial?.paragraphs?.length ? initial : ABOUT_DEFAULT;
   const [name, setName] = useState(current.name);
   const [role, setRole] = useState(current.role || "");
   const [body, setBody] = useState(bodyOf(current.paragraphs));
+  const [links, setLinks] = useState(current.links || []);
   const [rec, setRec] = useState(initial);
+  const [photoUrl, setPhotoUrl] = useState(photo);
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
-  const issues = aboutIssues({ name, role, body });
+  const area = React.useRef(null);
+  const issues = aboutIssues({ name, role, body, links });
   const saved = rec?.paragraphs?.length ? rec : ABOUT_DEFAULT;
-  const dirty = name !== saved.name || role !== (saved.role || "") || body !== bodyOf(saved.paragraphs);
+  const dirty = name !== saved.name || role !== (saved.role || "") || body !== bodyOf(saved.paragraphs) ||
+    JSON.stringify(links) !== JSON.stringify(saved.links || []);
 
-  async function post(action, tag) {
+  async function call(payload, tag) {
     setBusy(tag); setMsg("");
     try {
       const res = await fetch("/api/admin", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(action === "save-about" ? { action, name, role, body } : { action }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       });
-      if (!res.ok) { setMsg(await res.text()); return; }
-      const d = await res.json();
-      setRec(d.about);
-      if (action === "reset-about") {
-        setName(ABOUT_DEFAULT.name); setRole(ABOUT_DEFAULT.role); setBody(bodyOf(ABOUT_DEFAULT.paragraphs));
-      }
-      setMsg(action === "save-about" ? "Saved. It is live on /about now." : "Back to the text in the file.");
-    } catch { setMsg("Could not reach the server."); } finally { setBusy(""); }
+      if (!res.ok) { setMsg(await res.text()); return null; }
+      return await res.json();
+    } catch { setMsg("Could not reach the server."); return null; } finally { setBusy(""); }
   }
+
+  async function save() {
+    const d = await call({ action: "save-about", name, role, body, links }, "save");
+    if (d) { setRec(d.about); setMsg("Saved. It is live on /about now."); }
+  }
+  async function reset() {
+    const d = await call({ action: "reset-about" }, "reset");
+    if (d) {
+      setRec(d.about); setName(ABOUT_DEFAULT.name); setRole(ABOUT_DEFAULT.role);
+      setBody(bodyOf(ABOUT_DEFAULT.paragraphs)); setLinks([]); setMsg("Back to the text in the file.");
+    }
+  }
+  async function upload(file) {
+    if (!file) return;
+    let dataUrl;
+    try { dataUrl = await resizePhoto(file); } catch (e) { setMsg(e.message); return; }
+    const d = await call({ action: "save-about-photo", dataUrl }, "photo");
+    if (d) { setPhotoUrl(d.photo); setMsg("Photo saved. It is live on /about now."); }
+  }
+  async function clearPhoto() {
+    const d = await call({ action: "clear-about-photo" }, "photo-clear");
+    if (d) { setPhotoUrl(d.photo); setMsg("Back to the photo in the repository."); }
+  }
+
+  /* Wrap the selection in the markers, or insert a placeholder to type over. */
+  function wrap(before, after, placeholder) {
+    const el = area.current;
+    if (!el) return;
+    const a = el.selectionStart, b = el.selectionEnd;
+    const sel = body.slice(a, b) || placeholder;
+    const next = body.slice(0, a) + before + sel + after + body.slice(b);
+    setBody(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(a + before.length, a + before.length + sel.length);
+    });
+  }
+  function link() {
+    const url = window.prompt("Link to (https://... or a path like /contact)", "https://");
+    if (!url || url === "https://") return;
+    if (!isAllowedHref(url.trim())) { setMsg("A link needs an https:// address or a path on this site. Email and phone links are not allowed."); return; }
+    wrap("[", `](${url.trim()})`, "link text");
+  }
+
+  const tool = { ...FIELD, width: "auto", padding: "2px 10px", cursor: "pointer" };
 
   return (
     <Collapsible title="About page" anchor="about-page"
       count={rec?.paragraphs?.length ? `edited ${String(rec.at).slice(0, 10)}` : "the file's text"}
-      hint="The text on /about. Leave a blank line between paragraphs. No email address or phone number: the contact form below the text handles email. Saving needs no commit. Reset goes back to the text in the file, and every save keeps the version it replaced.">
+      hint="Everything on /about. No email address or phone number anywhere: the contact form below the text handles email. Saving needs no commit. Reset goes back to the text in the file, and every save keeps the version it replaced.">
       <div style={{ padding: "12px 0" }}>
+        <Field label="Photo">
+          <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
+            {photoUrl
+              ? <img src={photoUrl} alt="" width={72} height={72} style={{ width: 72, height: 72, objectFit: "cover", borderRadius: R.control, border: `1px solid ${C.line}` }} />
+              : <span style={{ fontSize: F.xs, color: C.dim }}>No photo.</span>}
+            <label className="ctl" style={{ ...tool, display: "inline-block", fontSize: F.xs }}>
+              {busy === "photo" ? "Uploading" : "Change photo"}
+              <input type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }}
+                onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ""; }} />
+            </label>
+            {String(photoUrl).startsWith("/about/photo") && (
+              <ConfirmBtn busy={busy === "photo-clear"} onConfirm={clearPhoto} confirm="Use the repository photo?">Remove upload</ConfirmBtn>
+            )}
+            <span style={{ fontSize: F.xs, color: C.dim }}>Resized to 640px. Location data is removed.</span>
+          </div>
+        </Field>
         <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} style={FIELD} /></Field>
         <Field label="Role line, the disclosure"><input value={role} onChange={(e) => setRole(e.target.value)} style={FIELD} /></Field>
         <Field label="Text">
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={16}
+          <div className="flex flex-wrap" style={{ gap: S.xs, marginBottom: S.xs }}>
+            <button type="button" className="ctl" onClick={() => wrap("**", "**", "bold text")} style={{ ...tool, fontWeight: 800 }} title="Bold">B</button>
+            <button type="button" className="ctl" onClick={() => wrap("*", "*", "italic text")} style={{ ...tool, fontStyle: "italic" }} title="Italic">I</button>
+            <button type="button" className="ctl" onClick={link} style={tool} title="Link the selected text">Link</button>
+            <span style={{ fontSize: F.xs, color: C.dim, alignSelf: "center" }}>Select words, then press a button. A blank line starts a new paragraph.</span>
+          </div>
+          <textarea ref={area} value={body} onChange={(e) => setBody(e.target.value)} rows={16}
             style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
+        </Field>
+        <Field label="Preview">
+          <div style={{ border: `1px solid ${C.line}`, borderRadius: R.control, padding: S.md, color: C.text, fontSize: F.md, lineHeight: 1.6 }}>
+            {paragraphsOf(body).map((p, i) => <p key={i} style={{ margin: i ? `${S.sm}px 0 0` : 0 }}><AboutInline text={p} /></p>)}
+          </div>
+        </Field>
+        <Field label="Links, shown after LinkedIn">
+          {links.map((l, i) => (
+            <div key={i} className="flex flex-wrap" style={{ gap: S.xs, marginBottom: S.xs }}>
+              <input value={l.label} placeholder="Label" aria-label="Link label" style={{ ...FIELD, width: 180 }}
+                onChange={(e) => setLinks(links.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
+              <input value={l.url} placeholder="https://..." aria-label="Link address" style={{ ...FIELD, flex: 1, minWidth: 220, width: "auto" }}
+                onChange={(e) => setLinks(links.map((x, j) => j === i ? { ...x, url: e.target.value.trim() } : x))} />
+              <Btn onClick={() => setLinks(links.filter((_, j) => j !== i))}>Remove</Btn>
+            </div>
+          ))}
+          {links.length < LINKS_MAX && <Btn onClick={() => setLinks([...links, { label: "", url: "https://" }])}>Add a link</Btn>}
         </Field>
         {issues.length > 0 && (
           <p style={{ fontSize: F.sm, color: C.warnInk, margin: `${S.sm}px 0 0`, lineHeight: 1.5 }}>{issues.join(" ")}</p>
         )}
         <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
-          <Btn tone="go" busy={busy === "save"} disabled={!dirty || issues.length > 0} onClick={() => post("save-about", "save")}>Save</Btn>
+          <Btn tone="go" busy={busy === "save"} disabled={!dirty || issues.length > 0} onClick={save}>Save</Btn>
           <a href="/about" target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Open /about</a>
           {rec?.paragraphs?.length > 0 && (
-            <ConfirmBtn busy={busy === "reset"} onConfirm={() => post("reset-about", "reset")} confirm="Reset to the file's text?">
-              Reset to the file
-            </ConfirmBtn>
+            <ConfirmBtn busy={busy === "reset"} onConfirm={reset} confirm="Reset to the file's text?">Reset to the file</ConfirmBtn>
           )}
           {msg && <span style={{ fontSize: F.xs, color: C.muted }}>{msg}</span>}
           {rec?.history?.length > 0 && <span style={{ fontSize: F.xs, color: C.dim }}>{rec.history.length} earlier version{rec.history.length > 1 ? "s" : ""} kept</span>}

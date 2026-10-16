@@ -167,10 +167,17 @@ export async function POST(request) {
   if (action === "save-about" || action === "reset-about") {
     const { saveAbout, resetAbout } = await import("@/lib/aboutStore");
     const r = action === "save-about"
-      ? await saveAbout({ name: body.name, role: body.role, body: body.body }, session.email)
+      ? await saveAbout({ name: body.name, role: body.role, body: body.body, links: body.links }, session.email)
       : await resetAbout(session.email);
     if (r.error) return new Response(r.error, { status: 400 });
     return Response.json({ about: r.record });
+  }
+
+  if (action === "save-about-photo" || action === "clear-about-photo") {
+    const { saveAboutPhoto, clearAboutPhoto } = await import("@/lib/aboutStore");
+    const r = action === "save-about-photo" ? await saveAboutPhoto(body.dataUrl, session.email) : await clearAboutPhoto();
+    if (r.error) return new Response(r.error, { status: 400 });
+    return Response.json({ photo: r.url });
   }
 
   if (action === "set-editor-use") {

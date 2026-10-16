@@ -1706,7 +1706,14 @@ Phosphor icon, About, Contact and Privacy.
 /admin (Catalogue, About page; "Edit this page" on /about for an admin). The file's text is
 `DEFAULT` in `lib/aboutText.js`; a saved edit lives in `svt:about` with the versions it
 replaced, and Reset goes back to the file. `aboutIssues` refuses an email address or a phone
-number on the page and again on the server, and that is the only check: no voice rules. Do
+number on the page and again on the server, and that is the only check: no voice rules.
+The editor has Bold, Italic and Link buttons that write `**bold**`, `*italic*` and
+`[label](url)` around the selection, with a preview; `inlineTokens` turns those into
+elements, never HTML, and a link is https or a site path only (no mailto, no tel). Links
+under the text are a list of label and https URL, shown after LinkedIn. The photo can be
+changed there too: the browser resizes it to 640px and re-encodes it as JPEG, which drops
+location data, and it is stored in `svt:about:photo` and served by `app/about/photo` at a
+URL versioned by its hash. No upload means the file in `public/`. Do
 not edit the prose to house style: it is a person's account of themselves, and its first line, the Fast Bundle
 role, is the disclosure, so there is no separate disclaimer block. It carries the contact
 form and the LinkedIn link, and **no phone number or email address anywhere in its source**.
@@ -2045,7 +2052,7 @@ the mark.
 | `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
 | `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
-| `app/about/page.js` `lib/aboutText.js` `lib/aboutStore.js` | The maintainer's page: Ali's prose, editable from /admin with no address or phone allowed, the photo, LinkedIn and the contact form |
+| `app/about/page.js` `app/about/photo` `lib/aboutText.js` `lib/aboutStore.js` | The maintainer's page: Ali's prose, editable from /admin with no address or phone allowed, the photo, LinkedIn and the contact form |
 | `components/FooterLinks.jsx` | LinkedIn, About, Contact and Privacy, in the site footer |
 | `lib/follows.js` `lib/followCopy.js` | Who follows what (confirmed only), stop tokens, and the one-sentence promise |
 | `lib/notify.js` `lib/feeds.js` | The daily run: detect news, queue it per person, send one digest each; the RSS and Atom reader |
@@ -2867,7 +2874,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
-node scripts/about-test.mjs          # /about: editable from admin, no email or phone can be saved, reset to the file
+node scripts/about-test.mjs          # /about: text, formatting, links and photo editable from admin, no email or phone, reset
 node scripts/ideas-test.mjs          # the ideas backlog: statuses, dropped reasons, review validation, handoff prompt, commits
 node scripts/editoruse-test.mjs      # editor use: wording, admin-only, history, noRecommend, feeds no rating or pick
 node scripts/interest-test.mjs       # needs a running server

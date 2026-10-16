@@ -75,6 +75,37 @@ ok((await post("someone@test.invalid", { action: "save-about", ...base })).statu
   ok((await store.getAboutRecord()).history.length === 2, "keeping the replaced version");
 }
 
+console.log("\nformatting and links:");
+{
+  const t = T.inlineTokens("Plain **bold** *it* [site](https://example.com) [here](/contact) [bad](mailto:x@example.com) [js](javascript:alert(1))");
+  ok(t.some((x) => x.t === "b" && x.v === "bold") && t.some((x) => x.t === "i"), "bold and italic become tokens");
+  ok(t.filter((x) => x.t === "a").map((x) => x.href).join() === "https://example.com,/contact", "https and site paths link; mailto and javascript stay text");
+  ok(T.aboutIssues({ ...base, body: base.body + "\n\n[mail](mailto:someone)" }).some((x) => /email address or a phone/.test(x)), "a mailto link in the text is refused");
+  ok(T.aboutIssues({ ...base, links: [{ label: "Call", url: "tel:+37491234567" }] }).length > 0, "a tel link in the links is refused");
+  ok(T.aboutIssues({ ...base, links: [{ label: "", url: "https://example.com" }] }).some((x) => /no label/.test(x)), "a link needs a label");
+  ok(T.aboutIssues({ ...base, links: [{ label: "Site", url: "https://example.com/a" }] }).length === 0, "a labelled https link is fine");
+  const r = await post("admin@test.invalid", { action: "save-about", ...base, links: [{ label: "Site", url: "https://example.com/a" }] });
+  ok(r.status === 200 && (await store.getAbout()).links[0].label === "Site", "links are saved and read back");
+  await post("admin@test.invalid", { action: "reset-about" });
+}
+
+console.log("\nthe photo:");
+{
+  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 1)]);
+  ok((await store.aboutPhotoUrl()) === (process.env.ABOUT_PHOTO || ""), "with no upload the page uses the file in public/");
+  const notImage = await post("admin@test.invalid", { action: "save-about-photo", dataUrl: `data:image/jpeg;base64,${Buffer.from("hello").toString("base64")}` });
+  ok(notImage.status === 400, "bytes that are not the type they claim are refused");
+  ok((await post("admin@test.invalid", { action: "save-about-photo", dataUrl: "data:image/svg+xml;base64,PHN2Zz4=" })).status === 400, "SVG is refused");
+  ok((await post("admin@test.invalid", { action: "save-about-photo", dataUrl: `data:image/jpeg;base64,${Buffer.alloc(T.PHOTO_MAX_BYTES + 10, 0xff).toString("base64")}` })).status === 400, "an oversized image is refused");
+  ok((await post("someone@test.invalid", { action: "save-about-photo", dataUrl: `data:image/jpeg;base64,${jpeg.toString("base64")}` })).status === 404, "a non-admin gets 404");
+  const r = await post("admin@test.invalid", { action: "save-about-photo", dataUrl: `data:image/jpeg;base64,${jpeg.toString("base64")}` });
+  const { photo } = await r.json();
+  ok(r.status === 200 && /^\/about\/photo\?v=[0-9a-f]{12}$/.test(photo), "an admin uploads one, served at a versioned URL", photo);
+  ok((await store.aboutPhotoUrl()) === photo, "and the page uses it");
+  await post("admin@test.invalid", { action: "clear-about-photo" });
+  ok((await store.aboutPhotoUrl()) === (process.env.ABOUT_PHOTO || ""), "removing it goes back to the file");
+}
+
 console.log("\nthe page:");
 const page = readFileSync(join(ROOT, "app/about/page.js"), "utf8");
 ok(/getAbout\(\)/.test(page), "/about renders the stored text");
