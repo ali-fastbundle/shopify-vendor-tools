@@ -2292,6 +2292,7 @@ the mark.
 | `components/Engagement.jsx` | Likes, ratings, reviews, helpfulness, reports and claiming for every section that is not the tool grid; `CardVotes` for any section's cards |
 | `components/Vote.jsx` `components/VisitSite.jsx` | The like/dislike button and the outbound "Visit site", each defined once for every card |
 | `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
+| `lib/directoryFilters.js` `components/DirectoryFilters.jsx` | The directory's filter state and its URL; the one Filters control and the active chips |
 | `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
 | `app/about/page.js` `app/about/photo` `lib/aboutText.js` `lib/aboutStore.js` | The maintainer's page: Ali's prose, editable from /admin with no address or phone allowed, the photo, LinkedIn and the contact form |
@@ -2552,6 +2553,23 @@ to two rows. Now:
   is three cards wide at 1366 rather than four.
 - **Add a tool is neutral.** Find tools is the one green button above the fold; the
   invite card at the end of the grid keeps its green.
+- **Categories are navigation; everything else is one Filters control (2026-10-16).**
+  The bar is search, Filters, sort, grid/list and Add a tool, nothing more. Free plan,
+  editor used, integrations and a category's confirmed yes-or-no details live in the
+  panel (`components/DirectoryFilters.jsx`): a popover on a wide screen, a full-height
+  sheet under 640px (`.filters-panel`). The button carries the count, and every active
+  refinement is a removable chip below the bar, so none is hidden state. Sort and view
+  are not filters and stay outside. The state is in the URL (`lib/directoryFilters.js`,
+  `?cat=&q=&free=1&used=1&int=&has=&sort=&view=list`), read by `app/page.js` so a shared
+  link renders filtered in the first HTML, and every filtered view canonicalises to `/`:
+  the categories already have their own pages, and a canonical per combination is the
+  duplicate problem Search Console reported. A new refinement goes in the panel, never
+  back on the bar.
+- **Categories are ordered by tool count, computed** (`categoriesByCount` in
+  `lib/tools.js`, counting secondaries like the chips do), with All first. The rail, the
+  `/categories` index and `llms.txt` all read it. `CATEGORIES` order is definition order
+  and nothing a visitor sees should depend on it, or a new category lands last by
+  default.
 
 Measured at 1366x727 (a 768 laptop after browser chrome): first card at 295px, the whole
 first row visible. At 390px: 501px, down from over 900.
@@ -3143,6 +3161,7 @@ node scripts/discovery-settled.mjs   # one item, one place: listed, queued or de
 node scripts/housekeeping-test.mjs   # the reset clears four things and protects the snapshots
 node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, and does nothing else
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
+node scripts/filters-test.mjs        # one Filters control, state in the URL, categories ordered by count
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers
 node scripts/subscribers-test.mjs    # the subscriber list: one row per address, consent, remove, nothing logged
 node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip

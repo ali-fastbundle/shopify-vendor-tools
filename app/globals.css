@@ -610,3 +610,30 @@ a:focus-visible,
 [hidden] {
   display: none !important;
 }
+
+/*
+ * The Filters panel (components/DirectoryFilters.jsx). A popover under the
+ * button on a wide screen; a full-height sheet on a phone, where a popover
+ * would be narrower than its own checkboxes.
+ */
+.filters-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  z-index: 40;
+}
+@media (max-width: 640px) {
+  .filters-panel {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-height: none;
+    height: 100%;
+    border-radius: 0 !important;
+    border: 0 !important;
+    z-index: 100;
+  }
+}

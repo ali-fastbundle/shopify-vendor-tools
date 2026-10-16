@@ -1,7 +1,7 @@
 import { mergedTools } from "@/lib/listings";
 import {
   CATEGORIES, catOf, secondaryCats, isInCat, isPrimaryCat,
-  AUTHOR, AUTHOR_URL, LAST_UPDATED,
+  AUTHOR, AUTHOR_URL, LAST_UPDATED, categoriesByCount,
 } from "@/lib/tools";
 import { ownershipLine } from "@/lib/owners";
 import { SITE, isForVendors } from "@/lib/seo";
@@ -35,7 +35,7 @@ export async function GET() {
    * counting the list as two products, and the count at the top would then
    * disagree with the body.
    */
-  const byCat = CATEGORIES
+  const byCat = categoriesByCount(tools)
     .map((c) => ({ cat: c, items: tools.filter((t) => isPrimaryCat(t, c.id)) }))
     .filter((g) => g.items.length);
 

@@ -135,7 +135,7 @@ ok(/catalogueTools\(\)/.test(src("app/api/match/route.js")) && !/mergedTools/.te
   "the matcher prompt is built from the catalogue, which does not carry it");
 {
   const d = src("components/Directory.jsx");
-  ok(/editorCount > 0 &&/.test(d), "the directory filter only renders when something is set");
+  ok(/options\.editorCount > 0 &&/.test(src("components/DirectoryFilters.jsx")), "the directory filter only renders when something is set");
   ok(/editorUsePolicy\(tools\.length\)/.test(d), "the policy is stated where the filter and sort are used");
   ok(/editor: \{ label: "Editor use first"/.test(d), "and there is a sort for it");
   const avg = d.match(/const avg = [^\n]*/)?.[0] || "";

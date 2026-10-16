@@ -15,13 +15,15 @@ import Vote from "./Vote";
 import VisitSite from "./VisitSite";
 import { OwnerFact, AlsoFrom } from "./OwnerLine";
 import StructuredDetails from "./StructuredDetails";
+import { FiltersButton, ActiveFilters } from "./DirectoryFilters";
+import { DEFAULT_FILTERS, toQuery, passes } from "@/lib/directoryFilters";
 import QA from "./QA";
 import VendorMedia from "./VendorMedia";
 import SaveToList from "./SaveToList";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { ownershipOf as resolveOwnership } from "@/lib/owners";
 import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable, categoriesByCount } from "@/lib/tools";
 import { OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { useFeedForCount } from "./SiteFrame";
 
@@ -693,7 +695,7 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {}, owners = {} }) {
+export default function Directory({ tools: initialTools, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {}, owners = {}, initialFilters = {} }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
   /* From the server, so the first render is already sorted the way it will
@@ -711,16 +713,23 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
    * tools, and "Ranksy raised Starter to $79" means nothing until it does.
    */
 
-  const [cat, setCat] = useState("all");
-  const [q, setQ] = useState("");
-  const [freeOnly, setFreeOnly] = useState(false);
-  const [editorOnly, setEditorOnly] = useState(false);
-  /* An integration from the controlled list (lib/categories.js). Matches
-     confirmed data only: a draft never filters the public grid. */
-  const [integration, setIntegration] = useState("");
-  const [sort, setSort] = useState("rating");
-  const [dir, setDir] = useState(SORTS.rating.dir);
-  const [view, setView] = useState("grid");
+  /* Category, search, sort and view start from the URL the server read
+     (lib/directoryFilters.js), so a shared filtered link renders filtered in
+     the first HTML. */
+  const init = { ...DEFAULT_FILTERS, ...initialFilters };
+  const [cat, setCatState] = useState(init.cat);
+  const [q, setQ] = useState(init.q);
+  /* The refinements behind the Filters control: free plan, editor used,
+     integrations (any of), and the category's yes-or-no details. Integrations
+     and details match confirmed data only, so a draft never filters. */
+  const [refine, setRefine] = useState({ free: init.free, used: init.used, int: init.int, has: init.has });
+  const setRefinePart = (part) => setRefine((r) => ({ ...r, ...part }));
+  const clearRefine = () => setRefine({ free: false, used: false, int: [], has: [] });
+  /* Details belong to a category, so changing category drops them. */
+  const setCat = (c) => { setCatState(c); setRefine((r) => (r.has.length ? { ...r, has: [] } : r)); };
+  const [sort, setSort] = useState(SORTS[init.sort] ? init.sort : "rating");
+  const [dir, setDir] = useState((SORTS[init.sort] || SORTS.rating).dir);
+  const [view, setView] = useState(init.view);
   /* True once the matcher has an answer on screen. Widens the masthead. */
   const [answered, setAnswered] = useState(false);
   const [detail, setDetail] = useState(null);
@@ -878,9 +887,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
      * label, so the spine keeps meaning one thing.
      */
     let list = tools.filter((t) => cat === "all" || isInCat(t, cat));
-    if (freeOnly) list = list.filter((t) => t.free);
-    if (editorOnly) list = list.filter(hasEditorUse);
-    if (integration) list = list.filter((t) => t.structured?.integrations?.includes(integration));
+    list = list.filter((t) => passes(t, refine, hasEditorUse));
     if (q.trim()) {
       const n = q.toLowerCase();
       list = list.filter((t) =>
@@ -905,7 +912,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
     };
     /* A shut-down product never leads, whatever the column says. */
     return [...list].sort((a, b) => alive(a) - alive(b) || cmp(a, b));
-  }, [cat, q, sort, dir, freeOnly, editorOnly, integration, votes, reviews]);
+  }, [cat, q, sort, dir, refine, votes, reviews]);
 
   /*
    * Clicking the column you are already sorted by reverses it; clicking a new
@@ -927,6 +934,29 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
   const integrationOptions = INTEGRATIONS
     .map((i) => ({ ...i, n: tools.filter((t) => t.structured?.integrations?.includes(i.id)).length }))
     .filter((i) => i.n > 0);
+  /* The category's yes-or-no details with at least one confirmed yes. */
+  const attributeOptions = cat === "all" ? [] : attributesFor(cat).filter((a) => a.type === "boolean")
+    .map((a) => ({ ...a, n: tools.filter((t) => t.cat === cat && t.structured && attributeValue(a, t.structured) === true).length }))
+    .filter((a) => a.n > 0);
+  /* Categories ordered by how many tools they hold, computed (lib/tools.js). */
+  const orderedCats = categoriesByCount(tools);
+
+  /*
+   * The address follows the filters, so the view in the bar is the view in
+   * the URL. replaceState, not push: changing a filter is not a place to go
+   * back to. Only on "/", so it never touches the /tools/<id> entry the modal
+   * pushes, and it keeps that entry's state.
+   */
+  const query = toQuery({ cat, q, ...refine, sort, view });
+  useEffect(() => {
+    try {
+      if (window.location.pathname !== "/") return;
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("tool") || params.has("signin")) return;
+      if (window.location.search === query) return;
+      window.history.replaceState(window.history.state, "", `/${query}`);
+    } catch { /* no history API: the filters still work, the URL just does not follow */ }
+  }, [query]);
   /* `rating` is set when the person got here by clicking a star. */
   /* The header counts updates new to this browser; this page has the feed. */
   useFeedForCount(feed);
@@ -967,7 +997,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
     try {
       if (historyToolId()) { window.history.back(); return; }
       if (window.location.pathname.startsWith("/tools/")) {
-        window.history.replaceState({}, "", "/");
+        window.history.replaceState({}, "", `/${query}`);
       }
     } catch { /* fine */ }
   };
@@ -1078,48 +1108,10 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                 fills with the text colour and inks with the background. */}
             <FilterChip active={cat === "all"} color={C.text} ink={C.bg}
               onClick={() => setCat("all")} label="All" count={tools.length} />
-            {CATEGORIES.map((c) => (
+            {orderedCats.map((c) => (
               <FilterChip key={c.id} active={cat === c.id} color={c.color} onClick={() => setCat(c.id)}
                 label={c.label} count={tools.filter((t) => isInCat(t, c.id)).length} />
             ))}
-            {/* A filter that is on is a state, not an action, so it takes the
-                neutral inversion rather than the action green. */}
-            <button onClick={() => setFreeOnly((f) => !f)} aria-pressed={freeOnly}
-              className="ctl press chip"
-              style={{
-                display: "inline-flex", alignItems: "center",
-                background: freeOnly ? C.text : C.panel, color: freeOnly ? C.bg : C.text,
-                border: `1px solid ${freeOnly ? C.text : C.line}`, borderRadius: R.control,
-                padding: "6px 10px", fontSize: F.sm, fontWeight: freeOnly ? 600 : 500, cursor: "pointer",
-                fontFamily: "inherit", marginTop: S.sm,
-              }}>Free plan only</button>
-            {/* Only when the editor has recorded something: a filter that can
-                only ever return nothing is rule E's empty state as a control. */}
-            {editorCount > 0 && (
-              <button onClick={() => setEditorOnly((f) => !f)} aria-pressed={editorOnly}
-                className="ctl press chip"
-                style={{
-                  display: "inline-flex", alignItems: "center",
-                  background: editorOnly ? C.text : C.panel, color: editorOnly ? C.bg : C.text,
-                  border: `1px solid ${editorOnly ? C.text : C.line}`, borderRadius: R.control,
-                  padding: "6px 10px", fontSize: F.sm, fontWeight: editorOnly ? 600 : 500, cursor: "pointer",
-                  fontFamily: "inherit", marginTop: S.xs,
-                }}>Editor has used <span className="tnum" style={{ marginLeft: S.xs, opacity: 0.7 }}>{editorCount}</span></button>
-            )}
-            {integrationOptions.length > 0 && (
-              <select value={integration} onChange={(e) => setIntegration(e.target.value)} aria-label="Integrates with"
-                className="ctl chip"
-                style={{
-                  background: integration ? C.text : C.panel, color: integration ? C.bg : C.text,
-                  border: `1px solid ${integration ? C.text : C.line}`, borderRadius: R.control,
-                  padding: "6px 10px", fontSize: F.sm, fontFamily: "inherit", marginTop: S.xs, maxWidth: "100%",
-                }}>
-                <option value="" style={{ background: C.panel, color: C.text }}>Any integration</option>
-                {integrationOptions.map((i) => (
-                  <option key={i.id} value={i.id} style={{ background: C.panel, color: C.text }}>{i.label} ({i.n})</option>
-                ))}
-              </select>
-            )}
           </div>
         </aside>
 
@@ -1136,6 +1128,10 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                 color: C.text, fontFamily: "inherit",
               }} />
           </span>
+          {/* Every refinement behind one control; sort and view stay out,
+              because they are not filters (lib/directoryFilters.js). */}
+          <FiltersButton f={{ cat, ...refine }} set={setRefinePart} onClear={clearRefine}
+            options={{ freeCount: tools.filter((t) => t.free).length, editorCount, integrations: integrationOptions, attributes: attributeOptions, resultCount: rows.length }} />
           <select value={sort} aria-label="Sort tools by" className="ctl"
             onChange={(e) => { setSort(e.target.value); setDir(SORTS[e.target.value].dir); }}
             style={{
@@ -1164,6 +1160,9 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             }}>Add a tool {suggestions.length ? `(${suggestions.length})` : ""}</button>
         </div>
 
+        <ActiveFilters f={refine} set={setRefinePart} onClear={clearRefine}
+          labels={{ integration: integrationLabel, attribute: (k) => attributesFor(cat).find((a) => a.key === k)?.label || k }} />
+
         {cat !== "all" && (
           <p style={{ fontSize: F.sm, color: C.muted, maxWidth: "70ch", lineHeight: 1.5, marginTop: S.md }}>
             {catOf(cat).blurb}
@@ -1171,7 +1170,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
         )}
         {/* The one place the site states the editor-use policy: when somebody
             is filtering or sorting by it, which is when they rely on it. */}
-        {(editorOnly || sort === "editor") && (
+        {(refine.used || sort === "editor") && (
           <p style={{ fontSize: F.sm, color: C.muted, maxWidth: "70ch", lineHeight: 1.5, marginTop: S.md }}>
             {editorUsePolicy(tools.length)}
           </p>

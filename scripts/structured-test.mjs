@@ -110,7 +110,7 @@ console.log("\nwhere it shows:");
 const publicFiles = ["components/Directory.jsx", "components/ToolPage.jsx", "components/StructuredDetails.jsx", "app/page.js", "app/tools/[id]/page.js"];
 ok(publicFiles.every((f) => !/lib\/structured"/.test(src(f))), "no public file imports the drafts");
 ok(/StructuredDetails/.test(src("components/ToolPage.jsx")) && /StructuredDetails/.test(src("components/Directory.jsx")), "the tool page and the modal render the details");
-ok(/integrationOptions\.length > 0 &&/.test(src("components/Directory.jsx")), "the integrations filter appears only when something is confirmed");
+ok(/options\.integrations\.length > 0 &&/.test(src("components/DirectoryFilters.jsx")), "the integrations filter appears only when something is confirmed");
 ok(/Not confirmed yet/.test(src("components/Directory.jsx")), "the compare table says when a tool is not confirmed");
 
 console.log(bad ? `\n${bad} failed` : "\nall passed");

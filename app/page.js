@@ -1,6 +1,7 @@
 import Directory from "@/components/Directory";
 import { mergedTools } from "@/lib/listings";
 import { ownerContexts } from "@/lib/ownerIndex";
+import { parseFilters, SORT_KEYS } from "@/lib/directoryFilters";
 import { read, KEYS } from "@/lib/store";
 import { publicReviews } from "@/lib/reviews";
 import { homeGraph } from "@/lib/seo";
@@ -30,7 +31,7 @@ export async function generateMetadata(_, parent) {
   };
 }
 
-export default async function Page() {
+export default async function Page({ searchParams = {} }) {
   // Rendered on the server so the catalogue, including vendor edits, is in the
   // HTML for crawlers rather than arriving after hydration.
   const [tools, stored, feed, votes] = await Promise.all([
@@ -55,7 +56,8 @@ export default async function Page() {
           server sent one order and the browser re-sorted into another once
           /api/data arrived: the largest layout shift on the page (0.26). */}
       <Directory tools={tools} feed={feed} newsletterCount={NEWSLETTERS.length}
-        initialVotes={votes} initialReviews={reviews} owners={ownerContexts(tools)} />
+        initialVotes={votes} initialReviews={reviews} owners={ownerContexts(tools)}
+        initialFilters={parseFilters(searchParams, { sorts: SORT_KEYS })} />
     </>
   );
 }
