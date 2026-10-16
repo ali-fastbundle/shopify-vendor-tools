@@ -16,6 +16,7 @@ import { COVERAGE_LABEL, coverageCounts, uncovered } from "@/lib/coverage";
 import { Pill } from "./Pill";
 import EditorUseControl from "./EditorUseControl";
 import { editorUseLine } from "@/lib/editorUse";
+import { DEFAULT as ABOUT_DEFAULT, bodyOf, aboutIssues } from "@/lib/aboutText";
 import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash } from "@/lib/ideas";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
@@ -103,6 +104,7 @@ export default function AdminPanel({
   entries = {},
   editorUse = {},
   ideas = [],
+  about = null,
   dedupelog = [],
   changelog = [],
   monitor = {},
@@ -304,6 +306,7 @@ export default function AdminPanel({
             onSuggestions={setRows}
             interest={interest || {}}
             editorUse={editorUse}
+            about={about}
             outOfScope={outOfScopeRows}
             deleted={deletedRows}
             coverage={coverage}
@@ -455,7 +458,7 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
@@ -463,6 +466,7 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
       <Drafts publishing={publishing} holds={holds} discards={discards} />
       <NeedsVerifying />
       <EditorUse editorUse={editorUse} entries={entries} />
+      <AboutPage initial={about} />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
       <Collapsible title="Monitor coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
@@ -1553,10 +1557,20 @@ function Section({ title, count, hint, children }) {
  * `openWhen` lets a section insist on being open when it actually matters, so
  * a thing with nothing in it stays shut and a thing on fire does not.
  */
-function Collapsible({ title, count, hint, openWhen = false, children }) {
+function Collapsible({ title, count, hint, openWhen = false, anchor = "", children }) {
   const [open, setOpen] = useState(openWhen);
+  /* A link to /admin?tab=...#<anchor> opens this panel and scrolls to it. */
+  useEffect(() => {
+    if (!anchor) return;
+    try {
+      if (window.location.hash === `#${anchor}`) {
+        setOpen(true);
+        setTimeout(() => document.getElementById(anchor)?.scrollIntoView(), 0);
+      }
+    } catch {}
+  }, [anchor]);
   return (
-    <section className="pb-6">
+    <section className="pb-6" id={anchor || undefined}>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open}
         className="flex flex-wrap items-baseline" style={{
           gap: S.sm, background: "none", border: 0, padding: 0, width: "100%",
@@ -2058,6 +2072,72 @@ function EditorUse({ editorUse = {}, entries = {} }) {
           />
         </div>
       ))}
+    </Collapsible>
+  );
+}
+
+/*
+ * The /about text (lib/aboutText.js). Ali's own words, so nothing here checks
+ * voice or style. The one rule is his: no email address and no phone number,
+ * checked as you type and again on the server. Saving needs no commit and is
+ * live on the next load; Reset goes back to the text in the file. Each save
+ * keeps the version it replaced.
+ */
+function AboutPage({ initial = null }) {
+  const current = initial?.paragraphs?.length ? initial : ABOUT_DEFAULT;
+  const [name, setName] = useState(current.name);
+  const [role, setRole] = useState(current.role || "");
+  const [body, setBody] = useState(bodyOf(current.paragraphs));
+  const [rec, setRec] = useState(initial);
+  const [busy, setBusy] = useState("");
+  const [msg, setMsg] = useState("");
+  const issues = aboutIssues({ name, role, body });
+  const saved = rec?.paragraphs?.length ? rec : ABOUT_DEFAULT;
+  const dirty = name !== saved.name || role !== (saved.role || "") || body !== bodyOf(saved.paragraphs);
+
+  async function post(action, tag) {
+    setBusy(tag); setMsg("");
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "save-about" ? { action, name, role, body } : { action }),
+      });
+      if (!res.ok) { setMsg(await res.text()); return; }
+      const d = await res.json();
+      setRec(d.about);
+      if (action === "reset-about") {
+        setName(ABOUT_DEFAULT.name); setRole(ABOUT_DEFAULT.role); setBody(bodyOf(ABOUT_DEFAULT.paragraphs));
+      }
+      setMsg(action === "save-about" ? "Saved. It is live on /about now." : "Back to the text in the file.");
+    } catch { setMsg("Could not reach the server."); } finally { setBusy(""); }
+  }
+
+  return (
+    <Collapsible title="About page" anchor="about-page"
+      count={rec?.paragraphs?.length ? `edited ${String(rec.at).slice(0, 10)}` : "the file's text"}
+      hint="The text on /about. Leave a blank line between paragraphs. No email address or phone number: the contact form below the text handles email. Saving needs no commit. Reset goes back to the text in the file, and every save keeps the version it replaced.">
+      <div style={{ padding: "12px 0" }}>
+        <Field label="Name"><input value={name} onChange={(e) => setName(e.target.value)} style={FIELD} /></Field>
+        <Field label="Role line, the disclosure"><input value={role} onChange={(e) => setRole(e.target.value)} style={FIELD} /></Field>
+        <Field label="Text">
+          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={16}
+            style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
+        </Field>
+        {issues.length > 0 && (
+          <p style={{ fontSize: F.sm, color: C.warnInk, margin: `${S.sm}px 0 0`, lineHeight: 1.5 }}>{issues.join(" ")}</p>
+        )}
+        <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
+          <Btn tone="go" busy={busy === "save"} disabled={!dirty || issues.length > 0} onClick={() => post("save-about", "save")}>Save</Btn>
+          <a href="/about" target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Open /about</a>
+          {rec?.paragraphs?.length > 0 && (
+            <ConfirmBtn busy={busy === "reset"} onConfirm={() => post("reset-about", "reset")} confirm="Reset to the file's text?">
+              Reset to the file
+            </ConfirmBtn>
+          )}
+          {msg && <span style={{ fontSize: F.xs, color: C.muted }}>{msg}</span>}
+          {rec?.history?.length > 0 && <span style={{ fontSize: F.xs, color: C.dim }}>{rec.history.length} earlier version{rec.history.length > 1 ? "s" : ""} kept</span>}
+        </div>
+      </div>
     </Collapsible>
   );
 }

@@ -1702,8 +1702,12 @@ file.
 The site footer carries `FooterLinks`: the maintainer's LinkedIn (`AUTHOR_URL`) as a
 Phosphor icon, About, Contact and Privacy.
 
-**`/about` is Ali's own text, verbatim** (`app/about/page.js`). Do not edit the prose to
-house style: it is a person's account of themselves, and its first line, the Fast Bundle
+**`/about` is Ali's own text, verbatim** (`app/about/page.js`), and Ali edits it from
+/admin (Catalogue, About page; "Edit this page" on /about for an admin). The file's text is
+`DEFAULT` in `lib/aboutText.js`; a saved edit lives in `svt:about` with the versions it
+replaced, and Reset goes back to the file. `aboutIssues` refuses an email address or a phone
+number on the page and again on the server, and that is the only check: no voice rules. Do
+not edit the prose to house style: it is a person's account of themselves, and its first line, the Fast Bundle
 role, is the disclosure, so there is no separate disclaimer block. It carries the contact
 form and the LinkedIn link, and **no phone number or email address anywhere in its source**.
 The photo is a file Ali supplies as `public/ali-arabzadeh.{jpg,jpeg,png,webp}`;
@@ -2041,7 +2045,7 @@ the mark.
 | `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
 | `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
-| `app/about/page.js` | The maintainer's page: Ali's prose verbatim, the photo when supplied, LinkedIn and the contact form |
+| `app/about/page.js` `lib/aboutText.js` `lib/aboutStore.js` | The maintainer's page: Ali's prose, editable from /admin with no address or phone allowed, the photo, LinkedIn and the contact form |
 | `components/FooterLinks.jsx` | LinkedIn, About, Contact and Privacy, in the site footer |
 | `lib/follows.js` `lib/followCopy.js` | Who follows what (confirmed only), stop tokens, and the one-sentence promise |
 | `lib/notify.js` `lib/feeds.js` | The daily run: detect news, queue it per person, send one digest each; the RSS and Atom reader |
@@ -2863,6 +2867,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/about-test.mjs          # /about: editable from admin, no email or phone can be saved, reset to the file
 node scripts/ideas-test.mjs          # the ideas backlog: statuses, dropped reasons, review validation, handoff prompt, commits
 node scripts/editoruse-test.mjs      # editor use: wording, admin-only, history, noRecommend, feeds no rating or pick
 node scripts/interest-test.mjs       # needs a running server

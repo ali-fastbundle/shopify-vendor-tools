@@ -162,6 +162,17 @@ export async function POST(request) {
    * Checked against the published catalogue, and refused for an entry with
    * noRecommend (lib/editorUse.js).
    */
+  /* The /about text (lib/aboutText.js). No address and no phone number,
+     refused here whatever the browser checked. */
+  if (action === "save-about" || action === "reset-about") {
+    const { saveAbout, resetAbout } = await import("@/lib/aboutStore");
+    const r = action === "save-about"
+      ? await saveAbout({ name: body.name, role: body.role, body: body.body }, session.email)
+      : await resetAbout(session.email);
+    if (r.error) return new Response(r.error, { status: 400 });
+    return Response.json({ about: r.record });
+  }
+
   if (action === "set-editor-use") {
     const toolId = String(body.toolId || "");
     const tool = (await catalogueTools()).find((t) => t.id === toolId);

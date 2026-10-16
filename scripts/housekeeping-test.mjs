@@ -56,17 +56,17 @@ async function seed() {
   await store.write(K.votes, { applora: { up: 3, down: 1 }, ranksy: { up: 2, down: 0 } });
   await store.write(K.reviews, {
     applora: [
-      { id: "r1", email: "ali@fastbundle.co", author: "Ali", rating: 5, text: "A test review.", date: "2026-09-01" },
+      { id: "r1", email: "editor@test.invalid", author: "Ali", rating: 5, text: "A test review.", date: "2026-09-01" },
       { id: "r2", email: "real@person.invalid", author: "Sam", rating: 4, text: "Genuinely useful.", date: "2026-09-02" },
     ],
-    ranksy: [{ id: "r3", email: "ali@fastbundle.co", author: "Ali", rating: 3, date: "2026-09-03" }],
+    ranksy: [{ id: "r3", email: "editor@test.invalid", author: "Ali", rating: 3, date: "2026-09-03" }],
   });
   await store.write(K.subscribers, [
     { email: "test@example.invalid", date: "2026-08-01" },
     { email: "someone@real.invalid", date: "2026-08-02" },
   ]);
   await store.write(K.accounts, {
-    "ali@fastbundle.co": { email: "ali@fastbundle.co", firstSeen: "2026-05-01T00:00:00.000Z", lastSeen: "2026-09-18T00:00:00.000Z" },
+    "editor@test.invalid": { email: "editor@test.invalid", firstSeen: "2026-05-01T00:00:00.000Z", lastSeen: "2026-09-18T00:00:00.000Z" },
     "someone@real.invalid": { email: "someone@real.invalid", firstSeen: "2026-09-01T00:00:00.000Z", lastSeen: "2026-09-02T00:00:00.000Z" },
   });
   await store.write(K.suggestions, [{ id: "s1", name: "Something", by: "a visitor", at: "2026-09-01" }]);
@@ -77,9 +77,9 @@ async function seed() {
 
   await store.del(K.maillog);
   await store.pushMailLog([
-    { event: "review", cls: "admin", to: "ali@fastbundle.co", ok: true, at: "2026-09-01T10:00:00.000Z" },
+    { event: "review", cls: "admin", to: "editor@test.invalid", ok: true, at: "2026-09-01T10:00:00.000Z" },
     { event: "subscribe", cls: "user", to: "someone@real.invalid", ok: true, at: "2026-09-02T10:00:00.000Z" },
-    { event: "signin_new", cls: "admin", to: "ali@fastbundle.co", ok: true, at: "2026-09-03T10:00:00.000Z", test: true },
+    { event: "signin_new", cls: "admin", to: "editor@test.invalid", ok: true, at: "2026-09-03T10:00:00.000Z", test: true },
   ]);
 }
 
@@ -98,7 +98,7 @@ await seed();
 
   const reviews = byKey(rows, K.reviews).rows;
   ok(reviews.length === 3, "small collections come back with their rows");
-  ok(reviews[0].detail.includes("ali@fastbundle.co"),
+  ok(reviews[0].detail.includes("editor@test.invalid"),
     "and a review row shows whose it is, which is the whole point of listing them");
 
   const mail = byKey(rows, K.maillog).rows;
@@ -118,9 +118,9 @@ console.log("\nmarking one row at a time:");
   const reviews = await store.read(K.reviews, {});
   ok(reviews.applora.length === 1 && reviews.applora[0].id === "r2", "and the other one on that tool stays");
 
-  r = await inv.deleteRow("account", "ali@fastbundle.co");
+  r = await inv.deleteRow("account", "editor@test.invalid");
   ok(r.ok, "an account goes");
-  ok(!(await store.read(K.accounts, {}))["ali@fastbundle.co"], "and is gone from the record");
+  ok(!(await store.read(K.accounts, {}))["editor@test.invalid"], "and is gone from the record");
   ok(Boolean((await store.read(K.accounts, {}))["someone@real.invalid"]), "the other account is untouched");
 
   r = await inv.deleteRow("subscriber", "test@example.invalid");
