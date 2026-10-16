@@ -597,6 +597,11 @@ export async function POST(request) {
     const result = await commitPublish({ kind, id, entry });
     if (result.error) return draftDone(502, { kind, entryId: id, name: entry.name, error: result.error });
     await logPublish({ at: new Date().toISOString(), by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url, outcome: "published" });
+    /* The suggestion that asked for it, if one did, leaves the queue as
+       published with this entry's id and today's date, and its interest
+       carries across (lib/suggestionPublished.js). */
+    const { settlePublished } = await import("@/lib/suggestionPublished");
+    await settlePublished([{ id: entry.id, name: entry.name, url: entry.url || "", domain: entry.domain || "", kind }]);
     await draftDone(200, { kind, entryId: id, sha: result.sha });
     return Response.json({ ok: true, sha: result.sha, url: result.url });
   }
@@ -688,7 +693,7 @@ export async function POST(request) {
     }
 
     const nextSuggestions = suggestions.map((s) => (s.id === id
-      ? { ...s, approved: true, publishedId: saved.id, publishedAt: saved.publishedAt, draft: incoming }
+      ? { ...s, approved: true, status: "published", publishedId: saved.id, publishedAt: s.publishedAt || saved.publishedAt, publishedKind: s.kind || "tool", draft: incoming }
       : s));
     await write(KEYS.suggestions, nextSuggestions);
 
@@ -701,7 +706,9 @@ export async function POST(request) {
     const { removed, entries } = await removeEntry(id);
     if (!removed) return new Response("Unknown entry", { status: 400 });
     const suggestions = await read(KEYS.suggestions, []);
-    const next = suggestions.map((s) => (s.publishedId === id ? { ...s, publishedId: "" } : s));
+    /* Back into the queue as a reviewed suggestion: the demand it carried is
+       not lost with the entry (lib/suggestionPublished.js). */
+    const next = suggestions.map((s) => (s.publishedId === id ? (({ status, ...r }) => ({ ...r, publishedId: "" }))(s) : s));
     await write(KEYS.suggestions, next);
     return Response.json({ entries, suggestions: next });
   }

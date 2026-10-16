@@ -481,6 +481,18 @@ unapproved text was already public. Anything added to a suggestion row that is
 not for a visitor has to be added to `publicOf` in the same commit. `/admin` sorts by `timesAsked()` and shows the count as a neutral
 pill, because being able to see demand is the entire point of counting it.
 
+**A suggestion that became a listing leaves the queue as published** (`lib/suggestionPublished.js`).
+It gets `status: "published"`, the entry id and the date, moves to a collapsed Published group
+in Catalogue, and drops off the Inbox and the public list (both filter on any status). Both
+paths do it: Approve and publish, and Publish on a file draft, which used to leave the
+suggestion untouched because nothing linked an entry back to the request. A pass on /admin
+load catches entries published by hand before this existed. The match is `findListed`, the
+suggestion form's own rule (invariant 17), within the same kind. Interest carries across once:
+a suggestion that already has a `publishedId` carried it then. Unpublishing puts it back in the
+queue. This was not the draft id lookup behind the RetailFest and App Store Analytics bugs
+(`draftFor`, a page and a server on different builds). It was a missing lookup in the other
+direction. `scripts/suggestion-published-test.mjs`.
+
 **18. Approving a suggestion is not publishing, and the button says so.**
 The action is **Mark reviewed**. It clears the `MODERATE_SUGGESTIONS` hold so the
 row is served by `/api/data`, and it does nothing else. It used to say Approve,
@@ -3082,6 +3094,7 @@ node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, cal
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
 node scripts/media-test.mjs          # vendor media: claimant only, alt required, approved before shown, committed, link not embed
 node scripts/lists-test.mjs          # saved lists: owner only, private until published, a name not an address, indexed after review
+node scripts/suggestion-published-test.mjs  # a published suggestion leaves the queue, either path, interest carried once
 node scripts/qa-test.mjs             # questions: signed in, vendor answers from the claims store, no address served, moderation
 node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then
 node scripts/structured-test.mjs     # attributes, pricing tiers, integrations: drafts valid, nothing public before confirm, derived price, stale rule

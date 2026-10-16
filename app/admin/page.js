@@ -67,7 +67,19 @@ export default async function AdminPage({ searchParams }) {
    * is the normal early state, not an error.
    */
   const SOURCES = [
-    { key: "suggestions", load: () => read(KEYS.suggestions, []), empty: [] },
+    /* Suggestions, after matching any against what is now published, so one
+       published by hand into a file leaves the queue too (lib/suggestionPublished.js). */
+    { key: "suggestions", load: async () => {
+      const [{ settlePublished }, { catalogueTools }, { NEWSLETTERS }, { EVENTS }] = await Promise.all([
+        import("@/lib/suggestionPublished"), import("@/lib/entries"), import("@/lib/newsletters"), import("@/lib/events"),
+      ]);
+      const catalogue = [
+        ...(await catalogueTools()).map((t) => ({ ...t, kind: "tool" })),
+        ...NEWSLETTERS.map((n) => ({ ...n, kind: "newsletter" })),
+        ...EVENTS.map((e) => ({ ...e, kind: "event" })),
+      ];
+      return (await settlePublished(catalogue)).suggestions;
+    }, empty: [] },
     { key: "claims", load: () => getClaims(), empty: {} },
     { key: "subscribers", load: () => getSubscribers(), empty: [] },
     /* One row per address across the site-wide list and per-item follows.
@@ -140,6 +152,14 @@ export default async function AdminPage({ searchParams }) {
        hype, figures not in the facts, an em-dash. */
     /* Blog comments with their addresses: rendered here, behind the check. */
     /* Questions on tools with their addresses: rendered here, behind the check. */
+    /* Outreach (temporary): the vendors' published contact addresses, read
+       here on the server after the admin check so they never ship in a
+       public bundle, and who has been written to. */
+    { key: "outreach", load: async () => {
+      const [{ CONTACTS }, { readOutreach, readMeta }] = await Promise.all([import("@/lib/vendorContacts"), import("@/lib/outreach")]);
+      const [state, meta] = await Promise.all([readOutreach(), readMeta()]);
+      return { contacts: CONTACTS, state, meta };
+    }, empty: { contacts: {}, state: {}, meta: {} } },
     /* Vendor media: what is live, and what is waiting with its image data. */
     { key: "media", load: async () => {
       const { readMedia, readPending } = await import("@/lib/media");

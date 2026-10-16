@@ -18,6 +18,8 @@ import EditorUseControl from "./EditorUseControl";
 import { editorUseLine } from "@/lib/editorUse";
 import { attributesFor, INTEGRATIONS, PERIODS, UNITS, CURRENCIES, UNKNOWN, isUnknown, pricingDisplay, sanitiseStructured } from "@/lib/categories";
 import { PROPOSED } from "@/lib/structured";
+import { DEFAULT_SUBJECT, DEFAULT_BODY, PLACEHOLDERS, valuesFor, fill, unfilled } from "@/lib/outreachTemplate";
+import { ownershipLine } from "@/lib/owners";
 import { DEFAULT as ABOUT_DEFAULT, bodyOf, paragraphsOf, aboutIssues, inlineTokens, isAllowedHref, LINKS_MAX } from "@/lib/aboutText";
 import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash } from "@/lib/ideas";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
@@ -74,6 +76,9 @@ const TABS = [
   /* Structured data drafted from the notes, confirmed one tool at a time.
      Its count is what is not confirmed yet, or confirmed and out of date. */
   ["data", "Structured data"],
+  /* Temporary: writing to listed vendors about their listing. Remove the tab
+     and lib/outreach.js when the outreach round is done. */
+  ["outreach", "Outreach"],
   ["people", "People"],
   /* Audience is not system health. Tool opens, matcher queries and interest
      counts say what visitors are doing, which is a different question from
@@ -107,6 +112,7 @@ export default function AdminPanel({
   questions = [],
   lists = [],
   media = { live: {}, pending: {} },
+  outreach = { contacts: {}, state: {}, meta: {} },
   publishing = { canPublish: false, log: [] },
   maillog = [],
   entries = {},
@@ -169,7 +175,11 @@ export default function AdminPanel({
      at submission time, and it would inflate the one count on this page that is
      supposed to mean "there is work here". */
   const deletedRows = rows.filter((s) => s.status === "deleted");
-  const live = rows.filter((s) => s.status !== "deleted");
+  /* Published leaves the queue for its own collapsed group: the request became
+     a listing (lib/suggestionPublished.js). */
+  const publishedRows = rows.filter((s) => s.status === "published")
+    .sort((a, b) => String(b.publishedAt).localeCompare(String(a.publishedAt)));
+  const live = rows.filter((s) => !s.status);
   const outOfScopeRows = live.filter((s) => s.outOfScope);
   const inScope = live.filter((s) => !s.outOfScope);
   const pending = inScope.filter((s) => s.approved === false);
@@ -336,6 +346,7 @@ export default function AdminPanel({
             mediaLive={mediaState.live || {}}
             outOfScope={outOfScopeRows}
             deleted={deletedRows}
+            publishedSuggestions={publishedRows}
             coverage={coverage}
             stats={stats}
             allSuggestions={rows}
@@ -354,6 +365,8 @@ export default function AdminPanel({
         {tab === "announcements" && <Announcements initial={announcements} />}
 
         {tab === "ideas" && <Ideas initial={ideas} />}
+
+        {tab === "outreach" && <Outreach initial={outreach} claims={claims || {}} />}
 
         {tab === "data" && <StructuredData initial={structured} priceOverrides={priceOverrides} />}
 
@@ -508,7 +521,7 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, aboutPhoto = "", mediaLive = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, aboutPhoto = "", mediaLive = {}, outOfScope = [], deleted = [], publishedSuggestions = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
@@ -537,6 +550,18 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
       </Collapsible>
       <OutOfScope rows={outOfScope} />
       <Deleted rows={deleted} act={act} busy={busy} />
+      <Collapsible title="Published" count={publishedSuggestions.length}
+        hint="Suggestions that became listings, with the entry and the date. They have left the queue and the public list. What people asked carried across to the listing's interest count.">
+        {publishedSuggestions.length === 0 ? <Empty>No suggestion has become a listing yet.</Empty>
+          : publishedSuggestions.map((s) => (
+            <Row key={s.id} title={s.name}
+              badges={<Pill>{`asked ${timesAsked(s)}`}</Pill>}
+              meta={<>Published {String(s.publishedAt).slice(0, 10)} as{" "}
+                <a href={`/${s.publishedKind === "newsletter" ? "newsletters" : s.publishedKind === "event" ? "events" : "tools"}/${s.publishedId}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{s.publishedId}</a>
+                {s.date ? ` · suggested ${String(s.date).slice(0, 10)}` : ""}</>}
+            />
+          ))}
+      </Collapsible>
       <Section title="Reviewed suggestions" count={reviewed.length}
         hint="Public on the site. Still suggestions, not listings. Sorted by how many people asked.">
         {reviewed.length === 0
@@ -1531,6 +1556,168 @@ function StructuredRow({ tool, record, state, override, onSaved }) {
         </div>
       ) : (proposal?.doubts?.length ? <p style={{ margin: 0, color: C.warnInk }}>{proposal.doubts.length} doubt{proposal.doubts.length > 1 ? "s" : ""} in the draft</p> : null)}
     />
+  );
+}
+
+/* ================================================================== */
+/*  Outreach (temporary)                                               */
+/*                                                                     */
+/*  Writing to a listed vendor about their listing. Copy and send from  */
+/*  your own mailbox by default; Resend from watchfor.tools only when   */
+/*  chosen, rationed, and acknowledged once. lib/outreach.js.           */
+/* ------------------------------------------------------------------ */
+
+function Outreach({ initial = { contacts: {}, state: {}, meta: {} }, claims = {} }) {
+  const tools = published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name));
+  const [state, setState] = useState(initial.state || {});
+  const [meta, setMeta] = useState(initial.meta || {});
+  const [id, setId] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [subject, setSubject] = useState(DEFAULT_SUBJECT);
+  const [body, setBody] = useState(DEFAULT_BODY);
+  const [path, setPath] = useState("copy");
+  const [again, setAgain] = useState(false);
+  const [ack, setAck] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [msg, setMsg] = useState("");
+  const [copied, setCopied] = useState("");
+  const contacts = initial.contacts || {};
+  const claimedOf = (tid) => claims[tid]?.status === "verified";
+  const statusOf = (tid) => (claimedOf(tid) ? "claimed"
+    : state[tid]?.status === "replied" ? `replied ${String(state[tid].repliedAt).slice(0, 10)}`
+      : state[tid]?.status === "contacted" ? `contacted ${String(state[tid].contactedAt).slice(0, 10)}` : "not contacted");
+  const tool = tools.find((t) => t.id === id);
+  const contact = tool ? contacts[tool.id] : null;
+  const values = tool ? valuesFor(tool, { firstName, categoryLabel: catOf(tool.cat).label, owner: ownershipLine(tool) }) : null;
+  const filledSubject = tool ? fill(subject, values) : "";
+  const filledBody = tool ? fill(body, values) : "";
+  const left = tool ? [...unfilled(filledSubject), ...unfilled(filledBody)] : [];
+
+  async function post(payload, tag) {
+    setBusy(tag); setMsg("");
+    try {
+      const res = await fetch("/api/admin/outreach", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (res.status === 428) { setMsg("first-send"); return null; }
+      if (!res.ok) { setMsg(await res.text()); return null; }
+      const d = await res.json();
+      if (d.outreach) setState(d.outreach);
+      if (d.meta) setMeta(d.meta);
+      return d;
+    } catch { setMsg("Could not reach the server."); return null; } finally { setBusy(""); }
+  }
+  const copy = async (text, what) => { try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(""), 2000); } catch { setMsg("The browser refused the clipboard."); } };
+
+  const counts = tools.reduce((n, t) => { const s = statusOf(t.id).split(" ")[0]; n[s] = (n[s] || 0) + 1; return n; }, {});
+  const field = { ...FIELD, width: "100%" };
+  return (
+    <Section title="Outreach" count={`${counts["not"] || 0} not contacted`}
+      hint="Temporary. Write to a listed vendor about their listing. Pick a tool: the draft fills from the catalogue. By default you copy it and send it from your own mailbox, so a vendor replies to a person. Every send, either way, is logged.">
+      <div style={{ padding: "12px 0" }}>
+        <p style={{ margin: `0 0 ${S.sm}px`, fontSize: F.xs, color: C.dim }}>
+          {Object.entries(counts).map(([k, v]) => `${v} ${k === "not" ? "not contacted" : k}`).join(" · ")}
+        </p>
+        <select value={id} onChange={(e) => { setId(e.target.value); setFirstName(""); setAgain(false); setMsg(""); }} aria-label="Tool to write to" style={field}>
+          <option value="">Pick a tool</option>
+          {tools.map((t) => (
+            <option key={t.id} value={t.id}>{t.name} · {statusOf(t.id)}{contacts[t.id]?.email ? "" : " · no email"}</option>
+          ))}
+        </select>
+
+        {tool && (
+          <>
+            <div style={{ marginTop: S.md, padding: S.md, border: `1px solid ${C.line}`, borderRadius: R.control, fontSize: F.sm, lineHeight: 1.6 }}>
+              <p style={{ margin: 0 }}><b>{tool.name}</b> · {catOf(tool.cat).label} · <a href={`/tools/${tool.id}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>watchfor.tools/tools/{tool.id}</a></p>
+              <p style={{ margin: "4px 0 0" }}><b>One line.</b> {tool.one}</p>
+              <p style={{ margin: "4px 0 0" }}><b>Price.</b> {tool.price}</p>
+              <p style={{ margin: "4px 0 0" }}><b>Watch.</b> {tool.watch}</p>
+              <p style={{ margin: "4px 0 0" }}><b>Claimed.</b> {claimedOf(tool.id) ? `Yes, by ${claims[tool.id].email}` : "No"} · <b>Ownership.</b> {ownershipLine(tool) || "none recorded"}</p>
+              <p style={{ margin: "4px 0 0" }}>
+                <b>Contact.</b>{" "}
+                {contact?.email ? <>{contact.email}, found at <a href={contact.source} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{contact.source}</a> on {contact.checked}</>
+                  : <>No address published on their site{contact?.note ? ` (${contact.note})` : ""}.{" "}
+                    {tool.social?.li ? <a href={tool.social.li} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>Write on LinkedIn instead</a> : "No LinkedIn profile recorded either."}</>}
+              </p>
+              {state[tool.id]?.history?.length > 0 && (
+                <p style={{ margin: "4px 0 0", color: C.dim, fontSize: F.xs }}>
+                  {state[tool.id].history.map((h) => `${String(h.at).slice(0, 10)} ${h.what}${h.via ? ` via ${h.via}` : ""}`).join(" · ")}
+                </p>
+              )}
+              {claimedOf(tool.id) && <p style={{ margin: "4px 0 0", color: C.warnInk }}>Already claimed. They have the listing, so there is nothing to invite them to.</p>}
+            </div>
+
+            <div className="flex flex-wrap" style={{ gap: S.lg, marginTop: S.md }}>
+              <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+                <label style={LABEL}>First name (optional)</label>
+                <input value={firstName} onChange={(e) => setFirstName(e.target.value)} style={field} />
+                <label style={{ ...LABEL, marginTop: S.sm }}>Subject</label>
+                <input value={subject} onChange={(e) => setSubject(e.target.value)} style={field} />
+                <label style={{ ...LABEL, marginTop: S.sm }}>Template</label>
+                <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={22} style={{ ...field, resize: "vertical", lineHeight: 1.5, fontFamily: "inherit" }} />
+                <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0`, lineHeight: 1.6 }}>
+                  {PLACEHOLDERS.map(([k, d]) => `{${k}}: ${d}`).join(" · ")}
+                </p>
+                <Btn onClick={() => { setSubject(DEFAULT_SUBJECT); setBody(DEFAULT_BODY); }}>Reset the template</Btn>
+              </div>
+              <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+                <label style={LABEL}>As it will be sent</label>
+                <div style={{ border: `1px solid ${C.line}`, borderRadius: R.control, padding: S.md, background: C.panel }}>
+                  <p style={{ margin: 0, fontWeight: 700 }}>{filledSubject}</p>
+                  <p style={{ margin: `${S.sm}px 0 0`, whiteSpace: "pre-wrap", lineHeight: 1.55, fontSize: F.sm }}>{filledBody}</p>
+                </div>
+                {left.length > 0 && <p style={{ color: C.warnInk, fontSize: F.xs }}>Not filled: {left.join(", ")}</p>}
+              </div>
+            </div>
+
+            <div style={{ marginTop: S.md }}>
+              <label style={{ fontSize: F.sm, marginRight: S.lg }}><input type="radio" checked={path === "copy"} onChange={() => setPath("copy")} /> Copy, and send from my own mailbox (default)</label>
+              <label style={{ fontSize: F.sm }}><input type="radio" checked={path === "resend"} onChange={() => setPath("resend")} disabled={!contact?.email} /> Send from watchfor.tools{!contact?.email ? " (no address)" : ""}</label>
+            </div>
+
+            {path === "copy" ? (
+              <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.sm }}>
+                {contact?.email && <Btn onClick={() => copy(contact.email, "to")}>{copied === "to" ? "Copied" : "Copy address"}</Btn>}
+                <Btn onClick={() => copy(filledSubject, "subject")}>{copied === "subject" ? "Copied" : "Copy subject"}</Btn>
+                <Btn onClick={() => copy(filledBody, "body")}>{copied === "body" ? "Copied" : "Copy email"}</Btn>
+                <Btn tone="go" busy={busy === "contacted"} onClick={() => post({ action: "contacted", toolId: tool.id, subject: filledSubject }, "contacted")}>I sent it</Btn>
+              </div>
+            ) : (
+              <div style={{ marginTop: S.sm, padding: S.md, border: `1px solid ${C.edge}`, borderRadius: R.control }}>
+                <p style={{ margin: 0, fontSize: F.sm, color: C.warnInk, lineHeight: 1.55 }}>
+                  This sends cold email from watchfor.tools, the same domain the sign-in links come from. A bounce or a spam
+                  report counts against that domain, and sign-in emails start landing in spam. Limited to {5} a day, only to an
+                  address found on the vendor's own site, and replies go to you.
+                </p>
+                {!meta.resendAcknowledgedAt && (
+                  <label style={{ display: "block", marginTop: S.sm, fontSize: F.sm }}>
+                    <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> I understand, and I want to send through watchfor.tools
+                  </label>
+                )}
+                {state[tool.id]?.contactedAt && (
+                  <label style={{ display: "block", marginTop: S.sm, fontSize: F.sm }}>
+                    <input type="checkbox" checked={again} onChange={(e) => setAgain(e.target.checked)} /> Send again: they were contacted on {String(state[tool.id].contactedAt).slice(0, 10)}
+                  </label>
+                )}
+                <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.sm }}>
+                  <Btn tone="go" busy={busy === "send"} disabled={left.length > 0 || (!meta.resendAcknowledgedAt && !ack)}
+                    onClick={async () => {
+                      if (!meta.resendAcknowledgedAt) { const a = await post({ action: "acknowledge" }, "send"); if (!a) return; }
+                      const r = await post({ action: "send", toolId: tool.id, subject: filledSubject, body: filledBody, again }, "send");
+                      if (r) setMsg(`Sent to ${contact.email}.`);
+                    }}>Send to {contact?.email}</Btn>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+              {state[tool.id]?.status === "contacted" && <Btn busy={busy === "replied"} onClick={() => post({ action: "replied", toolId: tool.id }, "replied")}>They replied</Btn>}
+              {state[tool.id]?.status && <ConfirmBtn busy={busy === "clear"} onConfirm={() => post({ action: "clear", toolId: tool.id }, "clear")} confirm="Clear the record?">Clear</ConfirmBtn>}
+              {msg && msg !== "first-send" && <span style={{ fontSize: F.xs, color: C.muted }}>{msg}</span>}
+              {msg === "first-send" && <span style={{ fontSize: F.xs, color: C.warnInk }}>Tick the box above first.</span>}
+            </div>
+          </>
+        )}
+      </div>
+    </Section>
   );
 }
 
