@@ -12,6 +12,7 @@ import {
 } from "@/lib/seo";
 import ToolPage from "@/components/ToolPage";
 import { ownerContext } from "@/lib/ownerIndex";
+import { rivalPairs, alternativesOf, pairSlug } from "@/lib/rivals";
 import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
@@ -31,14 +32,15 @@ export const dynamic = "force-dynamic";
  */
 
 async function load(id) {
-  const [tools, storedReviews, claims] = await Promise.all([
+  const [tools, storedReviews, claims, discovery] = await Promise.all([
     mergedTools(),
     read(KEYS.reviews, {}),
     getClaims(),
+    read("svt:discovery", {}),
   ]);
   const tool = tools.find((t) => t.id === id);
   if (!tool) return null;
-  return { tool, tools, claims, reviews: publicReviews(storedReviews) };
+  return { tool, tools, claims, discovery: discovery || {}, reviews: publicReviews(storedReviews) };
 }
 
 /*
@@ -96,7 +98,7 @@ async function baseMetadata({ params }) {
 export default async function Page({ params }) {
   const found = await load(params.id);
   if (!found) notFound();
-  const { tool, tools, reviews } = found;
+  const { tool, tools, reviews, discovery } = found;
 
   const related = relatedTools(tool, tools);
   const toolReviews = reviews[tool.id] || [];
@@ -117,6 +119,7 @@ export default async function Page({ params }) {
         viewer={viewer}
         lastUpdated={LAST_UPDATED}
         owner={ownerContext(tool, "tool", { tools })}
+        rivals={alternativesOf(tool, tools, rivalPairs(tools, discovery)).map((x) => ({ name: x.tool.name, slug: pairSlug(tool.id, x.tool.id) }))}
       />
     </>
   );

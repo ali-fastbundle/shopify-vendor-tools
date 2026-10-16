@@ -198,7 +198,7 @@ function OwnerInvite({ tool, viewer = {} }) {
   );
 }
 
-export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null }) {
+export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null, rivals = [] }) {
   const col = catOf(tool.cat).color;
   const socials = SOCIALS
     .map(({ key }) => [key, tool.social?.[key]])
@@ -381,6 +381,27 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
           * these every tool page is an orphan: reachable from the sitemap once,
           * linked from nothing, and quietly dropped.
           */}
+        {/* The head-to-heads, only for genuine rivals (lib/rivals.js), and the
+            alternatives page that lists them with their caveats. */}
+        {rivals.length > 0 && (
+          <section style={{ marginTop: S["3xl"] }}>
+            <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
+              Compare
+            </h2>
+            <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.8, margin: `${S.sm}px 0 0` }}>
+              <a href={`/alternatives/${tool.id}`} style={{ color: C.text, fontWeight: 600 }}>All alternatives to {tool.name}</a>
+              <br />
+              {tool.name} against:{" "}
+              {rivals.map((r, i) => (
+                <React.Fragment key={r.slug}>
+                  {i > 0 && ", "}
+                  <a href={`/compare/${r.slug}`} style={{ color: C.text }}>{r.name}</a>
+                </React.Fragment>
+              ))}
+            </p>
+          </section>
+        )}
+
         {related.length > 0 && (
           <section style={{ marginTop: S["3xl"] }}>
             <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>

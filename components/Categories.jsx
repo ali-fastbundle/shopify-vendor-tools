@@ -123,6 +123,10 @@ function Member({ tool, primary }) {
               <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
             </p>
           )}
+          {/* Every tool has at least one genuine rival (lib/rivals.js). */}
+          <p style={{ fontSize: F.xs, margin: `${S.xs}px 0 0` }}>
+            <a href={`/alternatives/${tool.id}`} style={{ color: C.muted }}>Alternatives to {tool.name}</a>
+          </p>
 
           <p className="flex flex-wrap items-baseline tnum" style={{
             gap: S.sm, fontSize: F.xs, color: C.muted, margin: `${S.sm}px 0 0`,

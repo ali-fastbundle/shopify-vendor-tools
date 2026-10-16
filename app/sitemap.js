@@ -5,6 +5,8 @@ import { feedEntries } from "@/lib/feed";
 import { EVENTS } from "@/lib/events";
 import { POSTS } from "@/lib/blog";
 import { ownersWithPages } from "@/lib/ownerIndex";
+import { rivalPairs, alternativesOf, pairSlug, confirmed } from "@/lib/rivals";
+import { read } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +24,8 @@ export const dynamic = "force-dynamic";
  * published list.
  */
 export default async function sitemap() {
-  const [tools, newsletters, changes] = await Promise.all([
-    mergedTools(), mergedNewsletters(), feedEntries({ limit: 1 }),
+  const [tools, newsletters, changes, discovery] = await Promise.all([
+    mergedTools(), mergedNewsletters(), feedEntries({ limit: 1 }), read("svt:discovery", {}),
   ]);
 
   return [
@@ -111,6 +113,28 @@ export default async function sitemap() {
       changeFrequency: "monthly",
       priority: 0.7,
     })),
+    /* Alternatives and head-to-heads (lib/rivals.js), listed only once they
+       carry confirmed details: before that the pages are noindex, and a
+       sitemap entry for a noindex page is a contradiction. */
+    ...(() => {
+      const pairs = rivalPairs(tools, discovery || {});
+      const done = (t) => confirmed(t);
+      const out = [];
+      for (const t of tools) {
+        const alts = alternativesOf(t, tools, pairs);
+        if (done(t) && alts.some((x) => done(x.tool))) {
+          out.push({ url: `${SITE}/alternatives/${t.id}`, lastModified: new Date(t.structured.confirmedAt), changeFrequency: "monthly", priority: 0.5 });
+        }
+      }
+      for (const p of pairs.values()) {
+        const [a, b] = [p.a, p.b].map((id) => tools.find((x) => x.id === id));
+        if (done(a) && done(b)) {
+          const at = [a.structured.confirmedAt, b.structured.confirmedAt].sort().at(-1);
+          out.push({ url: `${SITE}/compare/${pairSlug(a.id, b.id)}`, lastModified: new Date(at), changeFrequency: "monthly", priority: 0.4 });
+        }
+      }
+      return out;
+    })(),
     /* Owners with two or more listings (lib/owners.js), each dated by the
        newest of its entries, and the index dated by the newest of them. */
     ...(() => {

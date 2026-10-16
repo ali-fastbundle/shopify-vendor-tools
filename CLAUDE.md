@@ -2078,6 +2078,37 @@ Each tool has category attributes, pricing tiers and integrations. The shapes ar
 `scripts/structured-test.mjs` covers the schema, every draft's validity, the derived
 price, confirm and clear, the stale rule, and that no public file imports the drafts.
 
+**48. Alternatives and head-to-heads exist only for genuine rivals, and say only what was confirmed.**
+`/alternatives/[tool]` and `/compare/[a]-vs-[b]` (`components/Comparisons.jsx`, no client
+state). A pair exists in `rivalPairs` (`lib/rivals.js`) only when one of these is true:
+- the two tools share a primary category
+- either entry names the other in `competes`
+- a vendor's own comparison page names the other. The discovery pass now records this as
+  `rivals`, and older findings that have since been listed count too.
+
+That is about 145 pairs, not the 1,128 of a full matrix, because the matrix is the
+programmatic churn this directory exists against. Any other pair is a 404, so the matrix
+cannot be reached by typing it either.
+
+- **One URL per pair.** The canonical slug is the two ids sorted; the other order
+  redirects permanently (308) to it.
+- **Differences are built in code from confirmed structured data** (`differences`):
+  price, free plan, comparable attributes in a shared category, integrations. Nothing is
+  stated while either tool is unconfirmed or stale, and the page says so. No model writes
+  any of it.
+- **Every caveat is on the page in full**: the subject's and each alternative's on
+  `/alternatives`, both on `/compare`, with both ownership lines and both pricing
+  structures. That is what keeps these from being shells.
+- **Indexed only once they can state a difference.** An alternatives page needs the
+  subject and one alternative confirmed; a head-to-head needs both. Until then they render,
+  so links work, with `noindex, follow`, and they are left out of the sitemap.
+- Linked from each tool page (a Compare section with the head-to-heads and the alternatives
+  page) and from each category page row. The 2-to-4 compare modal stays as the interactive
+  version.
+
+`scripts/rivals-test.mjs` covers the pair rule, the slug, the differences, the indexing
+rule against the sitemap, and what the pages carry.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -2160,6 +2191,7 @@ the mark.
 | `lib/ideas.js` `lib/ideaStore.js` `lib/ideaReview.js` `app/api/admin/ideas` | The ideas backlog: statuses, seeds and the handoff prompt (client-safe); the store; the AI review against CLAUDE.md |
 | `lib/owners.js` `lib/ownerIndex.js` `components/Owners.jsx` `components/OwnerLine.jsx` `app/owners` | Owners: the list and resolving an entry's reference (client-safe); what each owner controls across catalogues; the owner pages; the facts link and "Also from" line |
 | `lib/categories.js` `lib/structured.js` `lib/structuredStore.js` `components/StructuredDetails.jsx` | Structured data: attribute sets, integrations and pricing rules (client-safe); the drafts from the notes (admin only); what was confirmed; the details table |
+| `lib/rivals.js` `lib/rivalsData.js` `components/Comparisons.jsx` `app/alternatives` `app/compare` | Which tools genuinely compete, the differences built from confirmed data, and the alternatives and head-to-head pages |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2952,6 +2984,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then
 node scripts/structured-test.mjs     # attributes, pricing tiers, integrations: drafts valid, nothing public before confirm, derived price, stale rule
 node scripts/owners-test.mjs         # owner references, the shared-owner pages, siblings, the monitor writing ownership
 node scripts/about-test.mjs          # /about: text, formatting, links and photo editable from admin, no email or phone, reset
