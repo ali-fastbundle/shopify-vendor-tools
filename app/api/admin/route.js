@@ -180,6 +180,23 @@ export async function POST(request) {
     return Response.json({ photo: r.url });
   }
 
+  /*
+   * Structured data (lib/categories.js): the editor confirms a tool's
+   * attributes, pricing tiers and integrations, edited or as proposed. Only a
+   * confirmed record reaches a page. Validated against the tool's category on
+   * the server whatever the browser sent.
+   */
+  if (action === "confirm-structured" || action === "clear-structured") {
+    const toolId = String(body.toolId || "");
+    const tool = (await catalogueTools()).find((t) => t.id === toolId);
+    const { confirmStructured, clearStructured } = await import("@/lib/structuredStore");
+    const r = action === "confirm-structured"
+      ? await confirmStructured(tool, body.data || {}, session.email)
+      : await clearStructured(toolId);
+    if (r.error) return new Response(r.error, { status: 400 });
+    return Response.json({ toolId, record: r.record });
+  }
+
   if (action === "set-editor-use") {
     const toolId = String(body.toolId || "");
     const tool = (await catalogueTools()).find((t) => t.id === toolId);

@@ -13,6 +13,7 @@ import { toolDescription, logoAlt } from "@/lib/seo";
  */
 import { Pill } from "@/components/Pill";
 import { OwnerFact, AlsoFrom } from "@/components/OwnerLine";
+import StructuredDetails from "@/components/StructuredDetails";
 import EditorUseControl from "@/components/EditorUseControl";
 import { editorUseBadge } from "@/lib/editorUse";
 import PostLinks from "@/components/PostLinks";
@@ -293,6 +294,8 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
                 <span style={{ fontWeight: 600, color: C.text }}>Editor's note. </span>{tool.editorUse.note}
               </p>
             )}
+
+            <StructuredDetails tool={tool} />
 
             {tool.ratings?.length > 0 && (
               <section style={{ marginTop: S.xl }}>

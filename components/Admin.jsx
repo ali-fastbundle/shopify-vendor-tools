@@ -16,6 +16,8 @@ import { COVERAGE_LABEL, coverageCounts, uncovered } from "@/lib/coverage";
 import { Pill } from "./Pill";
 import EditorUseControl from "./EditorUseControl";
 import { editorUseLine } from "@/lib/editorUse";
+import { attributesFor, INTEGRATIONS, PERIODS, UNITS, CURRENCIES, UNKNOWN, isUnknown, pricingDisplay, sanitiseStructured } from "@/lib/categories";
+import { PROPOSED } from "@/lib/structured";
 import { DEFAULT as ABOUT_DEFAULT, bodyOf, paragraphsOf, aboutIssues, inlineTokens, isAllowedHref, LINKS_MAX } from "@/lib/aboutText";
 import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash } from "@/lib/ideas";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
@@ -69,6 +71,9 @@ const TABS = [
   /* The backlog: ideas with an AI review, and the prompt an approved one is
      handed to Claude Code with. Its count is what still needs a decision. */
   ["ideas", "Ideas"],
+  /* Structured data drafted from the notes, confirmed one tool at a time.
+     Its count is what is not confirmed yet, or confirmed and out of date. */
+  ["data", "Structured data"],
   ["people", "People"],
   /* Audience is not system health. Tool opens, matcher queries and interest
      counts say what visitors are doing, which is a different question from
@@ -104,6 +109,8 @@ export default function AdminPanel({
   entries = {},
   editorUse = {},
   ideas = [],
+  structured = {},
+  priceOverrides = {},
   about = null,
   aboutPhoto = "",
   dedupelog = [],
@@ -184,6 +191,7 @@ export default function AdminPanel({
     updates: openChanges.length,
     announcements: (announcements || []).filter((r) => r.status === "draft" || r.status === "ready").length,
     ideas: (ideas || []).filter((r) => r.status === "new" || r.status === "reviewed").length,
+    data: published(ALL_TOOLS).filter((t) => !structured?.[t.id]?.confirmedAt || priceOverrides?.[t.id]?.priceAt > structured[t.id].confirmedAt).length,
     people: Object.keys(accounts || {}).length,
     system: 0,
   };
@@ -329,6 +337,8 @@ export default function AdminPanel({
         {tab === "announcements" && <Announcements initial={announcements} />}
 
         {tab === "ideas" && <Ideas initial={ideas} />}
+
+        {tab === "data" && <StructuredData initial={structured} priceOverrides={priceOverrides} />}
 
         {tab === "people" && (
           <People
@@ -1179,6 +1189,184 @@ function RecommenderFeedback({ feedback = null }) {
  * still decides whether the words are right.
  */
 const ANN_STATUS = { draft: "Draft", ready: "Ready", posted: "Posted", dropped: "Dropped" };
+
+/* ================================================================== */
+/*  Structured data                                                    */
+/*                                                                     */
+/*  Attributes, pricing tiers and integrations per tool (lib/categories */
+/*  .js), drafted from each entry's note (lib/structured.js) and shown  */
+/*  beside that note. Nothing reaches a page until Confirm. Unknown is  */
+/*  a value: an empty field here means "the note does not say".        */
+/* ------------------------------------------------------------------ */
+
+const blankStructured = () => ({ attrs: {}, integrations: [], pricing: { published: true, free: UNKNOWN, trialDays: UNKNOWN, tiers: [], note: "" } });
+
+function StructuredData({ initial = {}, priceOverrides = {} }) {
+  const [records, setRecords] = useState(initial);
+  const tools = published(ALL_TOOLS).slice().sort((a, b) => a.cat.localeCompare(b.cat) || a.name.localeCompare(b.name));
+  const stateOf = (t) => {
+    const r = records[t.id];
+    if (r?.confirmedAt && priceOverrides[t.id]?.priceAt > r.confirmedAt) return "price changed since";
+    if (r?.confirmedAt) return "confirmed";
+    return PROPOSED[t.id] ? "to confirm" : "no draft";
+  };
+  const open = tools.filter((t) => stateOf(t) !== "confirmed");
+  const done = tools.filter((t) => stateOf(t) === "confirmed");
+  return (
+    <>
+      <Section title="Structured data to confirm" count={open.length}
+        hint="Each tool's attributes, pricing and integrations, drafted from its note. Read the draft against the note on the left, fix anything wrong, and press Confirm. Only confirmed values are public. A blank value means unknown, and the site shows it as Unknown. A price edited by the vendor or the monitor after you confirm puts the tool back here.">
+        {open.length === 0 ? <Empty>Everything is confirmed.</Empty>
+          : open.map((t) => <StructuredRow key={t.id} tool={t} record={records[t.id]} state={stateOf(t)} override={priceOverrides[t.id]}
+            onSaved={(id, rec) => setRecords((r) => ({ ...r, [id]: rec }))} />)}
+      </Section>
+      <Collapsible title="Confirmed" count={done.length}>
+        {done.length === 0 ? <Empty>Nothing confirmed yet.</Empty>
+          : done.map((t) => <StructuredRow key={t.id} tool={t} record={records[t.id]} state="confirmed" override={priceOverrides[t.id]}
+            onSaved={(id, rec) => setRecords((r) => ({ ...r, [id]: rec }))} />)}
+      </Collapsible>
+    </>
+  );
+}
+
+function StructuredRow({ tool, record, state, override, onSaved }) {
+  const proposal = PROPOSED[tool.id];
+  const start = record?.data || proposal || blankStructured();
+  const [open, setOpen] = useState(false);
+  const [d, setD] = useState(() => JSON.parse(JSON.stringify({ attrs: start.attrs || {}, integrations: start.integrations || [], pricing: start.pricing || blankStructured().pricing })));
+  const [busy, setBusy] = useState("");
+  const [msg, setMsg] = useState("");
+  const attrs = attributesFor(tool.cat);
+  const check = sanitiseStructured(tool.cat, d);
+  const ev = proposal?.evidence || {};
+
+  async function post(action) {
+    setBusy(action); setMsg("");
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, toolId: tool.id, data: d }),
+      });
+      if (!res.ok) { setMsg(await res.text()); return; }
+      const r = await res.json();
+      onSaved(tool.id, r.record);
+      setMsg(action === "confirm-structured" ? "Confirmed. It is public now." : "Confirmation cleared. Nothing shows publicly.");
+    } catch { setMsg("Could not reach the server."); } finally { setBusy(""); }
+  }
+
+  const setAttr = (k, v) => setD((x) => ({ ...x, attrs: { ...x.attrs, [k]: v } }));
+  const setP = (k, v) => setD((x) => ({ ...x, pricing: { ...x.pricing, [k]: v } }));
+  const setTier = (i, k, v) => setD((x) => ({ ...x, pricing: { ...x.pricing, tiers: x.pricing.tiers.map((t, j) => (j === i ? { ...t, [k]: v } : t)) } }));
+  const small = { ...FIELD, width: "auto", padding: "3px 8px", fontSize: F.xs };
+  const Ev = ({ k }) => ev[k] ? <span style={{ fontSize: F.xs, color: C.dim }}> “{ev[k]}”</span> : null;
+
+  const field = (a) => {
+    const v = d.attrs[a.key];
+    if (a.type === "boolean") {
+      return (
+        <select value={v === true ? "yes" : v === false ? "no" : "unknown"} style={small}
+          onChange={(e) => setAttr(a.key, e.target.value === "yes" ? true : e.target.value === "no" ? false : UNKNOWN)}>
+          <option value="unknown">Unknown</option><option value="yes">Yes</option><option value="no">No</option>
+        </select>
+      );
+    }
+    if (a.type === "enum") {
+      return (
+        <select value={isUnknown(v) ? "unknown" : v} style={small} onChange={(e) => setAttr(a.key, e.target.value === "unknown" ? UNKNOWN : e.target.value)}>
+          <option value="unknown">Unknown</option>
+          {a.options.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      );
+    }
+    return (
+      <input value={isUnknown(v) ? "" : v} placeholder="Unknown" style={{ ...small, width: a.type === "number" ? 120 : 260 }}
+        onChange={(e) => setAttr(a.key, e.target.value.trim() === "" ? UNKNOWN : a.type === "number" ? e.target.value.replace(/[^0-9.]/g, "") : e.target.value)} />
+    );
+  };
+
+  return (
+    <Row
+      title={<button onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ background: "none", border: 0, padding: 0, font: "inherit", color: C.text, cursor: "pointer" }}>{tool.name}</button>}
+      tag={state}
+      tagColor={state === "price changed since" ? C.warnInk : undefined}
+      badges={<Pill>{catOf(tool.cat).label}</Pill>}
+      meta={<>Draft from the note{proposal ? "" : ": none, start from blank"} · price now: {tool.price}{override?.price ? ` · vendor or monitor price: ${override.price}` : ""}</>}
+      body={open ? (
+        <div className="flex flex-wrap" style={{ gap: S.xl, marginTop: S.sm }}>
+          <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+            <p style={{ margin: 0 }}><b style={{ color: C.text }}>Price.</b> {tool.price}</p>
+            <p style={{ margin: `${S.sm}px 0 0` }}><b style={{ color: C.text }}>Note.</b> {tool.note}</p>
+            <p style={{ margin: `${S.sm}px 0 0` }}><b style={{ color: C.text }}>Watch.</b> {tool.watch}</p>
+            {proposal?.doubts?.length > 0 && (
+              <ul style={{ margin: `${S.sm}px 0 0`, paddingLeft: 18, color: C.warnInk }}>
+                {proposal.doubts.map((x, i) => <li key={i}>{x}</li>)}
+              </ul>
+            )}
+          </div>
+          <div style={{ flex: "1 1 380px", minWidth: 0, color: C.text }}>
+            <b>Attributes</b>
+            {attrs.map((a) => (
+              <div key={a.key} style={{ marginTop: S.xs }}>
+                <span style={{ display: "inline-block", width: 180 }}>{a.label}{a.from ? " *" : ""}</span>{field(a)}<Ev k={a.key} />
+              </div>
+            ))}
+            {attrs.some((a) => a.from) && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>* Yes whenever the matching integration is ticked below.</p>}
+
+            <div style={{ marginTop: S.md }}><b>Pricing</b><Ev k="pricing" /></div>
+            <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.xs }}>
+              <select value={d.pricing.published ? "yes" : "no"} style={small} onChange={(e) => setP("published", e.target.value === "yes")}>
+                <option value="yes">Published</option><option value="no">Not published</option>
+              </select>
+              <select value={d.pricing.free === true ? "yes" : d.pricing.free === false ? "no" : "unknown"} style={small}
+                onChange={(e) => setP("free", e.target.value === "yes" ? true : e.target.value === "no" ? false : UNKNOWN)}>
+                <option value="unknown">Free tier: unknown</option><option value="yes">Free tier: yes</option><option value="no">Free tier: no</option>
+              </select>
+              <input value={isUnknown(d.pricing.trialDays) ? "" : d.pricing.trialDays} placeholder="Trial days: unknown" style={{ ...small, width: 150 }}
+                onChange={(e) => setP("trialDays", e.target.value.trim() === "" ? UNKNOWN : e.target.value.replace(/[^0-9]/g, ""))} />
+            </div>
+            {d.pricing.published && d.pricing.tiers.map((t, i) => (
+              <div key={i} className="flex flex-wrap items-center" style={{ gap: S.xs, marginTop: S.xs }}>
+                <input value={t.name} placeholder="Tier name" style={{ ...small, width: 110 }} onChange={(e) => setTier(i, "name", e.target.value)} />
+                <input value={t.amount} placeholder="Amount" style={{ ...small, width: 80 }} onChange={(e) => setTier(i, "amount", e.target.value.replace(/[^0-9.]/g, ""))} />
+                <select value={t.currency} style={small} onChange={(e) => setTier(i, "currency", e.target.value)}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select>
+                <select value={t.period} style={small} onChange={(e) => setTier(i, "period", e.target.value)}>{PERIODS.map((c) => <option key={c}>{c}</option>)}</select>
+                <select value={t.unit} style={small} onChange={(e) => setTier(i, "unit", e.target.value)}>{UNITS.map((c) => <option key={c}>{c}</option>)}</select>
+                <Btn onClick={() => setD((x) => ({ ...x, pricing: { ...x.pricing, tiers: x.pricing.tiers.filter((_, j) => j !== i) } }))}>Remove</Btn>
+              </div>
+            ))}
+            {d.pricing.published && (
+              <div style={{ marginTop: S.xs }}>
+                <Btn onClick={() => setD((x) => ({ ...x, pricing: { ...x.pricing, tiers: [...x.pricing.tiers, { name: "", amount: "", currency: "USD", period: "month", unit: "flat" }] } }))}>Add a tier</Btn>
+              </div>
+            )}
+            <input value={d.pricing.note} placeholder="Condition the tiers cannot hold (optional)" style={{ ...small, width: "100%", marginTop: S.xs }}
+              onChange={(e) => setP("note", e.target.value)} />
+            <p style={{ margin: `${S.xs}px 0 0` }}>Shows as: <b>{check.data ? pricingDisplay(check.data.pricing) : "…"}</b></p>
+
+            <div style={{ marginTop: S.md }}><b>Integrations</b></div>
+            <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.xs }}>
+              {INTEGRATIONS.map((i) => (
+                <label key={i.id} style={{ fontSize: F.xs }} title={ev[i.id] || ""}>
+                  <input type="checkbox" checked={d.integrations.includes(i.id)}
+                    onChange={(e) => setD((x) => ({ ...x, integrations: e.target.checked ? [...x.integrations, i.id] : x.integrations.filter((y) => y !== i.id) }))} />{" "}
+                  {i.label}{ev[i.id] ? " ·" : ""}
+                </label>
+              ))}
+            </div>
+            {check.error && <p style={{ color: C.warnInk, margin: `${S.sm}px 0 0` }}>{check.error}</p>}
+            <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+              <Btn tone="go" busy={busy === "confirm-structured"} disabled={Boolean(check.error)} onClick={() => post("confirm-structured")}>
+                {record?.confirmedAt ? "Confirm again" : "Confirm"}
+              </Btn>
+              {record?.confirmedAt && <ConfirmBtn busy={busy === "clear-structured"} onConfirm={() => post("clear-structured")} confirm="Take it off the site?">Clear confirmation</ConfirmBtn>}
+              {msg && <span style={{ fontSize: F.xs, color: C.muted }}>{msg}</span>}
+            </div>
+          </div>
+        </div>
+      ) : (proposal?.doubts?.length ? <p style={{ margin: 0, color: C.warnInk }}>{proposal.doubts.length} doubt{proposal.doubts.length > 1 ? "s" : ""} in the draft</p> : null)}
+    />
+  );
+}
 
 /* ================================================================== */
 /*  Ideas                                                              */

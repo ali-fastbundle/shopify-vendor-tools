@@ -14,6 +14,8 @@ import GrowText from "./GrowText";
 import Vote from "./Vote";
 import VisitSite from "./VisitSite";
 import { OwnerFact, AlsoFrom } from "./OwnerLine";
+import StructuredDetails from "./StructuredDetails";
+import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { ownershipOf as resolveOwnership } from "@/lib/owners";
 import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
@@ -710,6 +712,9 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
   const [q, setQ] = useState("");
   const [freeOnly, setFreeOnly] = useState(false);
   const [editorOnly, setEditorOnly] = useState(false);
+  /* An integration from the controlled list (lib/categories.js). Matches
+     confirmed data only: a draft never filters the public grid. */
+  const [integration, setIntegration] = useState("");
   const [sort, setSort] = useState("rating");
   const [dir, setDir] = useState(SORTS.rating.dir);
   const [view, setView] = useState("grid");
@@ -872,6 +877,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
     let list = tools.filter((t) => cat === "all" || isInCat(t, cat));
     if (freeOnly) list = list.filter((t) => t.free);
     if (editorOnly) list = list.filter(hasEditorUse);
+    if (integration) list = list.filter((t) => t.structured?.integrations?.includes(integration));
     if (q.trim()) {
       const n = q.toLowerCase();
       list = list.filter((t) =>
@@ -896,7 +902,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
     };
     /* A shut-down product never leads, whatever the column says. */
     return [...list].sort((a, b) => alive(a) - alive(b) || cmp(a, b));
-  }, [cat, q, sort, dir, freeOnly, editorOnly, votes, reviews]);
+  }, [cat, q, sort, dir, freeOnly, editorOnly, integration, votes, reviews]);
 
   /*
    * Clicking the column you are already sorted by reverses it; clicking a new
@@ -913,6 +919,11 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 
   const totalReviews = Object.values(reviews).reduce((a, b) => a + b.length, 0);
   const editorCount = tools.filter(hasEditorUse).length;
+  /* Only integrations at least one confirmed tool has, with their counts. A
+     filter that can only return nothing is not offered (rule E). */
+  const integrationOptions = INTEGRATIONS
+    .map((i) => ({ ...i, n: tools.filter((t) => t.structured?.integrations?.includes(i.id)).length }))
+    .filter((i) => i.n > 0);
   /* `rating` is set when the person got here by clicking a star. */
   /* The header counts updates new to this browser; this page has the feed. */
   useFeedForCount(feed);
@@ -1091,6 +1102,20 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                   padding: "6px 10px", fontSize: F.sm, fontWeight: editorOnly ? 600 : 500, cursor: "pointer",
                   fontFamily: "inherit", marginTop: S.xs,
                 }}>Editor has used <span className="tnum" style={{ marginLeft: S.xs, opacity: 0.7 }}>{editorCount}</span></button>
+            )}
+            {integrationOptions.length > 0 && (
+              <select value={integration} onChange={(e) => setIntegration(e.target.value)} aria-label="Integrates with"
+                className="ctl chip"
+                style={{
+                  background: integration ? C.text : C.panel, color: integration ? C.bg : C.text,
+                  border: `1px solid ${integration ? C.text : C.line}`, borderRadius: R.control,
+                  padding: "6px 10px", fontSize: F.sm, fontFamily: "inherit", marginTop: S.xs, maxWidth: "100%",
+                }}>
+                <option value="" style={{ background: C.panel, color: C.text }}>Any integration</option>
+                {integrationOptions.map((i) => (
+                  <option key={i.id} value={i.id} style={{ background: C.panel, color: C.text }}>{i.label} ({i.n})</option>
+                ))}
+              </select>
             )}
           </div>
         </aside>
@@ -1791,6 +1816,8 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
           </p>
         )}
 
+        <StructuredDetails tool={tool} />
+
         {tool.ratings?.length > 0 && (
           <div className="mt-5">
             <p style={{ fontSize: F.xs, color: C.dim, margin: 0, fontWeight: 600 }}>External ratings</p>
@@ -2209,6 +2236,16 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
     ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
     ["Ownership", ownershipOf],
     ["Site", (t) => t.domain],
+    /* Confirmed structured data (lib/categories.js). The category's comparable
+       attributes only when every tool compared shares the category, because an
+       ASO tool and a store database are not compared on the same things.
+       Unknown shows as Unknown, and a tool not confirmed yet says so. */
+    ...(list.some((t) => t.structured) && list.every((t) => t.cat === list[0].cat)
+      ? attributesFor(list[0].cat).filter((a) => a.comparable).map((a) => [a.label, (t) => (t.structured ? formatValue(a, attributeValue(a, t.structured)) : "Not confirmed yet")])
+      : []),
+    ...(list.some((t) => t.structured) ? [["Integrations", (t) => (t.structured
+      ? (t.structured.integrations.length ? t.structured.integrations.map(integrationLabel).join(", ") : "None stated")
+      : "Not confirmed yet")]] : []),
   ];
   const cellW = `${Math.max(24, Math.floor(66 / list.length))}%`;
   return (

@@ -85,6 +85,14 @@ export default async function AdminPage({ searchParams }) {
     { key: "interest", load: () => getInterest(), empty: {} },
     { key: "aboutPhoto", load: async () => (await import("@/lib/aboutStore")).aboutPhotoUrl(), empty: "" },
     { key: "about", load: async () => (await import("@/lib/aboutStore")).getAboutRecord(), empty: null },
+    /* Price strings a vendor or the monitor wrote, and when, so a confirmed
+       structure older than one goes back on the to-confirm list. */
+    { key: "priceOverrides", load: async () => {
+      const { getOverrides } = await import("@/lib/listings");
+      const o = await getOverrides();
+      return Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v?.price !== undefined).map(([id, v]) => [id, { price: v.price, priceAt: v.priceAt || "" }]));
+    }, empty: {} },
+    { key: "structured", load: async () => (await import("@/lib/structuredStore")).getStructured(), empty: {} },
     { key: "ideas", load: async () => (await import("@/lib/ideaStore")).getIdeas(), empty: [] },
     { key: "editorUse", load: async () => (await import("@/lib/editorUseStore")).getEditorUse(), empty: {} },
     { key: "adminSeen", load: () => read(KEYS.adminSeen, {}), empty: {} },

@@ -950,7 +950,7 @@ hand-written entry and a published one both get it.
   server and checks exactly this, including the fourth submission in an hour.
 
 **25. `/admin` is tabs, ordered by whether there is anything to do.**
-Inbox, Catalogue, Recent updates, Announcements, Ideas, People, Audience, System. It had grown to thirteen headings in one
+Inbox, Catalogue, Recent updates, Announcements, Ideas, Structured data, People, Audience, System. It had grown to thirteen headings in one
 column, and finding the two that needed a decision meant scrolling past eleven
 that did not.
 
@@ -2043,6 +2043,41 @@ the one sentence the owner's page states about this relationship.
 `scripts/owners-test.mjs` covers the references, the named groups, pages, siblings, the
 monitor path and legacy values.
 
+**47. Structured data is drafted from the notes, confirmed by a person, and only then public.**
+Each tool has category attributes, pricing tiers and integrations. The shapes are in
+`lib/categories.js`:
+- `ATTRIBUTES` per category: key, label, type (boolean, enum, number, text), comparable.
+- `INTEGRATIONS`, a closed vocabulary of ten.
+- The pricing structure: `published`, `free`, `trialDays`, `tiers` of name, amount,
+  currency, period and unit, plus one `note`.
+
+- **Unknown is a value.** Anything the entry's text does not state is `"unknown"` and shows
+  as "Unknown", in the details table and the compare table. That is deliberately the
+  opposite of rule E: a reader comparing needs "the site does not say" as an answer.
+- **Drafts are not public.** `lib/structured.js` holds a draft per published tool, made on
+  2026-10-16 from each entry's own text and nothing fetched, with the quote each value rests
+  on (`evidence`) and what could not be settled (`doubts`). Only `/admin` imports it.
+- **Confirming is the publish step.** The Structured data tab (`?tab=data`) shows each draft
+  beside its price, note and watch. Every value is editable before Confirm. Confirm writes
+  the validated record to `svt:structured` (`lib/structuredStore.js`, with history), and
+  `sanitiseStructured` runs again on the server. Clear takes it back off the site.
+- **The price line is derived, never stored.** For a confirmed tool, `mergedTools()` sets
+  `price` from `pricingDisplay(pricing)`, so the card, the sort, JSON-LD, llms.txt and the
+  recommender read the derived string unchanged. The recommender's budget reads the tiers
+  directly (`lowestCost` in `lib/recommend.js`). A tool not yet confirmed keeps its file
+  string.
+- **Vendors keep their price edit.** A price string written after the confirmation, by the
+  vendor or by an applied monitor finding (`priceAt` on the override), wins on the page.
+  The tool is marked `structuredStale` and returns to the tab's to-confirm list.
+  `structured` is in `PROTECTED`.
+- **Integrations derive the API and Export attributes** (`from`), so the two cannot
+  disagree. The directory's integrations filter lists only integrations some confirmed tool
+  has, and appears only then. The compare table shows a category's comparable attributes
+  only when every tool compared shares that category.
+
+`scripts/structured-test.mjs` covers the schema, every draft's validity, the derived
+price, confirm and clear, the stale rule, and that no public file imports the drafts.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -2124,6 +2159,7 @@ the mark.
 | `lib/editorUse.js` `lib/editorUseStore.js` `components/EditorUseControl.jsx` | Editor use: the values, the public line, the policy and validation (client-safe); the store and its history; the admin toggle |
 | `lib/ideas.js` `lib/ideaStore.js` `lib/ideaReview.js` `app/api/admin/ideas` | The ideas backlog: statuses, seeds and the handoff prompt (client-safe); the store; the AI review against CLAUDE.md |
 | `lib/owners.js` `lib/ownerIndex.js` `components/Owners.jsx` `components/OwnerLine.jsx` `app/owners` | Owners: the list and resolving an entry's reference (client-safe); what each owner controls across catalogues; the owner pages; the facts link and "Also from" line |
+| `lib/categories.js` `lib/structured.js` `lib/structuredStore.js` `components/StructuredDetails.jsx` | Structured data: attribute sets, integrations and pricing rules (client-safe); the drafts from the notes (admin only); what was confirmed; the details table |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2916,6 +2952,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/structured-test.mjs     # attributes, pricing tiers, integrations: drafts valid, nothing public before confirm, derived price, stale rule
 node scripts/owners-test.mjs         # owner references, the shared-owner pages, siblings, the monitor writing ownership
 node scripts/about-test.mjs          # /about: text, formatting, links and photo editable from admin, no email or phone, reset
 node scripts/ideas-test.mjs          # the ideas backlog: statuses, dropped reasons, review validation, handoff prompt, commits
