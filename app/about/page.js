@@ -35,14 +35,19 @@ export async function generateMetadata() {
  * opens in a new tab, like every other outbound link (invariant 11).
  */
 function Inline({ text }) {
-  return inlineTokens(text).map((t, i) => {
-    if (t.t === "b") return <strong key={i}>{t.v}</strong>;
-    if (t.t === "i") return <em key={i}>{t.v}</em>;
+  return <Tokens tokens={inlineTokens(text)} />;
+}
+
+function Tokens({ tokens }) {
+  return tokens.map((t, i) => {
+    const kids = t.children ? <Tokens tokens={t.children} /> : t.v;
+    if (t.t === "b") return <strong key={i}>{kids}</strong>;
+    if (t.t === "i") return <em key={i}>{kids}</em>;
     if (t.t === "a") {
       const external = /^https?:/i.test(t.href);
       return external
-        ? <a key={i} href={outbound(t.href)} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{t.v}</a>
-        : <a key={i} href={t.href} style={{ color: C.text }}>{t.v}</a>;
+        ? <a key={i} href={outbound(t.href)} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{kids}</a>
+        : <a key={i} href={t.href} style={{ color: C.text }}>{kids}</a>;
     }
     return <React.Fragment key={i}>{t.v}</React.Fragment>;
   });

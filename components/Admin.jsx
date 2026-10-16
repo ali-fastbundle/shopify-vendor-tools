@@ -2089,12 +2089,14 @@ function EditorUse({ editorUse = {}, entries = {} }) {
  * around the selection, with a preview below. The page renders it as elements,
  * never as HTML.
  */
-function AboutInline({ text }) {
-  return inlineTokens(text).map((t, i) =>
-    t.t === "b" ? <strong key={i}>{t.v}</strong>
-      : t.t === "i" ? <em key={i}>{t.v}</em>
-        : t.t === "a" ? <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{t.v}</a>
-          : <React.Fragment key={i}>{t.v}</React.Fragment>);
+function AboutInline({ text, tokens }) {
+  return (tokens || inlineTokens(text)).map((t, i) => {
+    const kids = t.children ? <AboutInline tokens={t.children} /> : t.v;
+    return t.t === "b" ? <strong key={i}>{kids}</strong>
+      : t.t === "i" ? <em key={i}>{kids}</em>
+        : t.t === "a" ? <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{kids}</a>
+          : <React.Fragment key={i}>{t.v}</React.Fragment>;
+  });
 }
 
 /* Resize to at most 640px on the long side and re-encode as JPEG. Re-encoding
@@ -2216,7 +2218,7 @@ function AboutPage({ initial = null, photo = "" }) {
             <button type="button" className="ctl" onClick={() => wrap("**", "**", "bold text")} style={{ ...tool, fontWeight: 800 }} title="Bold">B</button>
             <button type="button" className="ctl" onClick={() => wrap("*", "*", "italic text")} style={{ ...tool, fontStyle: "italic" }} title="Italic">I</button>
             <button type="button" className="ctl" onClick={link} style={tool} title="Link the selected text">Link</button>
-            <span style={{ fontSize: F.xs, color: C.dim, alignSelf: "center" }}>Select words, then press a button. A blank line starts a new paragraph.</span>
+            <span style={{ fontSize: F.xs, color: C.dim, alignSelf: "center" }}>Select words, then press a button. For bold and linked, press both. A blank line starts a new paragraph.</span>
           </div>
           <textarea ref={area} value={body} onChange={(e) => setBody(e.target.value)} rows={16}
             style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />

@@ -80,6 +80,13 @@ console.log("\nformatting and links:");
   const t = T.inlineTokens("Plain **bold** *it* [site](https://example.com) [here](/contact) [bad](mailto:x@example.com) [js](javascript:alert(1))");
   ok(t.some((x) => x.t === "b" && x.v === "bold") && t.some((x) => x.t === "i"), "bold and italic become tokens");
   ok(t.filter((x) => x.t === "a").map((x) => x.href).join() === "https://example.com,/contact", "https and site paths link; mailto and javascript stay text");
+  for (const src of ["**[Fast Bundle](https://example.com)**", "[**Fast Bundle**](https://example.com)"]) {
+    const [tok] = T.inlineTokens(src);
+    const bold = tok.t === "b" ? tok : tok.children?.[0];
+    const link = tok.t === "a" ? tok : tok.children?.[0];
+    ok(bold?.t === "b" && link?.t === "a" && link.href === "https://example.com", `bold and linked: ${src}`);
+  }
+  ok(!JSON.stringify(T.inlineTokens("[a [b](https://x.com) c](https://y.com)")).includes('"t":"a","v":"b"'), "no link inside a link");
   ok(T.aboutIssues({ ...base, body: base.body + "\n\n[mail](mailto:someone)" }).some((x) => /email address or a phone/.test(x)), "a mailto link in the text is refused");
   ok(T.aboutIssues({ ...base, links: [{ label: "Call", url: "tel:+37491234567" }] }).length > 0, "a tel link in the links is refused");
   ok(T.aboutIssues({ ...base, links: [{ label: "", url: "https://example.com" }] }).some((x) => /no label/.test(x)), "a link needs a label");
