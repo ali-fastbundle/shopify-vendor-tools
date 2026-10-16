@@ -12,6 +12,8 @@ import { toolDescription, logoAlt } from "@/lib/seo";
  * whole point, which is that this badge looks the same everywhere it appears.
  */
 import { Pill } from "@/components/Pill";
+import EditorUseControl from "@/components/EditorUseControl";
+import { editorUseLine } from "@/lib/editorUse";
 import PostLinks from "@/components/PostLinks";
 import { postsForTool } from "@/lib/blog";
 import { RATING_POLICY, exclusionNote } from "@/lib/reviews";
@@ -148,6 +150,12 @@ function OwnerInvite({ tool, viewer = {} }) {
           background: C.accent, color: C.onAccent, borderRadius: R.control,
           padding: "8px 16px", fontSize: F.sm, fontWeight: 700, textDecoration: "none",
         }}>Edit this listing</a>
+        {viewer.admin && (
+          <div style={{ marginTop: S.lg, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
+            <p style={{ fontSize: F.sm, fontWeight: 600, margin: `0 0 ${S.sm}px` }}>Editor use</p>
+            <EditorUseControl tool={tool} initial={tool.editorUse || null} />
+          </div>
+        )}
       </div>
     );
   }
@@ -272,6 +280,15 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.md}px 0 0`, color: C.muted }}>
               <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
             </p>
+
+            {/* Editor use (lib/editorUse.js): a quiet line, never a badge, and
+                nothing at all when unset, because an absence that announces
+                itself reads as a verdict. */}
+            {editorUseLine(tool.editorUse) && (
+              <p style={{ fontSize: F.sm, lineHeight: 1.55, margin: `${S.sm}px 0 0`, color: C.muted }}>
+                {editorUseLine(tool.editorUse)}{tool.editorUse.note ? ` ${tool.editorUse.note}` : ""}
+              </p>
+            )}
 
             {tool.ratings?.length > 0 && (
               <section style={{ marginTop: S.xl }}>

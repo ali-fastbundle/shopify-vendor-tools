@@ -156,6 +156,22 @@ export async function POST(request) {
     return Response.json({ removed: true });
   }
 
+  /*
+   * Editor use: using, used, tested or unset, with an optional public note.
+   * Redis only, never the file, and every change kept in the record's history.
+   * Checked against the published catalogue, and refused for an entry with
+   * noRecommend (lib/editorUse.js).
+   */
+  if (action === "set-editor-use") {
+    const toolId = String(body.toolId || "");
+    const tool = (await catalogueTools()).find((t) => t.id === toolId);
+    const { setEditorUse } = await import("@/lib/editorUseStore");
+    const res = await setEditorUse(tool, { value: body.value, note: body.note, date: body.date }, { by: session.email });
+    if (res.error) return new Response(res.error, { status: 400 });
+    const { value, note, date, at } = res.record;
+    return Response.json({ toolId, editorUse: { value, note, date, at } });
+  }
+
   if (action === "exclude-review" || action === "unexclude-review") {
     const toolId = String(body.toolId || "");
     const reason = action === "unexclude-review" || body.reason == null || body.reason === "" ? null : String(body.reason);

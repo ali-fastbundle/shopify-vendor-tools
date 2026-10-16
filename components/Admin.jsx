@@ -14,6 +14,8 @@ import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
 import { effectiveConfidence, errorRates, CAP, VERIFICATION_LABEL } from "@/lib/findings";
 import { COVERAGE_LABEL, coverageCounts, uncovered } from "@/lib/coverage";
 import { Pill } from "./Pill";
+import EditorUseControl from "./EditorUseControl";
+import { editorUseLine } from "@/lib/editorUse";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
 import { SCREENS, PRIMING, questionOf } from "@/lib/recommendOptions";
@@ -95,6 +97,7 @@ export default function AdminPanel({
   publishing = { canPublish: false, log: [] },
   maillog = [],
   entries = {},
+  editorUse = {},
   dedupelog = [],
   changelog = [],
   monitor = {},
@@ -294,6 +297,7 @@ export default function AdminPanel({
             onEntries={setEntryRows}
             onSuggestions={setRows}
             interest={interest || {}}
+            editorUse={editorUse}
             outOfScope={outOfScopeRows}
             deleted={deletedRows}
             coverage={coverage}
@@ -443,13 +447,14 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
       <PublishingNote />
       <Drafts publishing={publishing} holds={holds} discards={discards} />
       <NeedsVerifying />
+      <EditorUse editorUse={editorUse} entries={entries} />
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
       <Collapsible title="Monitor coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
@@ -1816,6 +1821,42 @@ function NeedsVerifying() {
             body={entry.one ? <p style={{ margin: 0, lineHeight: 1.55 }}>{entry.one}</p> : null}
           />
         ))}
+    </Collapsible>
+  );
+}
+
+/*
+ * Editor use: using, used, tested or unset, per published tool
+ * (lib/editorUse.js). Unset is the default and most rows stay that way. The
+ * count in the header is how many are set, so the panel answers "what have I
+ * recorded" without opening. Collapsed: it is every tool in the directory.
+ */
+function EditorUse({ editorUse = {}, entries = {} }) {
+  const [vals, setVals] = useState(editorUse);
+  const tools = [
+    ...published(ALL_TOOLS),
+    ...Object.values(entries || {}).filter((e) => e && e.id && e.name && !ALL_TOOLS.some((t) => t.id === e.id)),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+  const set = tools.filter((t) => vals[t.id]?.value && t.noRecommend !== true).length;
+
+  return (
+    <Collapsible
+      title="Editor use"
+      count={`${set} set of ${tools.length}`}
+      hint="Whether you use a tool, used it, or tested it and did not adopt it. Unset shows nothing publicly. It is a fact, not a rating: it feeds no average and no recommendation. Saved to Redis, so no commit, and every change is kept in the record."
+    >
+      {tools.map((t) => (
+        <div key={t.id} id={`editor-use-${t.id}`}>
+          <Row
+            title={<a href={`/tools/${t.id}`} style={{ color: C.text }}>{t.name}</a>}
+            badges={vals[t.id]?.value && t.noRecommend !== true
+              ? <span style={{ fontSize: F.xs, color: C.muted }}>{editorUseLine(vals[t.id])}{vals[t.id].note ? ` ${vals[t.id].note}` : ""}</span>
+              : null}
+            body={<EditorUseControl tool={t} initial={vals[t.id] || null} compact
+              onSaved={(id, eu) => setVals((v) => ({ ...v, [id]: eu }))} />}
+          />
+        </div>
+      ))}
     </Collapsible>
   );
 }

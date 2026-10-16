@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { C, S, R, F, SOCIALS } from "@/lib/tools";
+import EditorUseControl from "./EditorUseControl";
 
 /* ------------------------------------------------------------------ */
 /*  Session hook                                                       */
@@ -340,6 +341,15 @@ export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
           <p style={{ fontSize: F.xs, color: C.dim, marginTop: S.md, lineHeight: 1.55 }}>
             You can change {copy.can}. {copy.keeps}
           </p>
+        )}
+        {/* Editor use is the admin's, never an owner's (lib/editorUse.js). */}
+        {session.admin && kind === "tool" && (
+          <div style={{ marginTop: S.md, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
+            <p style={{ fontSize: F.sm, fontWeight: 600, margin: `0 0 ${S.sm}px` }}>Editor use</p>
+            <EditorUseControl tool={tool} initial={tool.editorUse || null}
+              onSaved={(id, eu) => onTools?.((ts) => ts.map((t) => t.id !== id ? t
+                : { ...t, editorUse: eu.value ? { value: eu.value, note: eu.note, date: eu.date } : undefined }))} />
+          </div>
         )}
       </div>
     );

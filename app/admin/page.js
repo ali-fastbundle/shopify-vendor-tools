@@ -83,6 +83,7 @@ export default async function AdminPage({ searchParams }) {
     { key: "monitor", load: () => getMonitorState(), empty: {} },
     { key: "changesSeen", load: () => read(KEYS.changesSeen, {}), empty: {} },
     { key: "interest", load: () => getInterest(), empty: {} },
+    { key: "editorUse", load: async () => (await import("@/lib/editorUseStore")).getEditorUse(), empty: {} },
     { key: "adminSeen", load: () => read(KEYS.adminSeen, {}), empty: {} },
     { key: "appliedChanges", load: () => read(KEYS.changesApplied, {}), empty: {} },
     { key: "discovery", load: () => getDiscovery(), empty: { findings: [], dismissed: [] } },

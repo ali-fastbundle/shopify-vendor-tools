@@ -13,6 +13,7 @@ import CopyLink from "./CopyLink";
 import GrowText from "./GrowText";
 import Vote from "./Vote";
 import VisitSite from "./VisitSite";
+import { editorUseLine, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { useFeedForCount } from "./SiteFrame";
@@ -579,6 +580,13 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
                       <span className="block mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5 }}>
                         {p.why}
                       </span>
+                      {/* Context only, attached in the browser: the model never
+                          saw it, so it cannot have preferred the tool for it. */}
+                      {editorUseLine(t.editorUse) && (
+                        <span className="block mt-1" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5 }}>
+                          {editorUseLine(t.editorUse)}
+                        </span>
+                      )}
                     </span>
                   </button>
                 );
@@ -668,6 +676,9 @@ const SORTS = {
   free: { label: "Free plan first", dir: "desc", value: (t) => (t.free ? 1 : 0) },
   external: { label: "By external rating", dir: "desc", value: (t) => externalOf(t) },
   ownership: { label: "By ownership", dir: "asc", value: (t) => ownershipOf(t).toLowerCase() },
+  /* Using, then used, then tested, then unset. A fact about the editor, so it
+     orders the grid only when somebody asks for it (lib/editorUse.js). */
+  editor: { label: "Editor use first", dir: "desc", value: (t) => editorUseRank(t) },
 };
 
 /* The four worth browsing by. The rest are reachable from a column header. */
@@ -697,6 +708,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
   const [cat, setCat] = useState("all");
   const [q, setQ] = useState("");
   const [freeOnly, setFreeOnly] = useState(false);
+  const [editorOnly, setEditorOnly] = useState(false);
   const [sort, setSort] = useState("rating");
   const [dir, setDir] = useState(SORTS.rating.dir);
   const [view, setView] = useState("grid");
@@ -858,6 +870,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
      */
     let list = tools.filter((t) => cat === "all" || isInCat(t, cat));
     if (freeOnly) list = list.filter((t) => t.free);
+    if (editorOnly) list = list.filter(hasEditorUse);
     if (q.trim()) {
       const n = q.toLowerCase();
       list = list.filter((t) =>
@@ -882,7 +895,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
     };
     /* A shut-down product never leads, whatever the column says. */
     return [...list].sort((a, b) => alive(a) - alive(b) || cmp(a, b));
-  }, [cat, q, sort, dir, freeOnly, votes, reviews]);
+  }, [cat, q, sort, dir, freeOnly, editorOnly, votes, reviews]);
 
   /*
    * Clicking the column you are already sorted by reverses it; clicking a new
@@ -898,6 +911,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
     setPicked((p) => p.includes(id) ? p.filter((x) => x !== id) : p.length >= 4 ? p : [...p, id]);
 
   const totalReviews = Object.values(reviews).reduce((a, b) => a + b.length, 0);
+  const editorCount = tools.filter(hasEditorUse).length;
   /* `rating` is set when the person got here by clicking a star. */
   /* The header counts updates new to this browser; this page has the feed. */
   useFeedForCount(feed);
@@ -1064,6 +1078,19 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                 padding: "6px 10px", fontSize: F.sm, fontWeight: freeOnly ? 600 : 500, cursor: "pointer",
                 fontFamily: "inherit", marginTop: S.sm,
               }}>Free plan only</button>
+            {/* Only when the editor has recorded something: a filter that can
+                only ever return nothing is rule E's empty state as a control. */}
+            {editorCount > 0 && (
+              <button onClick={() => setEditorOnly((f) => !f)} aria-pressed={editorOnly}
+                className="ctl press chip"
+                style={{
+                  display: "inline-flex", alignItems: "center",
+                  background: editorOnly ? C.text : C.panel, color: editorOnly ? C.bg : C.text,
+                  border: `1px solid ${editorOnly ? C.text : C.line}`, borderRadius: R.control,
+                  padding: "6px 10px", fontSize: F.sm, fontWeight: editorOnly ? 600 : 500, cursor: "pointer",
+                  fontFamily: "inherit", marginTop: S.xs,
+                }}>Editor has used <span className="tnum" style={{ marginLeft: S.xs, opacity: 0.7 }}>{editorCount}</span></button>
+            )}
           </div>
         </aside>
 
@@ -1086,12 +1113,12 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
               padding: "8px 10px", fontSize: F.sm, color: C.text, fontFamily: "inherit",
             }}>
-            {SELECT_SORTS.map((k) => (
+            {[...SELECT_SORTS, ...(editorCount > 0 ? ["editor"] : [])].map((k) => (
               <option key={k} value={k} style={{ background: C.panel }}>{SORTS[k].label}</option>
             ))}
             {/* A column header can set an order this list does not offer. Say
                 so rather than showing the wrong option as selected. */}
-            {!SELECT_SORTS.includes(sort) && (
+            {!SELECT_SORTS.includes(sort) && !(sort === "editor" && editorCount > 0) && (
               <option value={sort} style={{ background: C.panel }}>{SORTS[sort].label}</option>
             )}
           </select>
@@ -1111,6 +1138,13 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
         {cat !== "all" && (
           <p style={{ fontSize: F.sm, color: C.muted, maxWidth: "70ch", lineHeight: 1.5, marginTop: S.md }}>
             {catOf(cat).blurb}
+          </p>
+        )}
+        {/* The one place the site states the editor-use policy: when somebody
+            is filtering or sorting by it, which is when they rely on it. */}
+        {(editorOnly || sort === "editor") && (
+          <p style={{ fontSize: F.sm, color: C.muted, maxWidth: "70ch", lineHeight: 1.5, marginTop: S.md }}>
+            {editorUsePolicy(tools.length)}
           </p>
         )}
         {err && (
@@ -1741,6 +1775,12 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
         <p className="mt-3" style={{ fontSize: F.md, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
           <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
         </p>
+        {/* Editor use: a quiet line, nothing when unset (lib/editorUse.js). */}
+        {editorUseLine(tool.editorUse) && (
+          <p className="mt-2" style={{ fontSize: F.sm, lineHeight: 1.55, maxWidth: "68ch", color: C.muted }}>
+            {editorUseLine(tool.editorUse)}{tool.editorUse.note ? ` ${tool.editorUse.note}` : ""}
+          </p>
+        )}
         {tool.claimed && (
           <p className="mt-2" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.55, maxWidth: "68ch" }}>
             The summary, description and pricing above are maintained by the vendor

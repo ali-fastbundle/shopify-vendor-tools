@@ -1918,6 +1918,35 @@ drafts a feed entry. Five seeds (tool and category pages, Recent updates, newsle
 the recommender) live in `SEEDS` with figures computed on read, merge into the queue until first
 touched, and are stored from then on.
 
+**44. Editor use is a fact about the editor, never a rating.**
+`editorUse` records whether the editor uses a tool, used it (until a date), tested it
+and did not adopt it, or never used it. Unset is the default and the honest state for
+most of the catalogue. **Never infer a value**: it is set by a person, from the Editor
+use panel on the Catalogue tab, the admin box on a tool page or the admin state of the
+listing modal (`components/EditorUseControl.jsx`, one control for all three).
+
+- **Redis, not the file** (`svt:editoruse`, `lib/editorUseStore.js`), so a change is
+  reversible and needs no commit. Each record keeps the date the toggle changed, who
+  changed it (private) and up to 20 earlier values. Clearing it keeps the record.
+- **Public as a quiet line**, after the watch note on the tool page and the modal:
+  "Editor uses this.", "Editor used this until October 2026.", "Editor tested this.",
+  plus the optional one-line note. Not on the card (rule J), not a badge. **Unset renders
+  nothing**, because an absence that announces itself reads as a verdict (rule E).
+- **A filter and a sort on the directory**, both shown only once something is set. The
+  policy is stated once, above the grid, when either is in use (`editorUsePolicy`).
+- **It feeds nothing.** Not the community average, not `aggregateRating`, not the
+  matcher or the recommender: their prompts are built from `catalogueTools()` or explicit
+  fields, so the model never sees it. The matcher's answer shows the line beside a pick,
+  attached in the browser after the model answered, which is context and cannot be a
+  preference.
+- **Never on an entry with `noRecommend`** (Apricot CX). That exclusion already covers
+  anything that reads as the editor's endorsement, so `mergedTools()` never attaches a
+  value to one and the store refuses to set one. In `PROTECTED`, restated in
+  `mergedTools()`, so no vendor override can write it.
+
+`scripts/editoruse-test.mjs` covers the wording, the route, history, the exclusions and
+that no rating or recommendation path reads it.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -1995,6 +2024,7 @@ the mark.
 | `lib/monitor.js` | The weekly sweep: robots.txt, polite fetching, structured snapshots, carry-forward of unobserved values, billing-toggle detection, the strict diff and calibration |
 | `lib/coverage.js` | Which listings the monitor can actually read: monitored, in part, blocked, unreachable, no source. Pure, client-safe |
 | `lib/findings.js` | What a finding's confidence means, and the error rate per finding type. Pure, client-safe |
+| `lib/editorUse.js` `lib/editorUseStore.js` `components/EditorUseControl.jsx` | Editor use: the values, the public line, the policy and validation (client-safe); the store and its history; the admin toggle |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2787,6 +2817,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/editoruse-test.mjs      # editor use: wording, admin-only, history, noRecommend, feeds no rating or pick
 node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
