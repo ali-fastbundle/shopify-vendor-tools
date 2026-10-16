@@ -2,8 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { C, S, F, TRACK, BAND, CATEGORIES, AUTHOR, AUTHOR_URL, LAST_UPDATED } from "@/lib/tools";
-import { outbound } from "@/lib/outbound";
+import { C, S, F, TRACK, BAND, CATEGORIES, AUTHOR, LAST_UPDATED } from "@/lib/tools";
 import { AccountBar, SessionContext, useSessionState } from "@/components/Account";
 import { ThemeToggle } from "@/components/Theme";
 import FooterLinks from "@/components/FooterLinks";
@@ -161,10 +160,10 @@ export function SiteFooter() {
         <FooterLinks />
         <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65, margin: 0 }}>
           By{" "}
-          {AUTHOR_URL
-            ? <a href={outbound(AUTHOR_URL)} target="_blank" rel="noopener noreferrer"
-                style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
-            : AUTHOR}
+          {/* The byline goes to /about, which links LinkedIn. The footer icon
+              above still goes straight to LinkedIn. */}
+          <a href="/about"
+            style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
           {AUTHOR.endsWith(".") ? " " : ". "}
           {/* One middle dot on the line, per the dashes-and-dots rule. */}
           <a href="/changes" style={{ color: C.muted }}>Recent updates</a>{" · "}

@@ -1,5 +1,5 @@
 import React from "react";
-import { C, S, R, F, TRACK, formatDay, AUTHOR, AUTHOR_URL } from "@/lib/tools";
+import { C, S, R, F, TRACK, formatDay, AUTHOR } from "@/lib/tools";
 import { inline, resolveRef, minutesToRead, UNVERIFIED_LEGEND } from "@/lib/blog";
 import { outbound } from "@/lib/outbound";
 import Engagement from "@/components/Engagement";
@@ -102,9 +102,7 @@ function Block({ b }) {
 const Byline = ({ post }) => (
   <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0` }}>
     By{" "}
-    {AUTHOR_URL
-      ? <a href={outbound(AUTHOR_URL)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{AUTHOR}</a>
-      : AUTHOR}
+    <a href="/about" rel="author" style={{ color: C.muted }}>{AUTHOR}</a>
     {/* AUTHOR ends in a full stop already ("Ali A."), so only add one when it does not. */}
     {AUTHOR.endsWith(".") ? " " : ". "}
     <time dateTime={post.date}>{formatDay(post.date)}</time>

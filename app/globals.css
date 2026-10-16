@@ -185,6 +185,21 @@
   }
 }
 
+/* /about: the photo above the name on a phone, to the left of it from 640px. */
+.about-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .about-head {
+    grid-template-columns: 160px minmax(0, 1fr);
+    gap: 24px;
+    align-items: center;
+  }
+}
+
 /*
  * The site frame: one top bar. Wordmark, the section tabs, then the account
  * and theme controls, in one row from 1024px. Below that the tabs drop to

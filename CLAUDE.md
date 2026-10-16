@@ -1700,7 +1700,17 @@ file.
   else holds the message.
 
 The site footer carries `FooterLinks`: the maintainer's LinkedIn (`AUTHOR_URL`) as a
-Phosphor icon, Contact and Privacy.
+Phosphor icon, About, Contact and Privacy.
+
+**`/about` is Ali's own text, verbatim** (`app/about/page.js`). Do not edit the prose to
+house style: it is a person's account of themselves, and its first line, the Fast Bundle
+role, is the disclosure, so there is no separate disclaimer block. It carries the contact
+form and the LinkedIn link, and **no phone number or email address anywhere in its source**.
+The photo is a file Ali supplies as `public/ali-arabzadeh.{jpg,jpeg,png,webp}`;
+`next.config.mjs` finds it at build time (`ABOUT_PHOTO`), because `public/` is not on a
+function's filesystem, and the page renders no image until it exists. The site footer
+byline and the blog byline link here; the site Person node (`person` in `lib/seo.js`)
+has `/about` as its `url`, LinkedIn as `sameAs`, and the job title.
 
 **39. A visitor's location never leaves their browser.**
 "Events near me" on `/events` sorts upcoming in-person events by distance.
@@ -2031,7 +2041,8 @@ the mark.
 | `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
 | `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
-| `components/FooterLinks.jsx` | LinkedIn, Contact and Privacy, in the site footer |
+| `app/about/page.js` | The maintainer's page: Ali's prose verbatim, the photo when supplied, LinkedIn and the contact form |
+| `components/FooterLinks.jsx` | LinkedIn, About, Contact and Privacy, in the site footer |
 | `lib/follows.js` `lib/followCopy.js` | Who follows what (confirmed only), stop tokens, and the one-sentence promise |
 | `lib/notify.js` `lib/feeds.js` | The daily run: detect news, queue it per person, send one digest each; the RSS and Atom reader |
 | `components/FollowBox.jsx` `app/api/follow` | Following a newsletter or an event: the box, the request, confirm and stop |

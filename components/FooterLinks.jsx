@@ -27,6 +27,7 @@ export default function FooterLinks() {
           <span>LinkedIn</span>
         </a>
       )}
+      <a href="/about" style={{ color: C.muted }}>About</a>
       <a href="/contact" style={{ color: C.muted }}>Contact</a>
       <a href="/privacy" style={{ color: C.muted }}>Privacy</a>
     </p>

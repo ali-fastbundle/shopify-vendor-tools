@@ -1,5 +1,18 @@
+import { existsSync } from "fs";
+
+/*
+ * The photo on /about is supplied by hand into public/. Which file exists is
+ * decided here, at build time, because public/ is served by the CDN and is not
+ * on a function's filesystem at request time. No file, no image, rather than a
+ * broken one.
+ */
+const ABOUT_PHOTO = ["jpg", "jpeg", "png", "webp"]
+  .map((ext) => `/ali-arabzadeh.${ext}`)
+  .find((f) => existsSync(`./public${f}`)) || "";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: { ABOUT_PHOTO },
   /*
    * Phosphor ships one barrel file re-exporting every icon. Without this, a
    * single `import { Star }` pulls the whole set into the dev graph and slows

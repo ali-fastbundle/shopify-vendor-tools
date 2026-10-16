@@ -195,7 +195,7 @@ for (const doc of await graphOf("/blog/shopify-app-store-aso-tools-compared")) {
  */
 console.log("\nshared nodes and references, every page type:");
 const SHARED = ["https://watchfor.tools#website", "https://watchfor.tools#organization", "https://watchfor.tools#author"];
-for (const path of ["/", "/tools/appstoreresearch", "/categories", "/categories/biz", "/newsletters", "/events", "/blog", "/changes", "/contact"]) {
+for (const path of ["/", "/tools/appstoreresearch", "/categories", "/categories/biz", "/newsletters", "/events", "/blog", "/changes", "/contact", "/about"]) {
   const docs = await graphOf(path);
   const all = docs.flatMap((d) => nodes(d));
   const defined = new Set(all.filter((n) => n["@type"] && n["@id"]).map((n) => n["@id"]));

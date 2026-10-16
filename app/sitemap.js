@@ -110,6 +110,7 @@ export default async function sitemap() {
       changeFrequency: "monthly",
       priority: 0.7,
     })),
+    { url: `${SITE}/about`, lastModified: new Date("2026-10-16"), changeFrequency: "yearly", priority: 0.4 },
     { url: `${SITE}/privacy`, lastModified: new Date("2026-10-10"), changeFrequency: "yearly", priority: 0.2 },
   ];
 }
