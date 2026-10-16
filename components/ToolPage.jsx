@@ -445,6 +445,16 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
           </section>
         )}
 
+        {/* The recommender's place: somebody weighing one tool against its
+            neighbours is the person it is for. It left the homepage's hero,
+            where it read as a second way to do what the matcher does. */}
+        <p style={{ fontSize: F.sm, color: C.muted, margin: `${S["3xl"]}px 0 0`, borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
+          Not sure which of these fits your app?{" "}
+          <a href="/recommend" style={{ color: C.text, fontWeight: 600, textUnderlineOffset: 3 }}>
+            Get three picks for your App Store listing
+          </a>
+        </p>
+
       </div>
     </main>
   );

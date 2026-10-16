@@ -141,9 +141,9 @@ export function SiteHeader() {
             until the session loads, and the row grew when it did. */}
         <div className="topbar-account flex items-center" style={{ gap: S.md, minHeight: 38 }}>
           <AccountBar session={session[0]} refresh={session[1]} />
-          {/* On a phone the toggle is in the footer: the wordmark, Sign in and
-              three theme buttons do not fit one row at 390px. */}
-          <span className="theme-top"><ThemeToggle /></span>
+          {/* One icon button, here only: it fits the 390px row, so there is
+              no second copy in the footer. */}
+          <ThemeToggle />
         </div>
       </div>
     </header>
@@ -156,7 +156,6 @@ export function SiteFooter() {
   return (
     <footer className="mx-auto" style={{ ...FRAME_WIDTH, paddingBottom: BAND.desktop }}>
       <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: S.lg, marginTop: S["4xl"] }}>
-        <div className="theme-foot" style={{ marginBottom: S.lg }}><ThemeToggle /></div>
         <FooterLinks />
         <p style={{ fontSize: F.sm, color: C.dim, maxWidth: "78ch", lineHeight: 1.65, margin: 0 }}>
           By{" "}

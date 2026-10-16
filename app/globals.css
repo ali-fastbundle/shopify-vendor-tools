@@ -241,14 +241,6 @@
   .topbar-tabs { margin: 0; padding: 0; overflow: visible; }
 }
 
-/* The theme toggle: in the top bar from 640px, in the footer below it. */
-.theme-top { display: none; }
-.theme-foot { display: block; }
-@media (min-width: 640px) {
-  .theme-top { display: inline-flex; }
-  .theme-foot { display: none; }
-}
-
 /* A section tab: plain text until it is the current one, which takes the
    neutral inversion (colour invariant C). */
 .navtab {
@@ -335,22 +327,6 @@
   .rail .chip { width: 100%; justify-content: space-between; padding-top: 4px !important; padding-bottom: 4px !important; }
 }
 
-/*
- * The roadmap list. Two columns of rows above md, one below. Rows rather
- * than cards: nothing in these sections exists yet, so there is no content
- * for a card to hold and no hierarchy for its elevation to express.
- */
-.roadmap {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  column-gap: 32px;
-}
-
-@media (min-width: 768px) {
-  .roadmap {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
 /* The drafts panel's fact list: label column, value column. */
 .drafts-facts {

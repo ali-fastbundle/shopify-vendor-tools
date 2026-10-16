@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { C, S, R, F } from "@/lib/tools";
+import { Desktop, Sun, Moon } from "@phosphor-icons/react";
+import { C, R } from "@/lib/tools";
 
 const KEY = "svt:theme";
 
@@ -10,10 +11,11 @@ const KEY = "svt:theme";
    the two most visible ones on the site, so a drift shows immediately. */
 const CHROME = { dark: "#141516", light: "#F1F2F3" };
 
+/* The cycle order, and what each state says about itself. */
 const MODES = [
-  ["system", "Auto"],
-  ["light", "Light"],
-  ["dark", "Dark"],
+  ["system", "Auto, following your system", Desktop],
+  ["light", "Light", Sun],
+  ["dark", "Dark", Moon],
 ];
 
 /*
@@ -52,11 +54,18 @@ function apply(choice) {
 }
 
 /*
- * Auto, Light, Dark — three states, not two.
+ * Auto, Light, Dark: three states, not two, behind one icon button that
+ * cycles through them.
  *
  * A two-way switch can express "I want light" but not "follow the machine",
  * and once it has been touched there is no way back to the system preference
- * short of clearing site data. Auto is the default and stays selectable.
+ * short of clearing site data. Auto is the default and stays reachable.
+ *
+ * It was a three-button segmented control, in the header and again in the
+ * footer on a phone. Three buttons is three decisions before any content for
+ * something most people set once or never, so it is one control, in the
+ * header only. The icon shows the current state; the label and tooltip say it
+ * and name the next one, so a click is never a guess.
  */
 export function ThemeToggle() {
   /*
@@ -92,44 +101,21 @@ export function ThemeToggle() {
     } catch { /* the choice still holds for this page */ }
   }
 
+  const at = MODES.findIndex(([id]) => id === choice);
+  const [, label, Icon] = MODES[at];
+  const [nextId, nextLabel] = MODES[(at + 1) % MODES.length];
+  const says = `Theme: ${label}. Switch to ${nextLabel.split(",")[0]}.`;
+
   return (
-    <div
-      role="group"
-      aria-label="Colour theme"
-      className="inline-flex items-center"
+    <button type="button" onClick={() => pick(nextId)} aria-label={says} title={says}
+      className="ctl press"
       style={{
-        background: C.subtle,
-        border: `1px solid ${C.line}`,
-        borderRadius: R.control,
-        padding: 2,
-        gap: 2,
-      }}
-    >
-      {MODES.map(([id, label]) => {
-        const on = id === choice;
-        return (
-          <button
-            key={id}
-            type="button"
-            onClick={() => pick(id)}
-            aria-pressed={on}
-            style={{
-              background: on ? C.panel : "transparent",
-              color: on ? C.text : C.dim,
-              border: `1px solid ${on ? C.line : "transparent"}`,
-              borderRadius: R.control - 2,
-              padding: `${S.xs}px ${S.sm}px`,
-              fontSize: F.xs,
-              fontWeight: on ? 600 : 500,
-              lineHeight: 1.3,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            {label}
-          </button>
-        );
-      })}
-    </div>
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 36, height: 36, padding: 0, flexShrink: 0,
+        background: C.panel, color: C.muted, border: `1px solid ${C.line}`,
+        borderRadius: R.control, cursor: "pointer",
+      }}>
+      <Icon size={18} />
+    </button>
   );
 }

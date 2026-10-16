@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useImperativeHandle } from "react";
 import {
-  Star, ThumbsUp, ThumbsDown, Check, Plus, X, CaretUp, CaretDown,
+  Star, ThumbsUp, ThumbsDown, Check, Plus, X, CaretUp, CaretDown, Rows,
   LinkedinLogo, XLogo, GithubLogo, YoutubeLogo, ArrowUpRight, MagnifyingGlass,
 } from "@phosphor-icons/react";
 import { outbound } from "@/lib/outbound";
@@ -322,12 +322,16 @@ function Social({ social, size = 15 }) {
 /* ================================================================== */
 /*  Matcher                                                            */
 /* ================================================================== */
+/*
+ * Three, shown as chips with a short label each. The full sentence is what
+ * runs, and it is the chip's tooltip. Five long sentences behind a disclosure
+ * meant most people never saw an example, and an example is the fastest way
+ * to learn what the box is for.
+ */
 const EXAMPLES = [
-  "Mantle is shutting down and I need to replace my billing analytics",
-  "I want to find stores running a competitor's app and pitch them",
-  "I run six apps and need keyword tracking across all of them",
-  "I want to launch an affiliate program without paying a cut of payouts",
-  "I need App Store data my AI agent can query",
+  { label: "Replace Mantle", q: "Mantle is shutting down and I need to replace my billing analytics" },
+  { label: "Stores using a rival's app", q: "I want to find stores running a competitor's app and pitch them" },
+  { label: "Keywords for six apps", q: "I run six apps and need keyword tracking across all of them" },
 ];
 
 /*
@@ -492,31 +496,23 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
               </button>
             </div>
 
-            {/* Five example queries were five buttons wide enough to wrap to
-                three rows. They are worth having and not worth that space, so
-                they open on ask. */}
-            {/* The recommender sits on the examples' line, on the right, so
-                it costs no height above the fold (invariant F). */}
-            <a href="/recommend" style={{
-              float: "right", marginTop: S.sm, fontSize: F.xs, color: C.muted,
-              textDecoration: "underline", textUnderlineOffset: 3,
-            }}>Have a listing? Get three picks for it</a>
-            <details style={{ marginTop: S.sm }}>
-              <summary style={{
-                fontSize: F.xs, color: C.dim, cursor: "pointer", listStyle: "none",
-                display: "inline-block",
-              }}>Show examples</summary>
-              <div className="flex flex-col" style={{ gap: S.xs, marginTop: S.sm }}>
-                {EXAMPLES.map((e) => (
-                  <button key={e} onClick={() => { setProblem(e); run(e); }}
-                    style={{
-                      fontSize: F.xs, color: C.muted, background: "none",
-                      border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
-                      textAlign: "left", textDecoration: "underline", textUnderlineOffset: 3,
-                    }}>{e}</button>
-                ))}
-              </div>
-            </details>
+            {/* The recommender used to be a second link here. It does a
+                different job (three picks for one App Store listing) but
+                read as a second way to do this one, so it is offered after
+                an answer instead, and on each tool page. */}
+            <div className="flex flex-wrap items-center" style={{ gap: S.xs, marginTop: S.sm }}>
+              <span style={{ fontSize: F.xs, color: C.dim, marginRight: 2 }}>Try</span>
+              {EXAMPLES.map((e) => (
+                <button key={e.label} type="button" title={e.q}
+                  onClick={() => { setProblem(e.q); run(e.q); }}
+                  className="ctl press"
+                  style={{
+                    fontSize: F.xs, color: C.text, background: C.panel,
+                    border: `1px solid ${C.line}`, borderRadius: R.pill,
+                    padding: "4px 12px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+                  }}>{e.label}</button>
+              ))}
+            </div>
           </>
         )}
       </div>
@@ -600,6 +596,17 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
                 );
               })}
             </div>
+          )}
+
+          {/* The recommender, offered here because this is when it is
+              relevant: somebody has just asked which tools fit their app. */}
+          {result.status !== "failed" && (
+            <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.md}px 0 0` }}>
+              Have an app on the App Store?{" "}
+              <a href="/recommend" style={{ color: C.text, fontWeight: 600, textUnderlineOffset: 3 }}>
+                Get three picks for your listing
+              </a>
+            </p>
           )}
         </div>
       )}
@@ -1082,10 +1089,11 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
               {/* The stats as a sentence. A row of five counts read as five
                   things to look at, one of them zero; this is one line saying
                   what the directory is. No review count: it was 0, and when
-                  there is nothing, render nothing (rule E). */}
+                  there is nothing, render nothing (rule E). One short sentence,
+                  and "community rated" went with it: most tools have no rating
+                  yet, so it promised more than the grid shows. */}
               <p className="tnum" style={{ fontSize: F.lg, color: C.muted, maxWidth: "52ch", lineHeight: 1.5, margin: `${S.sm}px 0 0` }}>
-                {tools.length} tools for the people who build Shopify apps, in {CATEGORIES.length} categories,
-                community rated. <span style={{ color: C.dim }}>Updated {LAST_UPDATED}.</span>
+                {tools.length} tools for Shopify app builders in {CATEGORIES.length} categories, updated {LAST_UPDATED}.
               </p>
             </div>
             <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest}
@@ -1148,16 +1156,9 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             )}
           </select>
           <ViewToggle view={view} onView={setView} />
-          {/* Neutral, not green: Find tools in the matcher is the one action
-              above the fold, and two green buttons competed for it. The invite
-              card at the end of the grid keeps the green. */}
-          <button onClick={() => setShowSuggest("tool")}
-            className="ctl press tnum"
-            style={{
-              background: C.panel, color: C.text, border: `1px solid ${C.line}`,
-              borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-            }}>Add a tool {suggestions.length ? `(${suggestions.length})` : ""}</button>
+          {/* Add a tool left the bar: it is not a decision anybody makes
+              before reading the grid. It is the invite card at the end of the
+              grid, the empty-result button and the matcher's no-match answer. */}
         </div>
 
         <ActiveFilters f={refine} set={setRefinePart} onClear={clearRefine}
@@ -1205,9 +1206,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                 <Card key={t.id} tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
                   votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
                   onVote={(d) => vote(t.id, d)} onOpen={(r) => openTool(t.id, r)}
-                  picked={picked.includes(t.id)} onPick={() => toggle(t.id)}
-                  underCat={cat}
-                  pickFull={picked.length >= 4 && !picked.includes(t.id)} />
+                  picked={picked.includes(t.id)} underCat={cat} />
               ))}
               {/* After the cards in the markup, not first with `order: 999`. The
                   page paints while its HTML is still arriving, and as the only
@@ -1358,27 +1357,27 @@ function FilterChip({ active, color, ink: onFill = C.onAccent, onClick, label, c
 }
 
 /*
- * Cards or rows. Two ways of reading the same list: a card gives a tool room to
- * describe itself, which is exactly what makes four of them hard to hold side
- * by side, and a row gives up the description to line the facts up in columns.
+ * Cards or rows, as one toggle named for what the rows are for. A card gives a
+ * tool room to describe itself, which is exactly what makes four of them hard
+ * to hold side by side; a row gives up the description to line the facts up in
+ * sortable columns, with a box per row to pick two to four for the compare
+ * table. That made the list view the compare mode already, so the Compare
+ * button that sat on every card moved here, once.
  */
 function ViewToggle({ view, onView }) {
+  const on = view === "list";
   return (
-    <div role="group" aria-label="Layout" className="ctl flex" style={{
-      border: `1px solid ${C.line}`, borderRadius: R.control, overflow: "hidden",
-    }}>
-      {[["grid", "Grid"], ["list", "List"]].map(([v, label]) => {
-        const on = view === v;
-        return (
-          <button key={v} onClick={() => onView(v)} aria-pressed={on}
-            style={{
-              background: on ? C.text : C.panel, color: on ? C.bg : C.muted,
-              border: 0, padding: "8px 14px", fontSize: F.sm, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit",
-            }}>{label}</button>
-        );
-      })}
-    </div>
+    <button type="button" onClick={() => onView(on ? "grid" : "list")} aria-pressed={on}
+      title={on ? "Back to cards" : "Show as a table: sort any column and pick 2 to 4 tools to compare"}
+      className="ctl press flex items-center"
+      style={{
+        gap: S.xs, background: on ? C.text : C.panel, color: on ? C.bg : C.text,
+        border: `1px solid ${on ? C.text : C.line}`, borderRadius: R.control,
+        padding: "8px 12px", fontSize: F.sm, fontWeight: 600,
+        cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+      }}>
+      <Rows size={15} weight={on ? "fill" : "regular"} />Compare
+    </button>
   );
 }
 
@@ -1405,6 +1404,13 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
   const cell = { padding: "10px 12px", fontSize: F.sm, color: C.text, verticalAlign: "middle", lineHeight: 1.4 };
   return (
     <div>
+      {/* Said once, and only until the first pick, which is when it stops
+          being news. */}
+      {picked.length === 0 && (
+        <p style={{ fontSize: F.sm, color: C.muted, margin: `0 0 ${S.sm}px` }}>
+          Tick two to four tools to compare them side by side. Click a column to sort.
+        </p>
+      )}
       <div style={{ overflowX: "auto", border: `1px solid ${C.line}`, borderRadius: R.card, background: C.panel }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
           <thead>
@@ -1591,7 +1597,7 @@ function Facts({ tool, owner }) {
  * rating already picked. Liking a tool never needed a second screen; rating
  * one should not either.
  */
-function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, onPick, pickFull, underCat = "all" }) {
+function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, underCat = "all" }) {
   const col = catOf(tool.cat).color;
   /*
    * True when this card is in the grid because of a secondary category rather
@@ -1667,7 +1673,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
           *
           * Two rows rather than a scatter, each with a left and a right and
           * nothing in the middle. Rating and votes are both the community
-          * answering; Visit site and Compare are both things you do next.
+          * answering; Visit site is the thing you do next.
           */}
         <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
           <div className="flex items-center justify-between" style={{ gap: S.sm }}>
@@ -1692,31 +1698,12 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, o
             </div>
           </div>
 
-          <div className="flex items-center justify-between" style={{ gap: S.sm, marginTop: S.sm }}>
+          {/* Compare left the card: one control per card was fifty of the
+              same affordance. Picking tools to compare is the list view's job
+              (cards browse, rows compare), switched on once with the view
+              toggle. */}
+          <div className="flex items-center" style={{ gap: S.sm, marginTop: S.sm }}>
             <VisitSite url={tool.url} />
-            {/* Selected-for-comparison is one of green's three jobs, per colour
-                invariant C. It says "Compare" rather than showing a bare plus:
-                it has the width for a word here, and a word does not need a
-                tooltip to explain it. */}
-            <button
-              onClick={onPick}
-              disabled={pickFull}
-              aria-pressed={picked}
-              title={pickFull ? "Four tools maximum" : picked ? "Remove from comparison" : "Add to comparison"}
-              className="ctl press flex items-center"
-              style={{
-                flexShrink: 0, gap: S.xs, borderRadius: R.control, padding: "4px 8px",
-                background: picked ? C.accent : "transparent",
-                border: `1px solid ${picked ? C.accent : C.line}`,
-                color: picked ? C.onAccent : C.muted,
-                cursor: pickFull ? "not-allowed" : "pointer",
-                opacity: pickFull ? 0.4 : 1,
-                fontSize: F.xs, fontWeight: 600, lineHeight: 1, fontFamily: "inherit",
-              }}
-            >
-              {picked ? <Check size={12} weight="bold" /> : <Plus size={12} weight="bold" />}
-              <span>Compare</span>
-            </button>
           </div>
         </div>
       </div>
@@ -2340,47 +2327,31 @@ function Roadmap({ onSuggest }) {
      published in it is still pending, and belongs here rather than as an empty
      section further up the page. */
   const pending = pendingKinds();
+  /*
+   * The subscribe block first, then the sections still to come as one line.
+   * The roadmap was a heading, a paragraph and a two-column list of blurbs:
+   * a promise laid out like content. Each name still opens the suggest form
+   * pointed at that section, and its blurb is the tooltip.
+   */
   return (
     <section style={{ paddingBottom: BAND.desktop }}>
-      <h2 style={{ fontSize: F["2xl"], fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.15, margin: 0 }}>
-        Tools are the first section, not the whole plan
-      </h2>
-      <p style={{ fontSize: F.md, color: C.muted, maxWidth: "68ch", lineHeight: 1.55, marginTop: S.md }}>
-        Software was the easiest part to catalogue, so it went first. The sections below are
-        what the rest of the job looks like, and they open in the order people ask for them.
-        Nothing in them is written yet. All of them are open for suggestions, and what gets
-        suggested decides what is in them when they open.
-      </p>
-
-      <div className="roadmap" style={{ marginTop: S.xl }}>
-        {pending.map((k) => (
-          <button
-            key={k.id}
-            onClick={() => onSuggest(k.id)}
-            className="press flex items-start text-left"
-            style={{
-              gap: S.md, background: "none", border: 0, borderTop: `1px solid ${C.line}`,
-              padding: `${S.md}px 0`, cursor: "pointer", fontFamily: "inherit", color: C.text,
-              width: "100%",
-            }}
-          >
-            <span aria-hidden="true" style={{
-              width: 3, alignSelf: "stretch", borderRadius: 2, background: k.color, flexShrink: 0,
-            }} />
-            <span style={{ minWidth: 0 }}>
-              <span className="flex items-center" style={{ gap: S.xs }}>
-                <span style={{ fontSize: F.md, fontWeight: 700, letterSpacing: TRACK.tight }}>{k.label}</span>
-                <Plus size={11} weight="bold" color={C.dim} />
-              </span>
-              <span className="block" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, marginTop: 2 }}>
-                {k.blurb}
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
-
       <Subscribe />
+      {pending.length > 0 && (
+        <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.7, margin: `${S.lg}px 0 0` }}>
+          Coming later, in the order people ask for them:{" "}
+          {pending.map((k, i) => (
+            <React.Fragment key={k.id}>
+              {i > 0 && ", "}
+              <button type="button" onClick={() => onSuggest(k.id)} title={`${k.blurb} Suggest something for it.`}
+                style={{
+                  background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+                  fontSize: F.sm, color: C.text, textDecoration: "underline", textUnderlineOffset: 3,
+                }}>{k.label}</button>
+            </React.Fragment>
+          ))}
+          . Click one to suggest what goes in it.
+        </p>
+      )}
     </section>
   );
 }
@@ -2409,7 +2380,7 @@ function Subscribe() {
   }
 
   return (
-    <div className="mt-8" style={{
+    <div style={{
       background: C.hero,
       border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl,
     }}>

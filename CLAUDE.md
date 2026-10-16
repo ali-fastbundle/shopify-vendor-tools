@@ -291,7 +291,7 @@ on the `RESOURCE_KINDS` entry AND at least one published entry in its catalogue.
 in different directions: the flag on an empty catalogue ships a header over nothing, and a
 full catalogue with the flag off is just work in progress. The roadmap renders
 `pendingKinds()` rather than filtering on `live` alone, so a section still being drafted
-keeps its roadmap card and opens by itself when both conditions are true. `lib/sections.js`
+keeps its roadmap entry and opens by itself when both conditions are true. `lib/sections.js`
 is also the one place that knows which catalogue belongs to which kind; a new section is
 registered there.
 
@@ -1881,7 +1881,8 @@ fine, Hide (required reason, kept, reversible) or Delete (gone). A hidden commen
 at all, and the address and every moderation field leave only through `publicComments`.
 
 **42. The growth recommender: signed in, one question per screen, one public page read, up to three picks, every run kept without an address.**
-`/recommend` (linked from the matcher's examples line, so it costs no fold height), noindex
+`/recommend` (linked under a matcher answer and at the foot of every tool page, never beside
+Find tools, where it read as a second way to do the same job), noindex
 as a whole. `components/Recommender.jsx`, with every question, choice and answer limit in
 `lib/recommendOptions.js` so the flow and the routes cannot disagree.
 
@@ -2423,9 +2424,10 @@ on `:root[data-theme="dark"]`, and nothing else — there is deliberately no
 up defined in one theme and missing from the other. Resolving "follow the system" to a
 concrete value is `THEME_SCRIPT`'s job: it runs before the body paints, reads the stored
 choice or the system preference, sets `data-theme`, and updates the `theme-color` meta
-tag. The toggle is three-state — Auto, Light, Dark — because a two-way switch can say
+tag. The toggle has three states, Auto, Light and Dark, because a two-way switch can say
 "I want light" but cannot say "follow the machine", and once touched there would be no
-way back. With scripting off the page is light, the look the site leads with. Dark is a
+way back. It is one icon button in the header that cycles through them, and nowhere else:
+its label and tooltip name the current state and the next one. With scripting off the page is light, the look the site leads with. Dark is a
 neutral grey to match, not the green-black it used to be. `scripts/contrast-test.mjs`
 reads both palettes out of the stylesheet and fails on any text token under 4.5:1 on the
 page, a panel or a raised fill, which is invariant H as a number.
@@ -2530,8 +2532,9 @@ chips. Every one of those was defensible on its own.
 
 The masthead is therefore a two-column grid (`.masthead` in `globals.css`): headline,
 one-line subhead and stats on the left, the matcher on the right, stacked below 1024px.
-The matcher is a control, not a hero: no heading paragraph, a two-row textarea, and the
-examples behind a disclosure. Once it has an answer the grid drops to one column, since
+The matcher is a control, not a hero: no heading paragraph, a two-row textarea, and three
+example chips with short labels (the full query is the tooltip), shown, not behind a
+disclosure, because an example is the quickest way to learn what the box is for. Once it has an answer the grid drops to one column, since
 the answer is a list of tools and wants the width.
 
 **One top bar, a sentence of stats, a category rail (2026-10-10).** The 400px budget had
@@ -2541,8 +2544,8 @@ to two rows. Now:
 
 - **One frame row** (`.topbar`): wordmark, section tabs, account and theme, rendered by
   the layout on every route (see The site frame). Below 1024px the tabs take their own
-  row and scroll sideways; below 640px the theme toggle moves to the footer, because
-  the wordmark, Sign in and three theme buttons do not fit a 390px row.
+  row and scroll sideways. The theme is one icon button, which fits the 390px row, so
+  there is no copy of it in the footer.
 - **The stats are one sentence** under the headline. No newsletter count (the tab says
   it) and no review count (it was zero; rule E).
 - **The matcher's heading is its textarea's label**, padding 12. On a phone it starts as
@@ -2551,10 +2554,11 @@ to two rows. Now:
 - **Categories are a rail** (`.dir-body`, `.rail`) beside the grid from 1024px, with Free
   plan below them, sticky, and a sideways-scrolling row of chips below 1024px. The grid
   is three cards wide at 1366 rather than four.
-- **Add a tool is neutral.** Find tools is the one green button above the fold; the
-  invite card at the end of the grid keeps its green.
+- **Add a tool is not on the bar.** It is not a decision anybody makes before reading the
+  grid. It is the green invite card at the end of the grid, the empty-result button and
+  the matcher's no-match answer. Find tools is the one green button above the fold.
 - **Categories are navigation; everything else is one Filters control (2026-10-16).**
-  The bar is search, Filters, sort, grid/list and Add a tool, nothing more. Free plan,
+  The bar is search, Filters, sort and Compare, nothing more. Free plan,
   editor used, integrations and a category's confirmed yes-or-no details live in the
   panel (`components/DirectoryFilters.jsx`): a popover on a wide screen, a full-height
   sheet under 640px (`.filters-panel`). The button carries the count, and every active
@@ -2571,10 +2575,20 @@ to two rows. Now:
   and nothing a visitor sees should depend on it, or a new category lands last by
   default.
 
-Measured at 1366x727 (a 768 laptop after browser chrome): first card at 295px, the whole
-first row visible. At 390px: 501px, down from over 900.
+Measured at 1366x727 (a 768 laptop after browser chrome): first card at 299px, the whole
+first row visible. At 390px: 470px, down from over 900.
 
 Anything added to the masthead comes out of the fold budget. Measure before and after.
+
+**Count the decisions too (2026-10-17).** Interactive elements entirely above the first
+card at 1366x727, not counting the skip link: 20 before this pass (10 in the frame, 10 in
+the page), 17 after (8 in the frame: wordmark, five tabs, Sign in, theme; 9 in the page:
+the matcher's box, Find tools and three examples, then search, Filters, sort, Compare).
+The page is under ten; the frame is site navigation and is the same on every route. Cut
+then: the three-button theme control and its footer copy, the recommender link beside Find
+tools, the examples disclosure, the two-button view switch, Add a tool, the Compare button
+on every card, the roadmap section. `scripts/decisions-test.mjs` holds each of those. A
+new control above the grid has to replace one of these, not join them.
 
 **G. Attributes are type, not pills.** Price, free plan, suite, ownership, claimed and
 unverified read as one line of 12px muted text with hairline separators, built by
@@ -2591,8 +2605,7 @@ answers a question you only ask *after* choosing lives in the detail view. The
 card had grown a badge per feature until it carried fifteen unranked elements.
 
 On the card: the mark, the name, the category, the one-line summary, the price,
-the community rating and review count, the votes, `Visit site`, and the compare
-control. Plus `winding down`, which is rule B's one allowed warn badge and the
+the community rating and review count, the votes, and `Visit site`. Plus `winding down`, which is rule B's one allowed warn badge and the
 only thing on a card that tells you not to bother.
 
 Plus one thing that renders conditionally: under a *secondary* category filter, a
@@ -2621,8 +2634,14 @@ carrying one fact, and the badge was the one with a border around it.
 
 **The rhythm is name, summary, price, footer.** One visual weight per line. The
 footer is two rows, each with a left and a right and nothing in the middle:
-rating and votes, which are both the community answering, then `Visit site` and
-`Compare`, which are both things you do next.
+rating and votes, which are both the community answering, then `Visit site`, which is
+the thing you do next. A vote shows its count only above zero, and its tooltip says what
+the number counts; a thumb beside a bare "0" is a number that says nothing.
+
+**Compare is not on the card.** It was one button per card, fifty of the same
+affordance. Picking tools to compare is the table's job: the bar's Compare toggle switches
+to the list view, whose rows carry the pick box, and the tray and the compare modal work
+as before.
 
 **Adding anything to the card means arguing it helps somebody choose which one
 to open.** That is the bar, and it is the bar because every one of the fifteen
@@ -2691,7 +2710,8 @@ concerned: `onOpen(rating)` carries that number into the review form, which open
 the rating already picked and the cursor in the text field. Three stars clicked means
 three stars — never a form that opens empty and asks again.
 
-**Cards browse, rows compare.** The grid/list toggle sits next to the sort control. A
+**Cards browse, rows compare.** One toggle beside the sort control, labelled Compare,
+switches to the rows, which is where tools are picked for the compare modal. A
 card gives a tool room to describe itself, which is exactly what makes four of them
 hard to hold side by side; a list row gives up the description to line the facts up in
 columns — name, category, price, free plan, rating, external rating, ownership — and
@@ -2717,13 +2737,14 @@ tool compare modal is untouched: the list is the pass where you work out which t
 
 `RESOURCE_KINDS` in `lib/tools.js` names every section: tools, newsletters, events,
 podcasts, YouTube, books, groups, accounts, influencers. `tool`, `newsletter` and `event` have
-`live: true`; the rest are roadmap cards.
-The roadmap renders every kind that is not open as a card that opens the suggest modal
-preselected to it, and `/api/suggest` validates `kind` against that list, defaulting to
+`live: true`; the rest are on the roadmap.
+The roadmap is one line under the subscribe block at the foot of the directory: every kind
+that is not open, as a name that opens the suggest modal preselected to it (its blurb is
+the tooltip). It is a promise, not content, so it is not a section with a heading, and `/api/suggest` validates `kind` against that list, defaulting to
 `tool` so suggestions stored before kinds existed still read.
 
 Opening a section means: write its entries, drop their `draft` flags, and set
-`live: true` on its kind. `lib/sections.js` requires both, and the roadmap card
+`live: true` on its kind. `lib/sections.js` requires both, and the roadmap entry
 disappears on its own. Colours are reused from `CATEGORIES` so the palette stays closed —
 do not add a new accent for a new kind.
 
@@ -3162,6 +3183,7 @@ node scripts/housekeeping-test.mjs   # the reset clears four things and protects
 node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, and does nothing else
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
 node scripts/filters-test.mjs        # one Filters control, state in the URL, categories ordered by count
+node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers
 node scripts/subscribers-test.mjs    # the subscriber list: one row per address, consent, remove, nothing logged
 node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip
