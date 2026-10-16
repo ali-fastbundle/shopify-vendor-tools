@@ -84,7 +84,7 @@ ok(route.indexOf("sessionFrom(request)") < route.indexOf("allow(") && /allow\("c
 console.log("\nannouncements:");
 const an = await L("lib/announcements.js");
 const rows = await an.getAnnouncements();
-ok(an.SEEDS.length === 5 && an.SEEDS.every((x) => rows.some((r) => r.id === x.id)), "five seeds are in the queue before anything is stored");
+ok(an.SEEDS.length >= 5 && an.SEEDS.every((x) => rows.some((r) => r.id === x.id)), "every seed is in the queue before anything is stored", `${an.SEEDS.length} seeds`);
 for (const row of rows) {
   const c = an.checksFor(row);
   ok(!c.hype.length && !c.numbers.length && !c.emDash, `seed "${row.id}" has no hype, no invented figure, no em-dash`, [...c.hype, ...c.numbers].join(", "));

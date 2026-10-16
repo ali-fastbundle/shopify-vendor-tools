@@ -2950,6 +2950,16 @@ This is not hypothetical. A session reported its work complete with 15 modified
 files sitting uncommitted, so Vercel had nothing to build and the site served
 none of it. The work was finished in every sense except the one that counts.
 
+**A push that ships something major and visible to visitors adds its announcement in
+the same commit.** A seed in `SEEDS` in `lib/announcements.js` (invariant 43): a `what`
+for the editor and a `draft` in Ali's voice whose figures come from `catalogueFacts`. A
+new figure gets a line in `factsText`, or the panel flags it as invented. Run `checksFor`
+on it: no hype, no unsupported number, no sentence past the limit. Say in the report that
+it was added. Admin-only work, internal fixes, small catalogue additions and anything not
+yet visible get no seed. A feature that is live but not ready to talk about (pages that
+state nothing until data is confirmed) gets a seed whose `what` says when to post it.
+Nothing posts itself: the seed waits in the Announcements tab for the editor.
+
 **Where the live check cannot close the loop, say so rather than implying it
 did.** A draft changes nothing a visitor can reach, so an unchanged site is both
 the correct outcome and exactly what a deploy that never ran would look like; the
