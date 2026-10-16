@@ -585,6 +585,37 @@ export async function POST(request) {
     return null;
   }
 
+  /*
+   * The caveat: the one path that can change a tool's `watch`, and only for an
+   * admin (invariant 1). It commits to lib/tools.js on main with the reason in
+   * the message, so every caveat change is in git and revertible. Vendors, the
+   * monitor and every AI rewrite still cannot touch the field; nothing here
+   * changes that.
+   */
+  if (action === "edit-watch") {
+    const tool = TOOLS.find((t) => t.id === String(body.toolId || ""));
+    if (!tool) return new Response("Only a published tool from lib/tools.js can have its caveat edited here.", { status: 400 });
+    const before = String(body.before ?? "");
+    const after = String(body.after ?? "").replace(/\s+/g, " ").trim();
+    const reason = String(body.reason || "").replace(/\s+/g, " ").trim();
+    const { readiness } = await import("@/lib/drafts");
+    const problems = readiness({ ...tool, watch: after }, "tool").filter((p) => /watch/i.test(p));
+    const { commitWatchEdit, logWatchEdit, canPublish } = await import("@/lib/publish");
+    const at = new Date().toISOString();
+    const fail = async (status, error) => {
+      await logWatchEdit({ at, by: session.email, id: tool.id, name: tool.name, before, after, reason, ok: false, error });
+      return new Response(error, { status });
+    };
+    if (problems.length) return fail(400, problems.join(" "));
+    if (reason.length < 5) return fail(400, "Say in one line why the caveat is changing.");
+    if (!canPublish()) return fail(400, "GITHUB_TOKEN is not set, so there is nothing to commit with.");
+    const r = await commitWatchEdit({ id: tool.id, name: tool.name, before, after, reason });
+    if (r.error) return fail(502, r.error);
+    console.log(`[watch] edited tool:${tool.id} ${r.sha}`);
+    await logWatchEdit({ at, by: session.email, id: tool.id, name: tool.name, before, after, reason, ok: true, sha: r.sha, url: r.url });
+    return Response.json({ ok: true, sha: r.sha, url: r.url });
+  }
+
   if (action === "publish-file-draft") {
     const kind = String(body.kind || "");
     const { draftFor } = await import("@/lib/draftOutcomes");

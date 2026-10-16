@@ -16,6 +16,7 @@ import { OwnerFact, AlsoFrom } from "@/components/OwnerLine";
 import StructuredDetails from "@/components/StructuredDetails";
 import QA from "@/components/QA";
 import VendorMedia from "@/components/VendorMedia";
+import WatchEditor from "@/components/WatchEditor";
 import SaveToList from "@/components/SaveToList";
 import EditorUseControl from "@/components/EditorUseControl";
 import { editorUseBadge } from "@/lib/editorUse";
@@ -119,7 +120,7 @@ function Facts({ tool, owner }) {
  * green is the action colour and `Visit site` is the action on this page, so a
  * second green control would argue with the first.
  */
-function OwnerInvite({ tool, viewer = {} }) {
+function OwnerInvite({ tool, viewer = {}, watchLog = [] }) {
   const href = `/?tool=${encodeURIComponent(tool.id)}`;
 
   /*
@@ -145,15 +146,23 @@ function OwnerInvite({ tool, viewer = {} }) {
           * than a missing feature.
           */}
         <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
-          The summary, description, pricing, site URL and social links are editable here. The
-          category, the "watch for" note, the external ratings and the community reviews are not,
-          for anybody: those are a hand edit to the catalogue file.
+          {viewer.owns && !viewer.admin ? (
+            <>The summary, description, pricing, site URL and social links are editable here. The
+            category, the "watch for" note, the external ratings and the community reviews are not:
+            those stay with the directory.</>
+          ) : (
+            <>The summary, description, pricing, site URL and social links are editable here, and
+            as an admin the caveat below. The category, the external ratings and the community reviews
+            are a hand edit to the catalogue file.</>
+          )}
         </p>
         <a href={href} style={{
           display: "inline-block", marginTop: S.md,
           background: C.accent, color: C.onAccent, borderRadius: R.control,
           padding: "8px 16px", fontSize: F.sm, fontWeight: 700, textDecoration: "none",
         }}>Edit this listing</a>
+        {/* The caveat, admin only (invariant 1). Not for a verified owner. */}
+        {viewer.admin && <WatchEditor tool={tool} log={watchLog} />}
         {viewer.admin && (
           <div style={{ marginTop: S.lg, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
             <p style={{ fontSize: F.sm, fontWeight: 600, margin: `0 0 ${S.sm}px` }}>Editor use</p>
@@ -201,7 +210,7 @@ function OwnerInvite({ tool, viewer = {} }) {
   );
 }
 
-export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null, rivals = [], questions = [] }) {
+export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null, rivals = [], questions = [], watchLog = [] }) {
   const col = catOf(tool.cat).color;
   const socials = SOCIALS
     .map(({ key }) => [key, tool.social?.[key]])
@@ -346,7 +355,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             {/* Two different readers, so two separate controls. The line above
                 is for a visitor, this is for whoever owns the thing. They were
                 one grey sentence that served the first and hid the second. */}
-            <OwnerInvite tool={tool} viewer={viewer} />
+            <OwnerInvite tool={tool} viewer={viewer} watchLog={watchLog} />
           </div>
         </article>
 

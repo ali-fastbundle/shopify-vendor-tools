@@ -14,6 +14,7 @@ import ToolPage from "@/components/ToolPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import { rivalPairs, alternativesOf, pairSlug } from "@/lib/rivals";
 import { readQA, publicQA } from "@/lib/qa";
+import { readWatchLog } from "@/lib/publish";
 import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
@@ -122,6 +123,7 @@ export default async function Page({ params }) {
         lastUpdated={LAST_UPDATED}
         owner={ownerContext(tool, "tool", { tools })}
         questions={found.questions}
+        watchLog={viewer.admin ? (await readWatchLog(500)).filter((l) => l.id === tool.id) : []}
         rivals={alternativesOf(tool, tools, rivalPairs(tools, discovery)).map((x) => ({ name: x.tool.name, slug: pairSlug(tool.id, x.tool.id) }))}
       />
     </>

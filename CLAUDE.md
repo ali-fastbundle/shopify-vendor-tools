@@ -32,6 +32,26 @@ edit that also carries an allowed field answers 200 and saves only that field. (
 said 200 for a long time after the code stopped doing it. The protection is the point,
 not the status code.)
 
+**The one path that can change a caveat is an admin's, and it goes through git.** An admin
+editing a tool page sees the caveat editor (`components/WatchEditor.jsx`). It shows the
+current text and takes the new one and a required one-line reason. It asks twice with the
+full before and after on screen, like Publish. Then it commits to `lib/tools.js` on main
+through the same GitHub mechanism (`editWatchInSource` and `commitWatchEdit` in
+`lib/publish.js`). The message names the tool and carries the reason, and `updated` is set
+to the day. Every caveat change is in git history and is undone by a revert. The edit is
+found by parsing the file, it changes exactly `watch` and `updated`, and it is refused if
+the caveat on main is not the one the page showed. The readiness rules still apply: no empty
+caveat, no "none", no em dash. Every attempt, committed or refused, is in `svt:watchlog`
+with who, when, before, after and why, and the tool page shows that history to an admin.
+
+**This is an admin path only, and nothing about the protection changed.** `watch` is still in
+`PROTECTED`. A vendor edit drops it, an override carrying it is ignored by `mergedTools()`,
+the monitor cannot apply it, and every AI rewrite drops it as protected. The reason is the
+one above: the caveat is the directory's judgement, and the person it is about must not be
+able to change it. A caveat edit is the most consequential change on the site, which is why
+it needs a reason and leaves a commit. `scripts/watch-edit-test.mjs` runs the edit against
+every tool and checks the protection for everyone else.
+
 **2. API keys stay server-side.**
 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` are used only in `app/api/match/route.js`. Never
 move a model call into a client component. The browser talks to `/api/match`, nothing
@@ -2306,6 +2326,7 @@ the mark.
 | `lib/lists.js` `lib/limits.js` `components/ListsManager.jsx` `components/SaveToList.jsx` `app/lists` `app/api/lists` | Saved lists: store, publishing, moderation; shared input limits (client-safe); the manage page and the save control |
 | `lib/media.js` `components/MediaEditor.jsx` `components/VendorMedia.jsx` `app/api/media` | Vendor screenshots and demo link: submission, approval by commit, the editor in the owner panel, the labelled display |
 | `lib/vendorContacts.js` `lib/outreach.js` `lib/outreachTemplate.js` `app/api/admin/outreach` | Outreach (temporary): vendors' published addresses with their sources (server only), the tracking, the template |
+| `components/WatchEditor.jsx` | The admin-only caveat editor: before and after, a reason, two presses, a commit to lib/tools.js, the history |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -3127,6 +3148,7 @@ node scripts/media-test.mjs          # vendor media: claimant only, alt required
 node scripts/lists-test.mjs          # saved lists: owner only, private until published, a name not an address, indexed after review
 node scripts/suggestion-published-test.mjs  # a published suggestion leaves the queue, either path, interest carried once
 node scripts/outreach-test.mjs       # outreach: addresses from their sites only and never in a bundle, copy default, Resend guarded
+node scripts/watch-edit-test.mjs     # the admin caveat edit: exactly watch and updated, a reason, readiness; protection unchanged for everyone else
 node scripts/qa-test.mjs             # questions: signed in, vendor answers from the claims store, no address served, moderation
 node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then
 node scripts/structured-test.mjs     # attributes, pricing tiers, integrations: drafts valid, nothing public before confirm, derived price, stale rule
