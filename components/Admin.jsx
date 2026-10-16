@@ -16,6 +16,7 @@ import { COVERAGE_LABEL, coverageCounts, uncovered } from "@/lib/coverage";
 import { Pill } from "./Pill";
 import EditorUseControl from "./EditorUseControl";
 import { editorUseLine } from "@/lib/editorUse";
+import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash } from "@/lib/ideas";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
 import { SCREENS, PRIMING, questionOf } from "@/lib/recommendOptions";
@@ -64,6 +65,9 @@ const TABS = [
      not a decision about the directory, so they get a tab rather than a panel
      somewhere down Catalogue. */
   ["announcements", "Announcements"],
+  /* The backlog: ideas with an AI review, and the prompt an approved one is
+     handed to Claude Code with. Its count is what still needs a decision. */
+  ["ideas", "Ideas"],
   ["people", "People"],
   /* Audience is not system health. Tool opens, matcher queries and interest
      counts say what visitors are doing, which is a different question from
@@ -98,6 +102,7 @@ export default function AdminPanel({
   maillog = [],
   entries = {},
   editorUse = {},
+  ideas = [],
   dedupelog = [],
   changelog = [],
   monitor = {},
@@ -175,6 +180,7 @@ export default function AdminPanel({
     catalogue: catalogueCount,
     updates: openChanges.length,
     announcements: (announcements || []).filter((r) => r.status === "draft" || r.status === "ready").length,
+    ideas: (ideas || []).filter((r) => r.status === "new" || r.status === "reviewed").length,
     people: Object.keys(accounts || {}).length,
     system: 0,
   };
@@ -316,6 +322,8 @@ export default function AdminPanel({
         )}
 
         {tab === "announcements" && <Announcements initial={announcements} />}
+
+        {tab === "ideas" && <Ideas initial={ideas} />}
 
         {tab === "people" && (
           <People
@@ -1165,6 +1173,199 @@ function RecommenderFeedback({ feedback = null }) {
  * still decides whether the words are right.
  */
 const ANN_STATUS = { draft: "Draft", ready: "Ready", posted: "Posted", dropped: "Dropped" };
+
+/* ================================================================== */
+/*  Ideas                                                              */
+/*                                                                     */
+/*  The backlog (lib/ideas.js). Capture in any form, an advisory AI    */
+/*  review stored with the idea, statuses sorted then dated, and a     */
+/*  prompt to paste into Claude Code. Nothing here starts a session.   */
+/* ------------------------------------------------------------------ */
+
+const REPO_URL = "https://github.com/ali-fastbundle/shopify-vendor-tools";
+
+function Ideas({ initial = [] }) {
+  const [rows, setRows] = useState(sortIdeas(initial));
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const [form, setForm] = useState({ text: "", surface: "", size: "" });
+
+  async function post(body, tag) {
+    setBusy(tag); setErr("");
+    try {
+      const res = await fetch("/api/admin/ideas", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      if (!res.ok) { setErr(await res.text()); return false; }
+      setRows(sortIdeas((await res.json()).ideas || []));
+      return true;
+    } catch { setErr("Could not reach the server."); return false; } finally { setBusy(""); }
+  }
+
+  const open = rows.filter((r) => !["shipped", "dropped"].includes(r.status));
+  const shipped = rows.filter((r) => r.status === "shipped");
+  const dropped = rows.filter((r) => r.status === "dropped");
+
+  return (
+    <>
+      <Section title="Ideas" count={open.length}
+        hint="Write it in whatever form it arrived. Review this asks a model what it would take, what already covers it, which invariants it touches and what is wrong with it. The review is advice: it is kept with the idea, and approving against it is recorded. An approved idea can be copied as a prompt for Claude Code; paste the commit hash back when it ships.">
+        <div style={{ padding: "12px 0" }}>
+          <textarea value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })}
+            rows={4} placeholder="The idea: a sentence, a paragraph, a pasted email" aria-label="The idea"
+            style={{ ...FIELD, resize: "vertical", lineHeight: 1.5 }} />
+          <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
+            <select value={form.surface} onChange={(e) => setForm({ ...form, surface: e.target.value })}
+              aria-label="Which surface it touches" style={{ ...FIELD, width: 200 }}>
+              <option value="">Surface (optional)</option>
+              {SURFACES.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+            <select value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })}
+              aria-label="Rough size" style={{ ...FIELD, width: 180 }}>
+              <option value="">Size guess (optional)</option>
+              {SIZES.map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+            <Btn tone="go" busy={busy === "add"} disabled={form.text.trim().length < 10}
+              onClick={async () => { if (await post({ action: "add", ...form }, "add")) setForm({ text: "", surface: "", size: "" }); }}>
+              Add idea
+            </Btn>
+          </div>
+          {err && <p style={{ fontSize: F.sm, color: C.warnInk, margin: `${S.sm}px 0 0` }}>{err}</p>}
+        </div>
+        {open.length === 0
+          ? <Empty>Nothing open. Everything is shipped or dropped.</Empty>
+          : open.map((r) => <IdeaRow key={r.id} idea={r} post={post} busy={busy} />)}
+      </Section>
+      <Collapsible title="Shipped" count={shipped.length}>
+        {shipped.length === 0 ? <Empty>Nothing shipped from here yet.</Empty>
+          : shipped.map((r) => <IdeaRow key={r.id} idea={r} post={post} busy={busy} />)}
+      </Collapsible>
+      <Collapsible title="Dropped" count={dropped.length}
+        hint="Kept with the reason, and shown to every review, so the same idea next month is met with when and why it was dropped.">
+        {dropped.length === 0 ? <Empty>Nothing dropped.</Empty>
+          : dropped.map((r) => <IdeaRow key={r.id} idea={r} post={post} busy={busy} />)}
+      </Collapsible>
+    </>
+  );
+}
+
+function IdeaRow({ idea, post, busy }) {
+  const [openRow, setOpenRow] = useState(false);
+  const [status, setStatus] = useState(idea.status);
+  const [reason, setReason] = useState("");
+  const [hash, setHash] = useState("");
+  const [copied, setCopied] = useState(false);
+  const r = latestReview(idea);
+  const handoff = idea.status === "approved" || idea.status === "in progress";
+
+  async function copy() {
+    const text = handoffPrompt(idea);
+    try { await navigator.clipboard.writeText(text); } catch {
+      const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); } catch {} t.remove();
+    }
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <Row
+      dim={idea.status === "dropped"}
+      title={<button onClick={() => setOpenRow((o) => !o)} aria-expanded={openRow} style={{
+        background: "none", border: 0, padding: 0, font: "inherit", color: C.text, cursor: "pointer", textAlign: "left",
+      }}>{ideaTitle(idea)}</button>}
+      tag={idea.status}
+      badges={<>
+        {idea.surface && <Pill>{idea.surface}</Pill>}
+        {idea.size && <Pill>{idea.size}</Pill>}
+        {r && <Pill tone={r.verdict === "against" ? "warn" : "neutral"}>{`Review: ${VERDICTS[r.verdict]}${r.size ? `, ${r.size}` : ""}`}</Pill>}
+        {idea.overrode && <Pill>approved over the review</Pill>}
+      </>}
+      meta={<>
+        Added {String(idea.createdAt).slice(0, 10)}
+        {idea.seeded ? " · seeded" : ""}
+        {idea.commits?.length ? <> · shipped in {idea.commits.map((c, i) => (
+          <React.Fragment key={c}>{i ? ", " : ""}<a href={`${REPO_URL}/commit/${c}`} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{c.slice(0, 7)}</a></React.Fragment>
+        ))}</> : ""}
+        {idea.dropped ? ` · dropped ${String(idea.dropped.at).slice(0, 10)}: ${idea.dropped.reason}` : ""}
+      </>}
+      body={openRow ? (
+        <>
+          <p style={{ margin: 0, whiteSpace: "pre-wrap", color: C.text }}>{idea.text}</p>
+          {idea.stateNote && <p style={{ margin: `${S.sm}px 0 0` }}><b>Where it stands.</b> {idea.stateNote}</p>}
+          {r && <IdeaReview review={r} older={(idea.reviews || []).length - 1} />}
+          {idea.log?.length > 0 && (
+            <p style={{ margin: `${S.sm}px 0 0`, fontSize: F.xs, color: C.dim }}>
+              {idea.log.slice(0, 6).map((l) => `${String(l.at).slice(0, 10)} ${l.from} to ${l.to}${l.reason ? ` (${l.reason})` : ""}`).join(" · ")}
+            </p>
+          )}
+        </>
+      ) : (r?.summary ? <p style={{ margin: 0 }}>{r.summary}</p> : null)}
+      actions={<>
+        <Btn busy={busy === `review${idea.id}`} onClick={() => { setOpenRow(true); post({ action: "review", id: idea.id }, `review${idea.id}`); }}
+          title="Sends CLAUDE.md, the catalogue and the backlog to the model. Takes up to a couple of minutes.">
+          {r ? "Review again" : "Review this"}
+        </Btn>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status"
+          style={{ ...FIELD, width: 140, padding: "3px 8px", fontSize: F.xs }}>
+          {IDEA_STATUSES.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+        {status !== idea.status && (
+          <>
+            <input value={reason} onChange={(e) => setReason(e.target.value)}
+              placeholder={status === "dropped" ? "Why (required)" : (status === "approved" || status === "in progress") && r && r.verdict !== "go" ? "Why, over the review (optional)" : "Note (optional)"}
+              aria-label="Reason" style={{ ...FIELD, width: 260, padding: "3px 8px", fontSize: F.xs }} />
+            <Btn tone={status === "dropped" ? "stop" : "go"} busy={busy === `status${idea.id}`}
+              disabled={status === "dropped" && reason.trim().length < 5}
+              onClick={async () => { if (await post({ action: "update", id: idea.id, status, reason }, `status${idea.id}`)) setReason(""); }}>
+              Move to {status}
+            </Btn>
+          </>
+        )}
+        {handoff && <Btn onClick={copy}>{copied ? "Copied" : "Copy as prompt"}</Btn>}
+        {(handoff || idea.status === "shipped") && (
+          <span className="inline-flex" style={{ gap: S.xs }}>
+            <input value={hash} onChange={(e) => setHash(e.target.value.trim())} placeholder="Commit hash"
+              aria-label="Commit hash that shipped it" style={{ ...FIELD, width: 130, padding: "3px 8px", fontSize: F.xs }} />
+            <Btn busy={busy === `commit${idea.id}`} disabled={!isCommitHash(hash)}
+              onClick={async () => { if (await post({ action: "commit", id: idea.id, hash }, `commit${idea.id}`)) setHash(""); }}>
+              Record commit
+            </Btn>
+          </span>
+        )}
+      </>}
+    />
+  );
+}
+
+function IdeaReview({ review: r, older = 0 }) {
+  const List = ({ title, items }) => items?.length ? (
+    <div style={{ marginTop: S.sm }}>
+      <b style={{ color: C.text }}>{title}</b>
+      <ul style={{ margin: "2px 0 0", paddingLeft: 18 }}>{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+    </div>
+  ) : null;
+  return (
+    <div style={{ marginTop: S.md, borderLeft: `2px solid ${C.edge}`, paddingLeft: S.md }}>
+      <p style={{ margin: 0, color: C.text }}>
+        <b>Review, {String(r.at).slice(0, 10)}: {VERDICTS[r.verdict]}</b>{r.size ? `, ${r.size}` : ""}.
+        {" "}{r.summary}
+      </p>
+      {r.decidedBefore && <p style={{ margin: `${S.sm}px 0 0`, color: C.warnInk }}>Decided before: {r.decidedBefore}</p>}
+      <List title="Objections" items={r.objections} />
+      <List title="Already built" items={r.covered} />
+      <List title="Would require" items={r.requires} />
+      {r.invariants?.length > 0 && (
+        <List title="Invariants" items={r.invariants.map((x) => `${x.ref}. ${x.name}: ${x.how}${x.conflict ? " Conflicts." : ""}`)} />
+      )}
+      <List title="Repeats" items={(r.duplicates || []).map((d) => `${d.id}: ${d.why}`)} />
+      <List title="Depends on, not built" items={r.dependsOn} />
+      <p style={{ margin: `${S.sm}px 0 0`, fontSize: F.xs, color: C.dim }}>
+        {r.provider ? `By ${r.provider}. ` : ""}Advisory.{older > 0 ? ` ${older} earlier review${older > 1 ? "s" : ""} kept.` : ""}
+        {r.dropped?.length ? ` Dropped from the answer: ${r.dropped.join("; ")}.` : ""}
+      </p>
+    </div>
+  );
+}
 
 function Announcements({ initial = [] }) {
   const [rows, setRows] = useState(initial);

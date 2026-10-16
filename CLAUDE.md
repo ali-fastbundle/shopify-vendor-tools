@@ -950,7 +950,7 @@ hand-written entry and a published one both get it.
   server and checks exactly this, including the fourth submission in an hour.
 
 **25. `/admin` is tabs, ordered by whether there is anything to do.**
-Inbox, Catalogue, Recent updates, Announcements, People, Audience, System. It had grown to thirteen headings in one
+Inbox, Catalogue, Recent updates, Announcements, Ideas, People, Audience, System. It had grown to thirteen headings in one
 column, and finding the two that needed a decision meant scrolling past eleven
 that did not.
 
@@ -1950,6 +1950,37 @@ listing modal (`components/EditorUseControl.jsx`, one control for all three).
 `scripts/editoruse-test.mjs` covers the wording, the route, history, the exclusions and
 that no rating or recommendation path reads it.
 
+**45. Ideas: a backlog with an advisory AI review, and a prompt handed over by hand.**
+The Ideas tab on `/admin` (`?tab=ideas`). An idea is its text in whatever form it arrived,
+plus an optional surface and size. Statuses: new, reviewed, approved, in progress, shipped,
+dropped, sorted in that order and then newest first. `lib/ideas.js` (pure: statuses,
+sorting, seeds, the handoff prompt), `lib/ideaStore.js` (`svt:ideas`), `lib/ideaReview.js`
+(the model call), `app/api/admin/ideas`.
+
+- **The review reads CLAUDE.md in full** from disk (traced into the route by
+  `experimental.outputFileTracingIncludes` in `next.config.mjs`), the published
+  catalogue and the rest of the backlog, every dropped idea with its reason. It is told to
+  look for what is already built and what was already decided against first, and to find
+  the objection rather than a reason to approve. With no key, or no readable CLAUDE.md, it
+  refuses rather than guessing (invariant 20).
+- **Its answer is validated**: an invariant must be a heading in CLAUDE.md, a duplicate must
+  be an idea in the backlog, the verdict and size must be ours. What fails is dropped and
+  the drop is shown under the review.
+- **Advisory and kept.** Every review is stored with the idea, newest first, so whether
+  the objection was right can be checked later. Approving or starting an idea the latest
+  review did not back records the override, with an optional reason.
+- **Dropped keeps the idea and a required reason**, and nothing is deleted (invariant 27).
+- **This page cannot start a Claude Code session and does not say it can.** An approved
+  or in-progress idea has Copy as prompt (`handoffPrompt`): the idea, numbered changes from
+  the review, the invariants that apply, the objections and any override, what it depends
+  on, and the build, commit, push, verify ending. The commit hash is pasted back and
+  recorded, which marks the idea shipped.
+- **Seeds** (`SEEDS`) are what was open on 2026-10-16, each with a `stateNote` checked
+  against the code and history that day. They merge into the queue until first touched.
+
+`scripts/ideas-test.mjs` covers the queue, the review's validation, the prompt and the
+commit record without a server or a key.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -2028,6 +2059,7 @@ the mark.
 | `lib/coverage.js` | Which listings the monitor can actually read: monitored, in part, blocked, unreachable, no source. Pure, client-safe |
 | `lib/findings.js` | What a finding's confidence means, and the error rate per finding type. Pure, client-safe |
 | `lib/editorUse.js` `lib/editorUseStore.js` `components/EditorUseControl.jsx` | Editor use: the values, the public line, the policy and validation (client-safe); the store and its history; the admin toggle |
+| `lib/ideas.js` `lib/ideaStore.js` `lib/ideaReview.js` `app/api/admin/ideas` | The ideas backlog: statuses, seeds and the handoff prompt (client-safe); the store; the AI review against CLAUDE.md |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2820,6 +2852,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/ideas-test.mjs          # the ideas backlog: statuses, dropped reasons, review validation, handoff prompt, commits
 node scripts/editoruse-test.mjs      # editor use: wording, admin-only, history, noRecommend, feeds no rating or pick
 node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
