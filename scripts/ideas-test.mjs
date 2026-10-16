@@ -73,6 +73,13 @@ for (const id of ["seed-social-discussion", "seed-gated-recommender", "seed-vend
 }
 ok(first.filter((r) => r.seeded).every((r) => r.commits.every(I.isCommitHash)), "seeded commit hashes are hashes");
 
+for (const id of ["seed-paid-placement", "seed-advisor-service"]) {
+  const s = first.find((r) => r.id === id);
+  ok(s && s.status === "new" && /No listing here paid to be included/.test(s.stateNote) && /G2 and Capterra/.test(s.stateNote) && /footer line has to change/.test(s.stateNote),
+    `${id} is queued with the footer conflict on record`);
+}
+ok(/No listing here paid to be included/.test(readFileSync(join(ROOT, "lib/ideaReview.js"), "utf8")), "the review is told to check ideas against the footer's promise");
+
 console.log("\nthe queue:");
 ok((await call({ action: "add", text: "anything at all here" }, "someone@test.invalid")).status === 404, "a non-admin gets 404");
 {
