@@ -75,10 +75,16 @@ ok(ownerOf({ ...AJ }) === "", "and handles an absent owner");
 
 console.log("\nthe catalogue as written:");
 const aj = TOOLS.find((t) => t.id === "appjubilee");
-ok(aj?.owner === "Dark Ecommerce Labs, LLC", "AppJubilee's owner is set in the file", aj?.owner || "(none)");
-const vacuous = TOOLS.filter((t) => t.owner && isVacuousOwner(t.owner, t));
+ok(aj?.ownership?.name === "Dark Ecommerce Labs, LLC" && aj.ownership.id === "dark-ecommerce-labs",
+  "AppJubilee's owner is set in the file, as a reference", JSON.stringify(aj?.ownership || null));
+ok(TOOLS.every((t) => t.owner === undefined && t.linked === undefined && t.suite === undefined),
+  "no entry in lib/tools.js still carries free-text owner, linked or suite");
+/* An owner's own product is allowed to point at it (Mantle, Marmeto,
+   ShopExperts): that is what puts it on the owner's page. What must not
+   happen is the line printing it, which ownerOf refuses. */
+const vacuous = TOOLS.filter((t) => ownerOf(t) && isVacuousOwner(ownerOf(t), { name: t.name, id: t.id }));
 ok(vacuous.length === 0, "no entry in lib/tools.js names itself as its own owner",
-  vacuous.map((t) => `${t.id}="${t.owner}"`).join(", "));
+  vacuous.map((t) => `${t.id}="${t.ownership.name}"`).join(", "));
 
 console.log("\nthe stored sweep:");
 {
@@ -122,9 +128,9 @@ console.log("\nthe merge, where an override outranks the file:");
   await store.write("svt:overrides", { appjubilee: { owner: "AppJubilee" } });
   const merged = await listings.mergedTools();
   const t = merged.find((x) => x.id === "appjubilee");
-  ok(t.owner === "Dark Ecommerce Labs, LLC",
+  ok(t.ownership?.name === "Dark Ecommerce Labs, LLC",
     "the file's real owner shows through, rather than the entry losing its owner entirely",
-    `got "${t.owner}"`);
+    `got ${JSON.stringify(t.ownership)}`);
   ok(ownerOf(t) === "Dark Ecommerce Labs, LLC", "and it renders");
 }
 

@@ -1,4 +1,5 @@
 import React from "react";
+import { AlsoFrom } from "@/components/OwnerLine";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
 import { outbound } from "@/lib/outbound";
 import { countdown, RELEVANCE_LABEL, dayLabel } from "@/lib/events";
@@ -161,8 +162,12 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
   const domain = String(e.url || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0];
   const socials = Object.entries(e.social || {}).filter(([, href]) => href);
   const where = [e.venue && !/^(tbd|n\/a)$/i.test(e.venue) ? e.venue : "", placeOf(e)].filter(Boolean).join(", ");
+  /* The organizer, linked to its owner page when it has one. `e.owner` is the
+     context the server attached (ownerContext in lib/ownerIndex.js). */
   const facts = [
-    e.organizer && `by ${e.organizer}`,
+    e.organizer && (e.owner?.href
+      ? <>by <a href={e.owner.href} style={{ color: "inherit", textDecoration: "underline", textDecorationColor: C.edge, textUnderlineOffset: 2 }}>{e.organizer}</a></>
+      : `by ${e.organizer}`),
     e.attendees && `${e.attendees} attendees, by the organizer's count`,
     e.focus,
   ].filter(Boolean);
@@ -201,15 +206,18 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
       {e.one && <p style={{ fontSize: F.lg, lineHeight: 1.55, margin: `${S.lg}px 0 0` }}>{e.one}</p>}
 
       {facts.length > 0 && (
+        <>
         <p className="flex flex-wrap items-baseline" style={{ gap: S.sm, margin: `${S.md}px 0 0` }}>
           {facts.map((f, i) => (
-            <React.Fragment key={f}>
+            <React.Fragment key={typeof f === "string" ? f : i}>
               {i > 0 && <Sep />}
               <span style={{ fontSize: F.xs, color: C.muted }}>{f}</span>
             </React.Fragment>
           ))}
         </p>
+        </>
       )}
+      <AlsoFrom ctx={e.owner} />
 
       {e.audience && (
         <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.lg}px 0 0` }}>

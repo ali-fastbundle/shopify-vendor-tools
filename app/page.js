@@ -1,5 +1,6 @@
 import Directory from "@/components/Directory";
 import { mergedTools } from "@/lib/listings";
+import { ownerContexts } from "@/lib/ownerIndex";
 import { read, KEYS } from "@/lib/store";
 import { publicReviews } from "@/lib/reviews";
 import { homeGraph } from "@/lib/seo";
@@ -54,7 +55,7 @@ export default async function Page() {
           server sent one order and the browser re-sorted into another once
           /api/data arrived: the largest layout shift on the page (0.26). */}
       <Directory tools={tools} feed={feed} newsletterCount={NEWSLETTERS.length}
-        initialVotes={votes} initialReviews={reviews} />
+        initialVotes={votes} initialReviews={reviews} owners={ownerContexts(tools)} />
     </>
   );
 }

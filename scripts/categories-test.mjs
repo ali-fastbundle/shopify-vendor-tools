@@ -35,6 +35,7 @@ for (const f of readdirSync(join(ROOT, "lib"))) {
 const load = (f) => import(pathToFileURL(join(dir, f)).href);
 const T = await load("lib/tools.js");
 const seo = await load("lib/seo.js");
+const OW = await load("lib/owners.js");
 const { sanitiseEntry } = await load("lib/entries.js");
 const { CATEGORIES, catsOf, secondaryCats, isInCat, isPrimaryCat, findCat, catOf, TOOLS } = T;
 
@@ -269,8 +270,7 @@ console.log("\nrelated tools:");
       const related = (isCatLabel(why) || why === "")
         ? catsOf(t).some((id) => isInCat(r, id))
         : why === "same owner"
-          ? Boolean((t.linked && (r.name === t.linked || r.linked === t.name))
-            || (t.suite && r.suite === t.suite)
+          ? Boolean((OW.ownershipOf(t)?.id && OW.ownershipOf(t).id === OW.ownershipOf(r)?.id)
             || (T.ownerOf(t) && T.ownerOf(r) === T.ownerOf(t)))
           : (t.competes || []).includes(r.id) || (r.competes || []).includes(t.id);
       if (!related) { ok(false, `${t.name} -> ${r.name} is not actually ${why}`); padded += 1; }

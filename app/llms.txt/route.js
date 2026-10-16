@@ -1,8 +1,9 @@
 import { mergedTools } from "@/lib/listings";
 import {
   CATEGORIES, catOf, secondaryCats, isInCat, isPrimaryCat,
-  AUTHOR, AUTHOR_URL, LAST_UPDATED, ownerOf,
+  AUTHOR, AUTHOR_URL, LAST_UPDATED,
 } from "@/lib/tools";
+import { ownershipLine } from "@/lib/owners";
 import { SITE, isForVendors } from "@/lib/seo";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { EVENTS, agenda } from "@/lib/events";
@@ -88,9 +89,7 @@ ${byCat.map(({ cat, items }) => `### ${cat.label}
 ${items.map((t) => [
     `- [${t.name}](${SITE}/tools/${t.id}): ${t.one}`,
     `  site: ${t.url} | pricing: ${t.price}${t.free ? " | has a free tier" : ""}`,
-    t.suite || t.linked || ownerOf(t)
-      ? `  ownership: ${t.suite ? `part of ${t.suite}` : t.linked ? `same owner as ${t.linked}` : `built by ${ownerOf(t)}`}`
-      : "",
+    ownershipLine(t) ? `  ownership: ${ownershipLine(t)}` : "",
     secondaryCats(t).length
       ? `  also in: ${secondaryCats(t).map((id) => catOf(id).label).join(", ")}`
       : "",

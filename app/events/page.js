@@ -1,6 +1,7 @@
 import { withShareImage } from "@/lib/ogCard";
 import { agenda, placed, todayISO } from "@/lib/events";
 import { mergedEvents } from "@/lib/listings";
+import { ownerContext } from "@/lib/ownerIndex";
 import { LAST_UPDATED } from "@/lib/tools";
 import { SITE, EVENTS_URL } from "@/lib/seo";
 import Events from "@/components/Events";
@@ -57,7 +58,7 @@ export default async function Page() {
     <>
       <SectionView id="events" />
       <JsonLd data={graph} />
-      <Events plan={plan} events={placed(EVENTS, today)} lastUpdated={LAST_UPDATED} />
+      <Events plan={plan} events={placed(EVENTS, today).map((e) => ({ ...e, owner: ownerContext(e, "event", { events: EVENTS }) }))} lastUpdated={LAST_UPDATED} />
     </>
   );
 }

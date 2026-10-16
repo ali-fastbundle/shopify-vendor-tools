@@ -658,7 +658,7 @@ make-work, and make-work is how a weekly digest stops being read.
 **Three whitelists, and the difference between them is the point.**
 `EDITABLE` is what a *vendor* may change about themselves. `APPLIABLE` is what
 an *admin* may apply from a proposal, which is wider because the monitor is not
-an interested party: it adds `owner`, `linked`, `suite` and `dying`, the facts a
+an interested party: it adds `ownership` and `dying`, the facts a
 vendor should not get to assert about themselves. `PROTECTED` is what no route
 may write: `watch`, `cat`, `alsoIn`, `verified`, `ratings`, `updated`, `id`, `name`,
 `noRecommend`, `competes`.
@@ -1198,7 +1198,7 @@ candidate and one nobody thought of look identical later:
   it there. That category is defined as freelance developers and expert
   marketplaces, for hiring and for affiliate partnerships, and you cannot hire a
   research participant to build anything. The real connection to ShopExperts is the
-  shared owner, which `linked` already states.
+  shared owner, which `ownership` already states.
 - **StoreCensus has no secondary**, because outreach is not a category and does not
   need to be. `storedb` is already "query the merchant universe by platform, apps
   installed, revenue band and contacts", and Store Leads, CartInsight and
@@ -1499,7 +1499,7 @@ instruction.
   time something ships has stopped being a listing.
 - **It writes `one`, `note` and `price`, and nothing else.** Everything else the
   model returns is dropped and the drop is shown. `watch`, `cat`, `verified`,
-  `ratings`, the rest of `PROTECTED` and ownership (`owner`, `linked`, `suite`)
+  `ratings`, the rest of `PROTECTED` and `ownership` (and the legacy `owner`, `linked`, `suite`)
   are dropped as protected: a monitor-driven rewrite of a caveat is the failure
   invariant 23 exists to prevent. `sanitiseProposal` in `lib/rewrite.js` is the
   one copy of the rule, and the save action runs it again on whatever the
@@ -2002,6 +2002,47 @@ sorting, seeds, the handoff prompt), `lib/ideaStore.js` (`svt:ideas`), `lib/idea
 `scripts/ideas-test.mjs` covers the queue, the review's validation, the prompt and the
 commit record without a server or a key.
 
+**46. Ownership is a reference to an owner, and every shared owner has a page.**
+An entry's owner is `ownership: { id, name, verb?, note? }`, where `id` is a row in
+`OWNERS` (`lib/owners.js`: id, name, type, url, notes). It replaced the free-text `owner`,
+`linked` and `suite` on tools, and sits beside `publisher` on a newsletter and `organizer`
+on an event where the owner is shared. `name` is how this entry's line shows it, `verb`
+replaces "by" / "published by" / "organized by" ("part of", "acquired by"), and `note` is
+the one sentence the owner's page states about this relationship.
+
+- **Nothing is inferred.** An owner is recorded only where the catalogue's own text says
+  it. App Store Analytics is named in SASI's note but is not a listing, so Mantle's page
+  has two entries. The Wide Event is run by one person, and nothing here connects him to
+  The Wide Company, so it is not on that page.
+- **The owner's own product is a member, not an owner line.** Mantle, Marmeto and
+  ShopExperts point at their own owner so they appear on its page; `ownershipOf` marks them
+  `own` and the line says nothing (invariant 32). In a sibling list they read as "the Mantle
+  listing", because "Also from Mantle: Mantle" reads as a mistake.
+- **A file reference is checked against the entry's name and id, never its domain.**
+  Elevate and Orbit live on marmeto.com, and the domain check in `isVacuousOwner`, which is
+  right for monitor free text, hid "part of Marmeto". `ownerOf` and `ownershipOf` both apply
+  this.
+- **Pages only for two or more published entries**: `/owners/[id]`
+  (`components/Owners.jsx`, no client state, Organization or Person JSON-LD with the owner's
+  site as `sameAs`, in the sitemap, dated by its newest entry) and `/owners`. A one-entry
+  owner is plain text and its id 404s, because a page about one listing repeats that
+  listing. Drafts never count (invariant 12).
+- **On a listing**: the owner in the facts line, linked when it has a page (`OwnerFact`),
+  and "Also from <owner>: X, Y" across tools, newsletters and events (`AlsoFrom`), both
+  from `ownerContext` in `lib/ownerIndex.js`, built on the server. On the tool page, the
+  modal, the newsletter page and the event page and modal. Not on the card (rule J).
+- **The monitor writes this field.** `ownership` is in `APPLIABLE` instead of `owner`,
+  `linked` and `suite`. A proposal naming any of the three is mapped to it, the value stays a
+  name on the Apply button, and `applyFieldEdit` turns it into a reference to a known owner
+  or a name with no page yet. One naming the tool itself is suppressed before it is shown
+  and refused on apply. Undo maps the same way. A legacy override still holding free-text
+  `owner` reads as a reference, and the sweep clears vacuous values in both shapes.
+- **Catalogue parsing counts array elements only** (`objects` in `lib/publish.js`), because
+  an entry now holds an object with an `id` of its own.
+
+`scripts/owners-test.mjs` covers the references, the named groups, pages, siblings, the
+monitor path and legacy values.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -2082,6 +2123,7 @@ the mark.
 | `lib/findings.js` | What a finding's confidence means, and the error rate per finding type. Pure, client-safe |
 | `lib/editorUse.js` `lib/editorUseStore.js` `components/EditorUseControl.jsx` | Editor use: the values, the public line, the policy and validation (client-safe); the store and its history; the admin toggle |
 | `lib/ideas.js` `lib/ideaStore.js` `lib/ideaReview.js` `app/api/admin/ideas` | The ideas backlog: statuses, seeds and the handoff prompt (client-safe); the store; the AI review against CLAUDE.md |
+| `lib/owners.js` `lib/ownerIndex.js` `components/Owners.jsx` `components/OwnerLine.jsx` `app/owners` | Owners: the list and resolving an entry's reference (client-safe); what each owner controls across catalogues; the owner pages; the facts link and "Also from" line |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2622,7 +2664,7 @@ caveat, look harder before writing "none".
 
 **Shared ownership is always disclosed, and it belongs in `watch` only where the
 products overlap or compete.** The disclosure itself is the neutral ownership field:
-`linked`, `owner` or `suite`, which `Facts` renders as one line of muted type and the
+`ownership` (invariant 46), which `Facts` renders as one line of muted type and the
 compare table renders as a row. That states it as fact, which is what it is. Moving it
 into `watch` makes it a warning, and a warning needs something to warn about.
 
@@ -2634,7 +2676,7 @@ internal tracker and Craftshift sells product-image apps. In each of those, the 
 is the caveat.
 
 App Store Research and ShopExperts are the same owner and do not compete with each other
-or with you: a research panel and an expert marketplace. There, `linked` says it and
+or with you: a research panel and an expert marketplace. There, `ownership` says it and
 `watch` covers the real caveats, which are the incentive structure and who pays to be
 listed. A `watch` opening with a fact that is already on the card, stated neutrally, one
 line up, trains people to skim the field that matters most.
@@ -2874,6 +2916,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/owners-test.mjs         # owner references, the shared-owner pages, siblings, the monitor writing ownership
 node scripts/about-test.mjs          # /about: text, formatting, links and photo editable from admin, no email or phone, reset
 node scripts/ideas-test.mjs          # the ideas backlog: statuses, dropped reasons, review validation, handoff prompt, commits
 node scripts/editoruse-test.mjs      # editor use: wording, admin-only, history, noRecommend, feeds no rating or pick

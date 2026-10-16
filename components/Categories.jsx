@@ -1,7 +1,8 @@
 import React from "react";
 import { outbound } from "@/lib/outbound";
 import {
-  C, S, R, F, TRACK, ink, catOf, ownerOf, priceLine } from "@/lib/tools";
+  C, S, R, F, TRACK, ink, catOf, priceLine } from "@/lib/tools";
+import { ownershipLine } from "@/lib/owners";
 import { logoAlt } from "@/lib/seo";
 import { Pill } from "@/components/Pill";
 import PostLinks from "@/components/PostLinks";
@@ -64,9 +65,7 @@ function Member({ tool, primary }) {
      label beside a price that already says Free. */
   const facts = [
     priceLine(tool),
-    tool.suite && `part of ${tool.suite}`,
-    tool.linked && `same owner as ${tool.linked}`,
-    ownerOf(tool) && `by ${ownerOf(tool)}`,
+    ownershipLine(tool),
     tool.shopifyExclusive === false && "not Shopify-only",
   ].filter(Boolean);
 

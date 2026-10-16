@@ -11,6 +11,7 @@ import {
   SITE, toolUrl, toolDescription, toolGraph, relatedTools, logoAlt, ratingOf,
 } from "@/lib/seo";
 import ToolPage from "@/components/ToolPage";
+import { ownerContext } from "@/lib/ownerIndex";
 import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
@@ -115,6 +116,7 @@ export default async function Page({ params }) {
         rating={ratingOf(tool.id, reviews)}
         viewer={viewer}
         lastUpdated={LAST_UPDATED}
+        owner={ownerContext(tool, "tool", { tools })}
       />
     </>
   );

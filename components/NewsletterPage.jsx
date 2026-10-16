@@ -1,4 +1,5 @@
 import React from "react";
+import { AlsoFrom } from "@/components/OwnerLine";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
@@ -30,7 +31,7 @@ const Fact = ({ children }) => (
  * 2026" have to read as different kinds of thing at a glance. The rest of the
  * facts follow in muted type.
  */
-function Facts({ n }) {
+function Facts({ n, owner }) {
   const since = n.started ? `since ${formatStarted(n.started)}` : "";
   const run = [n.cadence, n.issueCount ? `${n.issueCount.toLocaleString()} issues` : (n.cadence ? "" : "New")]
     .filter(Boolean).join(", ");
@@ -39,7 +40,10 @@ function Facts({ n }) {
     since,
     n.free && "Free",
     n.author && `by ${n.author}`,
-    n.publisher && n.publisher !== n.author && n.publisher,
+    /* The publisher, linked to its owner page when it has one (lib/owners.js). */
+    n.publisher && n.publisher !== n.author && (owner?.href
+      ? <a key="pub" href={owner.href} style={{ color: "inherit", textDecoration: "underline", textDecorationColor: C.edge, textUnderlineOffset: 2 }}>{n.publisher}</a>
+      : n.publisher),
     n.platform,
     n.claimed && "claimed",
   ].filter(Boolean);
@@ -47,7 +51,7 @@ function Facts({ n }) {
   return (
     <p className="flex flex-wrap items-baseline" style={{ gap: S.sm, margin: `${S.md}px 0 0` }}>
       {facts.map((f, i) => (
-        <React.Fragment key={f}>
+        <React.Fragment key={typeof f === "string" ? f : i}>
           {i > 0 && <span aria-hidden="true" style={{
             width: 1, height: 9, background: C.edge, display: "inline-block", opacity: 0.7,
           }} />}
@@ -72,7 +76,7 @@ function formatStarted(s) {
 const domainOf = (url) =>
   String(url || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
 
-export default function NewsletterPage({ newsletter: n, related, reviews = [], rating, forVendors, session = null, lastUpdated }) {
+export default function NewsletterPage({ newsletter: n, related, reviews = [], rating, forVendors, session = null, lastUpdated, owner = null }) {
   const domain = String(n.url || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0];
   const socials = Object.entries(n.social || {}).filter(([, href]) => href);
 
@@ -126,7 +130,8 @@ export default function NewsletterPage({ newsletter: n, related, reviews = [], r
               {n.one}
             </p>
 
-            <Facts n={n} />
+            <Facts n={n} owner={owner} />
+            <AlsoFrom ctx={owner} />
 
             <p style={{ fontSize: F.lg, lineHeight: 1.62, margin: `${S.xl}px 0 0` }}>{n.note}</p>
 

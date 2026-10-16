@@ -2,7 +2,7 @@ import React from "react";
 import { outbound } from "@/lib/outbound";
 import {
   C, S, R, F, TRACK, ink, catOf, secondaryCats, socialLabel, SOCIALS,
-  formatDay, ownerOf,
+  formatDay,
 } from "@/lib/tools";
 import { toolDescription, logoAlt } from "@/lib/seo";
 /*
@@ -12,6 +12,7 @@ import { toolDescription, logoAlt } from "@/lib/seo";
  * whole point, which is that this badge looks the same everywhere it appears.
  */
 import { Pill } from "@/components/Pill";
+import { OwnerFact, AlsoFrom } from "@/components/OwnerLine";
 import EditorUseControl from "@/components/EditorUseControl";
 import { editorUseBadge } from "@/lib/editorUse";
 import PostLinks from "@/components/PostLinks";
@@ -42,13 +43,12 @@ const Fact = ({ children }) => (
   <span style={{ fontSize: F.xs, color: C.muted }}>{children}</span>
 );
 
-function Facts({ tool }) {
+function Facts({ tool, owner }) {
   const facts = [
     tool.price,
     tool.free && "free plan",
-    tool.suite && `part of ${tool.suite}`,
-    tool.linked && `same owner as ${tool.linked}`,
-    ownerOf(tool) && `by ${ownerOf(tool)}`,
+    /* The owner, linked to its page when it has one (components/OwnerLine.jsx). */
+    owner?.line && <OwnerFact key="owner" ctx={owner} />,
     tool.suggestedBy >= 2 && `suggested by ${tool.suggestedBy} people`,
     /* The one qualifier a general tool's own page cannot be without. It is the
        badge from the list row and the modal, set as type here because on this
@@ -61,7 +61,7 @@ function Facts({ tool }) {
   return (
     <p className="flex flex-wrap items-baseline" style={{ gap: S.sm, margin: `${S.md}px 0 0` }}>
       {facts.map((f, i) => (
-        <React.Fragment key={f}>
+        <React.Fragment key={typeof f === "string" ? f : i}>
           {i > 0 && <span aria-hidden="true" style={{
             width: 1, height: 9, background: C.edge, display: "inline-block", opacity: 0.7,
           }} />}
@@ -197,7 +197,7 @@ function OwnerInvite({ tool, viewer = {} }) {
   );
 }
 
-export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated }) {
+export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null }) {
   const col = catOf(tool.cat).color;
   const socials = SOCIALS
     .map(({ key }) => [key, tool.social?.[key]])
@@ -271,7 +271,8 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
               {tool.one}
             </p>
 
-            <Facts tool={tool} />
+            <Facts tool={tool} owner={owner} />
+            <AlsoFrom ctx={owner} />
             {/* Editor use as a neutral badge, and nothing when unset. */}
             {editorUseBadge(tool.editorUse) && (
               <p style={{ margin: `${S.sm}px 0 0` }}><Pill>{editorUseBadge(tool.editorUse)}</Pill></p>

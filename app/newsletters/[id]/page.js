@@ -11,6 +11,7 @@ import {
   ratingOf, isForVendors,
 } from "@/lib/seo";
 import NewsletterPage from "@/components/NewsletterPage";
+import { ownerContext } from "@/lib/ownerIndex";
 import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,7 @@ export default async function Page({ params }) {
       <JsonLd data={newsletterGraph(n, reviews)} />
       <NewsletterPage
         newsletter={n}
+        owner={ownerContext(n, "newsletter")}
         related={related}
         reviews={nReviews}
         rating={ratingOf(n.id, reviews)}

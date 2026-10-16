@@ -28,7 +28,7 @@ import FooterLinks from "@/components/FooterLinks";
 /* The sections, in order, and which paths count as being in each. A tool page
    and a category page are the directory seen one entry at a time. */
 export const SITE_VIEWS = [
-  { id: "directory", label: "Directory", href: "/", match: (p) => p === "/" || p.startsWith("/tools/") || p.startsWith("/categories") },
+  { id: "directory", label: "Directory", href: "/", match: (p) => p === "/" || p.startsWith("/tools/") || p.startsWith("/categories") || p.startsWith("/owners") },
   { id: "newsletters", label: "Newsletters", href: "/newsletters", match: (p) => p.startsWith("/newsletters") },
   { id: "events", label: "Events", href: "/events", match: (p) => p.startsWith("/events") },
   { id: "updates", label: "Recent updates", href: "/changes", match: (p) => p.startsWith("/changes") },

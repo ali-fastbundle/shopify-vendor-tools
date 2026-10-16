@@ -2,6 +2,7 @@ import { withShareImage } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
 import { placed, todayISO } from "@/lib/events";
 import { mergedEvents } from "@/lib/listings";
+import { ownerContext } from "@/lib/ownerIndex";
 import { read, KEYS } from "@/lib/store";
 import { publicReviews } from "@/lib/reviews";
 import { LAST_UPDATED } from "@/lib/tools";
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 async function load(id) {
   const today = todayISO();
   const [events, stored] = await Promise.all([mergedEvents(), read(KEYS.reviews, {})]);
-  const all = placed(events, today);
+  const all = placed(events, today).map((x) => ({ ...x, owner: ownerContext(x, "event", { events }) }));
   const e = all.find((x) => x.id === id);
   return e ? { e, all, today, reviews: publicReviews(stored)[id] || [] } : null;
 }

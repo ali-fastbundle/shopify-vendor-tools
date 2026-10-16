@@ -13,6 +13,8 @@ import CopyLink from "./CopyLink";
 import GrowText from "./GrowText";
 import Vote from "./Vote";
 import VisitSite from "./VisitSite";
+import { OwnerFact, AlsoFrom } from "./OwnerLine";
+import { ownershipOf as resolveOwnership } from "@/lib/owners";
 import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { OwnerPanel, SignInPrompt, useSession } from "./Account";
@@ -224,11 +226,12 @@ function ExternalRatings({ ratings, detail = false }) {
  * view and the compare table so the two cannot describe the same tool
  * differently.
  */
-const ownershipOf = (t) =>
-  t.suite ? `Part of ${t.suite}`
-    : t.linked ? `Same owner as ${t.linked}`
-      : ownerOf(t) ? `Built by ${ownerOf(t)}`
-        : "Independent";
+const ownershipOf = (t) => {
+  const o = resolveOwnership(t);
+  if (!o) return "Independent";
+  /* The owner's own product names the owner rather than "Built by" itself. */
+  return o.own ? o.name : `${o.verb.charAt(0).toUpperCase()}${o.verb.slice(1)} ${o.name}`;
+};
 
 /*
  * The one badge a tool can carry besides "winding down".
@@ -685,7 +688,7 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {} }) {
+export default function Directory({ tools: initialTools, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {}, owners = {} }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
   /* From the server, so the first render is already sorted the way it will
@@ -1270,6 +1273,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
         <DetailModal
           key={detail}
           tool={tools.find((t) => t.id === detail)}
+          owner={owners[detail] || null}
           initialRating={detailRating}
           onClose={closeTool}
           reviews={reviews[detail] || []}
@@ -1498,14 +1502,12 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
  * it read as a mark against the tool. It lives in the data and shows on /admin,
  * which is where the question "what still needs checking" is actually asked.
  */
-function Facts({ tool }) {
+function Facts({ tool, owner }) {
   const facts = [
     tool.free && "free plan",
-    tool.suite && `part of ${tool.suite}`,
-    tool.linked && `same owner as ${tool.linked}`,
-    /* ownerOf, never tool.owner. A stored value equal to the tool's own name
-       says nothing and has been in the record before now. */
-    ownerOf(tool) && `by ${ownerOf(tool)}`,
+    /* The owner, linked to its page when it has one. Built on the server
+       (ownerContext) and nothing when the owner is the tool itself. */
+    owner?.line && <OwnerFact key="owner" ctx={owner} />,
     /* Two or more only. "Suggested by 1 person" is how everything got here and
        says nothing about this one; the number is information once it is
        demand rather than provenance. Counted in lib/interest.js. */
@@ -1516,7 +1518,7 @@ function Facts({ tool }) {
   return (
     <span className="flex flex-wrap items-baseline" style={{ gap: S.sm, fontSize: F.xs, color: C.muted }}>
       {facts.map((f, i) => (
-        <span key={f} className="inline-flex items-baseline" style={{ gap: S.sm }}>
+        <span key={typeof f === "string" ? f : i} className="inline-flex items-baseline" style={{ gap: S.sm }}>
           {i > 0 && <span aria-hidden="true" style={{
             width: 1, height: 9, background: C.edge, display: "inline-block", opacity: 0.7,
           }} />}
@@ -1729,7 +1731,7 @@ function Shell({ children, onClose, width = 860 }) {
   );
 }
 
-function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
+function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
   const col = catOf(tool.cat).color;
   /*
    * Most helpful first, most recent to break a tie. The comparator lives in
@@ -1764,12 +1766,13 @@ function DetailModal({ tool, onClose, reviews, onReview, onHelpful, avg, votes, 
 
         <div className="flex flex-wrap items-baseline" style={{ gap: S.md, marginTop: S.lg }}>
           <span className="tnum" style={{ fontSize: F.md, fontWeight: 700, color: C.text }}>{tool.price}</span>
-          <Facts tool={tool} />
+          <Facts tool={tool} owner={owner} />
           {tool.dying && <Pill tone="warn">winding down</Pill>}
           <NotShopifyOnly tool={tool} />
           {editorUseBadge(tool.editorUse) && <Pill>{editorUseBadge(tool.editorUse)}</Pill>}
         </div>
 
+        <AlsoFrom ctx={owner} />
         <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
         <p className="mt-3" style={{ fontSize: F.md, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
           <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}

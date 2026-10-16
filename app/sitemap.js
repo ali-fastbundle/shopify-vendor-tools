@@ -4,6 +4,7 @@ import { SITE } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
 import { EVENTS } from "@/lib/events";
 import { POSTS } from "@/lib/blog";
+import { ownersWithPages } from "@/lib/ownerIndex";
 
 export const dynamic = "force-dynamic";
 
@@ -110,6 +111,18 @@ export default async function sitemap() {
       changeFrequency: "monthly",
       priority: 0.7,
     })),
+    /* Owners with two or more listings (lib/owners.js), each dated by the
+       newest of its entries, and the index dated by the newest of them. */
+    ...(() => {
+      const owners = ownersWithPages({ tools, newsletters, events: EVENTS });
+      const byId = (m) => [...tools, ...newsletters, ...EVENTS].find((x) => x.id === m.id)?.updated || "";
+      const newest = (o) => o.entries.map(byId).filter(Boolean).sort().at(-1) || LAST_UPDATED_ISO;
+      if (!owners.length) return [];
+      return [
+        { url: `${SITE}/owners`, lastModified: new Date(owners.map(newest).sort().at(-1)), changeFrequency: "monthly", priority: 0.4 },
+        ...owners.map((o) => ({ url: `${SITE}/owners/${o.id}`, lastModified: new Date(newest(o)), changeFrequency: "monthly", priority: 0.5 })),
+      ];
+    })(),
     { url: `${SITE}/about`, lastModified: new Date("2026-10-16"), changeFrequency: "yearly", priority: 0.4 },
     { url: `${SITE}/privacy`, lastModified: new Date("2026-10-10"), changeFrequency: "yearly", priority: 0.2 },
   ];
