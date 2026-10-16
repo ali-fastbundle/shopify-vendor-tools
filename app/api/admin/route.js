@@ -126,6 +126,22 @@ export async function POST(request) {
     return Response.json({ comments: adminComments(r.comments, titleOf) });
   }
 
+  /*
+   * Questions and answers on a tool (lib/qa.js): mark a question fine, hide a
+   * question or an answer with a reason, unhide, or delete. Keyed by tool,
+   * question id and answer id, never by position.
+   */
+  if (["qa-fine", "qa-hide", "qa-unhide", "qa-delete"].includes(action)) {
+    const { readQA, saveQA, moderateQA, adminQA } = await import("@/lib/qa");
+    const all = await readQA();
+    const r = moderateQA(all, String(body.toolId || ""), String(id || ""), action.replace("qa-", ""),
+      { answerId: String(body.answerId || ""), reason: body.reason, by: session.email });
+    if (r.error) return new Response(r.error, { status: 400 });
+    await saveQA(r.qa);
+    const names = Object.fromEntries((await catalogueTools()).map((t) => [t.id, t.name]));
+    return Response.json({ questions: adminQA(r.qa, (tid) => names[tid] || tid) });
+  }
+
   if (action === "seen-inbox") {
     const seen = await read(KEYS.adminSeen, {});
     seen[session.email] = new Date().toISOString();

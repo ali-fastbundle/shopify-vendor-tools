@@ -2109,6 +2109,25 @@ cannot be reached by typing it either.
 `scripts/rivals-test.mjs` covers the pair rule, the slug, the differences, the indexing
 rule against the sitemap, and what the pages carry.
 
+**49. Questions are not reviews.**
+Every tool page, and the listing modal, has Questions below the reviews (`lib/qa.js`,
+`components/QA.jsx`, `/api/qa`). A review is an opinion with a rating. A question is "does
+it do X", so it has no stars, no rating, its own heading, and "Q." and "A." on every entry.
+
+- **Signed in to ask or answer**, checked above the limiter, with a review's limit
+  (fifteen in ten minutes per IP).
+- **Addresses are private** and leave only through `publicQA`, like `publicReviews`.
+- **The vendor's answer is marked "From the vendor"** only when the answerer is the
+  verified claimant, read from the claims store when the answer is written, never from
+  the request. It says who answered, not that the answer is right, and it is listed first.
+- **Live at once, then read by a person.** New questions are in the Inbox ("Questions to
+  read"): Looks fine, Hide with a required reason (kept, reversible), or Delete. Answers can
+  be hidden or deleted from the same row.
+- **Mail:** a question goes to the admin. An answer goes to the asker once, unless they
+  answered it themselves (`question` and `answer` in the mail matrix).
+
+`scripts/qa-test.mjs`.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -2192,6 +2211,7 @@ the mark.
 | `lib/owners.js` `lib/ownerIndex.js` `components/Owners.jsx` `components/OwnerLine.jsx` `app/owners` | Owners: the list and resolving an entry's reference (client-safe); what each owner controls across catalogues; the owner pages; the facts link and "Also from" line |
 | `lib/categories.js` `lib/structured.js` `lib/structuredStore.js` `components/StructuredDetails.jsx` | Structured data: attribute sets, integrations and pricing rules (client-safe); the drafts from the notes (admin only); what was confirmed; the details table |
 | `lib/rivals.js` `lib/rivalsData.js` `components/Comparisons.jsx` `app/alternatives` `app/compare` | Which tools genuinely compete, the differences built from confirmed data, and the alternatives and head-to-head pages |
+| `lib/qa.js` `components/QA.jsx` `app/api/qa` | Questions and answers per tool: the store, the public strip, moderation, the ask and answer component |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2847,6 +2867,8 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `report` | yes | thank you, only if they gave an address |
 | `listing_edited` | yes | nothing (they just made the edit) |
 | `monitor_digest` | yes, and only when something changed | nothing |
+| `question` | yes | nothing |
+| `answer` | no | the asker, once, unless they answered it themselves |
 | `contact` | to `CONTACT_EMAIL`, `reply_to` the sender | nothing, ever (invariant 38) |
 | `follow_confirm` | no | the confirm link; nothing is stored until it is clicked |
 | `follow_digest` | no | today's news about what they follow, one email, a stop link per item |
@@ -2994,6 +3016,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/qa-test.mjs             # questions: signed in, vendor answers from the claims store, no address served, moderation
 node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then
 node scripts/structured-test.mjs     # attributes, pricing tiers, integrations: drafts valid, nothing public before confirm, derived price, stale rule
 node scripts/owners-test.mjs         # owner references, the shared-owner pages, siblings, the monitor writing ownership

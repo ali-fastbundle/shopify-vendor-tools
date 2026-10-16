@@ -14,6 +14,7 @@ import { toolDescription, logoAlt } from "@/lib/seo";
 import { Pill } from "@/components/Pill";
 import { OwnerFact, AlsoFrom } from "@/components/OwnerLine";
 import StructuredDetails from "@/components/StructuredDetails";
+import QA from "@/components/QA";
 import EditorUseControl from "@/components/EditorUseControl";
 import { editorUseBadge } from "@/lib/editorUse";
 import PostLinks from "@/components/PostLinks";
@@ -198,7 +199,7 @@ function OwnerInvite({ tool, viewer = {} }) {
   );
 }
 
-export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null, rivals = [] }) {
+export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null, rivals = [], questions = [] }) {
   const col = catOf(tool.cat).color;
   const socials = SOCIALS
     .map(({ key }) => [key, tool.social?.[key]])
@@ -375,6 +376,9 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             </div>
           </section>
         )}
+
+        {/* Below the reviews and apart from them (lib/qa.js). */}
+        <QA toolId={tool.id} toolName={tool.name} initial={questions} />
 
         {/*
           * The links that make the catalogue crawlable from any entry. Without

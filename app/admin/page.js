@@ -139,6 +139,13 @@ export default async function AdminPage({ searchParams }) {
     /* The LinkedIn announcement queue, seeds merged in, each with its checks:
        hype, figures not in the facts, an em-dash. */
     /* Blog comments with their addresses: rendered here, behind the check. */
+    /* Questions on tools with their addresses: rendered here, behind the check. */
+    { key: "questions", load: async () => {
+      const { readQA, adminQA } = await import("@/lib/qa");
+      const { catalogueTools } = await import("@/lib/entries");
+      const names = Object.fromEntries((await catalogueTools()).map((t) => [t.id, t.name]));
+      return adminQA(await readQA(), (id) => names[id] || id);
+    }, empty: [] },
     { key: "comments", load: async () => {
       const { readComments, adminComments } = await import("@/lib/comments");
       const { POSTS } = await import("@/lib/blog");

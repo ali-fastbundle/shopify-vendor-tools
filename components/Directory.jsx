@@ -15,6 +15,7 @@ import Vote from "./Vote";
 import VisitSite from "./VisitSite";
 import { OwnerFact, AlsoFrom } from "./OwnerLine";
 import StructuredDetails from "./StructuredDetails";
+import QA from "./QA";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { ownershipOf as resolveOwnership } from "@/lib/owners";
 import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
@@ -1869,6 +1870,9 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
             </div>
           )}
         </div>
+
+        {/* Questions, apart from the reviews (lib/qa.js). */}
+        <QA toolId={tool.id} toolName={tool.name} heading="h3" fetchOnMount />
 
         <ReportProblem tool={tool} />
       </div>

@@ -13,6 +13,7 @@ import {
 import ToolPage from "@/components/ToolPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import { rivalPairs, alternativesOf, pairSlug } from "@/lib/rivals";
+import { readQA, publicQA } from "@/lib/qa";
 import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
@@ -38,9 +39,10 @@ async function load(id) {
     getClaims(),
     read("svt:discovery", {}),
   ]);
+  const qa = await readQA();
   const tool = tools.find((t) => t.id === id);
   if (!tool) return null;
-  return { tool, tools, claims, discovery: discovery || {}, reviews: publicReviews(storedReviews) };
+  return { tool, tools, claims, discovery: discovery || {}, reviews: publicReviews(storedReviews), questions: publicQA(qa[tool.id]) };
 }
 
 /*
@@ -119,6 +121,7 @@ export default async function Page({ params }) {
         viewer={viewer}
         lastUpdated={LAST_UPDATED}
         owner={ownerContext(tool, "tool", { tools })}
+        questions={found.questions}
         rivals={alternativesOf(tool, tools, rivalPairs(tools, discovery)).map((x) => ({ name: x.tool.name, slug: pairSlug(tool.id, x.tool.id) }))}
       />
     </>

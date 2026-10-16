@@ -104,6 +104,7 @@ export default function AdminPanel({
   recommend = { runs: [], summary: null },
   announcements = [],
   comments = [],
+  questions = [],
   publishing = { canPublish: false, log: [] },
   maillog = [],
   entries = {},
@@ -152,6 +153,8 @@ export default function AdminPanel({
   const [reviewRows, setReviewRows] = useState(reviewSignals);
   const [commentRows, setCommentRows] = useState(comments);
   const unreadComments = commentRows.filter((c) => !c.reviewed);
+  const [questionRows, setQuestionRows] = useState(questions);
+  const unreadQuestions = questionRows.filter((q) => !q.reviewed);
   const [seen, setSeen] = useState(changesSeen || {});
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
@@ -181,7 +184,7 @@ export default function AdminPanel({
 
   /* Monitor findings are counted on Recent updates, where they are decided:
      most of them end as an entry on the feed or as nothing. */
-  const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length;
+  const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
     + drafted(ALL_PODCASTS).length + drafted(ALL_EVENTS).length;
@@ -235,6 +238,7 @@ export default function AdminPanel({
       if (d.entries) setEntryRows(d.entries);
       if (d.reviewSignals) setReviewRows(d.reviewSignals);
       if (d.comments) setCommentRows(d.comments);
+      if (d.questions) setQuestionRows(d.questions);
     } catch {
       setErr("Could not reach the server.");
     } finally {
@@ -297,6 +301,7 @@ export default function AdminPanel({
             discovery={discovery}
             coverage={coverage}
             comments={unreadComments}
+            questions={unreadQuestions}
             act={act}
             busy={busy}
             onSuggestions={setRows}
@@ -377,9 +382,9 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinceVisit = [], onTab, discovery = { findings: [] }, coverage = [], comments = [], act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinceVisit = [], onTab, discovery = { findings: [] }, coverage = [], comments = [], questions = [], act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
-  const nothing = !pending.length && !openReports.length && !claims.length && !comments.length;
+  const nothing = !pending.length && !openReports.length && !claims.length && !comments.length && !questions.length;
 
   /* The monitor's findings are decided on Recent updates. One line here says
      they are waiting, so moving them did not hide them. */
@@ -452,6 +457,13 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
         <Section title="Comments to read" count={comments.length}
           hint="Blog comments are live the moment they are posted. Read each one: Looks fine takes it out of here, Hide takes it off the post with a reason and keeps it, Delete removes it for good.">
           {comments.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
+        </Section>
+      )}
+
+      {questions.length > 0 && (
+        <Section title="Questions to read" count={questions.length}
+          hint="Questions on tool pages are live the moment they are asked. Looks fine takes one out of here. Hide takes a question or an answer off the page with a reason and keeps it. Delete removes it for good.">
+          {questions.map((q) => <QuestionRow key={q.toolId + q.id} q={q} act={act} busy={busy} />)}
         </Section>
       )}
 
@@ -575,6 +587,56 @@ function CommentRow({ c, act, busy }) {
         )}
         {c.hidden && <Btn busy={busy === k("unhide-comment")} onClick={() => act("unhide-comment", c.id, { slug: c.slug })}>Unhide</Btn>}
         <ConfirmBtn busy={busy === k("delete-comment")} onConfirm={() => act("delete-comment", c.id, { slug: c.slug })} confirm="Delete for good">Delete</ConfirmBtn>
+      </>}
+    />
+  );
+}
+
+/* A question on a tool, and its answers, each hideable (lib/qa.js). */
+function QuestionRow({ q, act, busy }) {
+  const [reason, setReason] = useState("");
+  const [hiding, setHiding] = useState(""); // "" | "q" | answer id
+  const k = (a, x = "") => a + x + q.id;
+  const hideBox = (answerId) => (
+    <span className="inline-flex items-center" style={{ gap: S.xs }}>
+      <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why it is hidden (required)" maxLength={200}
+        aria-label="Why it is hidden" style={{ ...FIELD, width: 240, padding: "2px 8px", fontSize: F.xs }} />
+      <Btn disabled={reason.trim().length < 3} busy={busy === k("qa-hide", answerId)}
+        onClick={() => act("qa-hide", q.id, { toolId: q.toolId, answerId, reason }, answerId)}>Hide it</Btn>
+      <Btn onClick={() => setHiding("")}>Cancel</Btn>
+    </span>
+  );
+  return (
+    <Row
+      title={q.author}
+      tag={q.hidden ? "hidden" : q.reviewed ? "read" : "unread"}
+      tagColor={q.hidden ? C.warnInk : C.muted}
+      badges={<a href={`/tools/${q.toolId}#questions`} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>{q.toolName}</a>}
+      dim={Boolean(q.hidden)}
+      body={<>
+        <p style={{ margin: 0, whiteSpace: "pre-wrap", color: C.text }}><b>Q.</b> {q.text}</p>
+        {(q.answers || []).map((a) => (
+          <div key={a.id} style={{ marginTop: S.sm, paddingLeft: S.md, borderLeft: `2px solid ${C.edge}`, opacity: a.hidden ? 0.55 : 1 }}>
+            <p style={{ margin: 0, whiteSpace: "pre-wrap", color: C.text }}><b>A.</b> {a.text}</p>
+            <p style={{ margin: "2px 0 0", fontSize: F.xs, color: C.dim }}>
+              {a.author} · {a.email}{a.vendor ? " · from the vendor" : ""}{a.hidden ? ` · hidden: ${a.hiddenReason}` : ""}
+            </p>
+            <div className="flex flex-wrap" style={{ gap: S.xs, marginTop: S.xs }}>
+              {!a.hidden && hiding !== a.id && <Btn onClick={() => { setHiding(a.id); setReason(""); }}>Hide answer</Btn>}
+              {!a.hidden && hiding === a.id && hideBox(a.id)}
+              {a.hidden && <Btn busy={busy === k("qa-unhide", a.id)} onClick={() => act("qa-unhide", q.id, { toolId: q.toolId, answerId: a.id }, a.id)}>Unhide answer</Btn>}
+              <ConfirmBtn busy={busy === k("qa-delete", a.id)} onConfirm={() => act("qa-delete", q.id, { toolId: q.toolId, answerId: a.id }, a.id)} confirm="Delete for good">Delete answer</ConfirmBtn>
+            </div>
+          </div>
+        ))}
+      </>}
+      meta={`${String(q.at).slice(0, 16).replace("T", " ")} · ${q.email}${q.hidden ? ` · hidden: ${q.hiddenReason}` : q.reviewedBy ? ` · read by ${q.reviewedBy}` : ""}`}
+      actions={<>
+        {!q.reviewed && <Btn tone="go" busy={busy === k("qa-fine")} onClick={() => act("qa-fine", q.id, { toolId: q.toolId })}>Looks fine</Btn>}
+        {!q.hidden && hiding !== "q" && <Btn onClick={() => { setHiding("q"); setReason(""); }}>Hide</Btn>}
+        {!q.hidden && hiding === "q" && hideBox("")}
+        {q.hidden && <Btn busy={busy === k("qa-unhide")} onClick={() => act("qa-unhide", q.id, { toolId: q.toolId })}>Unhide</Btn>}
+        <ConfirmBtn busy={busy === k("qa-delete")} onConfirm={() => act("qa-delete", q.id, { toolId: q.toolId })} confirm="Delete for good">Delete</ConfirmBtn>
       </>}
     />
   );
