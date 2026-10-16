@@ -106,6 +106,7 @@ export default function AdminPanel({
   comments = [],
   questions = [],
   lists = [],
+  media = { live: {}, pending: {} },
   publishing = { canPublish: false, log: [] },
   maillog = [],
   entries = {},
@@ -156,6 +157,8 @@ export default function AdminPanel({
   const unreadComments = commentRows.filter((c) => !c.reviewed);
   const [questionRows, setQuestionRows] = useState(questions);
   const [listRows, setListRows] = useState(lists);
+  const [mediaState, setMediaState] = useState(media);
+  const pendingMedia = Object.entries(mediaState.pending || {});
   const unreadLists = listRows.filter((l) => !l.reviewed && !l.hidden);
   const unreadQuestions = questionRows.filter((q) => !q.reviewed);
   const [seen, setSeen] = useState(changesSeen || {});
@@ -187,7 +190,7 @@ export default function AdminPanel({
 
   /* Monitor findings are counted on Recent updates, where they are decided:
      most of them end as an entry on the feed or as nothing. */
-  const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length + unreadLists.length;
+  const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length + unreadLists.length + pendingMedia.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
     + drafted(ALL_PODCASTS).length + drafted(ALL_EVENTS).length;
@@ -243,6 +246,7 @@ export default function AdminPanel({
       if (d.comments) setCommentRows(d.comments);
       if (d.questions) setQuestionRows(d.questions);
       if (d.lists) setListRows(d.lists);
+      if (d.media) setMediaState(d.media);
     } catch {
       setErr("Could not reach the server.");
     } finally {
@@ -307,6 +311,8 @@ export default function AdminPanel({
             comments={unreadComments}
             questions={unreadQuestions}
             lists={unreadLists}
+            media={pendingMedia}
+            canCommit={Boolean(publishing?.canPublish)}
             act={act}
             busy={busy}
             onSuggestions={setRows}
@@ -327,6 +333,7 @@ export default function AdminPanel({
             editorUse={editorUse}
             about={about}
             aboutPhoto={aboutPhoto}
+            mediaLive={mediaState.live || {}}
             outOfScope={outOfScopeRows}
             deleted={deletedRows}
             coverage={coverage}
@@ -387,9 +394,9 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinceVisit = [], onTab, discovery = { findings: [] }, coverage = [], comments = [], questions = [], lists = [], act, busy, onSuggestions, onEntries }) {
+function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinceVisit = [], onTab, discovery = { findings: [] }, coverage = [], comments = [], questions = [], lists = [], media = [], canCommit = false, act, busy, onSuggestions, onEntries }) {
   const openReports = reports.filter((r) => r.status === "open");
-  const nothing = !pending.length && !openReports.length && !claims.length && !comments.length && !questions.length && !lists.length;
+  const nothing = !pending.length && !openReports.length && !claims.length && !comments.length && !questions.length && !lists.length && !media.length;
 
   /* The monitor's findings are decided on Recent updates. One line here says
      they are waiting, so moving them did not hide them. */
@@ -465,6 +472,13 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
         </Section>
       )}
 
+      {media.length > 0 && (
+        <Section title="Media to approve" count={media.length}
+          hint="Screenshots and demo links from verified vendors. Nothing shows until you approve. Approving commits the new images to the repository in one commit and puts the set on the listing, labelled as the vendor's. Reject needs a reason, which the vendor is sent.">
+          {media.map(([toolId, p]) => <MediaRow key={toolId} toolId={toolId} p={p} canCommit={canCommit} act={act} busy={busy} />)}
+        </Section>
+      )}
+
       {lists.length > 0 && (
         <Section title="Lists published" count={lists.length}
           hint="Lists visitors made public. They are live at once and not indexed until you mark one fine. Hide takes one off the site with a reason and keeps it.">
@@ -494,7 +508,7 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, aboutPhoto = "", outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
+function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, aboutPhoto = "", mediaLive = {}, outOfScope = [], deleted = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
   return (
     <>
       <Tallies stats={stats} rows={allSuggestions} />
@@ -503,6 +517,17 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
       <NeedsVerifying />
       <EditorUse editorUse={editorUse} entries={entries} />
       <AboutPage initial={about} photo={aboutPhoto} />
+      <Collapsible title="Vendor media" count={Object.keys(mediaLive).length}
+        hint="Screenshots and demo links vendors supplied and you approved, as they show on each listing. Remove takes them off the listing. The image files stay in the repository's history.">
+        {Object.keys(mediaLive).length === 0 ? <Empty>No vendor media on any listing.</Empty>
+          : Object.entries(mediaLive).map(([toolId, m]) => (
+            <Row key={toolId}
+              title={<a href={`/tools/${toolId}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{ALL_TOOLS.find((t) => t.id === toolId)?.name || toolId}</a>}
+              meta={`${m.screenshots.length} screenshot${m.screenshots.length === 1 ? "" : "s"}${m.video ? ", a video link" : ""} · approved ${String(m.approvedAt).slice(0, 10)} by ${m.approvedBy}${m.commit ? ` · commit ${m.commit.slice(0, 7)}` : ""}`}
+              actions={<ConfirmBtn busy={busy === "media-remove" + toolId} onConfirm={() => act("media-remove", toolId, { toolId })} confirm="Take it off the listing?">Remove</ConfirmBtn>}
+            />
+          ))}
+      </Collapsible>
       <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
       <Interest interest={interest} entries={entries} />
       <Collapsible title="Monitor coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
@@ -599,6 +624,44 @@ function CommentRow({ c, act, busy }) {
         )}
         {c.hidden && <Btn busy={busy === k("unhide-comment")} onClick={() => act("unhide-comment", c.id, { slug: c.slug })}>Unhide</Btn>}
         <ConfirmBtn busy={busy === k("delete-comment")} onConfirm={() => act("delete-comment", c.id, { slug: c.slug })} confirm="Delete for good">Delete</ConfirmBtn>
+      </>}
+    />
+  );
+}
+
+/* A vendor's media submission, with the images as sent (lib/media.js). */
+function MediaRow({ toolId, p, canCommit, act, busy }) {
+  const [reason, setReason] = useState("");
+  const [rejecting, setRejecting] = useState(false);
+  const name = ALL_TOOLS.find((t) => t.id === toolId)?.name || toolId;
+  const needsCommit = p.screenshots.some((s) => s.data);
+  return (
+    <Row
+      title={<a href={`/tools/${toolId}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{name}</a>}
+      tag="waiting"
+      body={<>
+        <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.xs }}>
+          {p.screenshots.map((s, i) => (
+            <figure key={i} style={{ margin: 0, width: 220 }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={s.data ? `data:${s.type};base64,${s.data}` : s.path} alt={s.alt} style={{ width: 220, height: "auto", border: `1px solid ${C.line}`, borderRadius: R.control }} />
+              <figcaption style={{ fontSize: F.xs, color: C.muted, marginTop: 2 }}>{s.data ? "New" : "Kept"}. Alt: {s.alt}</figcaption>
+            </figure>
+          ))}
+        </div>
+        {p.video && <p style={{ margin: `${S.sm}px 0 0` }}>Video: <a href={p.video} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{p.video}</a></p>}
+      </>}
+      meta={`From ${p.submittedBy} · ${String(p.submittedAt).slice(0, 16).replace("T", " ")}${needsCommit && !canCommit ? " · GITHUB_TOKEN is not set, so new images cannot be committed" : ""}`}
+      actions={<>
+        <Btn tone="go" disabled={needsCommit && !canCommit} busy={busy === "media-approve" + toolId} onClick={() => act("media-approve", toolId, { toolId })}>Approve</Btn>
+        {!rejecting ? <Btn onClick={() => setRejecting(true)}>Reject</Btn> : (
+          <span className="inline-flex items-center" style={{ gap: S.xs }}>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why, sent to the vendor (required)" maxLength={300}
+              aria-label="Why it is rejected" style={{ ...FIELD, width: 280, padding: "2px 8px", fontSize: F.xs }} />
+            <Btn tone="stop" disabled={reason.trim().length < 3} busy={busy === "media-reject" + toolId} onClick={() => act("media-reject", toolId, { toolId, reason })}>Reject it</Btn>
+            <Btn onClick={() => setRejecting(false)}>Cancel</Btn>
+          </span>
+        )}
       </>}
     />
   );

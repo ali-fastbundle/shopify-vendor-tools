@@ -131,6 +131,35 @@ export async function POST(request) {
    * question or an answer with a reason, unhide, or delete. Keyed by tool,
    * question id and answer id, never by position.
    */
+  /*
+   * Vendor media (lib/media.js). Approve commits the new screenshots to the
+   * repository in one commit, then makes the set live. Reject needs a reason,
+   * which goes to the vendor. Remove takes live media off a listing.
+   */
+  if (["media-approve", "media-reject", "media-remove"].includes(action)) {
+    const M = await import("@/lib/media");
+    const toolId = String(body.toolId || "");
+    const tool = (await catalogueTools()).find((t) => t.id === toolId);
+    if (!tool) return new Response("Unknown tool", { status: 400 });
+    const origin = new URL(request.url).origin;
+    if (action === "media-remove") {
+      const r = await M.removeMedia(toolId);
+      if (r.error) return new Response(r.error, { status: 400 });
+    } else {
+      const pending = (await M.readPending())[toolId];
+      const r = action === "media-approve"
+        ? await M.approveMedia(toolId, { by: session.email, commit: (await import("@/lib/publish")).commitFiles })
+        : await M.rejectMedia(toolId, body.reason);
+      if (r.error) return new Response(r.error, { status: 400 });
+      await sendEvent("media_decided", {
+        origin, toolId, toolName: tool.name, email: pending?.submittedBy,
+        approved: action === "media-approve", reason: r.reason || "",
+      });
+    }
+    const [live, pending] = await Promise.all([M.readMedia(), M.readPending()]);
+    return Response.json({ media: { live, pending } });
+  }
+
   /* Published lists (lib/lists.js): fine makes one indexable, hide takes it
      off the site with a reason, unhide puts it back. */
   if (["list-fine", "list-hide", "list-unhide"].includes(action)) {

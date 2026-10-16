@@ -2152,6 +2152,32 @@ client component that imported `QUESTION_MAX` from `lib/qa.js` pulled the store 
 browser bundle, and `/lists` shipped 133 kB until the constants moved. lists-test checks
 that no client component imports `lib/lists`, `lib/qa` or `lib/store`.
 
+**51. Vendor media is the vendor's, reviewed before it shows, and in the repository, not hotlinked.**
+A verified claimant (or an admin) can send up to four screenshots, each with required alt
+text, and one demo video link (`lib/media.js`, `/api/media`, `components/MediaEditor.jsx`
+in the owner panel).
+
+- **Nothing a vendor sends is shown until an editor approves it** in the Inbox ("Media to
+  approve"). Approving commits the new images to `public/media/<toolId>/<hash>` in one
+  commit (`commitFiles` in `lib/publish.js`, the Git data API, so one deploy and one
+  revert), then makes the set live in `svt:media`. A Vercel function cannot write its own
+  files, so a commit is the only way an upload reaches the repository. Without
+  `GITHUB_TOKEN`, Approve is disabled for a set with new images and says why.
+- **Reject needs a reason, and the vendor is told** (`media_submitted` and `media_decided`
+  in the mail matrix).
+- **Images are resized in the browser** (1,600px wide, JPEG) and checked on the server:
+  type, bytes and size, and a kept screenshot must already be live on that listing.
+- **The video is a link**, https only, on YouTube, Vimeo, Loom, Wistia or the tool's own
+  domain, with `rel="nofollow ugc"`. There is no embed and no player script ("Privacy and
+  consent").
+- **Labelled "From the vendor"** on the tool page and the modal (`components/VendorMedia.jsx`),
+  with "the directory has not tested what these show". It is its own record attached in
+  `mergedTools()`, `vendorMedia` is in `PROTECTED` and restated, and no listing field moves.
+  Not on the card (rule J).
+
+`scripts/media-test.mjs`, with the commit injected. The real GitHub commit is exercised
+only in production.
+
 ## The site frame
 
 **One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
@@ -2237,6 +2263,7 @@ the mark.
 | `lib/rivals.js` `lib/rivalsData.js` `components/Comparisons.jsx` `app/alternatives` `app/compare` | Which tools genuinely compete, the differences built from confirmed data, and the alternatives and head-to-head pages |
 | `lib/qa.js` `components/QA.jsx` `app/api/qa` | Questions and answers per tool: the store, the public strip, moderation, the ask and answer component |
 | `lib/lists.js` `lib/limits.js` `components/ListsManager.jsx` `components/SaveToList.jsx` `app/lists` `app/api/lists` | Saved lists: store, publishing, moderation; shared input limits (client-safe); the manage page and the save control |
+| `lib/media.js` `components/MediaEditor.jsx` `components/VendorMedia.jsx` `app/api/media` | Vendor screenshots and demo link: submission, approval by commit, the editor in the owner panel, the labelled display |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
@@ -2894,6 +2921,8 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `monitor_digest` | yes, and only when something changed | nothing |
 | `question` | yes | nothing |
 | `answer` | no | the asker, once, unless they answered it themselves |
+| `media_submitted` | yes | nothing |
+| `media_decided` | no | the vendor who sent it: live, or not and why |
 | `contact` | to `CONTACT_EMAIL`, `reply_to` the sender | nothing, ever (invariant 38) |
 | `follow_confirm` | no | the confirm link; nothing is stored until it is clicked |
 | `follow_digest` | no | today's news about what they follow, one email, a stop link per item |
@@ -3041,6 +3070,7 @@ node scripts/events-test.mjs         # derived status, imprecise and inferred da
 node scripts/rewrite-test.mjs        # AI rewrites: protected fields dropped, logged, undoable, resolve once
 node scripts/monitor-accuracy.mjs    # not observed is not removed, toggles, calibrated confidence, marked wrong
 node scripts/coverage-test.mjs       # coverage per listing, feeds and page data read, vendor announcements
+node scripts/media-test.mjs          # vendor media: claimant only, alt required, approved before shown, committed, link not embed
 node scripts/lists-test.mjs          # saved lists: owner only, private until published, a name not an address, indexed after review
 node scripts/qa-test.mjs             # questions: signed in, vendor answers from the claims store, no address served, moderation
 node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then

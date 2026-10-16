@@ -16,6 +16,7 @@ import VisitSite from "./VisitSite";
 import { OwnerFact, AlsoFrom } from "./OwnerLine";
 import StructuredDetails from "./StructuredDetails";
 import QA from "./QA";
+import VendorMedia from "./VendorMedia";
 import SaveToList from "./SaveToList";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { ownershipOf as resolveOwnership } from "@/lib/owners";
@@ -1819,6 +1820,7 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
         )}
 
         <StructuredDetails tool={tool} />
+        <VendorMedia tool={tool} />
 
         {tool.ratings?.length > 0 && (
           <div className="mt-5">

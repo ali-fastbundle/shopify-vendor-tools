@@ -15,6 +15,7 @@ import { Pill } from "@/components/Pill";
 import { OwnerFact, AlsoFrom } from "@/components/OwnerLine";
 import StructuredDetails from "@/components/StructuredDetails";
 import QA from "@/components/QA";
+import VendorMedia from "@/components/VendorMedia";
 import SaveToList from "@/components/SaveToList";
 import EditorUseControl from "@/components/EditorUseControl";
 import { editorUseBadge } from "@/lib/editorUse";
@@ -298,6 +299,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             )}
 
             <StructuredDetails tool={tool} />
+            <VendorMedia tool={tool} />
 
             {tool.ratings?.length > 0 && (
               <section style={{ marginTop: S.xl }}>

@@ -112,6 +112,8 @@ export default function Page() {
           <Li>A review, a comment, or a question or answer on a tool: your address is stored with it.
             This lets you edit yours, and it stops one account from posing as many. Your address is
             never shown. The name you choose is. When someone answers your question, we email you once.</Li>
+          <Li>Screenshots or a video link a vendor sends for their listing: your address is kept with
+            the submission until an editor decides, so we can tell you the outcome.</Li>
           <Li>A saved list: your address is stored with it so only you can see and change it. A list
             you publish shows the name you choose for it, never your address.</Li>
           <Li>The mailing list, or following a newsletter or an event: your address, until you

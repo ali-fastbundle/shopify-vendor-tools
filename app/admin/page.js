@@ -140,6 +140,12 @@ export default async function AdminPage({ searchParams }) {
        hype, figures not in the facts, an em-dash. */
     /* Blog comments with their addresses: rendered here, behind the check. */
     /* Questions on tools with their addresses: rendered here, behind the check. */
+    /* Vendor media: what is live, and what is waiting with its image data. */
+    { key: "media", load: async () => {
+      const { readMedia, readPending } = await import("@/lib/media");
+      const [live, pending] = await Promise.all([readMedia(), readPending()]);
+      return { live, pending };
+    }, empty: { live: {}, pending: {} } },
     /* Published lists with their owners' addresses, behind the check. */
     { key: "lists", load: async () => Object.values((await (await import("@/lib/lists")).readLists()) || {}).filter((l) => l?.public), empty: [] },
     { key: "questions", load: async () => {
