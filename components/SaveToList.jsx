@@ -11,9 +11,9 @@
  * cannot use them would be fifty of one affordance, which is why Compare left
  * the cards. On a page about one tool, signed out, it says where to sign in.
  */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookmarkSimple } from "@phosphor-icons/react";
+import { BookmarkSimple, ListBullets, Plus, Check } from "@phosphor-icons/react";
 import { C, S, R, F } from "@/lib/tools";
 import { useYourLists, usePostList } from "./YourLists";
 
@@ -48,6 +48,17 @@ export default function SaveToList({ toolId, toolName, compact = false }) {
     };
   }, [open, compact]);
 
+  /* Near the bottom of the window there is no room under the button, so the
+     box opens above it instead of running off the screen. Measured after it
+     renders, before it paints. */
+  useLayoutEffect(() => {
+    if (!open || !compact || !at || !boxRef.current) return;
+    const h = boxRef.current.offsetHeight;
+    if (at.top + h > window.innerHeight - 8 && at.above - h - 6 > 8) {
+      setAt((a) => (a && a.top !== a.above - h - 6 ? { ...a, top: a.above - h - 6 } : a));
+    }
+  }, [open, compact, at, lists]);
+
   if (compact && !signedIn) return null;
 
   function toggle(e) {
@@ -60,7 +71,7 @@ export default function SaveToList({ toolId, toolName, compact = false }) {
        the moment the pointer was over the card, which is always when clicking. */
     if (compact && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
-      setAt({ top: r.bottom + 6, left: Math.max(8, Math.min(r.right - 280, window.innerWidth - 288)) });
+      setAt({ top: r.bottom + 6, left: Math.max(8, Math.min(r.right - 280, window.innerWidth - 288)), above: r.top });
     }
     setOpen((o) => !o);
   }
@@ -89,18 +100,56 @@ export default function SaveToList({ toolId, toolName, compact = false }) {
             <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.5 }}>Sign in from the sidebar to save {toolName} to a list.</p>
           ) : (
             <>
-              {(lists || []).map((l) => {
-                const has = l.items.some((x) => x.toolId === toolId);
-                return (
-                  <button key={l.id} type="button" disabled={has} onClick={() => run({ action: "add", id: l.id, toolId }, `Added to ${l.name}.`)}
-                    style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: 0, padding: "4px 0", fontSize: F.sm, color: has ? C.dim : C.text, cursor: has ? "default" : "pointer", fontFamily: "inherit" }}>
-                    {l.name}{has ? " (already in it)" : ""}
-                  </button>
-                );
-              })}
-              <div className="flex" style={{ gap: S.xs, marginTop: S.sm }}>
-                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New list" aria-label="Name a new list"
-                  style={{ flex: 1, minWidth: 0, background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control, padding: "4px 8px", fontSize: F.sm, color: C.text, fontFamily: "inherit" }} />
+              {/*
+                * Your lists as rows you can press, each saying what it holds and
+                * what pressing does. They were bare names, which read as text,
+                * so a visitor who had just made a list could not tell it was
+                * there to choose.
+                */}
+              <p style={{ fontSize: F.sm, fontWeight: 700, margin: `0 0 ${S.sm}px` }}>Add {toolName} to a list</p>
+              {(lists || []).length > 0 && (
+                <div style={{ display: "grid", gap: S.xs }}>
+                  {lists.map((l) => {
+                    const has = l.items.some((x) => x.toolId === toolId);
+                    const n = l.items.length;
+                    return (
+                      <button key={l.id} type="button" disabled={has}
+                        onClick={() => run({ action: "add", id: l.id, toolId }, `Added to ${l.name}.`)}
+                        aria-label={has ? `${toolName} is already in ${l.name}` : `Add ${toolName} to ${l.name}`}
+                        className={has ? undefined : "ctl press"}
+                        style={{
+                          display: "flex", alignItems: "center", gap: S.sm, width: "100%", textAlign: "left",
+                          background: has ? C.subtle : C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
+                          padding: "8px 10px", cursor: has ? "default" : "pointer", fontFamily: "inherit", color: C.text,
+                        }}>
+                        <ListBullets size={16} color={C.muted} aria-hidden="true" />
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: "block", fontSize: F.sm, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.name}</span>
+                          <span className="tnum" style={{ display: "block", fontSize: F.xs, color: C.dim }}>
+                            {n} {n === 1 ? "tool" : "tools"}{l.public ? ", published" : ""}
+                          </span>
+                        </span>
+                        {has ? (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: F.xs, color: C.muted, fontWeight: 600 }}>
+                            <Check size={12} weight="bold" aria-hidden="true" /> Added
+                          </span>
+                        ) : (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: F.xs, fontWeight: 700, color: C.text }}>
+                            <Plus size={12} weight="bold" aria-hidden="true" /> Add
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 ${S.xs}px` }}>
+                {(lists || []).length ? "Or start a new list" : "Start your first list"}
+              </p>
+              <div className="flex" style={{ gap: S.xs }}>
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name the list" aria-label="Name a new list"
+                  onKeyDown={async (e) => { if (e.key === "Enter" && name.trim().length >= 2) { if (await run({ action: "create", name, toolId }, `Saved to ${name}.`)) setName(""); } }}
+                  style={{ flex: 1, minWidth: 0, background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control, padding: "6px 8px", fontSize: F.sm, color: C.text, fontFamily: "inherit" }} />
                 <button type="button" style={btn} disabled={name.trim().length < 2}
                   onClick={async () => { if (await run({ action: "create", name, toolId }, `Saved to ${name}.`)) setName(""); }}>Create</button>
               </div>

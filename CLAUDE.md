@@ -3225,6 +3225,24 @@ yet visible get no seed. A feature that is live but not ready to talk about (pag
 state nothing until data is confirmed) gets a seed whose `what` says when to post it.
 Nothing posts itself: the seed waits in the Announcements tab for the editor.
 
+**The procedure, on every push, and a commit cannot skip it (2026-10-18).**
+
+1. List what the push changes that a visitor can see: a new feature, a new section, a
+   change to how something they already use works.
+2. For each, look in `SEEDS` (`lib/announcements.js`). Add a seed for something new and
+   major. **Update a seed the change has made wrong**: the saved-lists seed went on telling
+   people to save "from its page" and linking `/lists` as their own lists for a day after
+   both changed. A stored row keeps its text, so a seed already edited in production also
+   needs re-pasting from the new draft; say so in the report.
+3. Run `checksFor` on any draft you touched.
+4. Put one line in the commit message, which `.githooks/commit-msg` requires:
+   `Announcement: added seed-<id>`, `Announcement: updated seed-<id>`, or
+   `Announcement: none: <why>` (admin-only, internal, small catalogue addition, not yet
+   visible). The hooks are in the repository; a fresh clone runs
+   `git config core.hooksPath .githooks` once. Commits made from /admin through GitHub
+   (Publish, Discard, caveat edits) do not pass through the hook and need no line.
+5. Say in the report what was added or updated, or why nothing was.
+
 **The queue is ordered and holds itself.** Each seed has a `rank` (posting order; open
 drafts sort by it) and may have a `hold(f)` that returns a reason not to post yet, for
 something built but thin: a feature whose value is other people's content (questions,

@@ -1,0 +1,22 @@
+#!/bin/sh
+# Every commit answers one question: does this change need an announcement?
+# (CLAUDE.md, Definition of done.) The answer is a line in the message:
+#
+#   Announcement: added seed-<id>
+#   Announcement: updated seed-<id>
+#   Announcement: none: <why, e.g. admin-only, internal, small catalogue addition>
+#
+# A visible feature with no seed is the failure this exists to stop: the
+# Announcements tab is only as complete as these lines. Merges and reverts
+# are exempt.
+msg_file="$1"
+first=$(head -n 1 "$msg_file")
+case "$first" in
+  Merge*|Revert*) exit 0 ;;
+esac
+if grep -Eq '^Announcement: (added|updated) seed-[a-z0-9-]+|^Announcement: none: .{8,}' "$msg_file"; then
+  exit 0
+fi
+echo "commit-msg: add an Announcement line (see CLAUDE.md, Definition of done):" >&2
+echo "  Announcement: added seed-<id> | updated seed-<id> | none: <why>" >&2
+exit 1
