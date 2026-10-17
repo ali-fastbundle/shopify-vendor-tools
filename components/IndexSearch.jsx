@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MagnifyingGlass } from "@phosphor-icons/react";
-import { C, S, R, F } from "@/lib/tools";
+import { Suspense, useEffect, useState } from "react";
+import { C, S, F } from "@/lib/tools";
 import { matchesQuery } from "@/lib/search";
+import { useParam, setParam } from "@/components/ListingParams";
 
 /*
  * Search for the index pages that are server components: newsletters and
@@ -16,16 +16,14 @@ import { matchesQuery } from "@/lib/search";
  *
  * inside the element whose id is `scope`.
  *
- * The box renders only once mounted. With scripting off it could not do
- * anything, and a search box that ignores you is worse than none. Its height
- * is reserved so the page does not shift when it appears.
+ * The box itself is in the sidebar now (components/SiteFrame.jsx), which
+ * writes ?q= on this page. This reads it, filters, and says so when nothing
+ * is left. A searched link is shareable for the same reason the directory's
+ * filters are.
  */
-export default function IndexSearch({ scope, placeholder, label }) {
-  const [mounted, setMounted] = useState(false);
-  const [q, setQ] = useState("");
+function Filter({ scope }) {
+  const q = useParam("q");
   const [none, setNone] = useState(false);
-
-  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     let root;
@@ -45,32 +43,26 @@ export default function IndexSearch({ scope, placeholder, label }) {
     setNone(shown === 0 && Boolean(q.trim()));
   }, [q, scope]);
 
+  if (!q.trim()) return null;
   return (
-    <div style={{ minHeight: 36, marginTop: S.xl }}>
-      {mounted && (
-        <span style={{ position: "relative", display: "flex", alignItems: "center" }}>
-          <MagnifyingGlass size={15} color={C.dim} weight="bold"
-            style={{ position: "absolute", left: 10, pointerEvents: "none" }} />
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Escape") setQ(""); }}
-            placeholder={placeholder} aria-label={label}
-            style={{
-              width: "100%", background: C.panel, border: `1px solid ${C.line}`,
-              borderRadius: R.control, padding: "8px 12px 8px 32px", fontSize: F.sm,
-              color: C.text, fontFamily: "inherit",
-            }} />
-        </span>
+    <div role="status" style={{ marginTop: S.lg }}>
+      {none ? (
+        <p style={{ fontSize: F.lg, margin: 0 }}>Nothing matches “{q.trim()}”.</p>
+      ) : (
+        <p style={{ fontSize: F.sm, color: C.muted, margin: 0 }}>Showing matches for “{q.trim()}”.</p>
       )}
-      {none && (
-        <div role="status" style={{ padding: `${S["2xl"]}px 0 0` }}>
-          <p style={{ fontSize: F.lg, margin: 0 }}>Nothing matches that.</p>
-          <button onClick={() => setQ("")} className="press"
-            style={{
-              marginTop: S.sm, background: "none", border: 0, padding: 0, color: C.muted,
-              fontSize: F.md, textDecoration: "underline", cursor: "pointer", fontFamily: "inherit",
-            }}>Clear the search</button>
-        </div>
-      )}
+      <button onClick={() => setParam("q", "")} className="press"
+        style={{
+          marginTop: S.xs, background: "none", border: 0, padding: 0, color: C.muted,
+          fontSize: F.sm, textDecoration: "underline", cursor: "pointer", fontFamily: "inherit",
+        }}>Clear the search</button>
     </div>
   );
+}
+
+/* placeholder and label are kept for the callers; the box they described is
+   in the sidebar. */
+// eslint-disable-next-line no-unused-vars
+export default function IndexSearch({ scope, placeholder, label }) {
+  return <Suspense fallback={null}><Filter scope={scope} /></Suspense>;
 }

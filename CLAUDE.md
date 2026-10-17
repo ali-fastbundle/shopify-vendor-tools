@@ -1641,7 +1641,7 @@ costs the count and nothing else, and a corrupt mark fails closed to no count,
 which is the direction to fail in.
 
 **Anything added above the grid comes out of the fold budget** (invariant F).
-The tabs live in the top bar now and cost nothing of their own. Measure before
+The sections live in the sidebar now and cost nothing of their own. Measure before
 adding anything.
 
 **RSS lives at `/changes/rss`**, declared through `alternates.types` on the page
@@ -2247,25 +2247,65 @@ done. Keep `lib/vendorContacts.js`: the addresses are research.
 
 ## The site frame
 
-**One header and one footer, rendered by `app/layout.js`, and no page draws its own.**
-`components/SiteFrame.jsx` holds both. The header is the barred wordmark (always a link
-home), the section tabs (Directory, Newsletters, Events, Recent updates, Blog) with the
-current one marked from the path, and the account and theme controls. A tool page and a
-category page count as Directory. The footer is `FooterLinks`, the byline and the
-disclaimer.
+**A persistent sidebar beside a content column, rendered by `app/layout.js`, and no page
+draws its own (2026-10-18).** `components/SiteFrame.jsx` holds it, and it is the same on
+every public route; `/admin` keeps its own header and the frame steps aside there.
 
-Each page used to draw its own, and there were four versions: the homepage's barred
-wordmark with account controls, `SiteNav`'s plain-text one on the index pages, a
-breadcrumb and nothing else on the detail pages, and a footer per page, one of them
-missing. A page now renders its content; a note that belongs to one page (the events
-date policy, the blog's RSS link) stays in that page's body above the footer. Adding a
-page means adding nothing to the frame.
+- **The sidebar, top to bottom:** the wordmark (a link home); the sections (Directory,
+  Newsletters, Events, Recent updates, Blog) with the current one marked and a count beside
+  each; search; the matcher as one prompt; the categories as a vertical list ordered by
+  count with All first; the filters, open, not behind a button; the active filters as
+  removable chips with Clear all; a spacer; then the account (Sign in, Lists, Admin for an
+  admin), the theme icon, and LinkedIn, About, Contact and Privacy.
+- **Counts come from the catalogue files** (`frameData` in `lib/frameData.js`), so there is no
+  store read on every page: tools, newsletters, events still ahead with a real date (an
+  inferred one is a guess and is not counted), posts. Entries published from the admin
+  queue live in Redis and appear in the directory heading's own count. Recent updates
+  shows what is new to this browser and nothing at zero, the per-browser mark the header
+  used to carry (`useFeedForCount`, stamped by opening `/changes`).
+- **Search** filters the list on a page that has one, through `?q=` on that page: the
+  directory, newsletters and events (`IndexSearch` reads it and filters the server-rendered
+  rows). Anywhere else Enter takes the question to `/?q=`.
+- **Categories and filters appear in the directory's part of the site.** On `/` they act
+  in place; on a tool or category page a category is a link to `/?cat=<id>`. The filter
+  options (counts, confirmed integrations, a category's details) come from merged data
+  only the page reads, so the directory publishes them to the sidebar through
+  `usePublishPanel`; Recent updates publishes its tool list the same way and gets tool and
+  category filters (`?tool=`, `?cat=`). A page publishes; the sidebar renders; neither is
+  ever the state.
+- **The URL is the state** (`components/ListingParams.jsx`). The sidebar writes with
+  `replaceState(null, …)` and the page reads `useSearchParams`, which Next 14.2 keeps in
+  step. **Pass `null`, never `window.history.state`:** Next's patched `replaceState` treats a
+  state carrying its own `__NA` marker as its own call and skips the router, so the URL
+  changes and nothing on the page follows. While the tool modal has pushed `/tools/<id>`,
+  both keep the last state seen on `/` rather than resetting.
+- **Every part of the sidebar that reads the URL is inside `Suspense`,** with the
+  category list itself as the fallback, so the sections and the categories are in the
+  server HTML on every page, including static ones.
+- **From 1200px the sidebar is a sticky column the height of the window that scrolls on
+  its own. Below 1200px it is a drawer** behind one Menu button, and a top bar carries the
+  wordmark and the sections, which scroll sideways and are never behind the button. Open,
+  the drawer takes focus, keeps Tab inside itself, closes on Escape or the scrim, makes the
+  content `inert`, and returns focus to Menu; on the directory it ends with "Show N
+  tools". It appears and disappears, with no slide. 1200 rather than 1024 because three
+  cards beside a 248px sidebar at 1024 are about 230px wide.
+- **Source order is keyboard order:** the skip link ("Skip to content"), the top bar, the
+  sidebar, then the content. The sidebar is reachable before the grid, and the skip link
+  is how a keyboard gets past a long filter list in one key.
+- **Under the content, a slim footer** with the byline and the disclaimer, because it
+  carries the promise (no paid placement, no affiliate links, not affiliated with Shopify),
+  which has to be visible on every page. The links that were in the footer are at the foot
+  of the sidebar.
+- Every page wraps its body in `<main><div class="mx-auto" style="max-width:…">`; inside
+  the content column that reading width starts at the column's left edge on the same 24px
+  as the directory (`.shell-main > main > .mx-auto`).
 
-The session is fetched once by the frame and shared through `SessionContext`, so the
-header and every `useSession()` on the page read one request. `/admin` keeps its own
-header, so the frame renders nothing there. The Recent updates count is in the header;
-the homepage hands it the feed through `useFeedForCount`, and opening `/changes` stamps
-the mark.
+Each page used to draw its own frame, and there were four versions that drifted. A page
+renders its content; a note that belongs to one page (the events date policy, the blog's
+RSS link) stays in that page's body. Adding a page means adding nothing to the frame. The
+session is fetched once by the frame and shared through `SessionContext`.
+`scripts/frame-test.mjs` holds the order, the counts, the drawer, the Suspense boundaries
+and the server HTML.
 
 ## Layout
 
@@ -2295,7 +2335,9 @@ the mark.
 | `components/Vote.jsx` `components/VisitSite.jsx` | The like/dislike button and the outbound "Visit site", each defined once for every card |
 | `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
 | `lib/directoryFilters.js` `components/DirectoryFilters.jsx` | The directory's filter state and its URL; the one Filters control and the active chips |
-| `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text |
+| `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text, from `?q=` (the box is in the sidebar) |
+| `lib/frameData.js` | The sidebar's counts and ordered categories, from the catalogue files with no store read |
+| `components/ListingParams.jsx` | The URL as the state of a listing page: the directory's filters, one parameter, and the bridges a page uses to hand the sidebar its filter options |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
 | `app/about/page.js` `app/about/photo` `lib/aboutText.js` `lib/aboutStore.js` | The maintainer's page: Ali's prose, editable from /admin with no address or phone allowed, the photo, LinkedIn and the contact form |
 | `components/FooterLinks.jsx` | LinkedIn, About, Contact and Privacy, in the site footer |
@@ -2315,7 +2357,7 @@ the mark.
 | `app/recommend` `components/Recommender.jsx` `app/api/recommend` | The recommender's page, flow and routes (run, `draft`, `listing`) |
 | `app/events` `components/Events.jsx` `components/EventParts.jsx` | The events index (month strip and one past-and-future timeline), the shared row and body, and `/events/[id]` |
 | `components/EventLogo.jsx` | An event's mark: hosted logo, favicon, then the status-coloured lettermark |
-| `components/SiteFrame.jsx` | The site header and footer, rendered by `app/layout.js` on every route but `/admin`, and the one shared session fetch |
+| `components/SiteFrame.jsx` | The sidebar, the drawer and top bar below 1200px, the content column and the slim footer, rendered by `app/layout.js` on every route but `/admin`, and the one shared session fetch |
 | `lib/suggestions.js` | Fuzzy name and domain matching, and folding a repeat into the row that exists. Client-safe, so no model import |
 | `lib/dedup.js` | Model-first dedup with the string matching as fallback, and the verdict log |
 | `lib/model.js` | The provider chain. The only reader of `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` |
@@ -2427,7 +2469,7 @@ concrete value is `THEME_SCRIPT`'s job: it runs before the body paints, reads th
 choice or the system preference, sets `data-theme`, and updates the `theme-color` meta
 tag. The toggle has three states, Auto, Light and Dark, because a two-way switch can say
 "I want light" but cannot say "follow the machine", and once touched there would be no
-way back. It is one icon button in the header that cycles through them, and nowhere else:
+way back. It is one icon button at the foot of the sidebar that cycles through them, and nowhere else:
 its label and tooltip name the current state and the next one. With scripting off the page is light, the look the site leads with. Dark is a
 neutral grey to match, not the green-black it used to be. `scripts/contrast-test.mjs`
 reads both palettes out of the stylesheet and fails on any text token under 4.5:1 on the
@@ -2473,9 +2515,8 @@ and the filter chips.
   the same 3px turned on its side at the head of a list row or a matcher result
 - the category label set in `ink(colour)` directly under the tool name, which is
   also a real link to `/categories/<id>` (invariant 36)
-- the category filter chips (a rail beside the grid, with the hue as the chip's
-  2px edge), and the kind chips in the suggest modal, which are the
-  same device
+- the category list in the sidebar (a short mark of the hue at the head of each row),
+  and the kind chips in the suggest modal, which are the same device
 
 Nowhere else. Not the lettermark, not a badge, not a border, not a button, not a link,
 not the panel a vendor edits their listing in. The wordmark and the masthead bars are
@@ -2531,65 +2572,43 @@ whole row when nothing being compared has one.
 full-width hero panel with its own heading, explainer, tall textarea and five example
 chips. Every one of those was defensible on its own.
 
-The masthead is therefore a two-column grid (`.masthead` in `globals.css`): headline,
-one-line subhead and stats on the left, the matcher on the right, stacked below 1024px.
-The matcher is a control, not a hero: no heading paragraph, a two-row textarea, and three
-example chips with short labels (the full query is the tooltip), shown, not behind a
-disclosure, because an example is the quickest way to learn what the box is for. Once it has an answer the grid drops to one column, since
-the answer is a list of tools and wants the width.
+**Nothing but one row sits above the first card (2026-10-18).** The content column opens
+with the heading (the H1, 24px, and under a category its name), the one-sentence
+description, sort and the Compare toggle, then the cards. The masthead, the hero
+headline, the stats row, the category rail and the bar of search and Filters are gone:
+they are the sidebar now (see The site frame).
 
-**One top bar, a sentence of stats, a category rail (2026-10-10).** The 400px budget had
-crept back to 470 with the first row cut off, because three layers of navigation stacked
-above the grid at one weight: the wordmark row, a view switcher, and eleven chips wrapping
-to two rows. Now:
-
-- **One frame row** (`.topbar`): wordmark, section tabs, account and theme, rendered by
-  the layout on every route (see The site frame). Below 1024px the tabs take their own
-  row and scroll sideways. The theme is one icon button, which fits the 390px row, so
-  there is no copy of it in the footer.
-- **The stats are one sentence** under the headline. No newsletter count (the tab says
-  it) and no review count (it was zero; rule E).
-- **The matcher's heading is its textarea's label**, padding 12. On a phone it starts as
-  one full-width button that opens it in place, decided in CSS (`.matcher-toggle`,
-  `.matcher-body`) so the server render is right at every width.
-- **Categories are a rail** (`.dir-body`, `.rail`) beside the grid from 1024px, with Free
-  plan below them, sticky, and a sideways-scrolling row of chips below 1024px. The grid
-  is three cards wide at 1366 rather than four.
-- **Add a tool is not on the bar.** It is not a decision anybody makes before reading the
-  grid. It is the green invite card at the end of the grid, the empty-result button and
-  the matcher's no-match answer. Find tools is the one green button above the fold.
-- **Categories are navigation; everything else is one Filters control (2026-10-16).**
-  The bar is search, Filters, sort and Compare, nothing more. Free plan,
-  editor used, integrations and a category's confirmed yes-or-no details live in the
-  panel (`components/DirectoryFilters.jsx`): a popover on a wide screen, a full-height
-  sheet under 640px (`.filters-panel`). The button carries the count, and every active
-  refinement is a removable chip below the bar, so none is hidden state. Sort and view
-  are not filters and stay outside. The state is in the URL (`lib/directoryFilters.js`,
+- **The matcher is one prompt in the sidebar.** On `/` it opens the full box at the top of
+  the content column, with the three example chips and its own close button; anywhere else
+  it goes to `/?ask=1`, which opens it and strips the parameter. It appears only when
+  somebody asks, so the grid never moves on load.
+- **The stats are one sentence** under the heading. No newsletter count (the sidebar says
+  it) and no review count (rule E).
+- **Add a tool is not above the grid.** It is the green invite card at the end of the grid,
+  the empty-result button and the matcher's no-match answer.
+- **Filters are in the sidebar, open** (`FilterGroups` in `components/DirectoryFilters.jsx`):
+  free plan, editor used, integrations and the confirmed yes-or-no details of the active
+  category, with every active refinement a removable chip. Sort and view are not filters and
+  stay with the grid. The state is in the URL (`lib/directoryFilters.js`,
   `?cat=&q=&free=1&used=1&int=&has=&sort=&view=list`), read by `app/page.js` so a shared
   link renders filtered in the first HTML, and every filtered view canonicalises to `/`:
   the categories already have their own pages, and a canonical per combination is the
-  duplicate problem Search Console reported. A new refinement goes in the panel, never
-  back on the bar.
+  duplicate problem Search Console reported.
 - **Categories are ordered by tool count, computed** (`categoriesByCount` in
-  `lib/tools.js`, counting secondaries like the chips do), with All first. The rail, the
-  `/categories` index and `llms.txt` all read it. `CATEGORIES` order is definition order
-  and nothing a visitor sees should depend on it, or a new category lands last by
-  default.
+  `lib/tools.js`, counting secondaries), with All first. The sidebar, the `/categories`
+  index and `llms.txt` all read it. `CATEGORIES` order is definition order and nothing a
+  visitor sees should depend on it, or a new category lands last by default.
+- **Three cards from 1200px, two from 768px, one below** (`.cards`).
 
-Measured at 1366x727 (a 768 laptop after browser chrome): first card at 299px, the whole
-first row visible. At 390px: 470px, down from over 900.
+Measured at 1366x727 (a 768 laptop after browser chrome): first card at 87px, down from
+299px. At 390px: 270px, down from 470px.
 
-Anything added to the masthead comes out of the fold budget. Measure before and after.
-
-**Count the decisions too (2026-10-17).** Interactive elements entirely above the first
-card at 1366x727, not counting the skip link: 20 before this pass (10 in the frame, 10 in
-the page), 17 after (8 in the frame: wordmark, five tabs, Sign in, theme; 9 in the page:
-the matcher's box, Find tools and three examples, then search, Filters, sort, Compare).
-The page is under ten; the frame is site navigation and is the same on every route. Cut
-then: the three-button theme control and its footer copy, the recommender link beside Find
-tools, the examples disclosure, the two-button view switch, Add a tool, the Compare button
-on every card, the roadmap section. `scripts/decisions-test.mjs` holds each of those. A
-new control above the grid has to replace one of these, not join them.
+**Count the decisions too.** Interactive elements entirely above the first card at
+1366x727, not counting the skip link: 20 before the 2026-10-17 pass, 17 after it, and 2 now
+(sort and Compare). The sidebar puts 19 more in the first screen beside the grid, not above
+it. `scripts/decisions-test.mjs` holds the earlier cuts (one theme control, one hero action,
+three examples, no Compare on cards, Add a tool off the bar, the roadmap as one line).
+Anything new above the grid has to replace one of these two, not join them.
 
 **G. Attributes are type, not pills.** Price, free plan, suite, ownership, claimed and
 unverified read as one line of 12px muted text with hairline separators, built by
@@ -3185,6 +3204,7 @@ node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, an
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
 node scripts/filters-test.mjs        # one Filters control, state in the URL, categories ordered by count
 node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
+node scripts/frame-test.mjs [baseUrl] # the sidebar frame: order, counts, drawer, Suspense, server HTML
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers
 node scripts/subscribers-test.mjs    # the subscriber list: one row per address, consent, remove, nothing logged
 node scripts/events-test.mjs         # derived status, imprecise and inferred dates, the strip

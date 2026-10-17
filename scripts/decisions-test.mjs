@@ -34,7 +34,7 @@ ok(/href="\/recommend"/.test(src("components/ToolPage.jsx")), "and on every tool
 ok(!/<details/.test(form), "examples are not behind a disclosure");
 const examples = dir.slice(dir.indexOf("const EXAMPLES = ["), dir.indexOf("];", dir.indexOf("const EXAMPLES = [")));
 ok((examples.match(/label:/g) || []).length === 3, "three examples, each a chip");
-ok(/\{tools\.length\} tools for Shopify app builders in \{CATEGORIES\.length\} categories, updated \{LAST_UPDATED\}\./.test(dir), "the stats are one short sentence");
+ok(/`\$\{tools\.length\} tools for Shopify app builders in \$\{CATEGORIES\.length\} categories, updated \$\{LAST_UPDATED\}\.`/.test(dir), "the stats are one short sentence");
 
 console.log("\nthe card and the bar:");
 const card = fn("Card");

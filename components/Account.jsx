@@ -155,7 +155,8 @@ export function SignInPrompt({ reason, returnTo = "" }) {
 /* ------------------------------------------------------------------ */
 /*  Sign in / out, top right                                           */
 /* ------------------------------------------------------------------ */
-export function AccountBar({ session, refresh }) {
+/* placement "up" opens the sign-in box above the button, for the foot of the sidebar. */
+export function AccountBar({ session, refresh, placement = "down" }) {
   const [open, setOpen] = useState(false);
   const { email, setEmail, state, submit } = useMagicLink();
 
@@ -168,8 +169,8 @@ export function AccountBar({ session, refresh }) {
 
   if (session.signedIn) {
     return (
-      <div className="flex items-center" style={{ gap: S.md }}>
-        {/* Truncated, so a long address cannot push into the section tabs. */}
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        {/* Truncated, so a long address cannot push the controls off the row. */}
         <span title={session.email} style={{ fontSize: F.sm, color: C.muted, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {session.email}
           {session.owned?.length ? ` · ${session.owned.length} claimed` : ""}
@@ -206,7 +207,8 @@ export function AccountBar({ session, refresh }) {
 
       {open && (
         <div style={{
-          position: "absolute", right: 0, top: "calc(100% + 8px)", width: 320, zIndex: 30,
+          position: "absolute", zIndex: 80, width: "min(320px, calc(100vw - 32px))",
+          ...(placement === "up" ? { left: 0, bottom: "calc(100% + 8px)" } : { right: 0, top: "calc(100% + 8px)" }),
           background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg,
           boxShadow: C.shadowLg,
         }}>

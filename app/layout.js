@@ -3,7 +3,8 @@ import { HEADLINE } from "@/lib/tools";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeScript } from "@/components/Theme";
-import { SiteFrameProvider, SiteHeader, SiteFooter } from "@/components/SiteFrame";
+import { SiteFrameProvider, SiteShell, SiteFooter } from "@/components/SiteFrame";
+import { frameData } from "@/lib/frameData";
 import "./globals.css";
 
 /*
@@ -71,12 +72,14 @@ export default function RootLayout({ children }) {
       <body>
         {/* First in the body, so the theme is resolved before anything paints. */}
         <ThemeScript />
-        {/* One header and one footer for every route (components/SiteFrame.jsx).
-            Pages render their content and nothing around it. */}
+        {/* One frame for every route (components/SiteFrame.jsx): the sidebar
+            and the content column. Pages render their content and nothing
+            around it. */}
         <SiteFrameProvider>
-          <SiteHeader />
-          {children}
-          <SiteFooter />
+          <SiteShell {...frameData()}>
+            {children}
+            <SiteFooter />
+          </SiteShell>
         </SiteFrameProvider>
         {/*
           * Page traffic lives here, not in Redis. Views, referrers and paths are

@@ -72,23 +72,27 @@ console.log("\ncategory order:");
   ok(ordered.every((c, i) => i === 0 || n(ordered[i - 1]) >= n(c)), "largest first", ordered.map((c) => `${c.id}:${n(c)}`).join(" "));
   const extra = [...T.TOOLS, ...Array.from({ length: 40 }, (_, i) => ({ id: `x${i}`, cat: T.CATEGORIES.at(-1).id }))];
   ok(T.categoriesByCount(extra)[0].id === T.CATEGORIES.at(-1).id, "computed, so a category defined last rises when it grows");
-  const dirSrc = src("components/Directory.jsx");
-  ok(/orderedCats = categoriesByCount\(/.test(dirSrc) && /orderedCats\.map/.test(dirSrc), "the rail lists categories in that order");
-  ok(dirSrc.indexOf('"All"') > -1 && dirSrc.indexOf('"All"') < dirSrc.indexOf("orderedCats.map"), "with All first");
+  const frame = src("components/SiteFrame.jsx"), layout = src("app/layout.js");
+  ok(/categories: categoriesByCount\(TOOLS\)/.test(layout) && /categories\.map\(\(c\) =>/.test(frame), "the sidebar lists categories in that order");
+  ok(frame.indexOf("<span>All</span>") > -1 && frame.indexOf("<span>All</span>") < frame.indexOf("categories.map((c) =>"), "with All first");
   ok(/categoriesByCount\(/.test(src("lib/seo.js")), "the /categories index uses the same order");
   ok(/categoriesByCount\(tools\)/.test(src("app/llms.txt/route.js")), "and llms.txt");
 }
 
-console.log("\nthe bar and the panel:");
+console.log("\nthe sidebar and the URL:");
 {
   const d = src("components/Directory.jsx");
+  const frame = src("components/SiteFrame.jsx");
   const p = src("components/DirectoryFilters.jsx");
-  ok(/<FiltersButton/.test(d) && /<ActiveFilters/.test(d), "one Filters control and the chips are rendered");
-  ok(/f\.free/.test(p) && /f\.used/.test(p) && /"int"/.test(p) && /"has"/.test(p), "free, editor, integrations and details are in the panel");
-  ok(!/sort|view/i.test(p.match(/export function FiltersButton[\s\S]*?\n}\n/)[0].replace(/aria-|options|className/g, "")), "sort and grid/list are not in it");
-  ok(/Clear all/.test(p) && /Filters\{n \? ` \(\$\{n\}\)` : ""\}/.test(p), "Clear all, and the button shows a count");
-  ok(/\.filters-panel[\s\S]*?@media \(max-width: 640px\)[\s\S]*?position: fixed/.test(src("app/globals.css")), "a full-height sheet on a phone");
-  ok(/replaceState\([^)]*query/.test(d), "the URL follows the state");
+  const lp = src("components/ListingParams.jsx");
+  ok(/<FilterGroups/.test(frame) && /<ActiveFilters/.test(frame), "the filters and their chips are in the sidebar, open");
+  ok(!/FiltersButton|filters-panel/.test(d + frame + p + src("app/globals.css")), "no Filters button, no popover: the sidebar is the room it compensated for");
+  ok(/f\.free/.test(p) && /f\.used/.test(p) && /"int"/.test(p) && /"has"/.test(p), "free, editor, integrations and details");
+  ok(/Clear all/.test(p), "Clear all");
+  ok(!/<select[^>]*sort|ViewToggle/.test(frame), "sort and grid/list stay with the grid, not in the sidebar");
+  ok(/useDirectoryFilters\(initialFilters\)/.test(d) && /setDirectoryFilters\(/.test(frame), "the grid reads the URL; the sidebar writes it");
+  ok(/replaceState\(null, ""/.test(lp) && !/replaceState\(window\.history\.state/.test(lp + d + frame),
+    "replaceState with null, which Next follows (with its own state it skips the router)");
   ok(/initialFilters=\{parseFilters\(searchParams/.test(src("app/page.js")), "the server reads the URL, so a shared link renders filtered");
   ok(/canonical: "\/"/.test(src("app/layout.js")), "a filtered view canonicalises to the homepage");
 }

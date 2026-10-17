@@ -153,38 +153,6 @@
   --ink-8c9eff: #8C9EFF;
 }
 
-/* ==================================================================
-   Masthead.
-
-   Headline left, matcher right, above lg. Stacked below it. The two
-   were vertically stacked once and between them they pushed the first
-   tool card 709px down the page, which on a 1366x768 laptop put the
-   directory itself below the fold.
-
-   Once the matcher has answered, the grid drops to a single column:
-   the answer is a list of tools and it wants the full width, and the
-   question it came from has already shrunk to one line by then.
-   ================================================================== */
-
-.masthead {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 24px;
-}
-
-@media (min-width: 1024px) {
-  .masthead {
-    grid-template-columns: minmax(0, 1.2fr) minmax(340px, 1fr);
-    gap: 48px;
-    align-items: start;
-  }
-
-  .masthead-answered {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-  }
-}
-
 /* /about: the photo above the name on a phone, to the left of it from 640px. */
 .about-head {
   display: grid;
@@ -201,48 +169,145 @@
 }
 
 /*
- * The site frame: one top bar. Wordmark, the section tabs, then the account
- * and theme controls, in one row from 1024px. Below that the tabs drop to
- * their own row and scroll sideways rather than wrap, so the frame is two
- * fixed-height rows on a phone however many sections there are.
+ * The site frame: a sidebar and a content column (components/SiteFrame.jsx).
  *
- * It replaced two stacked rows (frame, then a view switcher), which with the
- * category chips made three layers of navigation above the grid, all at the
- * same weight. See CLAUDE.md, invariant F.
+ * From 1200px the sidebar is a persistent column, sticky, the height of the
+ * window, and scrolls on its own, so a long filter list never moves the grid.
+ * Below 1200px it is a drawer behind one button, and a top bar carries the
+ * wordmark and the section tabs, so navigation is never behind a button.
+ * 1200 rather than 1024: beside a 248px sidebar, three cards at 1024 are about
+ * 230px wide, too narrow for a card.
+ *
+ * Nothing here moves. The drawer appears and disappears; it does not slide.
  */
-.topbar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "brand account" "tabs tabs";
-  align-items: center;
-  column-gap: 16px;
-  row-gap: 8px;
+.shell { display: block; }
+.shell-main { min-width: 0; outline: none; }
+.shell-top {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-line);
+  padding: 8px 16px;
 }
-.topbar-brand { grid-area: brand; }
-.topbar-account { grid-area: account; justify-self: end; }
-.topbar-tabs {
-  grid-area: tabs;
+.shell-top-row { display: flex; align-items: center; gap: 12px; }
+.shell-tabs {
   display: flex;
   gap: 4px;
   overflow-x: auto;
   scrollbar-width: none;
-  margin: 0 -16px;
+  margin: 8px -16px 0;
   padding: 0 16px;
 }
-.topbar-tabs::-webkit-scrollbar { display: none; }
-.topbar-tabs > * { flex: none; }
+.shell-tabs::-webkit-scrollbar { display: none; }
+.shell-tabs > * { flex: none; }
 
-@media (min-width: 1024px) {
-  .topbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "brand tabs account";
-    column-gap: 32px;
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--c-bg);
+  padding: 20px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* Below 1200px: a drawer, closed until the menu button opens it. */
+@media (max-width: 1199px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(320px, 88vw);
+    z-index: 70;
+    border-right: 1px solid var(--c-line);
+    box-shadow: var(--c-shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.25));
   }
-  .topbar-tabs { margin: 0; padding: 0; overflow: visible; }
+  .sidebar[data-open="false"] { display: none; }
+  .shell-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 65;
+    background: rgba(0, 0, 0, 0.4);
+    border: 0;
+  }
+}
+@media (min-width: 1200px) {
+  .shell {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+    align-items: start;
+  }
+  .shell-top, .shell-scrim, .sidebar-close { display: none !important; }
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    border-right: 1px solid var(--c-line);
+  }
 }
 
-/* A section tab: plain text until it is the current one, which takes the
-   neutral inversion (colour invariant C). */
+/* A section in the sidebar: wordmark, the five sections with counts. */
+.side-nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-muted);
+  text-decoration: none;
+}
+.side-nav a:hover { color: var(--c-text); background: var(--c-subtle); }
+.side-nav a[aria-current="page"] { color: var(--c-bg); background: var(--c-text); }
+.side-nav a[aria-current="page"] .side-count { color: var(--c-bg); opacity: 0.75; }
+
+/* The categories: a vertical list, its hue as a short mark at the head of
+   each row. That mark is the category list's colour, one of the three places
+   category colour may appear (colour invariant A). */
+.side-cats a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--c-text);
+  text-decoration: none;
+}
+.side-cats a:hover { background: var(--c-subtle); }
+.side-cats a[aria-current="true"] { background: var(--c-text); color: var(--c-bg); font-weight: 600; }
+.side-cats a[aria-current="true"] .side-count { color: var(--c-bg); opacity: 0.75; }
+.side-count { margin-left: auto; font-size: 12px; color: var(--c-dim); font-variant-numeric: tabular-nums; }
+.side-head { font-size: 12px; font-weight: 600; color: var(--c-dim); margin: 0 0 4px; }
+
+/* The content column. Three cards from 1200px, two from 768px, one below. */
+.content { padding: 24px 24px 0; }
+@media (max-width: 767px) { .content { padding: 16px 16px 0; } }
+.content-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+.cards { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1200px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Every page wraps its body in <main><div class="mx-auto" style="max-width:…">.
+   Inside the content column that reading width starts at the column's left
+   edge, on the same 24px as the directory and the footer, rather than
+   floating in the middle of the space beside the sidebar. */
+.shell-main > main > .mx-auto { margin-left: 0; padding-left: 24px !important; padding-right: 24px !important; }
+@media (max-width: 767px) {
+  .shell-main > main > .mx-auto { padding-left: 16px !important; padding-right: 16px !important; }
+}
+
+/* A section tab in the top bar below 1200px: plain text until it is the
+   current one, which takes the neutral inversion (colour invariant C). */
 .navtab {
   display: inline-flex;
   align-items: center;
@@ -264,69 +329,6 @@
   color: var(--c-bg);
   background: var(--c-text);
 }
-
-/* The headline: 36px from 768px, 28 below, where two lines of 36 cost a
-   third of the screen before anything useful. */
-.hero-title { font-size: 28px; }
-@media (min-width: 768px) { .hero-title { font-size: 36px; } }
-
-/*
- * The matcher on a phone starts closed: one full-width button that opens the
- * textarea on tap, with no animation. From 1024px it is always open, which is
- * why this is CSS rather than state: the server render is right at every
- * width and nothing changes after hydration.
- */
-.matcher-toggle { display: flex; }
-.matcher-body { display: none; }
-.matcher-open .matcher-toggle { display: none; }
-.matcher-open .matcher-body { display: block; }
-@media (min-width: 1024px) {
-  .matcher-toggle { display: none; }
-  .matcher-body { display: block; }
-}
-
-/*
- * The directory body: a category rail beside the grid from 1024px, so the
- * categories stop being two wrapping rows of chips above it. Below 1024px the
- * rail becomes one row of chips that scrolls sideways.
- */
-.dir-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-}
-.rail {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  margin: 0 -20px;
-  padding: 0 20px 2px;
-}
-.rail::-webkit-scrollbar { display: none; }
-.rail > * { flex: none; }
-.rail-head { display: none; }
-
-@media (min-width: 1024px) {
-  .dir-body {
-    grid-template-columns: 208px minmax(0, 1fr);
-    gap: 24px;
-    align-items: start;
-  }
-  .rail {
-    flex-direction: column;
-    gap: 4px;
-    overflow: visible;
-    margin: 0;
-    padding: 0;
-    position: sticky;
-    top: 16px;
-  }
-  .rail > * { flex: initial; }
-  .rail-head { display: block; }
-  .rail .chip { width: 100%; justify-content: space-between; padding-top: 4px !important; padding-bottom: 4px !important; }
-}
-
 
 /* The drafts panel's fact list: label column, value column. */
 .drafts-facts {
@@ -587,29 +589,3 @@ a:focus-visible,
   display: none !important;
 }
 
-/*
- * The Filters panel (components/DirectoryFilters.jsx). A popover under the
- * button on a wide screen; a full-height sheet on a phone, where a popover
- * would be narrower than its own checkboxes.
- */
-.filters-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 340px;
-  max-height: min(70vh, 560px);
-  overflow-y: auto;
-  z-index: 40;
-}
-@media (max-width: 640px) {
-  .filters-panel {
-    position: fixed;
-    inset: 0;
-    width: auto;
-    max-height: none;
-    height: 100%;
-    border-radius: 0 !important;
-    border: 0 !important;
-    z-index: 100;
-  }
-}

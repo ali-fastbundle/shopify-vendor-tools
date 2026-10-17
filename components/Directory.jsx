@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef, useImperativeHandle } from "react";
 import {
   Star, ThumbsUp, ThumbsDown, Check, Plus, X, CaretUp, CaretDown, Rows,
-  LinkedinLogo, XLogo, GithubLogo, YoutubeLogo, ArrowUpRight, MagnifyingGlass,
+  LinkedinLogo, XLogo, GithubLogo, YoutubeLogo, ArrowUpRight,
 } from "@phosphor-icons/react";
 import { outbound } from "@/lib/outbound";
 import { pendingKinds } from "@/lib/sections";
@@ -15,17 +15,17 @@ import Vote from "./Vote";
 import VisitSite from "./VisitSite";
 import { OwnerFact, AlsoFrom } from "./OwnerLine";
 import StructuredDetails from "./StructuredDetails";
-import { FiltersButton, ActiveFilters } from "./DirectoryFilters";
-import { DEFAULT_FILTERS, toQuery, passes } from "@/lib/directoryFilters";
+import { toQuery, passes } from "@/lib/directoryFilters";
 import QA from "./QA";
 import VendorMedia from "./VendorMedia";
 import SaveToList from "./SaveToList";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { ownershipOf as resolveOwnership } from "@/lib/owners";
 import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
-import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable, categoriesByCount } from "@/lib/tools";
+import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { OwnerPanel, SignInPrompt, useSession } from "./Account";
 import { useFeedForCount } from "./SiteFrame";
+import { useDirectoryFilters, setDirectoryFilters, usePublishPanel, useMatcherOpen } from "./ListingParams";
 
 /* ================================================================== */
 /*  Bits                                                               */
@@ -369,18 +369,15 @@ function localMatch(problem, tools = TOOLS) {
  * tinguishable from the real one. Nothing-fits is worth saying plainly too:
  * it is the gap in the directory, and the button turns it into a suggestion.
  */
-function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
+function Matcher({ tools, onOpen, onSuggest, onClose }) {
   const [problem, setProblem] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [editing, setEditing] = useState(true);
-  const [opened, setOpened] = useState(false);
 
   /* What the matcher may recommend. See invariant 35. */
   const pool = useMemo(() => tools.filter(recommendable), [tools]);
 
-  /* The masthead drops to one column once there is an answer to show. */
-  useEffect(() => { onAnswered?.(Boolean(result)); }, [result, onAnswered]);
 
   async function run(text) {
     const q = (text ?? problem).trim();
@@ -420,25 +417,18 @@ function Matcher({ tools, onOpen, onSuggest, onAnswered }) {
   );
 
   return (
-    <div className={opened ? "matcher-open" : ""}>
-      {/* On a phone the matcher starts as this one button and opens in
-          place; from 1024px it is always open (globals.css). CSS decides, so
-          the server render is right at every width. */}
-      <button type="button" className="matcher-toggle ctl press" onClick={() => setOpened(true)}
-        aria-controls="matcher-body" aria-expanded={opened}
-        style={{
-          width: "100%", alignItems: "center", justifyContent: "space-between", gap: S.md,
-          background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
-          padding: "12px 16px", fontSize: F.md, fontWeight: 600, color: C.text,
-          cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-        }}>
-        <span>Describe a problem, get matched to tools</span>
-        <span aria-hidden="true" style={{ color: C.dim, fontWeight: 400 }}>+</span>
-      </button>
-      <div id="matcher-body" className="matcher-body" style={{
-        background: C.hero,
+    <div>
+      {/* Opened from the sidebar's prompt, so it carries its own way out. */}
+      <div id="matcher-body" style={{
+        position: "relative", background: C.hero,
         border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.md,
       }}>
+        {onClose && (
+          <button type="button" onClick={onClose} aria-label="Close the matcher"
+            style={{ position: "absolute", top: 8, right: 8, background: "none", border: 0, padding: 4, color: C.muted, cursor: "pointer" }}>
+            <X size={16} />
+          </button>
+        )}
         {!editing && result ? (
           /* Asked and answered: the question shrinks to one line so the answer leads. */
           <div className="flex flex-wrap items-baseline" style={{ gap: S.md }}>
@@ -720,25 +710,25 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
    * tools, and "Ranksy raised Starter to $79" means nothing until it does.
    */
 
-  /* Category, search, sort and view start from the URL the server read
-     (lib/directoryFilters.js), so a shared filtered link renders filtered in
-     the first HTML. */
-  const init = { ...DEFAULT_FILTERS, ...initialFilters };
-  const [cat, setCatState] = useState(init.cat);
-  const [q, setQ] = useState(init.q);
-  /* The refinements behind the Filters control: free plan, editor used,
-     integrations (any of), and the category's yes-or-no details. Integrations
-     and details match confirmed data only, so a draft never filters. */
-  const [refine, setRefine] = useState({ free: init.free, used: init.used, int: init.int, has: init.has });
-  const setRefinePart = (part) => setRefine((r) => ({ ...r, ...part }));
-  const clearRefine = () => setRefine({ free: false, used: false, int: [], has: [] });
-  /* Details belong to a category, so changing category drops them. */
-  const setCat = (c) => { setCatState(c); setRefine((r) => (r.has.length ? { ...r, has: [] } : r)); };
-  const [sort, setSort] = useState(SORTS[init.sort] ? init.sort : "rating");
-  const [dir, setDir] = useState((SORTS[init.sort] || SORTS.rating).dir);
-  const [view, setView] = useState(init.view);
-  /* True once the matcher has an answer on screen. Widens the masthead. */
-  const [answered, setAnswered] = useState(false);
+  /*
+   * Category, search, refinements, sort and view are the URL
+   * (components/ListingParams.jsx). The sidebar writes it, this reads it, and
+   * the server read the same parameters, so a shared filtered link renders
+   * filtered in the first HTML. Only the sort direction is local: it is a
+   * click on a column header, not a view anybody sends.
+   */
+  const f = useDirectoryFilters(initialFilters);
+  const { cat, q, view } = f;
+  const sort = SORTS[f.sort] ? f.sort : "rating";
+  const refine = useMemo(() => ({ free: f.free, used: f.used, int: f.int, has: f.has }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [f.free, f.used, f.int.join(), f.has.join()]);
+  const [dir, setDir] = useState(SORTS[sort].dir);
+  useEffect(() => { setDir(SORTS[sort].dir); }, [sort]);
+  const setSort = (k) => setDirectoryFilters({ sort: k });
+  const setView = (v) => setDirectoryFilters({ view: v });
+  /* The matcher opens from the sidebar's prompt and answers here. */
+  const [matcherOpen, setMatcherOpen] = useMatcherOpen();
   const [detail, setDetail] = useState(null);
   /* The star that was clicked to get here, carried into the review form. */
   const [detailRating, setDetailRating] = useState(0);
@@ -928,7 +918,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
   const orderBy = (key) => {
     if (!SORTS[key]) return;
     if (key === sort) setDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSort(key); setDir(SORTS[key].dir); }
+    else setSort(key);
   };
 
   const toggle = (id) =>
@@ -945,25 +935,35 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
   const attributeOptions = cat === "all" ? [] : attributesFor(cat).filter((a) => a.type === "boolean")
     .map((a) => ({ ...a, n: tools.filter((t) => t.cat === cat && t.structured && attributeValue(a, t.structured) === true).length }))
     .filter((a) => a.n > 0);
-  /* Categories ordered by how many tools they hold, computed (lib/tools.js). */
-  const orderedCats = categoriesByCount(tools);
 
-  /*
-   * The address follows the filters, so the view in the bar is the view in
-   * the URL. replaceState, not push: changing a filter is not a place to go
-   * back to. Only on "/", so it never touches the /tools/<id> entry the modal
-   * pushes, and it keeps that entry's state.
-   */
-  const query = toQuery({ cat, q, ...refine, sort, view });
+  /* Where closing the modal returns to when it was not pushed by us. */
+  const query = toQuery({ ...f, sort });
+
+  /* What the sidebar needs to draw the filters, which only this page knows:
+     the counts and the confirmed integrations come from merged data. */
+  const resultCount = rows.length;
+  const panel = useMemo(() => ({
+    freeCount: tools.filter((t) => t.free).length, editorCount,
+    integrations: integrationOptions, attributes: attributeOptions, resultCount,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [tools, editorCount, JSON.stringify(integrationOptions), JSON.stringify(attributeOptions), resultCount]);
+  usePublishPanel("directory", panel);
+
+  /* Arriving from the prompt on another page (/?ask=1): open the box, and take
+     the parameter off so a refresh or a copied link does not reopen it. */
   useEffect(() => {
     try {
-      if (window.location.pathname !== "/") return;
       const params = new URLSearchParams(window.location.search);
-      if (params.has("tool") || params.has("signin")) return;
-      if (window.location.search === query) return;
-      window.history.replaceState(window.history.state, "", `/${query}`);
-    } catch { /* no history API: the filters still work, the URL just does not follow */ }
-  }, [query]);
+      if (!params.has("ask")) return;
+      params.delete("ask");
+      const rest = params.toString();
+      window.history.replaceState(null, "", `/${rest ? `?${rest}` : ""}`);
+      setMatcherOpen(true);
+      requestAnimationFrame(() => document.getElementById("matcher-q")?.focus());
+    } catch { /* fine */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* `rating` is set when the person got here by clicking a star. */
   /* The header counts updates new to this browser; this page has the feed. */
   useFeedForCount(feed);
@@ -1066,109 +1066,53 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
      * by next/font. A stylesheet injected from here could only describe one
      * theme, and would have to be rewritten to describe the other.
      */
-    <div style={{ background: C.bg, color: C.text }}>
-      {/* The first focusable element: past the masthead and chips to the grid,
-          for anyone on a keyboard. Hidden until focused. See .skip-link. */}
-      <a href="#main" className="skip-link">Skip to tools</a>
-      {/* glow */}
-      <div style={{
-        position: "absolute", inset: "0 0 auto 0", height: 460, pointerEvents: "none",
-        background: C.glow,
-      }} />
+    <div className="content" style={{ color: C.text }}>
+      <main id="main" tabIndex={-1} style={{ outline: "none" }}>
+        {/* The matcher, opened from the sidebar's prompt. It is here only once
+            somebody asks, so the grid never moves on load. */}
+        {matcherOpen && (
+          <section aria-label="Match a problem to tools" style={{ marginBottom: S.xl }}>
+            <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest} onClose={() => setMatcherOpen(false)} />
+          </section>
+        )}
 
-      <div className="mx-auto" style={{ maxWidth: 1280, padding: "0 20px", position: "relative" }}>
-
-        {/* The frame (wordmark, sections, account) is the site header in
-            app/layout.js. This is the masthead under it. */}
-        <header>
-          <div className={answered ? "masthead masthead-answered" : "masthead"} style={{ marginTop: S["2xl"], paddingBottom: S.xl }}>
-            <div style={{ minWidth: 0 }}>
-              <h1 className="hero-title" style={{ fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.1, margin: 0 }}>
-                {HEADLINE}
-              </h1>
-              {/* The stats as a sentence. A row of five counts read as five
-                  things to look at, one of them zero; this is one line saying
-                  what the directory is. No review count: it was 0, and when
-                  there is nothing, render nothing (rule E). One short sentence,
-                  and "community rated" went with it: most tools have no rating
-                  yet, so it promised more than the grid shows. */}
-              <p className="tnum" style={{ fontSize: F.lg, color: C.muted, maxWidth: "52ch", lineHeight: 1.5, margin: `${S.sm}px 0 0` }}>
-                {tools.length} tools for Shopify app builders in {CATEGORIES.length} categories, updated {LAST_UPDATED}.
-              </p>
-            </div>
-            <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest}
-              onAnswered={setAnswered} />
+        {/*
+          * One row above the first card: the heading, the one-sentence
+          * description, sort and the Compare toggle. Search, categories and
+          * filters are in the sidebar (components/SiteFrame.jsx), and nothing
+          * else sits above the grid.
+          */}
+        <header className="content-head">
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{ fontSize: F["2xl"], fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.15, margin: 0 }}>
+              {cat === "all" ? HEADLINE : catOf(cat).label}
+            </h1>
+            <p className="tnum" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0` }}>
+              {cat === "all"
+                ? `${tools.length} tools for Shopify app builders in ${CATEGORIES.length} categories, updated ${LAST_UPDATED}.`
+                : `${rows.length} of ${tools.length} tools. ${catOf(cat).blurb}`}
+            </p>
+          </div>
+          <div className="flex items-center" style={{ gap: S.sm }}>
+            <select value={sort} aria-label="Sort tools by" className="ctl"
+              onChange={(e) => setSort(e.target.value)}
+              style={{
+                background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
+                padding: "8px 10px", fontSize: F.sm, color: C.text, fontFamily: "inherit",
+              }}>
+              {[...SELECT_SORTS, ...(editorCount > 0 ? ["editor"] : [])].map((k) => (
+                <option key={k} value={k} style={{ background: C.panel }}>{SORTS[k].label}</option>
+              ))}
+              {/* A column header can set an order this list does not offer. Say
+                  so rather than showing the wrong option as selected. */}
+              {!SELECT_SORTS.includes(sort) && !(sort === "editor" && editorCount > 0) && (
+                <option value={sort} style={{ background: C.panel }}>{SORTS[sort].label}</option>
+              )}
+            </select>
+            <ViewToggle view={view} onView={setView} />
           </div>
         </header>
 
-        <main id="main" tabIndex={-1} style={{ outline: "none" }}>
-        {/*
-          * The categories are a rail beside the grid from 1024px, a sideways
-          * scrolling row of chips below it. Colour stays on the chip, which is
-          * one of the three places category colour may appear (invariant A).
-          * Free plan is a filter too, so it lives with them.
-          */}
-        <div className="dir-body">
-        <aside aria-label="Filter by category">
-          <div className="rail">
-            <p className="rail-head" style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, margin: `0 0 ${S.xs}px` }}>Categories</p>
-            {/* No category behind it, so no category colour to borrow: All
-                fills with the text colour and inks with the background. */}
-            <FilterChip active={cat === "all"} color={C.text} ink={C.bg}
-              onClick={() => setCat("all")} label="All" count={tools.length} />
-            {orderedCats.map((c) => (
-              <FilterChip key={c.id} active={cat === c.id} color={c.color} onClick={() => setCat(c.id)}
-                label={c.label} count={tools.filter((t) => isInCat(t, c.id)).length} />
-            ))}
-          </div>
-        </aside>
-
-        <div style={{ minWidth: 0 }}>
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-          <span style={{ position: "relative", flex: 1, minWidth: 200, display: "inline-flex", alignItems: "center" }}>
-            <MagnifyingGlass size={15} color={C.dim} weight="bold"
-              style={{ position: "absolute", left: 10, pointerEvents: "none" }} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tools, tags, notes"
-              aria-label="Search tools, tags and notes"
-              style={{
-                width: "100%", background: C.panel, border: `1px solid ${C.line}`,
-                borderRadius: R.control, padding: "8px 12px 8px 32px", fontSize: F.sm,
-                color: C.text, fontFamily: "inherit",
-              }} />
-          </span>
-          {/* Every refinement behind one control; sort and view stay out,
-              because they are not filters (lib/directoryFilters.js). */}
-          <FiltersButton f={{ cat, ...refine }} set={setRefinePart} onClear={clearRefine}
-            options={{ freeCount: tools.filter((t) => t.free).length, editorCount, integrations: integrationOptions, attributes: attributeOptions, resultCount: rows.length }} />
-          <select value={sort} aria-label="Sort tools by" className="ctl"
-            onChange={(e) => { setSort(e.target.value); setDir(SORTS[e.target.value].dir); }}
-            style={{
-              background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
-              padding: "8px 10px", fontSize: F.sm, color: C.text, fontFamily: "inherit",
-            }}>
-            {[...SELECT_SORTS, ...(editorCount > 0 ? ["editor"] : [])].map((k) => (
-              <option key={k} value={k} style={{ background: C.panel }}>{SORTS[k].label}</option>
-            ))}
-            {/* A column header can set an order this list does not offer. Say
-                so rather than showing the wrong option as selected. */}
-            {!SELECT_SORTS.includes(sort) && !(sort === "editor" && editorCount > 0) && (
-              <option value={sort} style={{ background: C.panel }}>{SORTS[sort].label}</option>
-            )}
-          </select>
-          <ViewToggle view={view} onView={setView} />
-          {/* Add a tool left the bar: it is not a decision anybody makes
-              before reading the grid. It is the invite card at the end of the
-              grid, the empty-result button and the matcher's no-match answer. */}
-        </div>
-
-        <ActiveFilters f={refine} set={setRefinePart} onClear={clearRefine}
-          labels={{ integration: integrationLabel, attribute: (k) => attributesFor(cat).find((a) => a.key === k)?.label || k }} />
-
-        {cat !== "all" && (
-          <p style={{ fontSize: F.sm, color: C.muted, maxWidth: "70ch", lineHeight: 1.5, marginTop: S.md }}>
-            {catOf(cat).blurb}
-          </p>
-        )}
         {/* The one place the site states the editor-use policy: when somebody
             is filtering or sorting by it, which is when they rely on it. */}
         {(refine.used || sort === "editor") && (
@@ -1201,7 +1145,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
           )}
 
           {rows.length > 0 && view === "grid" && (
-            <div className="grid" style={{ gap: S.md, gridTemplateColumns: "repeat(auto-fill, minmax(272px, 1fr))" }}>
+            <div className="cards">
               {rows.map((t) => (
                 <Card key={t.id} tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
                   votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
@@ -1245,13 +1189,9 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             />
           )}
         </div>
-        </div>
-        </div>
 
         <Roadmap onSuggest={setShowSuggest} />
-        </main>
-
-      </div>
+      </main>
 
       {/* Compare tray */}
       {picked.length > 0 && !compare && (
@@ -1329,32 +1269,6 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 }
 
 /* ================================================================== */
-/*
- * `ink` is what sits on the fill when the chip is active. It defaults to the
- * dark ink every category hue is chosen to carry; All passes its own, because
- * its fill is the text colour and that one flips with the theme.
- */
-function FilterChip({ active, color, ink: onFill = C.onAccent, onClick, label, count }) {
-  return (
-    <button onClick={onClick} aria-pressed={active}
-      className="ctl press tnum chip"
-      style={{
-        display: "inline-flex", alignItems: "center", gap: S.sm,
-        background: active ? color : C.panel,
-        color: active ? onFill : C.text,
-        border: `1px solid ${active ? color : C.line}`,
-        /* 2px underscore of the category hue when the chip is off, the hue as
-           the fill when it is on. Same information the dot carried, without a
-           row of coloured dots reading as decoration. */
-        borderBottom: `2px solid ${color}`,
-        borderRadius: R.control, padding: "6px 10px", fontSize: F.sm,
-        fontWeight: active ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
-      }}>
-      {label}
-      <span style={{ fontSize: F.xs, opacity: active ? 0.7 : 0.5 }}>{count}</span>
-    </button>
-  );
-}
 
 /*
  * Cards or rows, as one toggle named for what the rows are for. A card gives a

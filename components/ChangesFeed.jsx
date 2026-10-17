@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { Suspense, useState, useMemo } from "react";
+import { useParam, usePublishPanel } from "@/components/ListingParams";
 import CopyLink from "./CopyLink";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, CATEGORIES, catOf, formatDay } from "@/lib/tools";
@@ -58,9 +59,17 @@ function Logo({ entry, size = 34 }) {
  * are the same component rather than two that drift. The page wraps this in a
  * <main> with its own heading; the tab drops it straight under the tab row.
  */
-export function FeedRows({ entries = [], tools = [] }) {
-  const [tool, setTool] = useState("all");
-  const [cat, setCat] = useState("all");
+export function FeedRows(props) {
+  return <Suspense fallback={<Rows {...props} tool="all" cat="all" />}><FromUrl {...props} /></Suspense>;
+}
+
+/* The filters are ?tool= and ?cat=, written by the sidebar
+   (components/SiteFrame.jsx), so a filtered feed is a link. */
+function FromUrl(props) {
+  return <Rows {...props} tool={useParam("tool") || "all"} cat={useParam("cat") || "all"} />;
+}
+
+function Rows({ entries = [], tools = [], tool, cat }) {
 
   const named = useMemo(() => {
     const byId = Object.fromEntries(tools.map((t) => [t.id, t]));
@@ -76,27 +85,15 @@ export function FeedRows({ entries = [], tools = [] }) {
     return ids.map((id) => entries.find((e) => e.toolId === id)).sort((a, b) => a.toolName.localeCompare(b.toolName));
   }, [entries]);
 
-  const field = {
-    background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
-    padding: "8px 10px", fontSize: F.sm, color: C.text, fontFamily: "inherit",
-  };
+  /* The sidebar's tool list: only tools that appear, so it never offers an
+     empty result. */
+  const toolList = useMemo(() => present.map((e) => ({ id: e.toolId, name: e.toolName })), [present]);
+  usePublishPanel("feed", toolList);
 
   return (
     <>
         {entries.length > 0 && (
           <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.xl }}>
-            <select value={tool} onChange={(e) => setTool(e.target.value)} style={field} aria-label="Filter by tool">
-              <option value="all">All tools</option>
-              {present.map((e) => (
-                <option key={e.toolId} value={e.toolId} style={{ background: C.panel }}>{e.toolName}</option>
-              ))}
-            </select>
-            <select value={cat} onChange={(e) => setCat(e.target.value)} style={field} aria-label="Filter by category">
-              <option value="all">All categories</option>
-              {CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id} style={{ background: C.panel }}>{c.label}</option>
-              ))}
-            </select>
             <span className="tnum" style={{ fontSize: F.sm, color: C.dim }}>
               {rows.length} {rows.length === 1 ? "entry" : "entries"}
             </span>
