@@ -204,9 +204,17 @@ export default function AdminPanel({
   /* Monitor findings are counted on Recent updates, where they are decided:
      most of them end as an entry on the feed or as nothing. */
   const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length + unreadLists.length + pendingMedia.length;
-  const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
-    + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
-    + drafted(ALL_PODCASTS).length + drafted(ALL_YOUTUBE).length + drafted(ALL_AWARDS).length + drafted(ALL_EVENTS).length;
+  /*
+   * A tab's count is what needs you there, never what exists. Catalogue counts
+   * drafts waiting for Publish, Discard or Hold (not the ones on hold, which
+   * were decided, and not published entries, out-of-scope rows or deleted
+   * ones, which are history). People counts reviews to decide, not accounts.
+   */
+  const catalogueCount = [
+    ["tool", ALL_TOOLS], ["newsletter", ALL_NEWSLETTERS], ["group", ALL_COMMUNITIES], ["podcast", ALL_PODCASTS],
+    ["youtube", ALL_YOUTUBE], ["award", ALL_AWARDS], ["event", ALL_EVENTS],
+  ].reduce((n, [kind, list]) => n + drafted(list).filter((e) => !(holds || {})[`${kind}:${e.id}`]).length, 0);
+  const reviewsToDecide = (reviewRows || []).reduce((n, g) => n + (g.needs || 0), 0);
   const counts = {
     inbox: inboxCount,
     catalogue: catalogueCount,
@@ -214,7 +222,7 @@ export default function AdminPanel({
     announcements: (announcements || []).filter((r) => r.status === "draft" || r.status === "ready").length,
     ideas: (ideas || []).filter((r) => r.status === "new" || r.status === "reviewed").length,
     data: published(ALL_TOOLS).filter((t) => !structured?.[t.id]?.confirmedAt || priceOverrides?.[t.id]?.priceAt > structured[t.id].confirmedAt).length,
-    people: Object.keys(accounts || {}).length,
+    people: reviewsToDecide,
     system: 0,
   };
 
@@ -461,8 +469,7 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
     <>
       {pointer}
 
-      <Section
-        title="Suggestions to review"
+      <WorkList rows={pending.length} title="Suggestions to review"
         count={pending.length}
         hint="Sorted by how many people asked. Mark reviewed clears the moderation hold so the row is public; it does not create a listing. Research and draft writes one for you to check."
       >
@@ -477,47 +484,46 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
                 busy={busy === "delete-suggestion" + s.id}>Delete</ConfirmBtn>
             </SuggestionRow>
           ))}
-      </Section>
+      </WorkList>
 
       <OpenReports rows={reports} act={act} busy={busy} />
 
       {comments.length > 0 && (
-        <Section title="Comments to read" count={comments.length}
+        <WorkList rows={comments.length} title="Comments to read" count={comments.length}
           hint="Blog comments are live the moment they are posted. Read each one: Looks fine takes it out of here, Hide takes it off the post with a reason and keeps it, Delete removes it for good.">
           {comments.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
-        </Section>
+        </WorkList>
       )}
 
       {media.length > 0 && (
-        <Section title="Media to approve" count={media.length}
+        <WorkList rows={media.length} title="Media to approve" count={media.length}
           hint="Screenshots and demo links from verified vendors. Nothing shows until you approve. Approving commits the new images to the repository in one commit and puts the set on the listing, labelled as the vendor's. Reject needs a reason, which the vendor is sent.">
           {media.map(([toolId, p]) => <MediaRow key={toolId} toolId={toolId} p={p} canCommit={canCommit} act={act} busy={busy} />)}
-        </Section>
+        </WorkList>
       )}
 
       {lists.length > 0 && (
-        <Section title="Lists published" count={lists.length}
+        <WorkList rows={lists.length} title="Lists published" count={lists.length}
           hint="Lists visitors made public. They are live at once and not indexed until you mark one fine. Hide takes one off the site with a reason and keeps it.">
           {lists.map((l) => <ListRow key={l.id} l={l} act={act} busy={busy} />)}
-        </Section>
+        </WorkList>
       )}
 
       {questions.length > 0 && (
-        <Section title="Questions to read" count={questions.length}
+        <WorkList rows={questions.length} title="Questions to read" count={questions.length}
           hint="Questions on tool pages are live the moment they are asked. Looks fine takes one out of here. Hide takes a question or an answer off the page with a reason and keeps it. Delete removes it for good.">
           {questions.map((q) => <QuestionRow key={q.toolId + q.id} q={q} act={act} busy={busy} />)}
-        </Section>
+        </WorkList>
       )}
 
-      <Section
-        title="Claims to check"
+      <WorkList rows={claims.length} title="Claims to check"
         count={claims.length}
         hint="Started but not proved. They have a token to publish on their own domain; nothing is editable until they do."
       >
         {claims.length === 0
           ? <Empty>No claims waiting.</Empty>
           : claims.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} />)}
-      </Section>
+      </WorkList>
 
       <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
     </>
@@ -527,9 +533,8 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
 function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, aboutPhoto = "", mediaLive = {}, outOfScope = [], deleted = [], publishedSuggestions = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
   return (
     <>
-      <Tallies stats={stats} rows={allSuggestions} />
-      <PublishingNote />
       <Drafts publishing={publishing} holds={holds} discards={discards} />
+      <PublishingNote />
       <NeedsVerifying />
       <EditorUse editorUse={editorUse} entries={entries} />
       <AboutPage initial={about} photo={aboutPhoto} />
@@ -550,6 +555,8 @@ function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, di
         hint="Every published tool and newsletter, and whether the weekly monitor can actually read it. A listing it cannot see produces no findings, which looks exactly like a listing with nothing new, so silence only means something for the ones marked Monitored.">
         <CoverageList rows={coverage} />
       </Collapsible>
+      {/* Running totals are what happened, so they follow the work. */}
+      <Tallies stats={stats} rows={allSuggestions} />
       <OutOfScope rows={outOfScope} />
       <Deleted rows={deleted} act={act} busy={busy} />
       <Collapsible title="Published" count={publishedSuggestions.length}
@@ -590,15 +597,14 @@ function People({ accounts = {}, claims = {}, verified = [], subscribers = [], s
         {read.length === 0 ? <Empty>No comments read yet.</Empty>
           : read.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
       </Collapsible>
-      <Section
-        title="Verified claims"
+      <Collapsible title="Verified claims"
         count={verified.length}
         hint="These addresses can edit their listing. Revoke access drops the claim and leaves the published copy as the vendor left it; revoke and revert also restores the editorial original."
       >
         {verified.length === 0
           ? <Empty>No verified claims yet.</Empty>
           : verified.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} verified />)}
-      </Section>
+      </Collapsible>
       <Accounts accounts={accounts} claims={claims} />
       <Subscribers list={subscribers} rows={subscriberRows} />
       <Compose count={subscribers.length} feed={feed} />
@@ -785,12 +791,12 @@ function Reviews({ groups = [], act, busy }) {
   const item = ({ g, r }) => <ReviewItem key={`${g.id}:${r.id}`} g={g} r={r} act={act} busy={busy} showListing />;
   return (
     <>
-      <Section title="Reviews to decide" count={needs}
+      <WorkList rows={open.length} title="Reviews to decide" count={needs}
         hint="Reviews carrying a marker nobody has looked at. Markers say look, not exclude. Confirm keeps a review counted and clears what it was raised for; Exclude keeps it on the listing, labelled, and out of the average and the structured-data rating.">
         {open.length === 0
           ? <Empty>{all.length ? "Nothing needs a decision." : "No reviews yet."}</Empty>
           : open.map((g) => <ReviewGroup key={g.id} g={g} act={act} busy={busy} />)}
-      </Section>
+      </WorkList>
       {excluded.length > 0 && (
         <Collapsible title="Excluded" count={excluded.length}
           hint="Shown on the listing with the reason, counted nowhere. Unexclude if the call was wrong; the exclusion stays in the review's history.">
@@ -1271,7 +1277,7 @@ function RecommenderRuns({ runs = [], summary = null }) {
   const top = (pairs, n = 5) => pairs.slice(0, n).map(([k, v]) => `${k} (${v})`).join(", ");
   return (
     <>
-      <Section title="Growth recommender" count={summary?.total ?? runs.length}
+      <Collapsible title="Growth recommender" count={summary?.total ?? runs.length}
         hint="What app teams asked for, counted. The last 500 runs; the all-time total is under Counts.">
         <Row title="Wanted" body={top(summary?.objectives || [], 8) || "Nothing yet."} />
         <Row title="Budget" body={top(summary?.budgets || []) || "Nothing yet."} />
@@ -1282,7 +1288,7 @@ function RecommenderRuns({ runs = [], summary = null }) {
           <Row title="Answered without the model" tag="check the provider chain" tagColor={C.warnInk}
             body={`${summary.fallback} of ${summary.total} runs fell back to category and budget ranking.`} />
         )}
-      </Section>
+      </Collapsible>
       <Collapsible title="Recommender runs" count={runs.length}>
         {runs.slice(0, 200).map((r) => (
           <Row key={r.id}
@@ -1319,7 +1325,7 @@ function RecommenderFeedback({ feedback = null }) {
   const line = (rows, f) => rows.map(f).join(", ");
   return (
     <>
-      <Section title="Recommender feedback" count={records.length}
+      <Collapsible title="Recommender feedback" count={records.length}
         hint={`Did it help: ${h.yes || 0} yes, ${h.partly || 0} partly, ${h.no || 0} no. A misfit is recommended at least three times with at least two thumbs down and half or more of its votes down.`}>
         {feedback.misfits.length > 0 && feedback.misfits.map((t) => (
           <Row key={t.id} title={t.name} tag="recommended often, rejected often" tagColor={C.warnInk}
@@ -1328,7 +1334,7 @@ function RecommenderFeedback({ feedback = null }) {
         ))}
         <Row title="Recommended most" body={line(feedback.mostRecommended, (t) => `${t.name} (${t.recommended}${t.votes ? `, ${t.up} up ${t.down} down` : ""})`) || "Nothing yet."} />
         <Row title="Rejected most" body={line(feedback.mostRejected, (t) => `${t.name} (${t.down} down of ${t.votes}, recommended ${t.recommended})`) || "No thumbs down yet."} />
-      </Section>
+      </Collapsible>
       <Collapsible title="Feedback in full" count={records.length}>
         {records.slice(0, 200).map((f) => {
           const run = f.run || {};
@@ -1407,12 +1413,12 @@ function StructuredData({ initial = {}, priceOverrides = {} }) {
   const done = tools.filter((t) => stateOf(t) === "confirmed");
   return (
     <>
-      <Section title="Structured data to confirm" count={open.length}
+      <WorkList rows={open.length} title="Structured data to confirm" count={open.length}
         hint="Each tool's attributes, pricing and integrations, drafted from its note. Read the draft against the note on the left, fix anything wrong, and press Confirm. Only confirmed values are public. A blank value means unknown, and the site shows it as Unknown. A price edited by the vendor or the monitor after you confirm puts the tool back here.">
         {open.length === 0 ? <Empty>Everything is confirmed.</Empty>
           : open.map((t) => <StructuredRow key={t.id} tool={t} record={records[t.id]} state={stateOf(t)} override={priceOverrides[t.id]}
             onSaved={(id, rec) => setRecords((r) => ({ ...r, [id]: rec }))} />)}
-      </Section>
+      </WorkList>
       <Collapsible title="Confirmed" count={done.length}>
         {done.length === 0 ? <Empty>Nothing confirmed yet.</Empty>
           : done.map((t) => <StructuredRow key={t.id} tool={t} record={records[t.id]} state="confirmed" override={priceOverrides[t.id]}
@@ -1774,7 +1780,7 @@ function Ideas({ initial = [] }) {
 
   return (
     <>
-      <Section title="Ideas" count={open.length}
+      <WorkList rows={open.length} title="Ideas" count={open.length}
         hint="Write it in whatever form it arrived. Review this asks a model what it would take, what already covers it, which invariants it touches and what is wrong with it. The review is advice: it is kept with the idea, and approving against it is recorded. An approved idea can be copied as a prompt for Claude Code; paste the commit hash back when it ships.">
         <div style={{ padding: "12px 0" }}>
           <textarea value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })}
@@ -1801,7 +1807,7 @@ function Ideas({ initial = [] }) {
         {open.length === 0
           ? <Empty>Nothing open. Everything is shipped or dropped.</Empty>
           : open.map((r) => <IdeaRow key={r.id} idea={r} post={post} busy={busy} />)}
-      </Section>
+      </WorkList>
       <Collapsible title="Shipped" count={shipped.length}>
         {shipped.length === 0 ? <Empty>Nothing shipped from here yet.</Empty>
           : shipped.map((r) => <IdeaRow key={r.id} idea={r} post={post} busy={busy} />)}
@@ -1956,7 +1962,7 @@ function Announcements({ initial = [] }) {
 
   return (
     <>
-      <Section title="Announcements" count={open.length}
+      <WorkList rows={open.length} title="Announcements" count={open.length}
         hint="A LinkedIn post for something that shipped, queued until it is posted or dropped. Drafting is a button you press; posting is you, pasting it into LinkedIn and marking it posted. Figures come from the published catalogue at the moment of drafting.">
         <div style={{ padding: "12px 0", borderTop: 0 }}>
           <div className="flex flex-wrap" style={{ gap: S.sm }}>
@@ -1987,7 +1993,7 @@ function Announcements({ initial = [] }) {
         {open.length === 0
           ? <Empty>Nothing queued.</Empty>
           : open.map((r) => <AnnouncementRow key={r.id} r={r} busy={busy} post={post} />)}
-      </Section>
+      </WorkList>
       <Collapsible title="Posted and dropped" count={done.length}>
         {done.length === 0 ? <Empty>Nothing posted or dropped yet.</Empty>
           : done.map((r) => <AnnouncementRow key={r.id} r={r} busy={busy} post={post} />)}
@@ -2172,6 +2178,19 @@ function Collapsible({ title, count, hint, openWhen = false, anchor = "", childr
   );
 }
 
+/*
+ * A list of things that need a decision: the Inbox's queues, drafts, reviews,
+ * ideas, announcements, structured data. It opens on its own while it holds
+ * ten or fewer, so a short to-do is on screen the moment the tab is, and an
+ * empty one says so in one line. Past ten it is shut with its count in the
+ * header, like every other long list: the count is the answer to "what needs
+ * me", and a page of forty open rows buries the other queues under one.
+ */
+const ROW_LIMIT = 10;
+function WorkList({ rows = 0, ...props }) {
+  return <Collapsible {...props} openWhen={rows <= ROW_LIMIT} />;
+}
+
 /* Every section states its empty case in one line. */
 function Empty({ children }) {
   return <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: "16px 0" }}>{children}</p>;
@@ -2300,7 +2319,7 @@ function OpenReports({ rows = [], act, busy }) {
   const open = rows.filter((r) => r.status === "open");
   const closed = rows.filter((r) => r.status !== "open");
   return (
-    <Section title="Reports and corrections" count={open.length}
+    <WorkList rows={open.length} title="Reports and corrections" count={open.length}
       hint="Sent by visitors without signing in. Nothing is applied automatically: make the change yourself, then resolve. A submitted social profile only goes in once it is published on the company's own site.">
       {rows.length === 0 ? <Empty>Nothing reported.</Empty> : [...open, ...closed].map((r) => {
         const tool = ALL_TOOLS.find((t) => t.id === r.toolId);
@@ -2328,7 +2347,7 @@ function OpenReports({ rows = [], act, busy }) {
           />
         );
       })}
-    </Section>
+    </WorkList>
   );
 }
 
@@ -2384,41 +2403,30 @@ function Interest({ interest = {}, entries = {} }) {
 /*  button says what it does, and this says what it does not.           */
 /* ------------------------------------------------------------------ */
 function PublishingNote() {
+  /* Reference, not work, so it is one line after the drafts rather than a
+     screen above them. */
+  const p = { fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0`, lineHeight: 1.6, maxWidth: "76ch" };
+  const code = { fontSize: F.xs, color: C.text };
   return (
-    <section className="pb-10">
-      <div style={{
-        background: C.raised, border: `1px solid ${C.line}`, borderLeft: `3px solid ${C.accent}`,
-        borderRadius: R.card, padding: S.lg,
-      }}>
-        <h2 style={{ fontSize: F.lg, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
-          Marking a suggestion reviewed does not publish anything
-        </h2>
-        <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0`, lineHeight: 1.6, maxWidth: "76ch" }}>
-          It clears the moderation hold, so the suggestion shows in the public list on the site. That
-          is all it does. It does not create a listing, and there is no button here that will, because
-          a listing needs a <b style={{ color: C.text }}>note</b> and a <b style={{ color: C.text }}>watch</b>,
-          and those are editorial writing rather than a state to flip from a web page.
-        </p>
-        <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0`, lineHeight: 1.6, maxWidth: "76ch" }}>
-          Publishing is: read the vendor's own site, write the entry in{" "}
-          <code style={{ fontSize: F.xs, color: C.text }}>lib/tools.js</code> (or{" "}
-          <code style={{ fontSize: F.xs, color: C.text }}>lib/newsletters.js</code>,{" "}
-          <code style={{ fontSize: F.xs, color: C.text }}>lib/communities.js</code> for the other
-          kinds), give it an <code style={{ fontSize: F.xs, color: C.text }}>updated</code> of the day
-          it goes in, and ship. The site-wide date follows on its own. Anything you could not confirm
-          on the vendor's own site is{" "}
-          <code style={{ fontSize: F.xs, color: C.text }}>verified: false</code>, not a guess written
-          as fact.
-        </p>
-        <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0`, lineHeight: 1.6, maxWidth: "76ch" }}>
-          <b style={{ color: C.text }}>Copy as entry stub</b> gives you that object with everything the
-          suggestion already knows filled in, and the editorial fields left empty for you. Paste it
-          into the right file and finish it. It carries{" "}
-          <code style={{ fontSize: F.xs, color: C.text }}>draft: true</code>, so a half-written entry
-          is invisible to visitors until you delete that line.
-        </p>
-      </div>
-    </section>
+    <Collapsible title="How publishing works" count="">
+      <p style={p}>
+        <b style={{ color: C.text }}>Mark reviewed does not publish anything.</b> It clears the moderation
+        hold on a suggestion, so it shows in the public list. It does not create a listing.
+      </p>
+      <p style={p}>
+        A listing is published two ways. A draft in a catalogue file is published from Drafts above:
+        Publish commits the file on GitHub with <code style={code}>draft: true</code> removed and{" "}
+        <code style={code}>updated</code> set to the day, and Vercel deploys it. A suggestion you researched
+        is published with Approve and publish, which writes it to the store, not the file.
+      </p>
+      <p style={p}>
+        Either way the <b style={{ color: C.text }}>note</b> and the <b style={{ color: C.text }}>watch</b> are
+        writing a person does. Anything not confirmed on the vendor's own site is{" "}
+        <code style={code}>verified: false</code>. <b style={{ color: C.text }}>Copy as entry stub</b> on a
+        suggestion gives you the object with the known facts filled in and <code style={code}>draft: true</code>,
+        to paste into the right file.
+      </p>
+    </Collapsible>
   );
 }
 
@@ -3109,15 +3117,14 @@ function Drafts({ publishing = { canPublish: false, log: [], build: "" }, holds 
 
   return (
     <>
-      <Section
-        title="Drafts"
+      <WorkList rows={active.length} title="Drafts"
         count={active.length}
         hint="Written but not published, and invisible everywhere a visitor looks. Open one to read it in full and decide: Publish commits it live, Hold parks it below with a note, Discard removes it from the file with a reason that is kept. Read the note and the watch first: that is the part a button cannot check."
       >
         {active.length === 0
           ? <Empty>{held.length ? "Nothing active. Everything still in draft is on hold." : "Nothing in progress. An entry becomes a draft by carrying `draft: true`."}</Empty>
           : active.map(row)}
-      </Section>
+      </WorkList>
 
       {held.length > 0 && (
         <Collapsible title="On hold" count={held.length}
@@ -3478,7 +3485,7 @@ function Stats({ stats = { fields: {}, queries: [] } }) {
   const top = Math.max(1, opens.length ? opens[0][1] : 1);
 
   return (
-    <Section title="Directory stats" count={totalOpens}
+    <Collapsible title="Directory stats" count={totalOpens}
       hint="Tool opens, matcher use, section views and the recommender funnel. Referrers, devices and countries are in Vercel Analytics and not duplicated here. Counts only: no cookie, no identifier, nothing tied to a person.">
       <div className="flex flex-wrap" style={{ gap: S["2xl"], padding: "12px 0 4px" }}>
         <div>
@@ -3529,7 +3536,7 @@ function Stats({ stats = { fields: {}, queries: [] } }) {
             </div>
           )}
       </div>
-    </Section>
+    </Collapsible>
   );
 }
 
@@ -4096,8 +4103,7 @@ function PublishedEntries({ entries = {}, onEntries }) {
   }
 
   return (
-    <Section
-      title="Published from the queue"
+    <Collapsible title="Published from the queue"
       count={all.length}
       hint="Live on the site now, stored in svt:entries rather than in lib/tools.js, because a Vercel filesystem is read only at runtime. Promote anything worth keeping into the file with Copy as entry stub: the file is what git reviews, this is not."
     >
@@ -4141,7 +4147,7 @@ function PublishedEntries({ entries = {}, onEntries }) {
               </>}
             />
           ))}
-    </Section>
+    </Collapsible>
   );
 }
 
@@ -4333,6 +4339,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
   const [rewritten, setRewritten] = useState(rewrittenChanges || {});
   const [openTool, setOpenTool] = useState("");
   const [showEarlier, setShowEarlier] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   /* Handled means dismissed or resolved. Handled ones leave the Inbox. */
   const handled = (r) => isHandled(r.id, dismissed, published, applied);
@@ -4455,10 +4462,25 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
 
       {groups.length === 0
         ? <Empty>Nothing from the latest run. Most weeks this is the correct answer.</Empty>
-        : groups.map((g) => (
-          <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
-            applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} verified={verifiedChanges} busy={busy} onAct={mark} />
-        ))}
+        : (
+          <>
+            {/* Past ten tools the list is shut behind its count, like every
+                long list here. The summary sentence above already says what
+                the run found; the rows are what you open to act on it. */}
+            {groups.length > ROW_LIMIT && (
+              <button onClick={() => setShowAll((v) => !v)} aria-expanded={showAll} style={{
+                background: "none", border: 0, padding: "8px 0", cursor: "pointer", fontFamily: "inherit",
+                fontSize: F.sm, fontWeight: 600, color: C.text,
+              }}>
+                {showAll ? "\u25be" : "\u25b8"} {groups.length} tools with changes
+              </button>
+            )}
+            {(showAll || groups.length <= ROW_LIMIT) && groups.map((g) => (
+              <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
+                applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} verified={verifiedChanges} busy={busy} onAct={mark} />
+            ))}
+          </>
+        )}
 
       {earlierGroups.length > 0 && (
         <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
@@ -4508,6 +4530,18 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
     setBatch("");
   }
 
+  /* Findings that already went somewhere (the feed, the listing, a rewrite)
+     and only wait for Resolve. Resolving each by hand was one click per
+     finding for a decision already made. Untouched findings are left alone:
+     those still need a look, and resolving refuses a finding with nowhere to go. */
+  const ready = group.rows.filter((r) => !dismissed[r.id] && (published[r.id] || applied[r.id] || rewritten[r.id]));
+  const untouched = group.rows.filter((r) => !dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id]);
+  async function resolveReady() {
+    setBatch("resolve");
+    for (const r of ready) await onAct(r.id, "resolve-change");
+    setBatch("");
+  }
+
   return (
     <div style={{ borderTop: `1px solid ${C.line}` }}>
       <div className="flex flex-wrap items-center" style={{ gap: S.sm, padding: "12px 0" }}>
@@ -4528,9 +4562,16 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
         {/* A tool's weekly changes usually share a verdict, so the common one
             is available without opening anything. Publishing is per change
             because each needs a sentence written. */}
-        <ConfirmBtn onConfirm={dismissAll} busy={batch === "dismiss"} confirm={`Dismiss all ${n}`}>
-          Dismiss all
-        </ConfirmBtn>
+        {ready.length > 0 && (
+          <Btn tone="go" onClick={resolveReady} busy={batch === "resolve"}>
+            Resolve {ready.length}
+          </Btn>
+        )}
+        {untouched.length > 0 && (
+          <ConfirmBtn onConfirm={dismissAll} busy={batch === "dismiss"} confirm={`Dismiss all ${untouched.length}`}>
+            Dismiss all
+          </ConfirmBtn>
+        )}
       </div>
 
       {expanded && (
@@ -5411,8 +5452,7 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
   const shown = open ? findings : findings.slice(0, 8);
 
   return (
-    <Section
-      title="Discovered competitors"
+    <Collapsible title="Discovered competitors"
       count={findings.length}
       hint="Products named on listed vendors' own comparison pages that are not in the directory. Research and draft moves one into the suggestion queue and writes an entry for you to check. Nothing is published without your click."
     >
@@ -5600,7 +5640,7 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
             />
           ))}
       </Collapsible>
-    </Section>
+    </Collapsible>
   );
 }
 

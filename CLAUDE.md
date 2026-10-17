@@ -525,7 +525,7 @@ Publishing into the file is still an edit to `lib/tools.js` (or the catalogue fi
 the kind), either by hand or, once the entry is written there as a draft, with the
 Publish button in the Drafts panel, which commits that same edit (invariant 12). Marking
 a suggestion reviewed does neither: `note` and `watch` are editorial writing, not a state
-to flip. `/admin` says this above the queue rather than leaving it to be rediscovered.
+to flip. `/admin` says so in the hint over Suggestions to review, and Catalogue has a collapsed How publishing works, rather than leaving it to be rediscovered.
 
 **Copy as entry stub** does the mechanical half: the id, the domain, the URL and
 today's date, which are all derivable and are where a typo'd id comes from. It
@@ -999,6 +999,23 @@ that did not.
   Catalogue. The Inbox keeps one line saying how many are waiting, with a link,
   so moving them did not hide them. **When it is empty it says so in one line** rather than
   rendering four empty panels, which is the state it is in most days.
+- **A tab's count is what needs you there, never what exists.** Inbox counts the
+  queues, Recent updates the open findings, Catalogue the drafts waiting for Publish,
+  Discard or Hold (not the ones on hold, not published entries or deleted rows), People
+  the reviews to decide (not the accounts), Ideas and Announcements the open ones,
+  Structured data what is not confirmed. Audience and System carry no count: one is
+  what happened and the other answers with its status strip.
+- **A list of things to decide is a `WorkList`** (2026-10-18): open on its own while it
+  holds ten or fewer, so a short to-do is on screen with the tab and an empty one says so
+  in one line; past ten it is shut with its count, like every other long list. The
+  Inbox's queues, Reports, Reviews to decide, Drafts, Ideas, Announcements and Structured
+  data are work lists, and past ten tools the monitor's groups are shut behind "N tools
+  with changes". History (verified claims, published entries, discovered competitors,
+  directory stats, recommender runs and feedback) is always collapsed.
+  `scripts/admin-panels-test.mjs` checks every open panel for a list, not a list of names.
+- **Each tool's findings have two batch actions**: Dismiss all for the untouched ones,
+  and Resolve N for the ones already published, applied or rewritten, which only wait for
+  the Resolve that closes them. Each runs the same server action as the single button.
 - **Any list that can exceed about ten rows is collapsed by default, with a
   count in its header.** Nothing opens itself into a full list: Monitor coverage used to open
   whenever a listing was not covered, which in production is always. A row with an editor
