@@ -3262,15 +3262,20 @@ check will silently run against a stale build.
 - Add a general tool. Shopify-only is still the default and the bar: a general tool is
   listed only where an app vendor genuinely reaches for it and nothing native covers the
   job, and it carries `shopifyExclusive: false` and a `watch` saying what it does not know
-  about Shopify. **Three are listed on that basis, and each names the thing the native
-  tools cannot do.** PartnerStack, because an app vendor selling to agencies and
+  about Shopify. **Three were listed on that basis, and each names the thing the native
+  tools cannot do.** A fourth, ECDB, was added on request (below). PartnerStack, because an app vendor selling to agencies and
   enterprise partners at scale outgrows a link tracker. BuiltWith, because a
   Shopify-only database structurally cannot show you a merchant who is not on Shopify
   yet, which is the migration conversation. etailinsights, because its contacts are
   attached to retail brands rather than to storefronts, which is the only thing it has
   that Store Leads and StoreCensus do not.
 
-  **etailinsights is the weakest of the three and was added on request rather than on
+  **ECDB was added on request on 2026-10-17, as a store database like Store Leads**:
+  revenue rankings for retailers on every platform, from a market data company whose
+  newsletter is also listed. It went in unverified because ecdb.com did not respond, and
+  its `watch` says nothing published shows it can tell which apps a store runs.
+
+  **etailinsights is the weakest of the general tools and was added on request rather than on
   the bar.** Its own `watch` says what is wrong with it: no published price, an order
   form, and no demonstrable detection of individual Shopify apps, which is the question
   this category exists to answer. If a general tool is ever removed for not earning its
