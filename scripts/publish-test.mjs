@@ -60,6 +60,7 @@ const catalogues = {
   tool: (await L("lib/tools.js")).ALL_TOOLS, newsletter: (await L("lib/newsletters.js")).ALL_NEWSLETTERS,
   event: (await L("lib/events.js")).ALL_EVENTS, group: (await L("lib/communities.js")).ALL_COMMUNITIES,
   podcast: (await L("lib/podcasts.js")).ALL_PODCASTS,
+  youtube: (await L("lib/youtube.js")).ALL_YOUTUBE,
 };
 
 let failed = 0;

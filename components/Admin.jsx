@@ -6,6 +6,7 @@ import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, 
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_COMMUNITIES } from "@/lib/communities";
 import { ALL_PODCASTS } from "@/lib/podcasts";
+import { ALL_YOUTUBE } from "@/lib/youtube";
 import { ALL_EVENTS } from "@/lib/events";
 import { drafted, published, readiness } from "@/lib/drafts";
 import { timesAsked, findDiscarded, normaliseDomain } from "@/lib/suggestions";
@@ -203,7 +204,7 @@ export default function AdminPanel({
   const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length + unreadLists.length + pendingMedia.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
-    + drafted(ALL_PODCASTS).length + drafted(ALL_EVENTS).length;
+    + drafted(ALL_PODCASTS).length + drafted(ALL_YOUTUBE).length + drafted(ALL_EVENTS).length;
   const counts = {
     inbox: inboxCount,
     catalogue: catalogueCount,
@@ -2425,7 +2426,7 @@ const idFrom = (name, url) => {
 const domainFrom = (url) => String(url || "")
   .replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
 
-const FILES = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", group: "lib/communities.js", podcast: "lib/podcasts.js" };
+const FILES = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", group: "lib/communities.js", podcast: "lib/podcasts.js", youtube: "lib/youtube.js" };
 
 function entryStub(s) {
   const today = new Date().toISOString().slice(0, 10);
@@ -2833,6 +2834,7 @@ const SOURCES = [
   { kind: "newsletter", entries: ALL_NEWSLETTERS },
   { kind: "group", entries: ALL_COMMUNITIES },
   { kind: "podcast", entries: ALL_PODCASTS },
+  { kind: "youtube", entries: ALL_YOUTUBE },
   { kind: "event", entries: ALL_EVENTS },
 ];
 
@@ -3001,7 +3003,7 @@ function DraftActions({ kind, entry, canCommit, build, hold, onHolds }) {
   );
 }
 
-const FILE_OF = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", event: "lib/events.js", group: "lib/communities.js", podcast: "lib/podcasts.js" };
+const FILE_OF = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", event: "lib/events.js", group: "lib/communities.js", podcast: "lib/podcasts.js", youtube: "lib/youtube.js" };
 
 /*
  * One draft, shut by default: name, type and the one-line summary. Eleven
