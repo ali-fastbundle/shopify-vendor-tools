@@ -1587,7 +1587,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, u
           *
           * Two rows rather than a scatter, each with a left and a right and
           * nothing in the middle. Rating and votes are both the community
-          * answering; Visit site is the thing you do next.
+          * answering; Visit site and saving to your list are what you do next.
           */}
         <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
           <div className="flex items-center justify-between" style={{ gap: S.sm }}>
@@ -1616,8 +1616,11 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, u
               same affordance. Picking tools to compare is the list view's job
               (cards browse, rows compare), switched on once with the view
               toggle. */}
-          <div className="flex items-center" style={{ gap: S.sm, marginTop: S.sm }}>
+          <div className="flex items-center justify-between" style={{ gap: S.sm, marginTop: S.sm }}>
             <VisitSite url={tool.url} />
+            {/* Your lists, as a bookmark. Only when signed in: it is your
+                working tool, not a choice every visitor has to read past. */}
+            <SaveToList toolId={tool.id} toolName={tool.name} compact />
           </div>
         </div>
       </div>

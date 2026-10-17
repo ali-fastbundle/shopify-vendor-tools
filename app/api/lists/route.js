@@ -2,6 +2,7 @@ import { sessionFrom } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { catalogueTools } from "@/lib/entries";
 import { readLists, saveLists, listsOf, createList, saveList, addToList, deleteList, ownList } from "@/lib/lists";
+import { listsChanged } from "@/lib/listsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -45,5 +46,7 @@ export async function POST(request) {
           : { error: "Unknown action." };
   if (r.error) return new Response(r.error, { status: 400 });
   await saveLists(r.all);
+  /* Publishing, editing or deleting a list can open or close the section. */
+  listsChanged();
   return Response.json({ list: r.list ? ownList(r.list) : null, lists: listsOf(r.all, session.email) });
 }

@@ -1,13 +1,14 @@
 "use client";
 
 /*
- * /lists: a signed-in visitor's saved lists (lib/lists.js). Name, order,
+ * /lists/mine: a signed-in visitor's saved lists (lib/lists.js). Name, order,
  * notes, publish under a chosen name, delete. Every change is one save of the
  * whole list, so what is on screen is what is stored.
  */
 import React, { useEffect, useState } from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { SignInPrompt, useSession } from "./Account";
+import { useYourLists, usePostList } from "./YourLists";
 import { LIST_LIMITS as LIMITS } from "@/lib/limits";
 
 const field = {
@@ -21,22 +22,24 @@ const small = {
 
 export default function ListsManager({ tools = [] }) {
   const [session] = useSession();
-  const [lists, setLists] = useState(null);
+  /* The shared copy (components/YourLists.jsx), so the sidebar's count and
+     every bookmark follow what is saved here. */
+  const { lists } = useYourLists();
+  const send = usePostList();
   const [name, setName] = useState("");
   const [msg, setMsg] = useState("");
   const nameOf = (id) => tools.find((t) => t.id === id)?.name || id;
 
+  /* Arriving from the sidebar at #list-<id>: bring that list into view. */
   useEffect(() => {
-    if (!session?.signedIn) return;
-    fetch("/api/lists").then((r) => (r.ok ? r.json() : { lists: [] })).then((d) => setLists(d.lists || [])).catch(() => setLists([]));
-  }, [session?.signedIn]);
+    if (!lists) return;
+    try { document.getElementById(window.location.hash.slice(1))?.scrollIntoView(); } catch {}
+  }, [lists]);
 
   async function post(body) {
     setMsg("");
-    const res = await fetch("/api/lists", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (!res.ok) { setMsg(await res.text()); return null; }
-    const d = await res.json();
-    setLists(d.lists || []);
+    const d = await send(body);
+    if (d.error) { setMsg(d.error); return null; }
     return d;
   }
 
@@ -93,7 +96,7 @@ function ListEditor({ list, nameOf, post }) {
     if (r) setSaved(d.public ? "Saved. It is public." : "Saved. It is private.");
   }
   return (
-    <section style={{ marginTop: S.xl, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, background: C.panel }}>
+    <section id={`list-${list.id}`} style={{ marginTop: S.xl, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, background: C.panel, scrollMarginTop: S.xl }}>
       <input value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} aria-label="List name" maxLength={LIMITS.name}
         style={{ ...field, width: "100%", fontSize: F.lg, fontWeight: 700 }} />
       {d.items.length === 0 && <p style={{ fontSize: F.sm, color: C.muted }}>Empty. Use Save to a list on any tool to add it here.</p>}

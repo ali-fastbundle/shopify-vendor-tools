@@ -8,6 +8,7 @@ import { INTEGRATIONS, attributesFor } from "@/lib/categories";
 import { AccountBar, SessionContext, useSessionState } from "@/components/Account";
 import { ThemeToggle } from "@/components/Theme";
 import FooterLinks from "@/components/FooterLinks";
+import { ListsProvider, SidebarLists } from "@/components/YourLists";
 import { FilterGroups, ActiveFilters } from "@/components/DirectoryFilters";
 import {
   PanelProvider, MatcherProvider, usePanel, useMatcherOpen, useDirectoryFilters,
@@ -40,6 +41,11 @@ export const SITE_VIEWS = [
   { id: "directory", label: "Directory", href: "/", match: (p) => p === "/" || p.startsWith("/tools/") || p.startsWith("/categories") || p.startsWith("/owners") || p.startsWith("/alternatives") || p.startsWith("/compare") },
   { id: "newsletters", label: "Newsletters", href: "/newsletters", match: (p) => p.startsWith("/newsletters") },
   { id: "events", label: "Events", href: "/events", match: (p) => p.startsWith("/events") },
+  /* Published lists, the section. It is in the nav only once it has a list
+     worth showing (`when`): a section enters the nav when it has content, not
+     when its code ships. /lists/mine is your own lists, a tool, not this. */
+  { id: "lists", label: "Lists", href: "/lists", when: (c) => c.lists > 0,
+    match: (p) => p === "/lists" || (p.startsWith("/lists/") && p !== "/lists/mine") },
   { id: "updates", label: "Recent updates", href: "/changes", match: (p) => p.startsWith("/changes") },
   { id: "blog", label: "Blog", href: "/blog", match: (p) => p.startsWith("/blog") },
 ];
@@ -86,7 +92,7 @@ export function SiteFrameProvider({ children }) {
     <SessionContext.Provider value={sessionState}>
       <UpdatesContext.Provider value={setFeedTimes}>
         <FeedTimes.Provider value={feedTimes}>
-          <PanelProvider><MatcherProvider>{children}</MatcherProvider></PanelProvider>
+          <ListsProvider><PanelProvider><MatcherProvider>{children}</MatcherProvider></PanelProvider></ListsProvider>
         </FeedTimes.Provider>
       </UpdatesContext.Provider>
     </SessionContext.Provider>
@@ -161,6 +167,7 @@ export function SiteShell({ counts = {}, categories = [], children }) {
 
   if (outsideFrame(path)) return children;
   const current = SITE_VIEWS.find((v) => v.match(path))?.id;
+  const views = SITE_VIEWS.filter((v) => !v.when || v.when(counts));
 
   return (
     <>
@@ -182,7 +189,7 @@ export function SiteShell({ counts = {}, categories = [], children }) {
           </div>
           {/* The sections, never behind a button. */}
           <nav aria-label="Sections" className="shell-tabs">
-            {SITE_VIEWS.map((v) => (
+            {views.map((v) => (
               <a key={v.id} href={v.href} className="navtab" aria-current={v.id === current ? "page" : undefined}>{v.label}</a>
             ))}
           </nav>
@@ -233,7 +240,7 @@ function Sidebar({ counts, categories, current, path, onClose }) {
       </div>
 
       <nav aria-label="Sections" className="side-nav">
-        {SITE_VIEWS.map((v) => {
+        {SITE_VIEWS.filter((v) => !v.when || v.when(counts)).map((v) => {
           const n = countOf(v.id);
           return (
             <a key={v.id} href={v.href} aria-current={v.id === current ? "page" : undefined}>
@@ -243,6 +250,9 @@ function Sidebar({ counts, categories, current, path, onClose }) {
           );
         })}
       </nav>
+
+      {/* Your own lists, a tool: signed in only, nothing otherwise. */}
+      <SidebarLists />
 
       <Suspense fallback={<SearchBox value="" onChange={() => {}} />}>
         <SidebarSearch path={path} />

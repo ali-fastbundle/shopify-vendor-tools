@@ -80,7 +80,7 @@ export default async function Page({ params }) {
           ))}
         </ol>
         <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xl}px 0 0` }}>
-          <a href="/lists" style={{ color: C.text }}>Make your own list</a>
+          <a href="/lists" style={{ color: C.text }}>More lists</a>{" · "}<a href="/lists/mine" style={{ color: C.text }}>Make your own</a>
         </p>
       </div>
     </main>

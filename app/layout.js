@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeScript } from "@/components/Theme";
 import { SiteFrameProvider, SiteShell, SiteFooter } from "@/components/SiteFrame";
 import { frameData } from "@/lib/frameData";
+import { publishedListCount } from "@/lib/listsSection";
 import "./globals.css";
 
 /*
@@ -61,7 +62,13 @@ export const metadata = {
    the theme script replaces this with the resolved theme before first paint. */
 export const viewport = { themeColor: "#F1F2F3" };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  /* The lists section opens in the nav only once it has a list worth showing
+     (lib/listsSection.js): one cached store read, never a page's worth. */
+  const fd = frameData();
+  let lists = 0;
+  try { lists = await publishedListCount(); } catch { /* store down: the section stays out of the nav */ }
+  const frame = { ...fd, counts: { ...fd.counts, lists } };
   return (
     /*
      * suppressHydrationWarning is for the one attribute ThemeScript sets on
@@ -76,7 +83,7 @@ export default function RootLayout({ children }) {
             and the content column. Pages render their content and nothing
             around it. */}
         <SiteFrameProvider>
-          <SiteShell {...frameData()}>
+          <SiteShell {...frame}>
             {children}
             <SiteFooter />
           </SiteShell>

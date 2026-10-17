@@ -114,7 +114,13 @@ export default async function sitemap() {
       changeFrequency: "monthly",
       priority: 0.7,
     })),
-    /* Published lists an admin marked fine (lib/lists.js). */
+    /* Published lists an admin marked fine (lib/lists.js), and the section's
+       index once there is one to list. */
+    ...(Object.values(lists || {}).some(isIndexable) ? [{
+      url: `${SITE}/lists`,
+      lastModified: new Date(Object.values(lists).filter(isIndexable).reduce((m, l) => (l.updatedAt > m ? l.updatedAt : m), "")),
+      changeFrequency: "weekly", priority: 0.5,
+    }] : []),
     ...Object.values(lists || {}).filter(isIndexable).map((l) => ({
       url: `${SITE}/lists/${l.id}`, lastModified: new Date(l.updatedAt), changeFrequency: "monthly", priority: 0.3,
     })),

@@ -175,7 +175,6 @@ export function AccountBar({ session, refresh, placement = "down" }) {
           {session.email}
           {session.owned?.length ? ` · ${session.owned.length} claimed` : ""}
         </span>
-        <a href="/lists" style={{ fontSize: F.sm, color: C.muted, whiteSpace: "nowrap" }}>Lists</a>
         {session.admin && (
           <a href="/admin" style={{
             background: C.accentSoft, border: `1px solid ${C.accentEdge}`,

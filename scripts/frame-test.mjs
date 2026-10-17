@@ -27,7 +27,7 @@ const shell = frame.slice(frame.indexOf("export function SiteShell"), frame.inde
 const sidebar = frame.slice(frame.indexOf("function Sidebar("), frame.indexOf("function SearchBox("));
 
 console.log("one frame:");
-ok(/<SiteShell \{\.\.\.frameData\(\)\}>/.test(layout) && !/SiteHeader/.test(layout), "the layout renders the shell around every page");
+ok(/<SiteShell \{\.\.\.frame\}>/.test(layout) && /const fd = frameData\(\);/.test(layout) && !/SiteHeader/.test(layout), "the layout renders the shell around every page");
 const fd = src("lib/frameData.js");
 ok(!/from "(@\/lib\/|\.\/)(store|listings|entries)"|mergedTools|catalogueTools/.test(layout + fd), "its counts come from the catalogue files: no store read on every page");
 ok(/directory: TOOLS\.length, newsletters: NEWSLETTERS\.length, events: upcoming, blog: POSTS\.length/.test(fd), "a count for each section");

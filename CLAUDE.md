@@ -2184,8 +2184,26 @@ it do X", so it has no stars, no rating, its own heading, and "Q." and "A." on e
 `scripts/qa-test.mjs`.
 
 **50. Saved lists are the visitor's, private until published, and indexed only after a person read them.**
-`lib/lists.js`, `/api/lists`, `/lists` (manage, noindex), `/lists/[id]` (public), and Save
-to a list on the tool page and the modal (`components/SaveToList.jsx`).
+`lib/lists.js`, `/api/lists`, `/lists/mine` (manage, noindex), `/lists` (the section),
+`/lists/[id]` (one published list), and the save control (`components/SaveToList.jsx`).
+
+**Two uses, two places (2026-10-18).** Your own lists are a working tool; published lists
+are content other people read, and they are not the same thing in the information
+architecture.
+
+- **Your lists live in the sidebar**, under the sections: "Your lists" with a count,
+  expanding to each list by name, each a link into `/lists/mine`. Signed in only. Signed
+  out there is nothing, not a greyed link (`components/YourLists.jsx`). The account bar no
+  longer carries a Lists link.
+- **One save control, everywhere**: a button on the tool page and the modal, a bookmark on
+  the card. The card's bookmark appears only to someone signed in, because fifty of one
+  affordance for a visitor who cannot use it is why Compare left the cards. All of them,
+  the sidebar and `/lists/mine` read and write one copy of your lists (`ListsProvider`),
+  fetched once per page, so a save shows everywhere at once. On a card the popover is fixed
+  to the window, because a card clips what overflows it.
+- **Published lists are the section at `/lists`**: only lists an editor marked fine
+  (`isIndexable`), newest first, with the author's chosen name and the first tools. With
+  none it says so and is noindex. It is in the sitemap once it has one.
 
 - **Signed in for everything.** A list is stored with its owner's address, which leaves
   through `publicList` and `ownList` only. Twenty lists, fifty tools each, a plain-text
@@ -2200,7 +2218,8 @@ to a list on the tool page and the modal (`components/SaveToList.jsx`).
 - The account sentence in `components/Account.jsx` and `/privacy` both say lists are
   stored (Accounts).
 
-`scripts/lists-test.mjs`.
+`scripts/lists-test.mjs` covers the store and routes, and the split: the two pages, the nav
+rule, the signed-in-only sidebar and bookmark, the one shared copy.
 
 **Client components import limits from `lib/limits.js`, never from a server library.** A
 client component that imported `QUESTION_MAX` from `lib/qa.js` pulled the store into the
@@ -2271,9 +2290,16 @@ done. Keep `lib/vendorContacts.js`: the addresses are research.
 draws its own (2026-10-18).** `components/SiteFrame.jsx` holds it, and it is the same on
 every public route; `/admin` keeps its own header and the frame steps aside there.
 
+- **A section enters the nav when it has content, not when its code ships.** An empty
+  section in the nav is worse than none: it is a promise that opens onto nothing. A view in
+  `SITE_VIEWS` may carry `when(counts)`, and the nav draws it only when that is true. Lists
+  is the first: it appears once one published list has been marked fine. Its count comes
+  from the store, so it is the frame's one store read, cached for five minutes and dropped
+  by `listsChanged()` on every write that can open or close the section
+  (`lib/listsSection.js`).
 - **The sidebar, top to bottom:** the wordmark (a link home); the sections (Directory,
-  Newsletters, Events, Recent updates, Blog) with the current one marked and a count beside
-  each; search; the matcher as one prompt; the categories as a vertical list ordered by
+  Newsletters, Events, Lists once it has content, Recent updates, Blog) with the current
+  one marked and a count beside each; Your lists, signed in only; search; the matcher as one prompt; the categories as a vertical list ordered by
   count with All first; the filters, open, not behind a button; the active filters as
   removable chips with Clear all; a spacer; then the account (Sign in, Lists, Admin for an
   admin), the theme icon, and LinkedIn, About, Contact and Privacy.
@@ -2395,6 +2421,7 @@ and the server HTML.
 | `lib/rivals.js` `lib/rivalsData.js` `components/Comparisons.jsx` `app/alternatives` `app/compare` | Which tools genuinely compete, the differences built from confirmed data, and the alternatives and head-to-head pages |
 | `lib/qa.js` `components/QA.jsx` `app/api/qa` | Questions and answers per tool: the store, the public strip, moderation, the ask and answer component |
 | `lib/lists.js` `lib/limits.js` `components/ListsManager.jsx` `components/SaveToList.jsx` `app/lists` `app/api/lists` | Saved lists: store, publishing, moderation; shared input limits (client-safe); the manage page and the save control |
+| `components/YourLists.jsx` `lib/listsSection.js` | Your lists: the one shared copy and the sidebar block; whether the Lists section has content, cached |
 | `lib/media.js` `components/MediaEditor.jsx` `components/VendorMedia.jsx` `app/api/media` | Vendor screenshots and demo link: submission, approval by commit, the editor in the owner panel, the labelled display |
 | `lib/vendorContacts.js` `lib/outreach.js` `lib/outreachTemplate.js` `app/api/admin/outreach` | Outreach (temporary): vendors' published addresses with their sources (server only), the tracking, the template |
 | `components/WatchEditor.jsx` | The admin-only caveat editor: before and after, a reason, two presses, a commit to lib/tools.js, the history |

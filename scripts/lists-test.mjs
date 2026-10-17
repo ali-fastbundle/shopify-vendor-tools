@@ -7,7 +7,7 @@
  *
  * Shims lib/ and the routes into a temp directory: in-memory store, no server.
  */
-import { readFileSync, writeFileSync, mkdtempSync, readdirSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdtempSync, readdirSync, mkdirSync, symlinkSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { pathToFileURL } from "url";
@@ -23,13 +23,17 @@ for (const f of readdirSync(join(ROOT, "lib"))) {
   if (!f.endsWith(".js")) continue;
   writeFileSync(join(dir, "lib", f),
     readFileSync(join(ROOT, "lib", f), "utf8").replace(/(from\s+"\.\/[a-zA-Z_-]+)"/g, '$1.js"')
-      .replace(/import\("\.\/([a-zA-Z]+)"\)/g, 'import("./$1.js")'));
+      .replace(/import\("\.\/([a-zA-Z]+)"\)/g, 'import("./$1.js")')
+      /* Node's ESM loader needs the file name that Next's bundler does not. */
+      .replace(/from "next\/cache"/g, 'from "next/cache.js"'));
 }
 const route = (from, to) => writeFileSync(join(dir, to), readFileSync(join(ROOT, from), "utf8")
   .replace(/from\s+"@\/lib\/([a-zA-Z]+)"/g, 'from "./lib/$1.js"').replace(/import\("@\/lib\/([a-zA-Z]+)"\)/g, 'import("./lib/$1.js")'));
 route("app/api/lists/route.js", "lists.js");
 route("app/api/admin/route.js", "admin.js");
 
+/* lib/listsSection.js imports next/cache, so the temp copy needs the packages. */
+symlinkSync(join(ROOT, "node_modules"), join(dir, "node_modules"));
 const load = (f) => import(pathToFileURL(join(dir, f)).href);
 const L = await load("lib/lists.js");
 const store = await load("lib/store.js");
@@ -93,6 +97,30 @@ ok(/filter\(isIndexable\)/.test(src("app/sitemap.js")), "only indexable lists ar
 ok(/any lists you save/.test(src("components/Account.jsx")), "the sign-in copy says lists are stored");
 ok(/saved list/i.test(src("app/privacy/page.js")), "and so does /privacy");
 ok(!/lib\/(lists|qa|store)"/.test(src("components/ListsManager.jsx") + src("components/SaveToList.jsx") + src("components/QA.jsx")), "no client component imports a server library");
+
+console.log("\ntwo uses, two places:");
+{
+  const src = (f) => readFileSync(join(ROOT, f), "utf8");
+  const frame = src("components/SiteFrame.jsx"), yours = src("components/YourLists.jsx"), save = src("components/SaveToList.jsx");
+  ok(/robots: \{ index: false, follow: false \}/.test(src("app/lists/mine/page.js")) && /<ListsManager/.test(src("app/lists/mine/page.js")),
+    "your own lists are a tool at /lists/mine, never indexed");
+  ok(/filter\(isIndexable\)/.test(src("app/lists/page.js")) && /robots: lists\.length \? undefined : \{ index: false/.test(src("app/lists/page.js")),
+    "/lists is the section: only lists an editor read, and noindex while there are none");
+  ok(/id: "lists", label: "Lists", href: "\/lists", when: \(c\) => c\.lists > 0/.test(frame) && /\.filter\(\(v\) => !v\.when \|\| v\.when\(counts\)\)/.test(frame),
+    "the section is in the nav only once it has a list worth showing");
+  ok(/publishedListCount/.test(src("app/layout.js")) && /revalidate: 300, tags: \[LISTS_TAG\]/.test(src("lib/listsSection.js")),
+    "that count is one cached store read, not one per page");
+  ok(/listsChanged\(\)/.test(src("app/api/lists/route.js")) && /listsChanged\(\)/.test(src("app/api/admin/route.js")),
+    "and is refreshed by every write that can open or close the section");
+  ok(/if \(!signedIn \|\| lists === null\) return null;/.test(yours) && /<SidebarLists \/>/.test(frame),
+    "Your lists is in the sidebar, and signed out it is nothing at all");
+  ok(/if \(compact && !signedIn\) return null;/.test(save) && /<SaveToList toolId=\{tool\.id\} toolName=\{tool\.name\} compact \/>/.test(src("components/Directory.jsx")),
+    "the card's bookmark appears only to someone signed in");
+  ok(/<SaveToList toolId=\{tool\.id\} toolName=\{tool\.name\} \/>/.test(src("components/ToolPage.jsx")) && !/fetch\("\/api\/lists"\)/.test(save + src("components/ListsManager.jsx")),
+    "one control everywhere, reading one shared copy of your lists");
+  ok(!/href="\/lists" style=\{\{ fontSize: F\.sm, color: C\.muted, whiteSpace/.test(src("components/Account.jsx")), "no second Lists link in the account bar");
+  ok(/url: `\$\{SITE\}\/lists`,/.test(src("app/sitemap.js")), "the section's index is in the sitemap once it has a list");
+}
 
 console.log(bad ? `\n${bad} failed` : "\nall passed");
 process.exit(bad ? 1 : 0);

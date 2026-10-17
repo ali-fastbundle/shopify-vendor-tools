@@ -168,6 +168,8 @@ export async function POST(request) {
     const r = moderateList(all, String(id || ""), action.replace("list-", ""), { reason: body.reason, by: session.email });
     if (r.error) return new Response(r.error, { status: 400 });
     await saveLists(r.all);
+    /* Marking one fine can open the Lists section; hiding the last can close it. */
+    (await import("@/lib/listsSection")).listsChanged();
     return Response.json({ lists: Object.values(r.all).filter((l) => l.public) });
   }
 
