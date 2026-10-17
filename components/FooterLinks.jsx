@@ -1,5 +1,5 @@
 import React from "react";
-import { LinkedinLogo } from "@phosphor-icons/react/dist/ssr";
+import { LinkedinLogo, UserCircle, ChatCircleText, ShieldCheck } from "@phosphor-icons/react/dist/ssr";
 import { C, S, F, AUTHOR, AUTHOR_URL } from "@/lib/tools";
 import { outbound } from "@/lib/outbound";
 
@@ -16,20 +16,38 @@ import { outbound } from "@/lib/outbound";
  * The SSR build of the icon, because most footers are in server components.
  * It renders the same SVG in a client one.
  */
+/*
+ * Each link carries a small icon naming what the label already says, so the
+ * four read as one set: LinkedIn had a mark and the other three did not. The
+ * icons are muted, the size of the text, and hidden from screen readers, so
+ * they add no second reading and no colour. Contact is a speech bubble, not an
+ * envelope: it is a form, and an envelope promises an address.
+ */
+const LINKS = [
+  { href: null, label: "LinkedIn", Icon: LinkedinLogo },
+  { href: "/about", label: "About", Icon: UserCircle },
+  { href: "/contact", label: "Contact", Icon: ChatCircleText },
+  { href: "/privacy", label: "Privacy", Icon: ShieldCheck },
+];
+
 export default function FooterLinks() {
   return (
-    <p className="flex flex-wrap items-center" style={{ gap: S.lg, fontSize: F.sm, margin: `0 0 ${S.md}px` }}>
-      {AUTHOR_URL && (
-        <a href={outbound(AUTHOR_URL)} target="_blank" rel="noopener noreferrer"
-          aria-label={`${AUTHOR} on LinkedIn`} title={`${AUTHOR} on LinkedIn`}
-          className="press inline-flex items-center" style={{ color: C.muted, gap: S.xs, textDecoration: "none" }}>
-          <LinkedinLogo size={18} weight="regular" />
-          <span>LinkedIn</span>
-        </a>
-      )}
-      <a href="/about" style={{ color: C.muted }}>About</a>
-      <a href="/contact" style={{ color: C.muted }}>Contact</a>
-      <a href="/privacy" style={{ color: C.muted }}>Privacy</a>
-    </p>
+    <nav aria-label="About this site" style={{
+      display: "grid", gridTemplateColumns: "repeat(2, minmax(0, max-content))", columnGap: S.lg, rowGap: S.sm,
+      fontSize: F.sm, margin: `0 0 ${S.md}px`,
+    }}>
+      {LINKS.map(({ href, label, Icon }) => {
+        if (!href && !AUTHOR_URL) return null;
+        const external = !href;
+        return (
+          <a key={label} href={external ? outbound(AUTHOR_URL) : href}
+            {...(external ? { target: "_blank", rel: "noopener noreferrer", title: `${AUTHOR} on LinkedIn` } : {})}
+            className="press inline-flex items-center" style={{ color: C.muted, gap: S.xs, textDecoration: "none" }}>
+            <Icon size={16} weight="regular" aria-hidden="true" />
+            <span>{label}</span>
+          </a>
+        );
+      })}
+    </nav>
   );
 }

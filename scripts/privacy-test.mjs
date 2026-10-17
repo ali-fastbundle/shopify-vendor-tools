@@ -76,7 +76,7 @@ const { fields } = await inv.readStats();
 ok(fields["section:events"] === 2 && !("section:nope" in fields), "sections are counted from the fixed list only");
 ok(fields["recommend:reached:prime1"] === 1 && fields["recommend:reached:url"] === 1 && !("recommend:reached:bogus" in fields), "recommender screens are counted from SCREENS only");
 
-ok(/href="\/privacy"/.test(readFileSync(join(root, "components/FooterLinks.jsx"), "utf8")), "the footer links /privacy");
+ok(/href(="|: ")\/privacy"/.test(readFileSync(join(root, "components/FooterLinks.jsx"), "utf8")), "the footer links /privacy");
 ok(!/—/.test(privacy), "no em-dash on /privacy");
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
