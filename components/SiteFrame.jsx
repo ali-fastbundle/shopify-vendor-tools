@@ -272,10 +272,8 @@ function Sidebar({ counts, categories, current, path, onClose }) {
       <div style={{ flex: 1 }} />
 
       <div style={{ display: "grid", gap: S.md }}>
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm, minHeight: 38 }}>
-          <AccountBar session={session[0]} refresh={session[1]} placement="up" />
-          <ThemeToggle />
-        </div>
+        {/* Who you are, then one row: Admin, Sign out, and the theme at its end. */}
+        <AccountBar session={session[0]} refresh={session[1]} placement="up" trailing={<ThemeToggle />} />
         <FooterLinks />
       </div>
     </>

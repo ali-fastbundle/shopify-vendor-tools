@@ -51,6 +51,10 @@ ok(inSuspense("SidebarSearch") && inSuspense("DirectoryRefine") && inSuspense("F
 ok(/<CategoryList categories=\{categories\} active="all"/.test(sidebar), "and the categories' fallback is the list itself, not nothing");
 ok(/unread > 0 && current !== "updates" \? unread : null/.test(sidebar), "Recent updates counts what is new to this browser, nothing at zero");
 
+ok(/<AccountBar session=\{session\[0\]\} refresh=\{session\[1\]\} placement="up" trailing=\{<ThemeToggle \/>\} \/>/.test(sidebar)
+  && /if \(session\.signedIn && placement === "up"\)/.test(src("components/Account.jsx")),
+  "the account is two lines, who you are and one row of Admin, Sign out and the theme, with nothing orphaned");
+
 console.log("\nthe content column:");
 ok(!/masthead|hero-title|className="rail"|dir-body/.test(dir), "no hero, no masthead, no rail");
 ok(order(dir, ['className="content-head"', "<h1", 'aria-label="Sort tools by"', "<ViewToggle", 'className="cards"']),

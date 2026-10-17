@@ -2199,8 +2199,12 @@ architecture.
   the card. The card's bookmark appears only to someone signed in, because fifty of one
   affordance for a visitor who cannot use it is why Compare left the cards. All of them,
   the sidebar and `/lists/mine` read and write one copy of your lists (`ListsProvider`),
-  fetched once per page, so a save shows everywhere at once. On a card the popover is fixed
-  to the window, because a card clips what overflows it.
+  fetched once per page, so a save shows everywhere at once. On a card the popover is
+  portalled to `<body>` and fixed to the window: inside the card it was clipped, and the
+  hover lift (a transform) made a fixed box position itself against the card, so it opened
+  out of sight on every real click while a scripted one passed.
+- **The two seed lists became blog post ideas** (Replacing Mantle, Free tools to start an
+  app, seeds in `lib/ideas.js`), on the editor's call: a comparison is the blog's job.
 - **Published lists are the section at `/lists`**: only lists an editor marked fine
   (`isIndexable`), newest first, with the author's chosen name and the first tools. With
   none it says so and is noindex. It is in the sitemap once it has one.
@@ -2301,8 +2305,10 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   Newsletters, Events, Lists once it has content, Recent updates, Blog) with the current
   one marked and a count beside each; Your lists, signed in only; search; the matcher as one prompt; the categories as a vertical list ordered by
   count with All first; the filters, open, not behind a button; the active filters as
-  removable chips with Clear all; a spacer; then the account (Sign in, Lists, Admin for an
-  admin), the theme icon, and LinkedIn, About, Contact and Privacy.
+  removable chips with Clear all; a spacer; then the account, and LinkedIn, About, Contact
+  and Privacy. Signed in, the account is two lines: "Signed in as" and the address, then
+  one row of Admin (for an admin), Sign out and the theme icon at its end. Signed out it is
+  Sign in and the theme icon on one row.
 - **Counts come from the catalogue files** (`frameData` in `lib/frameData.js`), so there is no
   store read on every page: tools, newsletters, events still ahead with a real date (an
   inferred one is a guess and is not counted), posts. Entries published from the admin

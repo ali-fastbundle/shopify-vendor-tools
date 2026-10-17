@@ -155,8 +155,14 @@ export function SignInPrompt({ reason, returnTo = "" }) {
 /* ------------------------------------------------------------------ */
 /*  Sign in / out, top right                                           */
 /* ------------------------------------------------------------------ */
-/* placement "up" opens the sign-in box above the button, for the foot of the sidebar. */
-export function AccountBar({ session, refresh, placement = "down" }) {
+/*
+ * placement "up" is the foot of the sidebar: the sign-in box opens above the
+ * button, and signed in it is two lines, who you are and one row of actions,
+ * with `trailing` (the theme control) at the end of that row. A row of email,
+ * Admin and Sign out wrapping in a 248px column left Sign out orphaned under
+ * the other two.
+ */
+export function AccountBar({ session, refresh, placement = "down", trailing = null }) {
   const [open, setOpen] = useState(false);
   const { email, setEmail, state, submit } = useMagicLink();
 
@@ -165,7 +171,36 @@ export function AccountBar({ session, refresh, placement = "down" }) {
     refresh();
   }
 
-  if (session.loading) return null;
+  if (session.loading) return trailing ? <div className="flex items-center justify-end" style={{ minHeight: 38 }}>{trailing}</div> : null;
+
+  if (session.signedIn && placement === "up") {
+    const n = session.owned?.length || 0;
+    const quiet = {
+      background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+      fontSize: F.sm, color: C.muted, textDecoration: "underline", textUnderlineOffset: 3,
+    };
+    return (
+      <div style={{ display: "grid", gap: S.sm }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: F.xs, color: C.dim }}>Signed in as</div>
+          <div title={session.email} style={{ fontSize: F.sm, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {session.email}
+          </div>
+          {n > 0 && <div style={{ fontSize: F.xs, color: C.dim }}>{n} {n === 1 ? "listing" : "listings"} claimed</div>}
+        </div>
+        <div className="flex items-center" style={{ gap: S.md }}>
+          {session.admin && (
+            <a href="/admin" style={{
+              background: C.accentSoft, border: `1px solid ${C.accentEdge}`, color: C.accentInk,
+              borderRadius: R.control, padding: "4px 10px", fontSize: F.xs, fontWeight: 600, textDecoration: "none",
+            }}>Admin</a>
+          )}
+          <button type="button" onClick={signOut} style={quiet}>Sign out</button>
+          {trailing && <span style={{ marginLeft: "auto" }}>{trailing}</span>}
+        </div>
+      </div>
+    );
+  }
 
   if (session.signedIn) {
     return (
@@ -191,11 +226,16 @@ export function AccountBar({ session, refresh, placement = "down" }) {
   }
 
   if (!session.configured) {
-    return <span style={{ fontSize: F.xs, color: C.dim }}>Accounts are not enabled</span>;
+    return (
+      <div className="flex items-center" style={{ gap: S.sm }}>
+        <span style={{ fontSize: F.xs, color: C.dim }}>Accounts are not enabled</span>
+        {trailing && <span style={{ marginLeft: "auto" }}>{trailing}</span>}
+      </div>
+    );
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className={trailing ? "flex items-center" : undefined} style={{ position: "relative", ...(trailing ? { gap: S.sm } : {}) }}>
       <button onClick={() => setOpen((o) => !o)} className="ctl press" style={{
         background: C.panel, border: `1px solid ${C.line}`, color: C.text,
         borderRadius: R.control, padding: "8px 12px", fontSize: F.sm, fontWeight: 600,
@@ -245,6 +285,7 @@ export function AccountBar({ session, refresh, placement = "down" }) {
           )}
         </div>
       )}
+      {trailing && <span style={{ marginLeft: "auto" }}>{trailing}</span>}
     </div>
   );
 }

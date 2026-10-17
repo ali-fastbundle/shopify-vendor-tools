@@ -120,6 +120,12 @@ console.log("\ntwo uses, two places:");
     "one control everywhere, reading one shared copy of your lists");
   ok(!/href="\/lists" style=\{\{ fontSize: F\.sm, color: C\.muted, whiteSpace/.test(src("components/Account.jsx")), "no second Lists link in the account bar");
   ok(/url: `\$\{SITE\}\/lists`,/.test(src("app/sitemap.js")), "the section's index is in the sitemap once it has a list");
+  /* A scripted click passed while the real one failed: hovering a card lifts it
+     with a transform, and a fixed box inside a transformed card is placed
+     against the card and clipped. So the card's box must leave the card. */
+  ok(/createPortal\(box, document\.body\)/.test(save) && /compact && at && typeof document !== "undefined"/.test(save),
+    "on a card the save box is portalled to the body, outside the card's transform and clipping");
+  ok(/window\.addEventListener\("scroll", scroll/.test(save), "and closes on scroll, since it is fixed to the window");
 }
 
 console.log(bad ? `\n${bad} failed` : "\nall passed");

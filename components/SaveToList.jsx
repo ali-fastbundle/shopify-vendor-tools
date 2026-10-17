@@ -12,6 +12,7 @@
  * the cards. On a page about one tool, signed out, it says where to sign in.
  */
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { BookmarkSimple } from "@phosphor-icons/react";
 import { C, S, R, F } from "@/lib/tools";
 import { useYourLists, usePostList } from "./YourLists";
@@ -35,18 +36,28 @@ export default function SaveToList({ toolId, toolName, compact = false }) {
       if (boxRef.current?.contains(e.target) || btnRef.current?.contains(e.target)) return;
       setOpen(false);
     };
+    /* Fixed to the window on a card, so a scroll would leave it behind. */
+    const scroll = () => { if (compact) setOpen(false); };
     document.addEventListener("keydown", key);
     document.addEventListener("mousedown", click);
-    return () => { document.removeEventListener("keydown", key); document.removeEventListener("mousedown", click); };
-  }, [open]);
+    window.addEventListener("scroll", scroll, { passive: true });
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.removeEventListener("mousedown", click);
+      window.removeEventListener("scroll", scroll);
+    };
+  }, [open, compact]);
 
   if (compact && !signedIn) return null;
 
   function toggle(e) {
     e.preventDefault(); e.stopPropagation();
     setMsg("");
-    /* A card clips what overflows it, so there the box is fixed to the window,
-       under the button. */
+    /* On a card the box is portalled to <body> and fixed to the window under
+       the button. Inside the card it could not work: the card clips what
+       overflows it, and the hover lift (transform) makes a fixed box position
+       itself against the card instead of the window, so it opened out of sight
+       the moment the pointer was over the card, which is always when clicking. */
     if (compact && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
       setAt({ top: r.bottom + 6, left: Math.max(8, Math.min(r.right - 280, window.innerWidth - 288)) });
@@ -66,26 +77,7 @@ export default function SaveToList({ toolId, toolName, compact = false }) {
   };
   const label = saved ? `${toolName} is in a list. Save to another` : `Save ${toolName} to a list`;
 
-  return (
-    <div style={{ position: "relative", display: "inline-block" }}>
-      {compact ? (
-        <button ref={btnRef} type="button" onClick={toggle} aria-expanded={open} aria-label={label} title={label}
-          className="ctl press" style={{
-            display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 28, padding: 0,
-            background: saved ? C.text : C.panel, color: saved ? C.bg : C.muted,
-            border: `1px solid ${saved ? C.text : C.line}`, borderRadius: R.control, cursor: "pointer",
-          }}>
-          <BookmarkSimple size={14} weight={saved ? "fill" : "regular"} />
-        </button>
-      ) : (
-        <button ref={btnRef} type="button" className="ctl press" onClick={toggle} aria-expanded={open} style={btn}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: S.xs }}>
-            <BookmarkSimple size={14} weight={saved ? "fill" : "regular"} aria-hidden="true" />
-            {saved ? "Saved to a list" : "Save to a list"}
-          </span>
-        </button>
-      )}
-      {open && (
+  const box = (
         <div ref={boxRef} role="dialog" aria-label={`Save ${toolName} to a list`}
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -117,7 +109,28 @@ export default function SaveToList({ toolId, toolName, compact = false }) {
           )}
           {msg && <p role="status" style={{ fontSize: F.xs, color: C.muted, margin: `${S.sm}px 0 0` }}>{msg}</p>}
         </div>
+  );
+
+  return (
+    <div style={{ position: "relative", display: "inline-block" }}>
+      {compact ? (
+        <button ref={btnRef} type="button" onClick={toggle} aria-expanded={open} aria-label={label} title={label}
+          className="ctl press" style={{
+            display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 28, padding: 0,
+            background: saved ? C.text : C.panel, color: saved ? C.bg : C.muted,
+            border: `1px solid ${saved ? C.text : C.line}`, borderRadius: R.control, cursor: "pointer",
+          }}>
+          <BookmarkSimple size={14} weight={saved ? "fill" : "regular"} />
+        </button>
+      ) : (
+        <button ref={btnRef} type="button" className="ctl press" onClick={toggle} aria-expanded={open} style={btn}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: S.xs }}>
+            <BookmarkSimple size={14} weight={saved ? "fill" : "regular"} aria-hidden="true" />
+            {saved ? "Saved to a list" : "Save to a list"}
+          </span>
+        </button>
       )}
+      {open && (compact && at && typeof document !== "undefined" ? createPortal(box, document.body) : box)}
     </div>
   );
 }
