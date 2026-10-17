@@ -1146,11 +1146,20 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
 
           {rows.length > 0 && view === "grid" && (
             <div className="cards">
-              {rows.map((t) => (
-                <Card key={t.id} tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
-                  votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
-                  onVote={(d) => vote(t.id, d)} onOpen={(r) => openTool(t.id, r)}
-                  picked={picked.includes(t.id)} underCat={cat} />
+              {rows.map((t, i) => (
+                <React.Fragment key={t.id}>
+                  <Card tool={t} avg={avg(t.id)} reviewCount={(reviews[t.id] || []).length}
+                    votes={votes[t.id] || { up: 0, down: 0 }} myVote={mine[t.id] || 0}
+                    onVote={(d) => vote(t.id, d)} onOpen={(r) => openTool(t.id, r)}
+                    picked={picked.includes(t.id)} underCat={cat} />
+                  {/* In the grid, so nothing sits above the first card, and so a
+                      phone sees it, where the sidebar is behind the Menu
+                      button. After the first card on a phone, where a row is
+                      one card; opening the second row from 768px. CSS shows
+                      one of the two (.picks-narrow, .picks-wide). */}
+                  {i === 0 && <PicksCard where="picks-narrow" />}
+                  {i === Math.min(2, rows.length - 1) && <PicksCard where="picks-wide" />}
+                </React.Fragment>
               ))}
               {/* After the cards in the markup, not first with `order: 999`. The
                   page paints while its HTML is still arriving, and as the only
@@ -1625,6 +1634,31 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, u
         </div>
       </div>
     </div>
+  );
+}
+
+/*
+ * Growth picks (/recommend) as a card in the grid. It looks like a card because
+ * it sits among them, and it is told apart by the invite surface and the green
+ * button, the action colour. No category spine: it is not a tool.
+ */
+function PicksCard({ where = "" }) {
+  return (
+    <a href="/recommend" className={`card flex flex-col items-start justify-center ${where}`}
+      style={{
+        background: C.invite, border: `1px solid ${C.accentEdge}`, borderRadius: R.card, padding: S.xl,
+        minHeight: 190, color: C.text, textDecoration: "none",
+      }}>
+      <span style={{ fontSize: F.lg, fontWeight: 700, letterSpacing: TRACK.tight }}>Have an app on the App Store?</span>
+      <span style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, marginTop: S.sm }}>
+        Paste its listing and answer a few questions. You get up to three tools that fit your app and your budget, and what each one will not fix.
+      </span>
+      <span style={{
+        marginTop: S.lg, background: C.accent, color: C.onAccent, borderRadius: R.control,
+        padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
+      }}>Get my picks</span>
+      <span style={{ fontSize: F.xs, color: C.dim, marginTop: S.sm }}>Free. Sign in with your email.</span>
+    </a>
   );
 }
 

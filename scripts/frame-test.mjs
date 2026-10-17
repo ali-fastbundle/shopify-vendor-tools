@@ -43,7 +43,7 @@ ok(/e\.key !== "Tab"/.test(shell) && /last\.focus\(\)/.test(shell) && /first\.fo
 ok(/<nav aria-label="Sections" className="shell-tabs">/.test(shell), "below 1200px the sections are a bar, never behind the button");
 
 console.log("\nthe sidebar, top to bottom:");
-ok(order(sidebar, ["<Wordmark />", 'className="side-nav"', "<SidebarSearch", "<MatcherPrompt", "<DirectoryRefine", "flex: 1", "<AccountBar", "<ThemeToggle />", "<FooterLinks />"]),
+ok(order(sidebar, ["<Wordmark />", 'className="side-nav"', "<GrowthPicks", "<SidebarSearch", "<MatcherPrompt", "<DirectoryRefine", "flex: 1", "<AccountBar", "<ThemeToggle />", "<FooterLinks />"]),
   "wordmark, sections, search, matcher, categories and filters, spacer, account, theme, links");
 const inSuspense = (name) => new RegExp(`<Suspense fallback=\\{[\\s\\S]{0,160}?\\}>\\s*<${name}`).test(sidebar);
 ok(inSuspense("SidebarSearch") && inSuspense("DirectoryRefine") && inSuspense("FeedRefine"),

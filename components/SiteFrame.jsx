@@ -251,6 +251,11 @@ function Sidebar({ counts, categories, current, path, onClose }) {
         })}
       </nav>
 
+      {/* The recommender, in the spotlight on every page but its own: the one
+          thing here that is built for one visitor's app, and the one place
+          a visitor gives an email for something in return. */}
+      {!path.startsWith("/recommend") && <GrowthPicks />}
+
       {/* Your own lists, a tool: signed in only, nothing otherwise. */}
       <SidebarLists />
 
@@ -277,6 +282,28 @@ function Sidebar({ counts, categories, current, path, onClose }) {
         <FooterLinks />
       </div>
     </>
+  );
+}
+
+/*
+ * Growth picks (/recommend), as a block of its own under the sections. Green
+ * is the action colour (colour invariant C), and this is the action the site
+ * most wants a visitor to take. It says it needs an email, because it does,
+ * and a surprise sign-in is how a form gets abandoned.
+ */
+function GrowthPicks() {
+  return (
+    <div style={{ background: C.invite, border: `1px solid ${C.accentEdge}`, borderRadius: R.card, padding: S.md }}>
+      <p style={{ fontSize: F.sm, fontWeight: 700, margin: 0, color: C.text }}>Growth picks for your app</p>
+      <p style={{ fontSize: F.xs, color: C.muted, margin: `${S.xs}px 0 ${S.sm}px`, lineHeight: 1.5 }}>
+        Paste your App Store listing. Get up to three tools that fit it, and what each will not fix.
+      </p>
+      <a href="/recommend" className="ctl press" style={{
+        display: "block", textAlign: "center", background: C.accent, color: C.onAccent, borderRadius: R.control,
+        padding: "8px 12px", fontSize: F.sm, fontWeight: 700, textDecoration: "none",
+      }}>Get my picks</a>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0`, textAlign: "center" }}>Free. Sign in with your email.</p>
+    </div>
   );
 }
 

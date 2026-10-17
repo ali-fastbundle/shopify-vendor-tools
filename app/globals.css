@@ -306,6 +306,14 @@
   .shell-main > main > .mx-auto { padding-left: 16px !important; padding-right: 16px !important; }
 }
 
+/* The growth-picks card in the grid: after the first card on a phone, opening
+   the second row from 768px. Exactly one of the two is displayed. */
+.picks-wide { display: none !important; }
+@media (min-width: 768px) {
+  .picks-narrow { display: none !important; }
+  .picks-wide { display: flex !important; }
+}
+
 /* A section tab in the top bar below 1200px: plain text until it is the
    current one, which takes the neutral inversion (colour invariant C). */
 .navtab {

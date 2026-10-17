@@ -1898,8 +1898,14 @@ fine, Hide (required reason, kept, reversible) or Delete (gone). A hidden commen
 at all, and the address and every moderation field leave only through `publicComments`.
 
 **42. The growth recommender: signed in, one question per screen, one public page read, up to three picks, every run kept without an address.**
-`/recommend` (linked under a matcher answer and at the foot of every tool page, never beside
-Find tools, where it read as a second way to do the same job), noindex
+`/recommend`, in the spotlight (2026-10-18): it is the one thing here built for one
+visitor's app and the one place a visitor gives an email for something in return. A block
+of its own in the sidebar under the sections, on every page but its own, with the one green
+button; a card in the directory grid, after the first card on a phone and opening the second
+row wider, so nothing sits above the first card and a phone sees it without opening the
+drawer; under a matcher answer; and at the foot of every tool page. Both the block and the
+card say it is free and needs an email, before anyone clicks. Never beside Find tools, where
+it read as a second way to do the same job. Noindex
 as a whole. `components/Recommender.jsx`, with every question, choice and answer limit in
 `lib/recommendOptions.js` so the flow and the routes cannot disagree.
 
@@ -2303,7 +2309,8 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   (`lib/listsSection.js`).
 - **The sidebar, top to bottom:** the wordmark (a link home); the sections (Directory,
   Newsletters, Events, Lists once it has content, Recent updates, Blog) with the current
-  one marked and a count beside each; Your lists, signed in only; search; the matcher as one prompt; the categories as a vertical list ordered by
+  one marked and a count beside each; Growth picks, the recommender's block with the one
+  green button (invariant 42); Your lists, signed in only; search; the matcher as one prompt; the categories as a vertical list ordered by
   count with All first; the filters, open, not behind a button; the active filters as
   removable chips with Clear all; a spacer; then the account, and LinkedIn, About, Contact
   and Privacy. Signed in, the account is two lines: "Signed in as" and the address, then

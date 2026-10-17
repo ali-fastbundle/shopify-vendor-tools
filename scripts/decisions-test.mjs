@@ -31,6 +31,15 @@ const form = matcher.slice(0, matcher.indexOf("{result && ("));
 ok(!/\/recommend/.test(form), "the recommender is not a second call to action beside Find tools");
 ok(/\/recommend/.test(matcher.slice(matcher.indexOf("{result && ("))), "it is offered after an answer");
 ok(/href="\/recommend"/.test(src("components/ToolPage.jsx")), "and on every tool page");
+/* 2026-10-18: the recommender is the one place a visitor gives an email for
+   something built for their app, so it is in the spotlight, not a footnote. */
+const frameSrc = src("components/SiteFrame.jsx");
+ok(/\{!path\.startsWith\("\/recommend"\) && <GrowthPicks \/>\}/.test(frameSrc) && /href="\/recommend"/.test(frameSrc.slice(frameSrc.indexOf("function GrowthPicks"))),
+  "it has its own block in the sidebar on every page but its own");
+ok(/\{i === 0 && <PicksCard where="picks-narrow" \/>\}/.test(dir) && /\{i === Math\.min\(2, rows\.length - 1\) && <PicksCard where="picks-wide" \/>\}/.test(dir)
+  && /\.picks-wide \{ display: none !important; \}/.test(src("app/globals.css")),
+  "and a card in the grid: after the first card on a phone, opening the second row wider, never above the first card");
+ok(/Sign in with your email/.test(frameSrc) && /Sign in with your email/.test(dir), "both say it needs an email before anyone clicks");
 ok(!/<details/.test(form), "examples are not behind a disclosure");
 const examples = dir.slice(dir.indexOf("const EXAMPLES = ["), dir.indexOf("];", dir.indexOf("const EXAMPLES = [")));
 ok((examples.match(/label:/g) || []).length === 3, "three examples, each a chip");
