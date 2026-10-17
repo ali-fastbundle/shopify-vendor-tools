@@ -88,5 +88,7 @@ ok((await post({ action: "replied", toolId: "welookup" })).status === 400, "but 
 ok(/claimedOf\(tid\) \? "claimed"/.test(src("components/Admin.jsx")) && /statusOf\(t\.id\)/.test(src("components/Admin.jsx")), "the picker shows each vendor's status, claimed read from the claims store");
 ok(src("components/Admin.jsx").includes('useState("copy")'), "copy is the default path");
 
+ok(/voiceIssues\(fill\(subject/.test(readFileSync(join(ROOT, "components/Admin.jsx"), "utf8")), "the Outreach tab shows the LinkedIn panel's voice checks on the email as you edit it");
+
 console.log(bad ? `\n${bad} failed` : "\nall passed");
 process.exit(bad ? 1 : 0);

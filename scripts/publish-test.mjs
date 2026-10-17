@@ -61,6 +61,7 @@ const catalogues = {
   event: (await L("lib/events.js")).ALL_EVENTS, group: (await L("lib/communities.js")).ALL_COMMUNITIES,
   podcast: (await L("lib/podcasts.js")).ALL_PODCASTS,
   youtube: (await L("lib/youtube.js")).ALL_YOUTUBE,
+  award: (await L("lib/awards.js")).ALL_AWARDS,
 };
 
 let failed = 0;

@@ -7,6 +7,7 @@ import { ALL_NEWSLETTERS } from "@/lib/newsletters";
 import { ALL_COMMUNITIES } from "@/lib/communities";
 import { ALL_PODCASTS } from "@/lib/podcasts";
 import { ALL_YOUTUBE } from "@/lib/youtube";
+import { ALL_AWARDS } from "@/lib/awards";
 import { ALL_EVENTS } from "@/lib/events";
 import { drafted, published, readiness } from "@/lib/drafts";
 import { timesAsked, findDiscarded, normaliseDomain } from "@/lib/suggestions";
@@ -20,6 +21,7 @@ import { editorUseLine } from "@/lib/editorUse";
 import { attributesFor, INTEGRATIONS, PERIODS, UNITS, CURRENCIES, UNKNOWN, isUnknown, pricingDisplay, sanitiseStructured } from "@/lib/categories";
 import { PROPOSED } from "@/lib/structured";
 import { DEFAULT_SUBJECT, DEFAULT_BODY, PLACEHOLDERS, valuesFor, fill, unfilled } from "@/lib/outreachTemplate";
+import { voiceIssues } from "@/lib/voice";
 import { ownershipLine } from "@/lib/owners";
 import { DEFAULT as ABOUT_DEFAULT, bodyOf, paragraphsOf, aboutIssues, inlineTokens, isAllowedHref, LINKS_MAX } from "@/lib/aboutText";
 import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash } from "@/lib/ideas";
@@ -204,7 +206,7 @@ export default function AdminPanel({
   const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length + unreadLists.length + pendingMedia.length;
   const catalogueCount = Object.keys(entryRows || {}).length + outOfScopeRows.length + deletedRows.length
     + drafted(ALL_TOOLS).length + drafted(ALL_NEWSLETTERS).length + drafted(ALL_COMMUNITIES).length
-    + drafted(ALL_PODCASTS).length + drafted(ALL_YOUTUBE).length + drafted(ALL_EVENTS).length;
+    + drafted(ALL_PODCASTS).length + drafted(ALL_YOUTUBE).length + drafted(ALL_AWARDS).length + drafted(ALL_EVENTS).length;
   const counts = {
     inbox: inboxCount,
     catalogue: catalogueCount,
@@ -1592,6 +1594,20 @@ function Outreach({ initial = { contacts: {}, state: {}, meta: {} }, claims = {}
   const filledSubject = tool ? fill(subject, values) : "";
   const filledBody = tool ? fill(body, values) : "";
   const left = tool ? [...unfilled(filledSubject), ...unfilled(filledBody)] : [];
+  /*
+   * The same voice checks the LinkedIn panel shows (lib/voice.js, the ali-voice
+   * rules), on what you wrote. The listing's own summary and caveat are left out
+   * of the check: they are quoted, not written for this email.
+   */
+  const v = voiceIssues(fill(subject + "\n\n" + body, { ...(values || {}), one: "", watch: "" }));
+  const voiceFlags = [
+    v.emDash ? "Has an em-dash" : "",
+    v.semicolons ? `${v.semicolons} semicolon${v.semicolons === 1 ? "" : "s"}` : "",
+    v.exclamations ? "Exclamation mark" : "",
+    v.marketing.length ? `Marketing words: ${v.marketing.join(", ")}` : "",
+    v.hedges.length ? `Hedges: ${v.hedges.join(", ")}` : "",
+    v.long.length ? `Long sentence: ${v.long.join("; ")}` : "",
+  ].filter(Boolean);
 
   async function post(payload, tag) {
     setBusy(tag); setMsg("");
@@ -1667,6 +1683,7 @@ function Outreach({ initial = { contacts: {}, state: {}, meta: {} }, claims = {}
                   <p style={{ margin: `${S.sm}px 0 0`, whiteSpace: "pre-wrap", lineHeight: 1.55, fontSize: F.sm }}>{filledBody}</p>
                 </div>
                 {left.length > 0 && <p style={{ color: C.warnInk, fontSize: F.xs }}>Not filled: {left.join(", ")}</p>}
+                {voiceFlags.map((f) => <p key={f} style={{ color: C.warnInk, fontSize: F.xs, margin: `${S.xs}px 0 0` }}>Voice: {f}</p>)}
               </div>
             </div>
 
@@ -2426,7 +2443,7 @@ const idFrom = (name, url) => {
 const domainFrom = (url) => String(url || "")
   .replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
 
-const FILES = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", group: "lib/communities.js", podcast: "lib/podcasts.js", youtube: "lib/youtube.js" };
+const FILES = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", group: "lib/communities.js", podcast: "lib/podcasts.js", youtube: "lib/youtube.js", award: "lib/awards.js" };
 
 function entryStub(s) {
   const today = new Date().toISOString().slice(0, 10);
@@ -2835,6 +2852,7 @@ const SOURCES = [
   { kind: "group", entries: ALL_COMMUNITIES },
   { kind: "podcast", entries: ALL_PODCASTS },
   { kind: "youtube", entries: ALL_YOUTUBE },
+  { kind: "award", entries: ALL_AWARDS },
   { kind: "event", entries: ALL_EVENTS },
 ];
 
@@ -3003,7 +3021,7 @@ function DraftActions({ kind, entry, canCommit, build, hold, onHolds }) {
   );
 }
 
-const FILE_OF = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", event: "lib/events.js", group: "lib/communities.js", podcast: "lib/podcasts.js", youtube: "lib/youtube.js" };
+const FILE_OF = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", event: "lib/events.js", group: "lib/communities.js", podcast: "lib/podcasts.js", youtube: "lib/youtube.js", award: "lib/awards.js" };
 
 /*
  * One draft, shut by default: name, type and the one-line summary. Eleven
