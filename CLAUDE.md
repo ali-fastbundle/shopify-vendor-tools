@@ -3363,12 +3363,16 @@ check will silently run against a stale build.
   listed only where an app vendor genuinely reaches for it and nothing native covers the
   job, and it carries `shopifyExclusive: false` and a `watch` saying what it does not know
   about Shopify. **Three were listed on that basis, and each names the thing the native
-  tools cannot do.** A fourth, ECDB, was added on request (below). PartnerStack, because an app vendor selling to agencies and
+  tools cannot do.** ECDB and TechLeads were added on request (below). PartnerStack, because an app vendor selling to agencies and
   enterprise partners at scale outgrows a link tracker. BuiltWith, because a
   Shopify-only database structurally cannot show you a merchant who is not on Shopify
   yet, which is the migration conversation. etailinsights, because its contacts are
   attached to retail brands rather than to storefronts, which is the only thing it has
   that Store Leads and StoreCensus do not.
+
+  **TechLeads was added on request on 2026-10-18, as a store database like Store Leads**:
+  technographics for 12,000+ technologies with a Shopify apps category of 155 apps, which its
+  `watch` states, since that is the question this category exists to answer.
 
   **ECDB was added on request on 2026-10-17, as a store database like Store Leads**:
   revenue rankings for retailers on every platform, from a market data company whose
