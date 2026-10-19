@@ -369,8 +369,8 @@ function localMatch(problem, tools = TOOLS) {
  * tinguishable from the real one. Nothing-fits is worth saying plainly too:
  * it is the gap in the directory, and the button turns it into a suggestion.
  */
-function Matcher({ tools, onOpen, onSuggest, onClose }) {
-  const [problem, setProblem] = useState("");
+function Matcher({ tools, onOpen, onSuggest, onClose, initial = "" }) {
+  const [problem, setProblem] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [editing, setEditing] = useState(true);
@@ -407,6 +407,12 @@ function Matcher({ tools, onOpen, onSuggest, onClose }) {
     setBusy(false);
     setEditing(false);
   }
+
+  /* Asked from somewhere else (the 404 page's box): answer it straight away. */
+  useEffect(() => {
+    if (initial.trim()) run(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const heading = result && (
     result.status === "none" ? "Nothing fits that well"
@@ -729,6 +735,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
   const setView = (v) => setDirectoryFilters({ view: v });
   /* The matcher opens from the sidebar's prompt and answers here. */
   const [matcherOpen, setMatcherOpen] = useMatcherOpen();
+  const [matcherAsk, setMatcherAsk] = useState("");
   const [detail, setDetail] = useState(null);
   /* The star that was clicked to get here, carried into the review form. */
   const [detailRating, setDetailRating] = useState(0);
@@ -954,12 +961,26 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (!params.has("ask")) return;
-      params.delete("ask");
+      const ask = params.get("ask");
+      const suggest = params.get("suggest");
+      const why = (params.get("why") || "").trim().slice(0, 500);
+      if (ask === null && suggest === null) return;
+      params.delete("ask"); params.delete("suggest"); params.delete("why");
       const rest = params.toString();
       window.history.replaceState(null, "", `/${rest ? `?${rest}` : ""}`);
+      /* /?suggest=<kind>&why=<text> opens the suggest form, with the text in
+         "why" (the 404 page sends people here). An unknown kind is a tool,
+         the same default /api/suggest uses. */
+      if (suggest !== null) {
+        const kind = RESOURCE_KINDS.some((k) => k.id === suggest) ? suggest : "tool";
+        setShowSuggest(why ? { kind, why } : kind);
+        return;
+      }
+      /* /?ask=1 opens an empty box; /?ask=<question> asks it. */
+      const question = ask === "1" ? "" : ask.trim().slice(0, 500);
+      setMatcherAsk(question);
       setMatcherOpen(true);
-      requestAnimationFrame(() => document.getElementById("matcher-q")?.focus());
+      if (!question) requestAnimationFrame(() => document.getElementById("matcher-q")?.focus());
     } catch { /* fine */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1072,7 +1093,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             somebody asks, so the grid never moves on load. */}
         {matcherOpen && (
           <section aria-label="Match a problem to tools" style={{ marginBottom: S.xl }}>
-            <Matcher tools={tools} onOpen={openTool} onSuggest={setShowSuggest} onClose={() => setMatcherOpen(false)} />
+            <Matcher key={matcherAsk} initial={matcherAsk} tools={tools} onOpen={openTool} onSuggest={setShowSuggest} onClose={() => { setMatcherOpen(false); setMatcherAsk(""); }} />
           </section>
         )}
 
