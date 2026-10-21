@@ -6,6 +6,7 @@ import { ThemeScript } from "@/components/Theme";
 import { SiteFrameProvider, SiteShell, SiteFooter } from "@/components/SiteFrame";
 import { frameData } from "@/lib/frameData";
 import { publishedListCount } from "@/lib/listsSection";
+import { toolCounts } from "@/lib/toolCountStore";
 import "./globals.css";
 
 /*
@@ -65,7 +66,11 @@ export const viewport = { themeColor: "#F1F2F3" };
 export default async function RootLayout({ children }) {
   /* The lists section opens in the nav only once it has a list worth showing
      (lib/listsSection.js): one cached store read, never a page's worth. */
-  const fd = frameData();
+  /* The public tool count, the one every surface states (lib/toolCount.js).
+     Store down: frameData counts the file instead, through the same function. */
+  let tools;
+  try { tools = await toolCounts(); } catch { /* fall back inside frameData */ }
+  const fd = frameData(tools);
   let lists = 0;
   try { lists = await publishedListCount(); } catch { /* store down: the section stays out of the nav */ }
   const frame = { ...fd, counts: { ...fd.counts, lists } };

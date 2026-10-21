@@ -8,6 +8,7 @@ import { SITE, isForVendors } from "@/lib/seo";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { EVENTS, agenda } from "@/lib/events";
 import { POSTS } from "@/lib/blog";
+import { countTools } from "@/lib/toolCount";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,8 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const tools = await mergedTools();
+  /* The public count, the same function every other surface states. */
+  const counted = countTools(tools);
   /*
    * Grouped by primary category, and only by the primary. A tool in two
    * categories appears once, under the one it leads with, and says where else
@@ -46,7 +49,7 @@ export async function GET() {
 > and not affiliated with Shopify.
 
 Maintained by ${AUTHOR}${AUTHOR_URL ? ` (${AUTHOR_URL})` : ""}.
-Last updated ${LAST_UPDATED}. ${tools.length} tools listed.
+Last updated ${LAST_UPDATED}. ${counted.total} tools listed.
 
 ## What makes an entry
 
@@ -78,7 +81,7 @@ where app vendors genuinely reach for them, and are marked "not Shopify-only".
 Each has a page at ${SITE}/categories/<id>, and a tool can belong to more than one.
 
 ${CATEGORIES.map((c) => {
-    const n = tools.filter((t) => isInCat(t, c.id)).length;
+    const n = counted.byCategory[c.id];
     return `- ${c.label} (${SITE}/categories/${c.id}, ${n}): ${c.blurb}`;
   }).join("\n")}
 

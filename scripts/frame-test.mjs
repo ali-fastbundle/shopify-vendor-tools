@@ -27,10 +27,14 @@ const shell = frame.slice(frame.indexOf("export function SiteShell"), frame.inde
 const sidebar = frame.slice(frame.indexOf("function Sidebar("), frame.indexOf("function SearchBox("));
 
 console.log("one frame:");
-ok(/<SiteShell \{\.\.\.frame\}>/.test(layout) && /const fd = frameData\(\);/.test(layout) && !/SiteHeader/.test(layout), "the layout renders the shell around every page");
+ok(/<SiteShell \{\.\.\.frame\}>/.test(layout) && /const fd = frameData\(tools\);/.test(layout) && !/SiteHeader/.test(layout), "the layout renders the shell around every page");
 const fd = src("lib/frameData.js");
-ok(!/from "(@\/lib\/|\.\/)(store|listings|entries)"|mergedTools|catalogueTools/.test(layout + fd), "its counts come from the catalogue files: no store read on every page");
-ok(/directory: TOOLS\.length, newsletters: NEWSLETTERS\.length, events: upcoming, blog: POSTS\.length/.test(fd), "a count for each section");
+/* The tool figures are the public count (invariant 53), which includes the
+   queue, so they need the store: one cached read through lib/toolCountStore.js,
+   never a direct catalogue or store read in the layout. */
+ok(!/from "(@\/lib\/|\.\/)(store|listings|entries)"|mergedTools|catalogueTools/.test(layout + fd) && /toolCounts\(\)/.test(layout),
+  "its tool counts are the one public count, through one cached read");
+ok(/directory: tools\.total, newsletters: NEWSLETTERS\.length, events: upcoming, blog: POSTS\.length/.test(fd), "a count for each section");
 ok(/at\.mode !== "inferred"/.test(fd), "events counts dated ones ahead, not guessed dates");
 ok(/if \(outsideFrame\(path\)\) return children;/.test(shell), "/admin keeps its own frame");
 

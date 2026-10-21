@@ -136,7 +136,7 @@ ok(/catalogueTools\(\)/.test(src("app/api/match/route.js")) && !/mergedTools/.te
 {
   const d = src("components/Directory.jsx");
   ok(/options\.editorCount > 0 &&/.test(src("components/DirectoryFilters.jsx")), "the directory filter only renders when something is set");
-  ok(/editorUsePolicy\(tools\.length\)/.test(d), "the policy is stated where the filter and sort are used");
+  ok(/editorUsePolicy\(toolTotal\)/.test(d), "the policy is stated where the filter and sort are used");
   ok(/editor: \{ label: "Editor use first"/.test(d), "and there is a sort for it");
   const avg = d.match(/const avg = [^\n]*/)?.[0] || "";
   ok(!/editorUse/.test(avg), "the community average does not read it");

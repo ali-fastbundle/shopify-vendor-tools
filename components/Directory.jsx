@@ -698,7 +698,7 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {}, owners = {}, initialFilters = {} }) {
+export default function Directory({ tools: initialTools, toolTotal = 0, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {}, owners = {}, initialFilters = {} }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
   /* From the server, so the first render is already sorted the way it will
@@ -1110,8 +1110,8 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             </h1>
             <p className="tnum" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0` }}>
               {cat === "all"
-                ? `${tools.length} tools for Shopify app builders in ${CATEGORIES.length} categories, updated ${LAST_UPDATED}.`
-                : `${rows.length} of ${tools.length} tools. ${catOf(cat).blurb}`}
+                ? `${toolTotal} tools for Shopify app builders in ${CATEGORIES.length} categories, updated ${LAST_UPDATED}.`
+                : `${rows.length} of ${toolTotal} tools. ${catOf(cat).blurb}`}
             </p>
           </div>
           <div className="flex items-center" style={{ gap: S.sm }}>
@@ -1138,7 +1138,7 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
             is filtering or sorting by it, which is when they rely on it. */}
         {(refine.used || sort === "editor") && (
           <p style={{ fontSize: F.sm, color: C.muted, maxWidth: "70ch", lineHeight: 1.5, marginTop: S.md }}>
-            {editorUsePolicy(tools.length)}
+            {editorUsePolicy(toolTotal)}
           </p>
         )}
         {err && (

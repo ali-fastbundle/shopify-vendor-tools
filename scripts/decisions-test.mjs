@@ -43,7 +43,7 @@ ok(/Sign in with your email/.test(frameSrc) && /Sign in with your email/.test(di
 ok(!/<details/.test(form), "examples are not behind a disclosure");
 const examples = dir.slice(dir.indexOf("const EXAMPLES = ["), dir.indexOf("];", dir.indexOf("const EXAMPLES = [")));
 ok((examples.match(/label:/g) || []).length === 3, "three examples, each a chip");
-ok(/`\$\{tools\.length\} tools for Shopify app builders in \$\{CATEGORIES\.length\} categories, updated \$\{LAST_UPDATED\}\.`/.test(dir), "the stats are one short sentence");
+ok(/`\$\{toolTotal\} tools for Shopify app builders in \$\{CATEGORIES\.length\} categories, updated \$\{LAST_UPDATED\}\.`/.test(dir), "the stats are one short sentence");
 
 console.log("\nthe card and the bar:");
 const card = fn("Card");

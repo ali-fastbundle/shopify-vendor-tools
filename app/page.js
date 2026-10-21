@@ -10,6 +10,7 @@ import { NEWSLETTERS } from "@/lib/newsletters";
 import { HEADLINE } from "@/lib/tools";
 import { ogFacts, ogVersion } from "@/lib/ogCard";
 import JsonLd from "@/components/JsonLd";
+import { countTools } from "@/lib/toolCount";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,9 @@ export default async function Page({ searchParams = {} }) {
           is "Top rated", which reads both, so starting from nothing meant the
           server sent one order and the browser re-sorted into another once
           /api/data arrived: the largest layout shift on the page (0.26). */}
-      <Directory tools={tools} feed={feed} newsletterCount={NEWSLETTERS.length}
+      {/* The heading states countTools of the list it renders, the same
+          function the sidebar, the share card and llms.txt count with. */}
+      <Directory tools={tools} toolTotal={countTools(tools).total} feed={feed} newsletterCount={NEWSLETTERS.length}
         initialVotes={votes} initialReviews={reviews} owners={ownerContexts(tools)}
         initialFilters={parseFilters(searchParams, { sorts: SORT_KEYS })} />
     </>

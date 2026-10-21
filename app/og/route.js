@@ -116,7 +116,9 @@ export async function GET() {
       ...size, fonts: fonts.length ? fonts : undefined,
       // The version this image is, so it can be checked against the URL on
       // the homepage from outside.
-      headers: { "x-og-version": ogVersion(facts) },
+      /* The count it drew, so scripts/tool-count-test.mjs can compare it
+         with every other surface from outside. */
+      headers: { "x-og-version": ogVersion(facts), "x-og-tools": String(toolCount) },
     },
   );
 }

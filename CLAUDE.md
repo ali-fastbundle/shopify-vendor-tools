@@ -349,6 +349,31 @@ the generic product nouns (`app`, `software`, `platform`, `team`, `hq`), so
 or `group`, which are what distinguish a real parent: Dark Ecommerce Labs is the
 answer here, not the noise.
 
+**53. The public tool count is one number, and one function states it.**
+The count means **published, non-draft entries, counted once each**: the file catalogue
+plus entries published from the admin queue (`catalogueTools()`), drafts dropped, one per
+id however many categories it is filed in. A tool in three categories is one tool in the
+total and one in each of the three category counts. **Dying tools are still listed, so they
+count.** `countTools` in `lib/toolCount.js` is the only code that counts, and returns the
+total, the count per category (every category a tool is in), the primary count per
+category and the order by count. The cached server read is `toolCounts` in
+`lib/toolCountStore.js`: five minutes, keyed on the build, dropped by `toolsChanged()` when a
+queue entry is published or unpublished.
+
+Every surface that states a number of tools calls it: the sidebar's Directory count and its
+category list (`frameData`, fed by the layout), the directory heading (`app/page.js` passes
+`toolTotal`), the share card (`ogFacts`, and `/og` sends it as `x-og-tools`), `/categories`
+(`categoryCounts`), `llms.txt`, and the announcement figures (`liveFacts`). The about page
+states no count.
+
+It exists because the sidebar counted `lib/tools.js` alone and the heading counted the file
+plus the queue, so the live site said 54 and 56 for the same thing (2026-10-21). That is the
+split `lib/ogCard.js` already ended once for the share card, and it came back because each
+surface still wrote its own arithmetic. **Do not write `TOOLS.length` or
+`tools.filter(...).length` into anything a visitor reads; call `countTools`.**
+`node scripts/tool-count-test.mjs [baseUrl]` holds the rule, the wiring, and with a base URL
+that every surface reports the same total and the same per-category counts.
+
 **15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
@@ -2316,10 +2341,10 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   and Privacy. Signed in, the account is two lines: "Signed in as" and the address, then
   one row of Admin (for an admin), Sign out and the theme icon at its end. Signed out it is
   Sign in and the theme icon on one row.
-- **Counts come from the catalogue files** (`frameData` in `lib/frameData.js`), so there is no
-  store read on every page: tools, newsletters, events still ahead with a real date (an
-  inferred one is a guess and is not counted), posts. Entries published from the admin
-  queue live in Redis and appear in the directory heading's own count. Recent updates
+- **Counts:** tools from the public count (invariant 53), read once per five minutes from the
+  store with the queue entries in it, so the sidebar and the directory heading state the same
+  number; newsletters, events still ahead with a real date (an inferred one is a guess and is
+  not counted) and posts from the catalogue files (`frameData` in `lib/frameData.js`). Recent updates
   shows what is new to this browser and nothing at zero, the per-browser mark the header
   used to carry (`useFeedForCount`, stamped by opening `/changes`).
 - **Search is one box with one meaning, on every page** (2026-10-21). Enter goes to
@@ -2407,7 +2432,8 @@ and the server HTML.
 | `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
 | `lib/directoryFilters.js` `components/DirectoryFilters.jsx` | The directory's filter state and its URL; the one Filters control and the active chips |
 | `lib/search.js` `lib/universalSearch.js` `app/search` | The search: the text each kind is searched on and the matching rule; what matches across every section and in what order; the results page. Pure, no model call |
-| `lib/frameData.js` | The sidebar's counts and ordered categories, from the catalogue files with no store read |
+| `lib/frameData.js` | The sidebar's counts and ordered categories. The tool figures come in from the layout (`toolCounts`) |
+| `lib/toolCount.js` `lib/toolCountStore.js` | The public tool count (`countTools`, pure), and its cached server read (`toolCounts`, `toolsChanged`) |
 | `components/ListingParams.jsx` | The URL as the state of a listing page: the directory's filters, one parameter, and the bridges a page uses to hand the sidebar its filter options |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
 | `app/about/page.js` `app/about/photo` `lib/aboutText.js` `lib/aboutStore.js` | The maintainer's page: Ali's prose, editable from /admin with no address or phone allowed, the photo, LinkedIn and the contact form |
@@ -3294,6 +3320,7 @@ node scripts/matcher-exclusion.mjs   # noRecommend excludes from the matcher, an
 node scripts/categories-test.mjs     # one primary category plus the rest, and a page for each
 node scripts/filters-test.mjs        # one Filters control, state in the URL, categories ordered by count
 node scripts/search-test.mjs         # one search across every section, past events included, drafts never, every word must match
+node scripts/tool-count-test.mjs [baseUrl] # one public tool count, and every surface states the same one
 node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
 node scripts/frame-test.mjs [baseUrl] # the sidebar frame: order, counts, drawer, Suspense, server HTML
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers

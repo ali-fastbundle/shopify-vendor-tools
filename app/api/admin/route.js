@@ -710,6 +710,8 @@ export async function POST(request) {
       suggestedBy: timesAsked(suggestion),
       draftedBy: incoming.researchedBy || "",
     });
+    /* A tool was published: every stated count moves now (lib/toolCountStore.js). */
+    (await import("@/lib/toolCountStore")).toolsChanged();
 
     /*
      * Carry the demand across at the moment of publication, and only when this
@@ -743,6 +745,7 @@ export async function POST(request) {
      queue so the demand it represents is not lost with it. */
   if (action === "unpublish-entry") {
     const { removed, entries } = await removeEntry(id);
+    (await import("@/lib/toolCountStore")).toolsChanged();
     if (!removed) return new Response("Unknown entry", { status: 400 });
     const suggestions = await read(KEYS.suggestions, []);
     /* Back into the queue as a reviewed suggestion: the demand it carried is

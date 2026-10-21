@@ -73,9 +73,9 @@ console.log("\ncategory order:");
   const extra = [...T.TOOLS, ...Array.from({ length: 40 }, (_, i) => ({ id: `x${i}`, cat: T.CATEGORIES.at(-1).id }))];
   ok(T.categoriesByCount(extra)[0].id === T.CATEGORIES.at(-1).id, "computed, so a category defined last rises when it grows");
   const frame = src("components/SiteFrame.jsx"), layout = src("lib/frameData.js");
-  ok(/categories: categoriesByCount\(TOOLS\)/.test(layout) && /categories\.map\(\(c\) =>/.test(frame), "the sidebar lists categories in that order");
+  ok(/categories: tools\.order\.map\(findCat\)/.test(layout) && /categories\.map\(\(c\) =>/.test(frame), "the sidebar lists categories in that order");
   ok(frame.indexOf("<span>All</span>") > -1 && frame.indexOf("<span>All</span>") < frame.indexOf("categories.map((c) =>"), "with All first");
-  ok(/categoriesByCount\(/.test(src("lib/seo.js")), "the /categories index uses the same order");
+  ok(/countTools\(all\)/.test(src("lib/seo.js")) && /n\.order\.map/.test(src("lib/seo.js")), "the /categories index uses the same order");
   ok(/categoriesByCount\(tools\)/.test(src("app/llms.txt/route.js")), "and llms.txt");
 }
 
