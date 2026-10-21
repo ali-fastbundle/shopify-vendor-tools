@@ -157,7 +157,11 @@ function eventsBlock() {
       `  ${[e.at.label, where].filter(Boolean).join(" | ")}`,
     ].join("\n");
   };
-  const ahead = plan.timeline.flatMap((g) => g.items).filter((e) => e.at.status !== "past");
+  const dated = plan.timeline.flatMap((g) => g.items);
+  const ahead = dated.filter((e) => e.at.status !== "past");
+  /* Past editions stay listed, newest first: the directory is also a record
+     of what the ecosystem has held, and every one keeps its page. */
+  const past = dated.filter((e) => e.at.status === "past").reverse();
   return `## Events
 
 Conferences and meetups an app vendor might travel for. Dates are checked
@@ -170,6 +174,10 @@ ${plan.unscheduled.length ? `
 ### Dates not announced
 
 ${plan.unscheduled.map(line).join("\n")}
+` : ""}${past.length ? `
+### Past
+
+${past.map(line).join("\n")}
 ` : ""}
 `;
 }
