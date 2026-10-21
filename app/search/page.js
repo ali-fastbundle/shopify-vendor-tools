@@ -68,6 +68,19 @@ export default async function Page({ searchParams }) {
           )}
         </div>
 
+        {/* One link per section with results, so a long list of tools does
+            not hide the two events further down. */}
+        {result.groups.length > 1 && (
+          <nav aria-label="Result sections" className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.md }}>
+            {result.groups.map((g) => (
+              <a key={g.kind} href={`#r-${g.kind}`} className="ctl press tnum" style={{
+                background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.pill,
+                padding: "4px 12px", fontSize: F.sm, fontWeight: 600, color: C.text, textDecoration: "none",
+              }}>{g.label} {g.items.length}</a>
+            ))}
+          </nav>
+        )}
+
         {result.groups.map((g) => (
           <section key={g.kind} aria-labelledby={`r-${g.kind}`} data-kind={g.kind} style={{ marginTop: S["2xl"] }}>
             <h2 id={`r-${g.kind}`} className="tnum" style={{ fontSize: F.lg, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>

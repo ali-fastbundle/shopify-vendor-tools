@@ -2322,17 +2322,20 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   queue live in Redis and appear in the directory heading's own count. Recent updates
   shows what is new to this browser and nothing at zero, the per-browser mark the header
   used to carry (`useFeedForCount`, stamped by opening `/changes`).
-- **Search** filters the list on a page that has one, through `?q=` on that page: the
-  directory, newsletters and events (`IndexSearch` reads it and filters the server-rendered
-  rows), and each of those says it searches one section and links on to `/search` with the
-  same words. Anywhere else Enter goes to `/search` (2026-10-21), which looks in every
-  section at once: tools, categories, newsletters, events, blog posts and owners
-  (`searchAll` in `lib/universalSearch.js`). It is server-rendered from `?q=` with a plain
-  GET form, noindex, and has no model call: every word must appear, the same rule as the
-  section searches, and the text each kind is searched on is defined once in `lib/search.js`.
-  **Past events are results**, labelled as past and listed after what is coming up, because
-  the directory is also a record of what the ecosystem has held. Callers hand it the
-  published lists only, so a draft is never a result. The AI search stays tools-only.
+- **Search is one box with one meaning, on every page** (2026-10-21). Enter goes to
+  `/search`, which looks in every section at once and shows the results grouped by
+  section, with a link to each section at the top: tools, categories, newsletters, events,
+  blog posts and owners (`searchAll` in `lib/universalSearch.js`). It used to filter the
+  list in place on the directory, newsletters and events and search only tools anywhere
+  else, so the same box answered a different question depending on the page, and a city
+  typed on the directory found nothing. A `?q=` on `/`, `/newsletters` or `/events` (an
+  older link) redirects to `/search` with the query (`next.config.mjs`). The page is
+  server-rendered from `?q=` with a plain GET form, noindex, and has no model call: every
+  word must appear, and the text each kind is searched on is defined once in
+  `lib/search.js`. **Past events are results**, labelled as past and listed after what is
+  coming up, because the directory is also a record of what the ecosystem has held.
+  Callers hand it the published lists only, so a draft is never a result. The AI search
+  stays tools-only.
 - **Categories and filters appear in the directory's part of the site.** On `/` they act
   in place; on a tool or category page a category is a link to `/?cat=<id>`. The filter
   options (counts, confirmed integrations, a category's details) come from merged data
@@ -2403,8 +2406,7 @@ and the server HTML.
 | `components/Vote.jsx` `components/VisitSite.jsx` | The like/dislike button and the outbound "Visit site", each defined once for every card |
 | `components/GrowText.jsx` | The textarea for prose: grows, Enter is a new line, Cmd or Ctrl and Enter submits |
 | `lib/directoryFilters.js` `components/DirectoryFilters.jsx` | The directory's filter state and its URL; the one Filters control and the active chips |
-| `components/IndexSearch.jsx` `lib/search.js` | Filtering server-rendered index rows in place by their `data-search` text, from `?q=` (the box is in the sidebar) |
-| `lib/universalSearch.js` `app/search` | Search across every section: what matches, in what order, and the page. Pure, no model call |
+| `lib/search.js` `lib/universalSearch.js` `app/search` | The search: the text each kind is searched on and the matching rule; what matches across every section and in what order; the results page. Pure, no model call |
 | `lib/frameData.js` | The sidebar's counts and ordered categories, from the catalogue files with no store read |
 | `components/ListingParams.jsx` | The URL as the state of a listing page: the directory's filters, one parameter, and the bridges a page uses to hand the sidebar its filter options |
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |

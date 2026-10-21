@@ -322,27 +322,20 @@ function SearchBox({ value, onChange, onSubmit, placeholder = "Search tools, tag
 }
 
 /*
- * Search filters the list on a page that has one: the directory, newsletters
- * and events, through ?q= on that page, and each of those links on to /search
- * for the same words. Anywhere else, Enter goes to /search, which looks in
- * every section (lib/universalSearch.js).
+ * One search, the same on every page: Enter goes to /search, which looks in
+ * every section at once and shows the results grouped by section
+ * (lib/universalSearch.js). It used to filter the list in place on the
+ * directory, newsletters and events, which meant the same box answered a
+ * different question depending on the page, and a city typed on the
+ * directory found nothing. On /search the box starts from the query on
+ * screen.
  */
-const SEARCH_HERE = {
-  "/": { placeholder: "Search tools, tags, notes", label: "Search tools, tags and notes" },
-  "/newsletters": { placeholder: "Search newsletters, writers, topics", label: "Search newsletters" },
-  "/events": { placeholder: "Search events, cities, organizers", label: "Search events" },
-};
 function SidebarSearch({ path }) {
-  const here = SEARCH_HERE[path];
   const urlQ = useParam("q");
   const [draft, setDraft] = useState(null);
-  if (here) {
-    return <SearchBox value={urlQ} onChange={(v) => (path === "/" ? setDirectoryFilters({ q: v }) : setParam("q", v))}
-      placeholder={here.placeholder} label={here.label} />;
-  }
-  /* On /search the box starts from the query on screen; Enter runs a new one. */
   const value = draft === null ? (path === "/search" ? urlQ : "") : draft;
-  return <SearchBox value={value} onChange={setDraft} label="Search everything" placeholder="Search everything"
+  return <SearchBox value={value} onChange={setDraft} label="Search everything"
+    placeholder="Search tools, events, newsletters"
     onSubmit={() => { if (value.trim()) window.location.assign(`/search?q=${encodeURIComponent(value.trim())}`); }} />;
 }
 

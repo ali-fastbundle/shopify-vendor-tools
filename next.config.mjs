@@ -33,6 +33,18 @@ const nextConfig = {
       "/api/admin/ideas": ["./CLAUDE.md"],
     },
   },
+  /*
+   * One search: a ?q= on the directory, newsletters or events is an older link
+   * (or a habit) from when the sidebar box filtered those lists in place. It
+   * goes to /search with the same words, so the box means one thing
+   * everywhere. Next carries the query string across, so ?q= arrives intact.
+   * Not permanent: a search link is not a page that moved.
+   */
+  async redirects() {
+    return ["/", "/newsletters", "/events"].map((source) => ({
+      source, has: [{ type: "query", key: "q" }], destination: "/search", permanent: false,
+    }));
+  },
   async headers() {
     return [{
       source: "/(.*)",

@@ -1,8 +1,6 @@
 import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
-import IndexSearch from "@/components/IndexSearch";
-import { newsletterSearchText } from "@/lib/search";
 import { CardVotes } from "@/components/Engagement";
 import VisitSite from "@/components/VisitSite";
 
@@ -62,7 +60,7 @@ function Signal({ n }) {
 function Row({ n }) {
   const by = n.author || n.publisher;
   return (
-    <li className="card" data-search={newsletterSearchText(n)}
+    <li className="card"
       style={{
         background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
         padding: S.lg, marginTop: S.md,
@@ -94,7 +92,7 @@ function Row({ n }) {
 function Group({ title, blurb, items }) {
   if (!items.length) return null;
   return (
-    <section data-search-group="" style={{ marginTop: S["3xl"] }}>
+    <section style={{ marginTop: S["3xl"] }}>
       <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
       <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "70ch" }}>{blurb}</p>
       <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
@@ -128,9 +126,6 @@ export default function Newsletters({ newsletters, lastUpdated }) {
             pretending otherwise.
           </p>
         </header>
-
-        <IndexSearch scope="newsletter-list" placeholder="Search newsletters, writers, topics"
-          label="Search newsletters, writers and topics" />
 
         <div id="newsletter-list">
         <Group

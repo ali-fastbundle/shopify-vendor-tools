@@ -5,7 +5,6 @@ import { outbound } from "@/lib/outbound";
 import { countdown, RELEVANCE_LABEL, dayLabel } from "@/lib/events";
 import { Pill } from "@/components/Pill";
 import EventLogo from "@/components/EventLogo";
-import { eventSearchText } from "@/lib/search";
 import { CardVotes } from "@/components/Engagement";
 
 /*
@@ -102,8 +101,6 @@ export const placeOf = (e) =>
  */
 const whenLine = (e) => (e.at.mode === "inferred" ? "Date TBC" : e.at.label);
 
-/* What an event row is searched on. Shared by the timeline rows and the "Dates not announced" list, so both answer alike. */
-export const eventSearch = eventSearchText;
 
 export function EventRow({ e, today }) {
   const past = e.at.status === "past";
@@ -112,7 +109,7 @@ export function EventRow({ e, today }) {
     /* A card like every other (globals.css): the name's overlay opens the event,
        which the timeline's EventDialog turns into the modal on a plain click.
        The border is transparent until hover, so a past event keeps "no fill". */
-    <li id={e.id} data-search={eventSearch(e)} className="card"
+    <li id={e.id} className="card"
       style={{
         padding: `${S.md}px ${S.sm}px`, margin: `${S.xs}px -${S.sm}px`, display: "flex", gap: S.lg, alignItems: "flex-start",
         border: "1px solid transparent", borderRadius: R.card,

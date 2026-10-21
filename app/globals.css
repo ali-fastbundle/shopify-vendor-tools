@@ -591,8 +591,8 @@ a:focus-visible,
   }
 }
 
-/* `hidden` has to win over an inline display, or a row styled display:flex
-   ignores the index search (components/IndexSearch.jsx) that hides it. */
+/* `hidden` has to win over an inline display, or an element styled
+   display:flex ignores the attribute meant to hide it. */
 [hidden] {
   display: none !important;
 }

@@ -1113,16 +1113,6 @@ export default function Directory({ tools: initialTools, feed = [], newsletterCo
                 ? `${tools.length} tools for Shopify app builders in ${CATEGORIES.length} categories, updated ${LAST_UPDATED}.`
                 : `${rows.length} of ${tools.length} tools. ${catOf(cat).blurb}`}
             </p>
-            {/* The box searches tools here. Newsletters, events and the rest
-                are one link away, with the same words (/search). */}
-            {q.trim() && (
-              <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0` }}>
-                Searching tools only.{" "}
-                <a href={`/search?q=${encodeURIComponent(q.trim())}`} style={{ color: C.accentInk, fontWeight: 600 }}>
-                  Search everything for “{q.trim()}”
-                </a>
-              </p>
-            )}
           </div>
           <div className="flex items-center" style={{ gap: S.sm }}>
             <select value={sort} aria-label="Sort tools by" className="ctl"

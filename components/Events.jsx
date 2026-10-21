@@ -1,11 +1,10 @@
 import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { monthLabel, monthShort } from "@/lib/events";
-import { EventRow, placeOf, eventSearch } from "@/components/EventParts";
+import { EventRow, placeOf } from "@/components/EventParts";
 import { CardVotes } from "@/components/Engagement";
 import EventDialog from "@/components/EventDialog";
 import TimelineScroll from "@/components/TimelineScroll";
-import IndexSearch from "@/components/IndexSearch";
 import NearbyEvents from "@/components/NearbyEvents";
 
 /*
@@ -80,7 +79,7 @@ const formatToday = (iso) => {
 /* The line between what happened and what has not. One hairline and a date in
    the text colour: a position, not a decoration. */
 const Today = ({ today }) => (
-  <li id="today" data-search-hide="" aria-label={`Today, ${formatToday(today)}`} className="tnum"
+  <li id="today" aria-label={`Today, ${formatToday(today)}`} className="tnum"
     style={{ display: "flex", alignItems: "center", gap: S.sm, padding: `${S.sm}px 0`, fontSize: F.xs, fontWeight: 700, color: C.text }}>
     <span>Today, {formatToday(today)}</span>
     <span aria-hidden="true" style={{ flex: 1, height: 1, background: C.text, opacity: 0.6 }} />
@@ -113,7 +112,7 @@ function Timeline({ timeline, today, nowMonth }) {
     const isNow = g.key === nowMonth;
     const allPast = g.items.every((e) => e.at.status === "past");
     out.push(
-      <div key={g.key} id={monthKey ? `m-${monthKey}` : `y-${g.key}`} data-search-group="" data-now={isNow ? "" : undefined}
+      <div key={g.key} id={monthKey ? `m-${monthKey}` : `y-${g.key}`} data-now={isNow ? "" : undefined}
         style={{ marginTop: S.lg }}>
         {/* Sticky inside the scroller, so the month is always named. */}
         <h3 style={{
@@ -173,12 +172,10 @@ export default function Events({ plan, events, lastUpdated }) {
           * With scripting off it starts at the oldest month, which is the
           * one honest default a server can give it.
           */}
-        <IndexSearch scope="event-list" placeholder="Search events, cities, organizers"
-          label="Search events, cities and organizers" />
         <NearbyEvents events={nearbyOf(events)} />
 
         <div id="event-list">
-        <section aria-labelledby="calendar" data-search-group="" style={{ marginTop: S["3xl"] }}>
+        <section aria-labelledby="calendar" style={{ marginTop: S["3xl"] }}>
           <H2 id="calendar">Calendar</H2>
           <div id="event-timeline" role="region" aria-labelledby="calendar" tabIndex={0}
             className="event-timeline"
@@ -193,14 +190,14 @@ export default function Events({ plan, events, lastUpdated }) {
         </section>
 
         {unscheduled.length > 0 && (
-          <section aria-labelledby="unscheduled" data-search-group="" style={{ marginTop: S["4xl"] }}>
+          <section aria-labelledby="unscheduled" style={{ marginTop: S["4xl"] }}>
             <H2 id="unscheduled">Dates not announced</H2>
             <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, maxWidth: "64ch", lineHeight: 1.55 }}>
               Running, or recently run, with no next date we could find on the organizer's own site.
             </p>
             <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
               {unscheduled.map((e) => (
-                <li key={e.id} id={e.id} data-search={eventSearch(e)} className="card"
+                <li key={e.id} id={e.id} className="card"
                   style={{ padding: `${S.md}px ${S.sm}px`, margin: `${S.xs}px -${S.sm}px`, border: "1px solid transparent", borderRadius: R.card }}>
                   <a href={`/events/${e.id}`} data-event={e.id} className="card-link"
                     style={{ color: C.text, fontWeight: 700, fontSize: F.md, textDecoration: "none" }}>{e.name}</a>

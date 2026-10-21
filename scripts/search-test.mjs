@@ -78,9 +78,11 @@ ok(firstDying === -1 || dying.slice(firstDying).every((x) => x.dying), "a tool w
 
 console.log("\nthe ways in:");
 const frame = readFileSync(join(root, "components/SiteFrame.jsx"), "utf8");
-ok(/\/search\?q=/.test(frame) && !/assign\(`\/\?q=/.test(frame), "the sidebar box goes to /search from a page with no list");
-ok(/\/search\?q=/.test(readFileSync(join(root, "components/IndexSearch.jsx"), "utf8")), "newsletters and events link on to /search");
-ok(/Searching tools only/.test(readFileSync(join(root, "components/Directory.jsx"), "utf8")), "the directory says it searches tools only, and links on");
+ok(/\/search\?q=/.test(frame), "the sidebar box goes to /search");
+ok(!/SEARCH_HERE|setDirectoryFilters\(\{ q/.test(frame), "on every page: no section filters in place from the box");
+const conf = readFileSync(join(root, "next.config.mjs"), "utf8");
+ok(/redirects\(\)/.test(conf) && /"\/", "\/newsletters", "\/events"/.test(conf) && /destination: "\/search"/.test(conf),
+  "an old ?q= link on the directory, newsletters or events goes to /search");
 const page = readFileSync(join(root, "app/search/page.js"), "utf8");
 ok(!/"use client"/.test(page) && /method="get"/.test(page), "the page is server-rendered with a plain GET form");
 ok(/index: false/.test(page), "search pages are noindex");
