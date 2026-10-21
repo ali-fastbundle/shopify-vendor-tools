@@ -51,6 +51,10 @@ function Filter({ scope }) {
       ) : (
         <p style={{ fontSize: F.sm, color: C.muted, margin: 0 }}>Showing matches for “{q.trim()}”.</p>
       )}
+      <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>
+        This searches one section. <a href={`/search?q=${encodeURIComponent(q.trim())}`}
+          style={{ color: C.accentInk, fontWeight: 600 }}>Search everything for “{q.trim()}”</a>
+      </p>
       <button onClick={() => setParam("q", "")} className="press"
         style={{
           marginTop: S.xs, background: "none", border: 0, padding: 0, color: C.muted,

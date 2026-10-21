@@ -323,8 +323,9 @@ function SearchBox({ value, onChange, onSubmit, placeholder = "Search tools, tag
 
 /*
  * Search filters the list on a page that has one: the directory, newsletters
- * and events, through ?q= on that page. Anywhere else it is a question for the
- * directory, so Enter goes there.
+ * and events, through ?q= on that page, and each of those links on to /search
+ * for the same words. Anywhere else, Enter goes to /search, which looks in
+ * every section (lib/universalSearch.js).
  */
 const SEARCH_HERE = {
   "/": { placeholder: "Search tools, tags, notes", label: "Search tools, tags and notes" },
@@ -334,13 +335,15 @@ const SEARCH_HERE = {
 function SidebarSearch({ path }) {
   const here = SEARCH_HERE[path];
   const urlQ = useParam("q");
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(null);
   if (here) {
     return <SearchBox value={urlQ} onChange={(v) => (path === "/" ? setDirectoryFilters({ q: v }) : setParam("q", v))}
       placeholder={here.placeholder} label={here.label} />;
   }
-  return <SearchBox value={draft} onChange={setDraft} label="Search the directory"
-    onSubmit={() => { if (draft.trim()) window.location.assign(`/?q=${encodeURIComponent(draft.trim())}`); }} />;
+  /* On /search the box starts from the query on screen; Enter runs a new one. */
+  const value = draft === null ? (path === "/search" ? urlQ : "") : draft;
+  return <SearchBox value={value} onChange={setDraft} label="Search everything" placeholder="Search everything"
+    onSubmit={() => { if (value.trim()) window.location.assign(`/search?q=${encodeURIComponent(value.trim())}`); }} />;
 }
 
 /*

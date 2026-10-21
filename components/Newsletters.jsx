@@ -2,7 +2,7 @@ import React from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
 import IndexSearch from "@/components/IndexSearch";
-import { searchText } from "@/lib/search";
+import { newsletterSearchText } from "@/lib/search";
 import { CardVotes } from "@/components/Engagement";
 import VisitSite from "@/components/VisitSite";
 
@@ -62,7 +62,7 @@ function Signal({ n }) {
 function Row({ n }) {
   const by = n.author || n.publisher;
   return (
-    <li className="card" data-search={searchText(n.name, n.publisher, n.author, n.cadence, n.one, n.note, n.tags)}
+    <li className="card" data-search={newsletterSearchText(n)}
       style={{
         background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
         padding: S.lg, marginTop: S.md,
