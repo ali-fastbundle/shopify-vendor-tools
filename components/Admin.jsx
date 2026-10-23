@@ -2003,6 +2003,15 @@ function IdeaRow({ idea, post, busy }) {
         <>
           <p style={{ margin: 0, whiteSpace: "pre-wrap", color: C.text }}>{idea.text}</p>
           {idea.stateNote && <p style={{ margin: `${S.sm}px 0 0` }}><b>Where it stands.</b> {idea.stateNote}</p>}
+          {idea.editorRecord && (
+            <div style={{ margin: `${S.sm}px 0 0` }}>
+              <p style={{ margin: 0 }}><b>Editor's ruling on the review</b> ({idea.editorRecord.at}). The next review starts from this.</p>
+              <ul style={{ margin: `${S.xs}px 0 0`, paddingLeft: 18 }}>
+                {idea.editorRecord.struck.map((x) => <li key={x.objection}><s>{x.objection}</s>. {x.why}</li>)}
+                {idea.editorRecord.objections.map((x) => <li key={x}>{x}</li>)}
+              </ul>
+            </div>
+          )}
           {r && <IdeaReview review={r} older={(idea.reviews || []).length - 1} />}
           {idea.log?.length > 0 && (
             <p style={{ margin: `${S.sm}px 0 0`, fontSize: F.xs, color: C.dim }}>

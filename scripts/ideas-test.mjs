@@ -144,5 +144,22 @@ console.log("\nhandoff and commit:");
   ok((await call({ action: "commit", id: "seed-retail-insider", hash: "67f2a7e04bf6" })).status === 400, "the same commit twice is refused");
 }
 
+console.log("\nthe editor's ruling on a review:");
+{
+  const store = await load("lib/store.js");
+  const S = await load("lib/ideaStore.js");
+  const seed = I.SEEDS.find((x) => x.editorRecord);
+  ok(Boolean(seed), "a seed carries a ruling", seed?.id);
+  /* Stored, with an old review and an old note, as production holds it. */
+  const all = (await store.read(S.KEY, {})) || {};
+  all[seed.id] = { ...seed, editorRecord: undefined, stateNote: "old note", reviews: [{ at: "2026-10-17", verdict: "against", objections: ["Monetized influence"] }], log: [], commits: [] };
+  await store.write(S.KEY, all);
+  const row = (await S.getIdeas()).find((x) => x.id === seed.id);
+  ok(row.editorRecord?.struck?.length > 0 && row.stateNote === seed.stateNote && row.reviews.length === 1, "it reaches the stored row, beside the review it rules on");
+  ok(/THE EDITOR'S RULING ON EARLIER REVIEWS/.test(R.buildPrompt(row, [], "## x")) && R.buildPrompt(row, [], "## x").includes(seed.editorRecord.objections[0]), "the next review is told what was struck and starts from the real objections");
+  const h = I.handoffPrompt(row);
+  ok(/Struck: Monetized influence/.test(h) && /Real objection: Name collision/.test(h), "and the hand-off prompt says the same");
+}
+
 console.log(bad ? `\n${bad} failed` : "\nall passed");
 process.exit(bad ? 1 : 0);

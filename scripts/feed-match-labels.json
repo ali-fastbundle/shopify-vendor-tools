@@ -1,0 +1,116 @@
+{
+ "read": "2026-10-23",
+ "method": "Top 10 results per query, per source. Each tool searched once by its domain and once by its name. Every result containing the domain or the name was read by hand and labelled genuine if it is about the listed tool.",
+ "genuine": [
+  [
+   "applora",
+   "https://applora.ai"
+  ],
+  [
+   "applora",
+   "https://bsky.app/profile/launches.uicomet.com/post/3myhkon7ejs2l"
+  ],
+  [
+   "applora",
+   "https://bsky.app/profile/launches.uicomet.com/post/3myhnzwiutd2b"
+  ],
+  [
+   "appstorepulse",
+   "https://community.shopify.com/t/700035/3"
+  ],
+  [
+   "appstorepulse",
+   "https://www.appstorepulse.com/reports/state-of-shopify-app-store-may-2026"
+  ],
+  [
+   "appstorepulse",
+   "https://www.reddit.com/r/ShopifyAppDev/comments/1tur95z/i_indexed_21509_shopify_apps_is_the_app_store/"
+  ],
+  [
+   "krutva",
+   "https://community.shopify.com/t/286169/14"
+  ],
+  [
+   "krutva",
+   "https://community.shopify.com/t/675929/1"
+  ],
+  [
+   "partnerdock",
+   "https://community.shopify.com/t/286169/19"
+  ],
+  [
+   "partnerdock",
+   "https://community.shopify.com/t/675929/1"
+  ],
+  [
+   "storeleads",
+   "https://bsky.app/profile/wpmore.bsky.social/post/3m5vltktlp526"
+  ],
+  [
+   "storeleads",
+   "https://community.shopify.com/t/121688/2"
+  ],
+  [
+   "storeleads",
+   "https://community.shopify.com/t/282402/4"
+  ],
+  [
+   "storeleads",
+   "https://github.com/localgoods/heythanks/issues/7"
+  ],
+  [
+   "storeleads",
+   "https://news.ycombinator.com/item?id=31275743"
+  ],
+  [
+   "storeleads",
+   "https://news.ycombinator.com/item?id=44395491"
+  ],
+  [
+   "storeleads",
+   "https://news.ycombinator.com/item?id=49693369"
+  ],
+  [
+   "storeleads",
+   "https://www.reddit.com/r/dropshipping/comments/11xm1fw/beginners_guide_to_dropshipping/"
+  ],
+  [
+   "tracksami",
+   "https://community.shopify.dev/t/38653/1"
+  ]
+ ],
+ "collisions": {
+  "tracksami": [
+   "Sami Wholesale (another Shopify app)",
+   "SAMI B2B Lock (another Shopify app)",
+   "people named Sami",
+   "Czech 'sami'"
+  ],
+  "meridian": [
+   "Hackensack Meridian Health",
+   "Meridian, Idaho news",
+   "Meridian browser",
+   "Blood Meridian"
+  ],
+  "orbit": [
+   "orbit (space)",
+   "B2B Wholesale Club by Orbit (another Shopify app)",
+   "three.js orbit controls"
+  ],
+  "elevate": [
+   "the verb 'elevate' in marketing copy",
+   "Elevate brain training app",
+   "Elevate fitness API"
+  ],
+  "prys": [
+   "Welsh and Afrikaans 'prys' (price, prize)",
+   "people named Prys"
+  ],
+  "storeleads": [
+   "'store leads' in headlines"
+  ],
+  "krutva": [
+   "a personal trading project"
+  ]
+ }
+}

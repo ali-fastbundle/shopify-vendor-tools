@@ -2241,6 +2241,13 @@ sorting, seeds, the handoff prompt), `lib/ideaStore.js` (`svt:ideas`), `lib/idea
 - **Advisory and kept.** Every review is stored with the idea, newest first, so whether
   the objection was right can be checked later. Approving or starting an idea the latest
   review did not back records the override, with an optional reason.
+- **The editor can rule on a review** (`editorRecord` on a seed: what is struck and why, and
+  the real objections). It is in git, so it reaches the stored row beside the review it rules
+  on, and the next review prompt, the hand-off prompt and the Ideas panel all start from it.
+  The social discussion feed has one (2026-10-23): monetized influence and invariant 5 were
+  struck, and name collision and the third-party opinion policy are the real objections.
+  Its step one, whether mentions can be matched at all, is `scripts/feed-match-probe.py`
+  with hand labels in `scripts/feed-match-labels.json`: domains 16 of 16, names 10 of 185.
 - **Dropped keeps the idea and a required reason**, and nothing is deleted (invariant 27).
 - **This page cannot start a Claude Code session and does not say it can.** An approved
   or in-progress idea has Copy as prompt (`handoffPrompt`): the idea, numbered changes from
