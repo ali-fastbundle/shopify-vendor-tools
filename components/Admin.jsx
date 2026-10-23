@@ -400,7 +400,7 @@ export default function AdminPanel({
         )}
 
         {tab === "system" && (
-          <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []} rewriteLog={rewriteLog || []}
+          <System mentionSources={mentionSources} stats={stats} maillog={maillog || []} dedupelog={dedupelog || []} rewriteLog={rewriteLog || []}
             monitorErrors={monitorErrors || []} verifiedChanges={verifiedChanges || {}}
             health={health} coverage={coverage} changelog={changelog || []}
             inventory={inventory || []}
@@ -915,7 +915,7 @@ const BURST_DAYS = 7;
  * look. A dumping ground with the diagnosis buried in it is a tab people stop
  * opening.
  */
-function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, coverage = [], changelog = [], inventory = [], publishing = { canPublish: false, log: [] }, discards = [], reviewed = [], outOfScope = [], deleted = [], publishedSuggestions = [], allSuggestions = [], onSuggestions, onEntries, act, busy }) {
+function System({ mentionSources = { lastRunAt: "", sources: {} }, stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, coverage = [], changelog = [], inventory = [], publishing = { canPublish: false, log: [] }, discards = [], reviewed = [], outOfScope = [], deleted = [], publishedSuggestions = [], allSuggestions = [], onSuggestions, onEntries, act, busy }) {
   return (
     <>
       <StatusStrip health={health} maillog={maillog} coverage={coverage} mentionSources={mentionSources} />
