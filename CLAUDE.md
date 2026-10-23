@@ -454,6 +454,40 @@ words, sorts and filters it.
 As of 2026-10-23: 11 of 55 tools, 14 of 42 events and 4 of 9 newsletters have a date their
 own pages state; the rest are unknown. `scripts/launched-test.mjs`.
 
+**57. Events have a monthly digest and a monthly refresh, and neither edits the catalogue.**
+Three parts (2026-10-23).
+
+- **The editor's digest** (`sendAdminDigest` in `lib/eventDigest.js`, `events_month` in the
+  mail matrix): on the 1st, from the daily notify cron, every event starting that month by
+  date, each with its city, country and whether the date is confirmed, month only, or
+  inferred from the last edition. Then, apart, what to chase: events with no date now whose
+  last known edition fell in this calendar month within two years. Never sent for a month
+  with nothing starting. A missed 1st is made up by the 3rd and never later; the month it
+  went out is kept in `svt:events:digest`.
+- **The subscribers' digest** is a followable item, `events-monthly:<region>`
+  (`lib/follows.js`), so it inherits invariant 40 whole: double opt-in, a stop link, and one
+  email a day batched with anything else the person follows. The box is on `/events`
+  (`FollowBox` with `kind="events-month"`), with a region picked first. Regions come from
+  the country by a table, then from the city coordinates when the country is unknown, and an
+  online event is in every region (`lib/eventRegions.js`). The chase list is the editor's
+  only.
+- **The refresh** (`lib/eventRefresh.js`, `/api/cron/events`, `0 6 1 * *`): reads each
+  event's own page and its organizer's calendar (`calendarUrl`, declared by hand, never
+  guessed) and reports dates announced, dates moved, city, country, venue and format
+  changes (online-only included), a page gone, an event off its calendar, a next edition,
+  and a cancellation, which is flagged for discard and never removed. The tool monitor's
+  rules hold: three fetch outcomes and a 403 is blocked (`fetchPage`), a dead page takes two
+  unreachable runs, equivalent values are dropped (`same`: case, accents, country names, a
+  venue that contains the other), and a dismissed reading is remembered by what it said
+  (`printOf`). The model must quote the sentence each value rests on, and a quote not on
+  the page drops the value. Confidence is verification: 0.6 read once, 0.9 read the same on
+  the next run, 0.75 a dead page on two runs. Findings wait in the Inbox ("Event changes":
+  Done, edited by hand, or Dismiss); the edit is a hand edit to `lib/events.js`. Coverage
+  per event is on Updates ("Event refresh coverage"), with a Run now button. No model means
+  availability and calendar only, and coverage says the dates were not read.
+
+`scripts/events-digest-test.mjs`.
+
 **15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
@@ -2582,6 +2616,7 @@ and the server HTML.
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
 | `app/about/page.js` `app/about/photo` `lib/aboutText.js` `lib/aboutStore.js` | The maintainer's page: Ali's prose, editable from /admin with no address or phone allowed, the photo, LinkedIn and the contact form |
 | `components/FooterLinks.jsx` | LinkedIn, About, Contact and Privacy, in the site footer |
+| `lib/eventDigest.js` `lib/eventRegions.js` `lib/eventRefresh.js` `app/api/cron/events` | The monthly events digest (editor and subscribers), regions (client-safe), and the monthly event refresh with its coverage |
 | `lib/follows.js` `lib/followCopy.js` | Who follows what (confirmed only), stop tokens, and the one-sentence promise |
 | `lib/notify.js` `lib/feeds.js` | The daily run: detect news, queue it per person, send one digest each; the RSS and Atom reader |
 | `components/FollowBox.jsx` `app/api/follow` | Following a newsletter or an event: the box, the request, confirm and stop |
@@ -3305,7 +3340,9 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `media_decided` | no | the vendor who sent it: live, or not and why |
 | `contact` | to `CONTACT_EMAIL`, `reply_to` the sender | nothing, ever (invariant 38) |
 | `follow_confirm` | no | the confirm link; nothing is stored until it is clicked |
-| `follow_digest` | no | today's news about what they follow, one email, a stop link per item |
+| `follow_digest` | no | today's news about what they follow, one email, a stop link per item; on the 1st it can carry the monthly events digest for their region |
+| `events_month` | yes, on the 1st, only when something starts that month | nothing |
+| `event_refresh` | yes, only when the monthly refresh found something | nothing |
 
 Votes send nothing, either side. That covers both kinds: liking a tool, and
 marking a review helpful.
@@ -3505,6 +3542,7 @@ node scripts/editoruse-test.mjs      # editor use: wording, admin-only, history,
 node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
+node scripts/events-digest-test.mjs  # the monthly events digest and the event refresh: regions, chase, once a month, blocked not dead, verification
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/privacy-test.mjs        # /privacy names every browser key; one cookie; no IP stored; stat lists fixed
 node scripts/shipping-test.mjs       # recommender feedback, blog comments, the announcement queue

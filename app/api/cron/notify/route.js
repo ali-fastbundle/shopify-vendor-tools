@@ -1,4 +1,5 @@
 import { detect, send } from "@/lib/notify";
+import { sendAdminDigest } from "@/lib/eventDigest";
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { read, write, KEYS } from "@/lib/store";
 import { SITE } from "@/lib/seo";
@@ -34,11 +35,14 @@ async function run(request, by) {
     await write(KEYS.cronLast, last);
   } catch { /* never fail the run over its own bookkeeping */ }
 
+  const origin = process.env.NODE_ENV === "production" ? SITE : new URL(request.url).origin;
+  /* The editor's monthly events digest, on the 1st (lib/eventDigest.js). */
+  const monthly = await sendAdminDigest({ origin }).catch((e) => ({ sent: false, why: e.message }));
   const found = await detect();
-  const sent = await send({ origin: process.env.NODE_ENV === "production" ? SITE : new URL(request.url).origin, budgetMs: 200_000 });
+  const sent = await send({ origin, budgetMs: 200_000 });
   if (found.errors.length) console.warn(`[notify] feeds unread: ${found.errors.join("; ")}`);
   console.log(`[notify] ${found.found} found, ${found.queued} queued, ${sent.sent} sent, ${sent.failed} failed, ${sent.left} left`);
-  return Response.json({ ...found, ...sent });
+  return Response.json({ ...found, ...sent, monthly });
 }
 
 export async function GET(request) {

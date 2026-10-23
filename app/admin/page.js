@@ -142,6 +142,17 @@ export default async function AdminPage({ searchParams }) {
     { key: "monitorErrors", load: () => readCapped(KEYS.monitorErrors, 200), empty: [] },
     /* Ask the directory: every question, answered or not (lib/matchLog.js). */
     { key: "askLog", load: () => readCapped(KEYS.matchLog, 500), empty: [] },
+    /* The monthly event refresh (lib/eventRefresh.js): findings for the Inbox,
+       and what it can see of each event for Updates. */
+    { key: "eventFindings", load: async () => (await import("@/lib/eventRefresh")).getEventFindings(), empty: [] },
+    { key: "eventRefresh", load: async () => {
+      const r = await (await import("@/lib/eventRefresh")).getEventRefresh();
+      return { lastRunAt: r.lastRunAt || "", lastChecked: r.lastChecked || 0, total: r.total || 0 };
+    }, empty: {} },
+    { key: "eventCoverage", load: async () => {
+      const m = await import("@/lib/eventRefresh");
+      return m.coverageOf((await import("@/lib/events")).EVENTS, await m.getEventRefresh());
+    }, empty: [] },
     { key: "verifiedChanges", load: () => read(KEYS.changesVerified, {}), empty: {} },
     { key: "feed", load: () => feedEntries({ limit: 60, withPrivate: true }), empty: [] },
     { key: "health", load: () => health(), empty: null },

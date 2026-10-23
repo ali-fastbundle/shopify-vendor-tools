@@ -78,6 +78,13 @@ export async function POST(request) {
       comment:        { email: me, postTitle: "Test post", slug: "test", author: "Test", text: "A test comment." },
       report:         { email: me, toolName: "Applora", domain: "applora.ai", kindLabel: "Broken link", value: "A test report." },
       listing_edited: { email: me, toolName: "Applora", changed: ["price"], values: ["price: $0 (test)"], byAdmin: true },
+      events_month: { label: "November 2026", month: "2026-11", starting: [
+        { when: "19 Nov 2026", name: "Test Summit", place: "Amsterdam, Netherlands", certainty: "confirmed" },
+        { when: "8 Dec 2026", name: "Test Meetup", place: "London, UK", certainty: "not confirmed, inferred from the last edition" },
+      ], chase: [{ name: "Test Expo", place: "Warsaw, Poland", lastHeld: "2025-11-14", url: "/events", source: "https://example.com" }] },
+      event_refresh: { count: 1, checked: 40, total: 42, findings: [
+        { eventName: "Test Summit", label: "Dates announced", old: "Dates not announced", new: "2027-03-04" },
+      ] },
       monitor_digest: { email: me, count: 2, checked: 29, total: 29, changes: [
         { entryName: "Applora", kind: "pricing", what: "Starter tier went up.", old: "$29/mo", new: "$39/mo", editListing: true },
         { entryName: "Applora", kind: "free-tier", what: "The free plan is gone.", old: "free tier", new: "trial only", editListing: true },
@@ -1170,6 +1177,15 @@ export async function POST(request) {
     await write(KEYS.reports, next);
     await tally(status === "resolved" ? "reports:resolved" : "reports:dismissed");
     return Response.json({ reports: next });
+  }
+
+  /* A decision on a monthly event refresh finding (lib/eventRefresh.js).
+     Nothing here edits the catalogue. */
+  if (action === "event-finding") {
+    const { decideEventFinding, getEventFindings } = await import("@/lib/eventRefresh");
+    const r = await decideEventFinding(String(id || ""), String(body.decision || ""), session.email);
+    if (r.error) return new Response(r.error, { status: 400 });
+    return Response.json({ eventFindings: await getEventFindings() });
   }
 
   if (action === "revoke-claim") {

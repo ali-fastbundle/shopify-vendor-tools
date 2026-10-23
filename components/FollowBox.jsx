@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Bell } from "@phosphor-icons/react";
 import { C, S, R, F } from "@/lib/tools";
 import { whatYouGet } from "@/lib/followCopy";
+import { REGIONS } from "@/lib/eventRegions";
 
 /*
  * Follow one newsletter or one event by email. Posts to /api/follow, which
@@ -17,9 +18,15 @@ import { whatYouGet } from "@/lib/followCopy";
  *
  * A signed-in visitor's address is filled in for them; anybody else types
  * one. The answer never says whether the address already follows this.
+ *
+ * kind "events-month" is the monthly events digest on /events: the same box,
+ * with a region picked first, so the id followed is "events-monthly:<region>"
+ * (lib/eventDigest.js).
  */
 export default function FollowBox({ id, kind, name, hasFeed = false }) {
   const [email, setEmail] = useState("");
+  const [region, setRegion] = useState("all");
+  const monthly = kind === "events-month";
   const [state, setState] = useState({ status: "idle", message: "" });
 
   useEffect(() => {
@@ -40,7 +47,7 @@ export default function FollowBox({ id, kind, name, hasFeed = false }) {
     try {
       const res = await fetch("/api/follow", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, email }),
+        body: JSON.stringify({ id: monthly ? `events-monthly:${region}` : id, email }),
       });
       if (!res.ok) { setState({ status: "error", message: await res.text() }); return; }
       const d = await res.json();
@@ -50,7 +57,8 @@ export default function FollowBox({ id, kind, name, hasFeed = false }) {
     }
   }
 
-  const heading = kind === "event" ? "Get updates about this event"
+  const heading = monthly ? "Every month, what is coming up"
+    : kind === "event" ? "Get updates about this event"
     : hasFeed ? "Get new issues by email" : "Get told when this listing changes";
 
   return (
@@ -66,7 +74,7 @@ export default function FollowBox({ id, kind, name, hasFeed = false }) {
 
       {state.status === "done" && (
         <p role="status" style={{ fontSize: F.sm, margin: `${S.md}px 0 0` }}>
-          Done. You are following {name}. Every email has a link to stop.
+          Done. {monthly ? "The digest arrives on the 1st." : `You are following ${name}.`} Every email has a link to stop.
         </p>
       )}
       {state.status === "check" && (
@@ -76,6 +84,15 @@ export default function FollowBox({ id, kind, name, hasFeed = false }) {
       )}
       {(state.status === "idle" || state.status === "sending" || state.status === "error") && (
         <form onSubmit={submit} className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+          {monthly && (
+            <select value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Which events" className="ctl"
+              style={{
+                background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control,
+                padding: "8px 12px", fontSize: F.md, color: C.text, fontFamily: "inherit",
+              }}>
+              {REGIONS.map(([r, label]) => <option key={r} value={r}>{r === "all" ? label : `Only ${label}`}</option>)}
+            </select>
+          )}
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
             placeholder="you@yourcompany.com" aria-label="Your email" autoComplete="email"
             style={{

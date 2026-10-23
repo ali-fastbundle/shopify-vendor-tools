@@ -90,6 +90,9 @@ export default function AdminPanel({
   stats = { fields: {}, queries: [] },
   recommend = { runs: [], summary: null },
   askLog = [],
+  eventFindings = [],
+  eventCoverage = [],
+  eventRefresh = {},
   announcements = [],
   comments = [],
   questions = [],
@@ -146,6 +149,8 @@ export default function AdminPanel({
   const [reportRows, setReportRows] = useState(reports || []);
   const [entryRows, setEntryRows] = useState(entries || {});
   const [reviewRows, setReviewRows] = useState(reviewSignals);
+  const [eventRows, setEventRows] = useState(eventFindings);
+  const openEventFindings = eventRows.filter((f) => f.status === "open");
   const [commentRows, setCommentRows] = useState(comments);
   const unreadComments = commentRows.filter((c) => !c.reviewed);
   const [questionRows, setQuestionRows] = useState(questions);
@@ -203,6 +208,7 @@ export default function AdminPanel({
     lists: unreadLists.length,
     media: pendingMedia.length,
     reviews: reviewsToDecide,
+    events: openEventFindings.length,
   };
   const backlog = {
     drafts: [
@@ -261,6 +267,7 @@ export default function AdminPanel({
       if (d.reports) setReportRows(d.reports);
       if (d.entries) setEntryRows(d.entries);
       if (d.reviewSignals) setReviewRows(d.reviewSignals);
+      if (d.eventFindings) setEventRows(d.eventFindings);
       if (d.comments) setCommentRows(d.comments);
       if (d.questions) setQuestionRows(d.questions);
       if (d.lists) setListRows(d.lists);
@@ -330,6 +337,7 @@ export default function AdminPanel({
             lists={unreadLists}
             media={pendingMedia}
             reviews={reviewRows}
+            events={openEventFindings}
             canCommit={Boolean(publishing?.canPublish)}
             act={act}
             busy={busy}
@@ -342,7 +350,8 @@ export default function AdminPanel({
           <RecentUpdates feed={feed}
             changes={changelog || []} sinceVisit={sinceVisit} monitor={monitor} seen={seen} coverage={coverage}
             appliedChanges={appliedChanges || {}} publishedChanges={publishedChanges || {}}
-            rewrittenChanges={rewrittenChanges || {}} editedChanges={editedChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen} />
+            rewrittenChanges={rewrittenChanges || {}} editedChanges={editedChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen}
+            eventCoverage={eventCoverage} eventRefresh={eventRefresh} />
         )}
 
         {tab === "listings" && (
@@ -423,6 +432,7 @@ const WAITING_LABEL = {
   lists: ["list published", "lists published", "q-lists"],
   media: ["media set", "media sets", "q-media"],
   reviews: ["review to decide", "reviews to decide", "q-reviews"],
+  events: ["event finding", "event findings", "q-events"],
 };
 
 function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
@@ -470,7 +480,7 @@ function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
   );
 }
 
-function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims = [], openChanges = [], onTab, comments = [], questions = [], lists = [], media = [], reviews = [], canCommit = false, act, busy, onSuggestions, onEntries }) {
+function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims = [], openChanges = [], onTab, comments = [], questions = [], lists = [], media = [], reviews = [], events = [], canCommit = false, act, busy, onSuggestions, onEntries }) {
   return (
     <>
       <Summary waiting={waiting} backlog={backlog} findings={openChanges.length} onTab={onTab} />
@@ -495,6 +505,8 @@ function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims 
       <OpenReports rows={reports} act={act} busy={busy} />
 
       <ReviewsToDecide groups={reviews} act={act} busy={busy} />
+
+      {events.length > 0 && <EventFindings rows={events} act={act} busy={busy} />}
 
       {comments.length > 0 && (
         <WorkList rows={comments.length} title="Comments to read" count={comments.length} anchor="q-comments"
@@ -1289,6 +1301,69 @@ function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries 
         </Collapsible>
       </Reference>
     </>
+  );
+}
+
+/*
+ * What the monthly event refresh found (lib/eventRefresh.js). Nothing here
+ * edits lib/events.js: Done means the editor made the change by hand, and
+ * Dismiss is remembered by what the finding said, so the same reading is not
+ * raised again. A cancelled or ended event is flagged for discard, never
+ * removed.
+ */
+function EventFindings({ rows = [], act, busy }) {
+  return (
+    <WorkList rows={rows.length} title="Event changes" count={rows.length} anchor="q-events"
+      hint="Read from each event's own page by the monthly refresh. Check the source, make the edit to lib/events.js by hand, then press Done. Confidence: 0.6 read once with its quote found on the page, 0.9 read the same on two runs, 0.75 a page unreachable on two runs.">
+      {rows.map((f) => (
+        <Row key={f.id} title={f.eventName}
+          tag={f.label} tagColor={f.kind === "ended" || f.kind === "page-gone" ? C.warnInk : undefined}
+          body={<>
+            {f.old || f.new ? <>{f.old || "absent"} {"\u2192"} {f.new || "absent"}</> : null}
+            {f.quote ? <span style={{ display: "block", color: C.muted, marginTop: S.xs }}>"{f.quote}"</span> : null}
+          </>}
+          meta={<>
+            {Math.round(f.confidence * 100)}% · {f.why} · {String(f.at).slice(0, 10)}
+            {" \u00b7 "}<a href={f.source} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>source</a>
+            {" \u00b7 "}<a href={`/events/${f.eventId}`} style={{ color: C.muted }}>listing</a>
+          </>}
+          actions={<>
+            <Btn onClick={() => act("event-finding", f.id, { decision: "done" })} busy={busy === "event-finding" + f.id} tone="go">Done, edited by hand</Btn>
+            <ConfirmBtn onConfirm={() => act("event-finding", f.id, { decision: "dismissed" })} busy={busy === "event-finding" + f.id}>Dismiss</ConfirmBtn>
+          </>}
+        />
+      ))}
+    </WorkList>
+  );
+}
+
+/*
+ * Which events the monthly refresh can actually see. An event it cannot read
+ * produces no findings, which looks exactly like an event with nothing new.
+ */
+function EventCoverage({ rows = [], refresh = {} }) {
+  const [state, setState] = useState("");
+  const blind = rows.filter((r) => r.state !== "read");
+  async function run() {
+    setState("running");
+    try {
+      const res = await fetch("/api/cron/events", { method: "POST" });
+      const d = res.ok ? await res.json() : null;
+      setState(d ? `Checked ${d.checked} of ${d.total}, ${d.found} new finding${d.found === 1 ? "" : "s"}. Reload to see them.` : `Failed: HTTP ${res.status}`);
+    } catch { setState("Could not reach the server."); }
+  }
+  return (
+    <Collapsible title="Event refresh coverage" anchor="event-coverage" count={blind.length ? `${blind.length} not read` : rows.length}
+      hint={`Every published event, and whether the monthly refresh (1st of the month, 06:00) can read its page. Calendar is the organizer's calendar page, when one is declared as calendarUrl. ${refresh.lastRunAt ? `Last run ${String(refresh.lastRunAt).slice(0, 16).replace("T", " ")}, ${refresh.lastChecked} of ${refresh.total} checked.` : "Not run yet."}`}>
+      <p style={{ margin: `0 0 ${S.sm}px` }}>
+        <Btn onClick={run} busy={state === "running"}>Run the refresh now</Btn>
+        {state && state !== "running" && <span style={{ fontSize: F.xs, color: C.muted, marginLeft: S.sm }}>{state}</span>}
+      </p>
+      {rows.length === 0 ? <Empty>No events.</Empty> : rows.map((r) => (
+        <Row key={r.id} title={r.name} tag={r.label} dim={r.state === "read"}
+          meta={[r.status, r.calendar ? `calendar: ${r.calendar}` : "no calendar declared", r.checkedAt ? `checked ${String(r.checkedAt).slice(0, 10)}` : ""].filter(Boolean).join(" · ")} />
+      ))}
+    </Collapsible>
   );
 }
 
@@ -5639,7 +5714,7 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
  * seen on the vendor's own site, which is a check to make before pressing:
  * the form says so rather than trusting it to be remembered.
  */
-function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, onSeen }) {
+function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, onSeen, eventCoverage = [], eventRefresh = {} }) {
   const tools = useMemo(() => published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name)), []);
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
@@ -5785,6 +5860,7 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
         hint="Every published tool and newsletter, and whether the weekly monitor can actually read it. A listing it cannot see produces no findings, which looks exactly like a listing with nothing new, so silence only means something for the ones marked Monitored.">
         <CoverageList rows={coverage} />
       </Collapsible>
+      <EventCoverage rows={eventCoverage} refresh={eventRefresh} />
       </Reference>
     </>
   );

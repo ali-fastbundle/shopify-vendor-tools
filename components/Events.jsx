@@ -6,6 +6,7 @@ import { CardVotes } from "@/components/Engagement";
 import EventDialog from "@/components/EventDialog";
 import TimelineScroll from "@/components/TimelineScroll";
 import NearbyEvents from "@/components/NearbyEvents";
+import FollowBox from "@/components/FollowBox";
 
 /*
  * The Events index. Server-rendered, whole in the first response, the same
@@ -213,6 +214,10 @@ export default function Events({ plan, events, lastUpdated }) {
         )}
 
         </div>
+
+        {/* The monthly digest, separate from following one event
+            (lib/eventDigest.js). Online events reach every region. */}
+        <FollowBox id="events-monthly:all" kind="events-month" name="the monthly events digest" />
 
 <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
             Dates are checked by hand against each organizer's own site, and an event with no confirmed

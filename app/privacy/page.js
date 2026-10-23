@@ -118,8 +118,9 @@ export default function Page() {
             the submission until an editor decides, so we can tell you the outcome.</Li>
           <Li>A saved list: your address is stored with it so only you can see and change it. A list
             you publish shows the name you choose for it, never your address.</Li>
-          <Li>The mailing list, or following a newsletter or an event: your address, until you
-            unsubscribe. A follow is stored only after you click the confirmation link.</Li>
+          <Li>The mailing list, following a newsletter or an event, or the monthly events digest:
+            your address, until you unsubscribe, and for the digest the region you picked. A follow
+            or a digest subscription is stored only after you click the confirmation link.</Li>
           <Li>A suggestion or a report: only if you chose to add an address, to thank you or ask a question.</Li>
           <Li>The contact form: your message is emailed to the maintainer and not stored on the site.</Li>
           <Li>The growth recommender: your answers are kept without your address. Unfinished
