@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
 import { outbound } from "@/lib/outbound";
 import {
-  PRIMING, QUESTIONS, PARTS, SCREENS, questionOf, answered, answerText, MAX_INSTALLS,
+  PRIMING, SPOKEN, QUESTIONS, PARTS, SCREENS, questionOf, answered, answerText, MAX_INSTALLS,
 } from "@/lib/recommendOptions";
 import { useSession, SignInPrompt } from "@/components/Account";
 import GrowText from "@/components/GrowText";
@@ -14,8 +14,8 @@ import { ThumbsUp, ThumbsDown } from "@phosphor-icons/react";
 /*
  * The growth recommender, as a conversation rather than a form.
  *
- * Four priming screens say what this is before anything is asked, each moved
- * on by a button whose label is an answer. Then one question per screen, in
+ * One screen says what this is, what it takes and what to have ready before
+ * anything is asked (lib/recommendOptions.js PRIMING). Then one question per screen, in
  * five parts, with the part, a progress bar and Start over always visible.
  * Back never clears anything, every question but the listing URL can be
  * skipped, and progress is saved to the account after every screen
@@ -152,8 +152,15 @@ function Input({ q, id, value, onChange, onSubmit }) {
   if (q.kind === "choice") return <Options id={id} q={q} value={value} onChange={onChange} />;
   if (q.kind === "multi") return <Options id={id} q={q} value={value} onChange={onChange} multi />;
   if (q.kind === "prose") {
-    return <GrowText id={id} value={value || ""} onChange={(e) => onChange(e.target.value)} onSubmit={onSubmit}
-      rows={q.rows} maxRows={q.rows + 10} maxLength={q.max} style={{ ...field, lineHeight: 1.55 }} />;
+    return (
+      <>
+        <GrowText id={id} value={value || ""} onChange={(e) => onChange(e.target.value)} onSubmit={onSubmit}
+          rows={q.rows} maxRows={q.rows + 10} maxLength={q.max} style={{ ...field, lineHeight: 1.55 }}
+          aria-describedby={`${id}-spoken`} />
+        {/* Under every free-text answer: it changes what people write. */}
+        <p id={`${id}-spoken`} style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0`, lineHeight: 1.5 }}>{SPOKEN}</p>
+      </>
+    );
   }
   return null;
 }
@@ -264,24 +271,25 @@ export default function Recommender() {
     }
   }
 
-  /* ---------- priming ---------- */
+  /* ---------- the one screen before the questions ---------- */
   if (isPrime(step)) {
-    const i = PRIMING.findIndex((p) => p.id === step);
-    const p = PRIMING[i];
+    const p = PRIMING.find((x) => x.id === step) || PRIMING[0];
     return (
       <>
         <Header step={step} onStartOver={startOver} saved={false} />
         <section style={{ marginTop: S["4xl"], maxWidth: 640 }}>
           <h2 tabIndex={-1} style={{ fontSize: F.display, fontWeight: 800, letterSpacing: TRACK.tighter, margin: 0, lineHeight: 1.15 }}>{p.title}</h2>
-          <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0` }}>{p.body}</p>
+          <dl style={{ margin: `${S.xl}px 0 0` }}>
+            {p.points.map(([term, text]) => (
+              <div key={term} style={{ marginTop: S.md }}>
+                <dt style={{ fontSize: F.md, fontWeight: 700 }}>{term}</dt>
+                <dd style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0` }}>{text}</dd>
+              </div>
+            ))}
+          </dl>
           <div className="flex flex-wrap items-center" style={{ gap: S.lg, marginTop: S["2xl"] }}>
             <Button tone="go" onClick={() => setStep(nextOf(step))}>{p.ok}</Button>
-            {i > 0 && <button type="button" onClick={() => setStep(prevOf(step))} style={plainLink}>Back</button>}
-          </div>
-          <div aria-label={`Screen ${i + 1} of ${PRIMING.length}`} role="img" className="flex" style={{ gap: S.xs, marginTop: S["2xl"] }}>
-            {PRIMING.map((x, j) => (
-              <span key={x.id} style={{ width: 8, height: 8, borderRadius: R.pill, background: j === i ? C.text : C.edge }} />
-            ))}
+            <a href="/" style={plainLink}>Rather browse? Every tool is in the directory.</a>
           </div>
         </section>
       </>
@@ -598,7 +606,7 @@ function PickFeedback({ pick, fb }) {
         <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.sm }}>
           <input value={why} onChange={(e) => { setWhy(e.target.value); setSaved(false); }} maxLength={300}
             aria-label={`Why, about ${pick.name} (optional)`}
-            placeholder={mine.vote === 1 ? "What makes it right? (optional)" : "What makes it wrong? (optional)"}
+            placeholder={mine.vote === 1 ? "What makes it right? (optional)" : "Wrong fit, wrong budget, already using it? (optional)"}
             onKeyDown={async (e) => { if (e.key === "Enter" && why.trim()) { e.preventDefault(); setSaved(await fb.send({ pick: pick.id, why }, `why:${pick.id}`)); } }}
             style={{ ...field, flex: 1, minWidth: 220, padding: "8px 12px", fontSize: F.sm }} />
           <Button disabled={!why.trim()} busy={fb.state.busy === `why:${pick.id}`}

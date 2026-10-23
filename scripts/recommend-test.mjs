@@ -12,6 +12,7 @@
  * not.
  */
 import { register } from "node:module";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHmac } from "node:crypto";
@@ -21,7 +22,7 @@ for (const k of Object.keys(process.env)) if (/^(UPSTASH|KV)_|_API_KEY$|^MATCH_P
 process.env.AUTH_SECRET = "recommend-test-secret";
 
 const hook = `
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 const ROOT = ${JSON.stringify(pathToFileURL(root + "/").href)};
 export async function resolve(spec, ctx, next) {
@@ -101,15 +102,30 @@ ok(lowestPrice("$39 / $89 per month") === 39 && lowestPrice("Not published") ===
 const sasi = TOOLS.find((t) => t.id === "sasi"), apricot = TOOLS.find((t) => t.id === "apricotcx");
 const pool = candidates(TOOLS, { budget: "high" });
 ok(!pool.some((t) => t.noRecommend), "nothing flagged noRecommend is a candidate, on any budget", apricot ? "" : "(no flagged entry to test)");
-ok(!pool.some((t) => t.id === "sasi") && sasi?.dying, "nothing winding down is a candidate");
+/* Any entry the file marks as winding down (Mantle, since SASI turned out
+   to be running), not one named id that can stop being true. */
+const dying = TOOLS.filter((t) => t.dying);
+ok(dying.length > 0 && !pool.some((t) => t.dying), "nothing winding down is a candidate", dying.map((t) => t.id).join(", "));
 ok(candidates(TOOLS, { budget: "free" }).every((t) => t.free), "a budget of nothing admits only free plans");
 ok(candidates(TOOLS, { budget: "low" }).every((t) => t.free || (lowestPrice(t.price) ?? Infinity) <= 50), "under $50 admits nothing that starts above it, and nothing unpriced");
 ok(!candidates(TOOLS, { budget: "high" }, { name: "AppJubilee" }).some((t) => t.id === "appjubilee"), "an app is never recommended to itself");
 
 
 quiet.log("\nthe questions:");
-ok(PRIMING.length === 4 && PRIMING.every((p) => !/^next$/i.test(p.ok)) && PRIMING.map((p) => p.ok).join() === "Let's go,Sounds good,Got it,Makes sense",
-  "four priming screens, each moved on by an answer, never Next");
+ok(PRIMING.length === 1 && PRIMING[0].id === "prime1", "one screen before the questions, keeping the id the funnel counts");
+{
+  const terms = PRIMING[0].points.map(([t]) => t).join("|");
+  const text = PRIMING[0].points.map(([, x]) => x).join(" ");
+  ok(terms === "What you get|What it takes|What to have ready|What it is not", "it says what you get, what it takes, what to have ready and what it is not");
+  ok(/listing URL/.test(text) && /installed/.test(text), "it asks for the listing URL and the install count up front");
+  ok(/five minutes/.test(text) && /save as you go/.test(text), "it says how long, and that answers save");
+  ok(/Nothing outside the directory/.test(text) && /pays to be picked/.test(text) && /editor is connected to/.test(text), "it says what it is not");
+  ok(!/[\u2014;!]/.test(text + PRIMING[0].title), "no em dash, semicolon or exclamation mark");
+}
+const { SPOKEN } = await L("lib/recommendOptions.js");
+ok(/out loud/.test(SPOKEN) && /\{SPOKEN\}/.test(readFileSync(join(root, "components/Recommender.jsx"), "utf8")), "say it out loud sits under every free-text answer");
+ok(/Thin answers get generic recommendations/.test(QUESTIONS.find((q) => q.id === "problem").help), "thin answers is on the what-is-not-working question");
+ok(/Wrong fit, wrong budget, already using it\?/.test(readFileSync(join(root, "components/Recommender.jsx"), "utf8")), "a thumbs down asks the useful question");
 ok(QUESTIONS.filter((q) => q.required).map((q) => q.id).join() === "url", "only the listing URL is required");
 ok(QUESTIONS.every((q) => q.heading && /[.?]$/.test(q.heading)), "every question is a sentence");
 ok(SCREENS.indexOf("problem") > SCREENS.indexOf("tried") && SCREENS.indexOf("problem") < SCREENS.indexOf("objective"), "what is not working is its own screen, in its own part");

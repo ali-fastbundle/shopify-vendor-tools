@@ -1999,9 +1999,13 @@ it read as a second way to do the same job. Noindex
 as a whole. `components/Recommender.jsx`, with every question, choice and answer limit in
 `lib/recommendOptions.js` so the flow and the routes cannot disagree.
 
-**The shape is a conversation, not a form.** Four priming screens first, each moved on by
-a button whose label is an answer ("Let's go", "Sounds good", "Got it", "Makes sense"),
-with dots showing it is short. Then one question per screen in five parts (your app,
+**The shape is a conversation, not a form.** One screen first (2026-10-23; it was four,
+borrowed from a longer flow): what you get, what it takes, what to have ready (the listing
+URL and the install count, which only the asker knows), and what it is not (nothing outside
+the directory, nothing paid, nothing the editor is connected to), with one Start button and
+a line to the directory for someone who would rather browse. "Thin answers get generic
+recommendations" is on the what-is-not-working question, and "say it out loud" sits under
+every free-text answer. Then one question per screen in five parts (your app,
 where you are, what is not working, what you want, review), with the part, a progress bar
 and Start over always visible. Each question is a sentence that is also the label of its
 one input, with a line of help, OK, Skip and Back. The listing comes first and is read
