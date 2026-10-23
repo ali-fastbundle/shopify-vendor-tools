@@ -92,15 +92,14 @@ console.log("\nthe exclusion, on both paths:");
     `${all.length} - ${flagged.length} = ${pool.length}`);
   for (const t of flagged) ok(!pool.some((x) => x.id === t.id), `${t.name} is not in it`);
 
+  /* Ask the directory (2026-10-23): one list of what may be returned, built
+     with the rule before the model sees anything, and used for both paths. */
   const route = src("app/api/match/route.js");
-  ok(/recommendable/.test(route), "the route imports the rule rather than restating it");
-  ok(/clean\(data, tools\)/.test(route),
-    "and validates the model's picks against the filtered list, not the full catalogue");
-
-  const client = src("components/Directory.jsx");
-  ok((client.match(/filter\(recommendable\)/g) || []).length >= 2,
-    "the client filters twice: the keyword fallback and the pick validation",
-    `${(client.match(/filter\(recommendable\)/g) || []).length} call sites`);
+  const intent = src("lib/intentMatch.js");
+  ok(/recommendable\(t\)/.test(intent), "the list of what may be returned imports the rule rather than restating it");
+  ok(/validate\(data, items\)/.test(route) && /keywordAnswer\(q, items\)/.test(route),
+    "the model's answer and the keyword path both use that same filtered list");
+  ok(!/localMatch/.test(src("components/Directory.jsx")), "there is no second keyword path in the browser to keep in step");
 }
 
 console.log("\nthe protected set:");

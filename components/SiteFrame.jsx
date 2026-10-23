@@ -344,8 +344,10 @@ function SidebarSearch({ path }) {
 }
 
 /*
- * The matcher, as one prompt. On the directory it opens the full box at the
- * top of the content column; anywhere else it goes there with the box open.
+ * Ask the directory (components/Ask.jsx), from any page: the intent does not
+ * change with the page somebody landed on. On the directory the box is
+ * already open at the top of the content column, so this brings it into view
+ * and puts the cursor in it; anywhere else it goes there.
  */
 function MatcherPrompt({ path, onClose }) {
   const [, setOpen] = useMatcherOpen();
@@ -355,11 +357,17 @@ function MatcherPrompt({ path, onClose }) {
     padding: "8px 12px", fontSize: F.sm, color: C.text, fontWeight: 600, cursor: "pointer",
     fontFamily: "inherit", textDecoration: "none",
   };
-  const label = <><Sparkle size={15} color={C.accentInk} /> <span>Match a problem to tools</span></>;
+  const label = <><Sparkle size={15} color={C.accentInk} /> <span>Ask the directory</span></>;
   if (path !== "/") return <a href="/?ask=1" className="ctl press" style={style}>{label}</a>;
   return (
     <button type="button" className="ctl press" style={style}
-      onClick={() => { setOpen(true); onClose(); requestAnimationFrame(() => document.getElementById("matcher-q")?.focus()); }}>
+      onClick={() => {
+        setOpen(true); onClose();
+        requestAnimationFrame(() => {
+          document.getElementById("ask")?.scrollIntoView({ block: "start" });
+          document.getElementById("ask-q")?.focus({ preventScroll: true });
+        });
+      }}>
       {label}
     </button>
   );

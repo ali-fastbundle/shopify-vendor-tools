@@ -402,6 +402,30 @@ a `Link: rel="canonical"` header pointing at the HTML page. A missing page is a 
 Adding a content page means adding its builder, its route branch, its `alternates.types`
 and its pattern in `MD_ROUTES`. `scripts/markdown-test.mjs [baseUrl]`.
 
+**55. Ask the directory answers any intent from any section, and says when nothing fits.**
+The matcher used to return three tools whatever was asked, so anything that was not "I
+need software" was answered with software. Now (2026-10-23) `/api/match` takes an intent in
+the person's own words and returns whatever answers it: tools, categories, newsletters,
+events still ahead, owner pages, blog posts, and the section pages (Recent updates, Growth
+picks). `lib/intentMatch.js` builds the list the model is shown (`directoryFor`, with
+invariant 35's rule for tools, no past events, owners with a page), checks the answer
+against it (`validate`: an invented key, a key outside the list, a sixth tool, a dash, all
+dropped; at most three tools and ten results), and answers by keyword when no model does
+(`keywordAnswer`, labelled as such). The answer comes back grouped by kind, each with its
+reason for this question.
+
+- **Nothing is stretched to fit.** The prompt lets every section stay empty and asks for
+  `gap`, one plain sentence on what the directory does not have, which shows even beside
+  partial results, with Suggest what is missing. An empty answer is an answer.
+- **Every question is logged, answered or not** (`lib/matchLog.js`, `svt:match:log`, newest
+  1,000): the words, results per section, the gap, the path. No address, IP or session.
+  /privacy says so. An intent the directory cannot serve is the clearest signal of what to
+  list or build next.
+- The box is `components/Ask.jsx`. Things only the page knows (the editor-use badge) are
+  attached in the browser after the answer, so the model cannot prefer a tool for them.
+
+`scripts/ask-test.mjs [baseUrl]`.
+
 **15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
@@ -641,8 +665,8 @@ way round and for the same reason: there, most entries are not about Shopify, so
 the informative label is the positive one.
 
 **20. The model is never the last word, and never the only path.**
-Three features call a model: the matcher, suggestion dedup, and research
-drafts. All three go through `lib/model.js`, which is the only file that reads
+Several features call a model: Ask the directory (the matcher), suggestion dedup,
+research drafts and the rest. All three go through `lib/model.js`, which is the only file that reads
 `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Anthropic first, OpenAI second, either
 pinnable with `MATCH_PROVIDER`, and the other tried when the first fails.
 
@@ -1233,11 +1257,12 @@ So the shape is now the other way round:
   could set it would take a rival out. `sanitiseEntry` forces it absent, so it can
   only be written by hand in `lib/tools.js` where somebody is on the hook for it in
   git.
-- **Both matcher paths honour it.** `/api/match` filters before the prompt is built
-  so the model never sees it, and validates the returned picks against that same
-  filtered list. `localMatch` in `components/Directory.jsx` filters too. **A rule
-  that holds on the model path and not on the keyword path behind it is not a
-  rule**, because invariant 20 guarantees that path runs.
+- **Both matcher paths honour it.** `directoryFor` in `lib/intentMatch.js` builds the
+  one list of what may be returned, with the rule applied, before the model sees
+  anything; the model's answer is validated against that list and the keyword path
+  (`keywordAnswer`) reads the same list. **A rule that holds on the model path and not
+  on the keyword path behind it is not a rule**, because invariant 20 guarantees that
+  path runs.
 
 `scripts/matcher-exclusion.mjs` tests both halves, and the second half is the one
 that would have caught the bug: it asserts the *absence* of the badge, the
@@ -2564,6 +2589,7 @@ and the server HTML.
 | `lib/tallies.js` | Running counts that outlive the rows they count |
 | `lib/inventory.js` | Every store key, what it holds, and the only two ways to delete from it |
 | `lib/markdown.js` `app/md/[[...path]]/route.js` `middleware.js` | The Markdown version of every content page: what each says, the route, and the .md rewrite |
+| `lib/intentMatch.js` `lib/matchLog.js` `components/Ask.jsx` `app/api/match` | Ask the directory: what may be returned and the prompt, the question log, the box, the route |
 | `lib/seo.js` | The JSON-LD graph, per-tool and per-category descriptions, and the related-tool and related-category links |
 | `components/Categories.jsx` | The category page and the category index, server-rendered, no client state |
 | `app/categories` `app/categories/[id]` | The category index and one page per category. Title, description, canonical and graph each |
@@ -2760,10 +2786,13 @@ description, sort and the Compare toggle, then the cards. The masthead, the hero
 headline, the stats row, the category rail and the bar of search and Filters are gone:
 they are the sidebar now (see The site frame).
 
-- **The matcher is one prompt in the sidebar.** On `/` it opens the full box at the top of
-  the content column, with the three example chips and its own close button; anywhere else
-  it goes to `/?ask=1`, which opens it and strips the parameter. It appears only when
-  somebody asks, so the grid never moves on load.
+- **Ask the directory is the primary action, open above the grid** (2026-10-23, the
+  editor's call; it was a prompt that opened a box). One input whose placeholder says it
+  takes anything, an Ask button, and one line of four examples chosen by the day from
+  different sections (never on a timer: nothing moves on its own). It answers from every
+  section (invariant 55). The sidebar's "Ask the directory" brings it into view on `/` and
+  goes to `/?ask=1` (or `/?ask=<question>`, which asks it) from anywhere else; `/search`
+  offers it with the same words. The catalogue is directly below, so nobody has to use it.
 - **The stats are one sentence** under the heading. No newsletter count (the sidebar says
   it) and no review count (rule E).
 - **Add a tool is not above the grid.** It is the green invite card at the end of the grid,
@@ -2782,12 +2811,15 @@ they are the sidebar now (see The site frame).
   visitor sees should depend on it, or a new category lands last by default.
 - **Three cards from 1200px, two from 768px, one below** (`.cards`).
 
-Measured at 1366x727 (a 768 laptop after browser chrome): first card at 87px, down from
-299px. At 390px: 270px, down from 470px.
+Measured at 1366x727 (a 768 laptop after browser chrome): first card at 237px with Ask the
+directory open above the heading (it was 87px without it, 299px before the sidebar), and
+the whole first row of cards still on screen. Keep the box to one input and one line of
+examples: the first row of cards leaving the first screen is the line not to cross.
 
 **Count the decisions too.** Interactive elements entirely above the first card at
 1366x727, not counting the skip link: 20 before the 2026-10-17 pass, 17 after it, and 2 now
-(sort and Compare). The sidebar puts 19 more in the first screen beside the grid, not above
+(sort and Compare), plus Ask the directory's input, its button and its four examples
+since 2026-10-23. The sidebar puts 19 more in the first screen beside the grid, not above
 it. `scripts/decisions-test.mjs` holds the earlier cuts (one theme control, one hero action,
 three examples, no Compare on cards, Add a tool off the bar, the roadmap as one line).
 Anything new above the grid has to replace one of these two, not join them.
@@ -3409,6 +3441,7 @@ node scripts/dying-test.mjs          # winding down: admin-only override, back t
 node scripts/declined-test.mjs       # a dismissed or wrong finding is remembered by what it said, and not raised again
 node scripts/edit-link-test.mjs      # one click from a finding to the edit form; an edit is a destination Resolve accepts
 node scripts/markdown-test.mjs [baseUrl] # every content page as .md: Watch for on every entry, nothing the page hides, the four ways in
+node scripts/ask-test.mjs [baseUrl]  # Ask the directory: every section, the matcher's rules, the answer checked, gaps said, every question logged
 node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
 node scripts/frame-test.mjs [baseUrl] # the sidebar frame: order, counts, drawer, Suspense, server HTML
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers

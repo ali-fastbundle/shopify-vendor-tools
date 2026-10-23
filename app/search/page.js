@@ -110,8 +110,8 @@ export default async function Page({ searchParams }) {
         {q.length >= MIN_QUERY && (
           <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, margin: `${S["2xl"]}px 0 ${S["3xl"]}px` }}>
             {result.total ? "Not what you need? " : ""}
-            Describe the problem to the <a href={`/?ask=${encodeURIComponent(q)}`} style={{ color: C.accentInk, fontWeight: 600 }}>AI search</a>,
-            {" "}which picks tools that fit it, or{" "}
+            <a href={`/?ask=${encodeURIComponent(q)}`} style={{ color: C.accentInk, fontWeight: 600 }}>Ask the directory</a>
+            {" "}in your own words: it answers from every section and says when nothing fits. Or{" "}
             <a href={`/?suggest=tool&why=${encodeURIComponent(q)}`} style={{ color: C.accentInk, fontWeight: 600 }}>suggest what is missing</a>.
           </p>
         )}

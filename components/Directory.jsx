@@ -24,6 +24,7 @@ import { ownershipOf as resolveOwnership } from "@/lib/owners";
 import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { OwnerPanel, SignInPrompt, useSession } from "./Account";
+import Ask from "./Ask";
 import { useFeedForCount } from "./SiteFrame";
 import { useDirectoryFilters, setDirectoryFilters, usePublishPanel, useMatcherOpen } from "./ListingParams";
 
@@ -88,13 +89,6 @@ function trackToolOpen(id) {
    is opened in place, which is no navigation and so invisible to Vercel. */
 function trackSection(id) {
   statQueue.sections.push(id);
-  scheduleFlush();
-}
-
-function trackMatcher(query) {
-  statQueue.matcher += 1;
-  const q = String(query || "").trim();
-  if (q) statQueue.queries.push(q.slice(0, 160));
   scheduleFlush();
 }
 
@@ -322,294 +316,6 @@ function Social({ social, size = 15 }) {
 /* ================================================================== */
 /*  Matcher                                                            */
 /* ================================================================== */
-/*
- * Three, shown as chips with a short label each. The full sentence is what
- * runs, and it is the chip's tooltip. Five long sentences behind a disclosure
- * meant most people never saw an example, and an example is the fastest way
- * to learn what the box is for.
- */
-const EXAMPLES = [
-  { label: "Replace Mantle", q: "Mantle is shutting down and I need to replace my billing analytics" },
-  { label: "Stores using a rival's app", q: "I want to find stores running a competitor's app and pitch them" },
-  { label: "Keywords for six apps", q: "I run six apps and need keyword tracking across all of them" },
-];
-
-/*
- * The keyword fallback, which is the matcher when a model is unavailable.
- *
- * It honours `noRecommend` for the same reason the route does. A rule that
- * holds on the model path and not on the path behind it is not a rule, it is a
- * rule plus an outage away from being broken, and invariant 20 guarantees this
- * path runs.
- */
-function localMatch(problem, tools = TOOLS) {
-  const words = problem.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
-  return tools.filter(recommendable).map((t) => {
-    const hay = (t.tags.join(" ") + " " + t.one + " " + t.note + " " + catOf(t.cat).label).toLowerCase();
-    let score = 0;
-    words.forEach((w) => {
-      if (t.tags.some((tag) => tag.includes(w))) score += 3;
-      else if (hay.includes(w)) score += 1;
-    });
-    if (t.dying) score -= 4;
-    return { id: t.id, score };
-  }).filter((r) => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 4)
-    .map((r) => ({ id: r.id, why: "Matched on what you described." }));
-}
-
-/*
- * Four outcomes, and the person can tell which one they got.
- *
- *   ok        the matcher answered with tools that fit
- *   none      the matcher answered and nothing fits — a real answer, not a failure
- *   fallback  the request failed and these are keyword matches, said out loud
- *   failed    the request failed and keyword matching found nothing either
- *
- * The fallback used to be silent, which meant the lesser answer was indis-
- * tinguishable from the real one. Nothing-fits is worth saying plainly too:
- * it is the gap in the directory, and the button turns it into a suggestion.
- */
-function Matcher({ tools, onOpen, onSuggest, onClose, initial = "" }) {
-  const [problem, setProblem] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(null);
-  const [editing, setEditing] = useState(true);
-
-  /* What the matcher may recommend. See invariant 35. */
-  const pool = useMemo(() => tools.filter(recommendable), [tools]);
-
-
-  async function run(text) {
-    const q = (text ?? problem).trim();
-    if (!q) return;
-    trackMatcher(q);
-    setBusy(true); setResult(null);
-    try {
-      const res = await fetch("/api/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ problem: q }),
-      });
-      if (!res.ok) throw new Error("match failed");
-      const parsed = await res.json();
-      /*
-       * Validated against `pool`, not `tools`. The route already dropped these
-       * twice; this is the third, and it is the cheap one to keep because it
-       * costs a filter and covers a stale tab holding a response from before
-       * the flag existed.
-       */
-      const picks = (parsed.picks || []).filter((p) => pool.some((t) => t.id === p.id));
-      setResult({ status: picks.length ? "ok" : "none", picks, note: parsed.note || "", query: q });
-    } catch {
-      const picks = localMatch(q, pool);
-      setResult({ status: picks.length ? "fallback" : "failed", picks, note: "", query: q });
-    }
-    setBusy(false);
-    setEditing(false);
-  }
-
-  /* Asked from somewhere else (the 404 page's box): answer it straight away. */
-  useEffect(() => {
-    if (initial.trim()) run(initial);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const heading = result && (
-    result.status === "none" ? "Nothing fits that well"
-      : result.status === "failed" ? "No match"
-        : result.status === "fallback"
-          ? `${result.picks.length} closest match${result.picks.length === 1 ? "" : "es"} by keyword`
-          : `${result.picks.length} tool${result.picks.length === 1 ? "" : "s"} that fit${result.picks.length === 1 ? "s" : ""}`
-  );
-
-  return (
-    <div>
-      {/* Opened from the sidebar's prompt, so it carries its own way out. */}
-      <div id="matcher-body" style={{
-        position: "relative", background: C.hero,
-        border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.md,
-      }}>
-        {onClose && (
-          <button type="button" onClick={onClose} aria-label="Close the matcher"
-            style={{ position: "absolute", top: 8, right: 8, background: "none", border: 0, padding: 4, color: C.muted, cursor: "pointer" }}>
-            <X size={16} />
-          </button>
-        )}
-        {!editing && result ? (
-          /* Asked and answered: the question shrinks to one line so the answer leads. */
-          <div className="flex flex-wrap items-baseline" style={{ gap: S.md }}>
-            <span style={{ fontSize: F.xs, color: C.dim, flexShrink: 0 }}>You asked</span>
-            <span style={{ fontSize: F.md, color: C.text, flex: 1, minWidth: 180, lineHeight: 1.45 }}>
-              {result.query}
-            </span>
-            <button
-              onClick={() => { setProblem(result.query); setEditing(true); }}
-              style={{
-                background: "none", border: 0, padding: 0, color: C.accentInk, fontSize: F.sm,
-                fontWeight: 600, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline",
-              }}
-            >Change</button>
-          </div>
-        ) : (
-          <>
-            {/* The heading is the textarea's label: one element doing the job
-                two did, and a click on it puts the cursor in the box. */}
-            <label htmlFor="matcher-q" style={{ display: "block", fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
-              What are you trying to solve?
-            </label>
-            <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.sm }}>
-              <textarea
-                id="matcher-q"
-                value={problem}
-                onChange={(e) => setProblem(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) run(); }}
-                /* The placeholder is the explainer the heading and the two-line
-                   paragraph used to be. It says the same thing in the place the
-                   person is already looking. */
-                /* No dates in the example: it read "before 30 September" and was
-                   wrong from 1 October. Mantle is already the first example below. */
-                placeholder="Describe it in your own words. We have one app, no budget yet, and want to see which keywords we rank for…"
-                rows={2}
-                style={{
-                  flex: 1, minWidth: 200, minHeight: 60, resize: "vertical",
-                  background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
-                  padding: "8px 12px", fontSize: F.sm, color: C.text, fontFamily: "inherit", lineHeight: 1.5,
-                }}
-              />
-              <button
-                onClick={() => run()}
-                disabled={busy || !problem.trim()}
-                className="ctl press"
-                style={{
-                  alignSelf: "stretch", minWidth: 104, border: 0, borderRadius: R.control,
-                  background: problem.trim() ? C.accent : C.subtle,
-                  color: problem.trim() ? C.onAccent : C.dim,
-                  fontSize: F.sm, fontWeight: 700, cursor: problem.trim() && !busy ? "pointer" : "default",
-                  fontFamily: "inherit", padding: "0 16px",
-                }}
-              >
-                {busy ? "Matching…" : "Find tools"}
-              </button>
-            </div>
-
-            {/* The recommender used to be a second link here. It does a
-                different job (three picks for one App Store listing) but
-                read as a second way to do this one, so it is offered after
-                an answer instead, and on each tool page. */}
-            <div className="flex flex-wrap items-center" style={{ gap: S.xs, marginTop: S.sm }}>
-              <span style={{ fontSize: F.xs, color: C.dim, marginRight: 2 }}>Try</span>
-              {EXAMPLES.map((e) => (
-                <button key={e.label} type="button" title={e.q}
-                  onClick={() => { setProblem(e.q); run(e.q); }}
-                  className="ctl press"
-                  style={{
-                    fontSize: F.xs, color: C.text, background: C.panel,
-                    border: `1px solid ${C.line}`, borderRadius: R.pill,
-                    padding: "4px 12px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-                  }}>{e.label}</button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {result && (
-        <div className="mt-4" style={{
-          background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl,
-        }}>
-          <h3 style={{ fontSize: F.lg, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{heading}</h3>
-
-          {result.status === "fallback" && (
-            <p style={{
-              fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: "12px 0 0",
-              background: C.subtle, border: `1px solid ${C.line}`,
-              borderRadius: R.control, padding: "8px 12px",
-            }}>
-              The matcher is having a moment. These are the closest matches by keyword.
-            </p>
-          )}
-
-          {result.status === "failed" && (
-            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: "12px 0 0", maxWidth: "58ch" }}>
-              Could not match that right now. Try rephrasing, or browse the categories below.
-            </p>
-          )}
-
-          {result.status === "none" && (
-            <>
-              <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: "12px 0 0", maxWidth: "58ch" }}>
-                Nothing here fits that well. That is useful to know, so tell me what you were
-                looking for and it goes on the list.
-              </p>
-              <button
-                onClick={() => onSuggest({ kind: "tool", why: result.query })}
-                className="ctl press mt-3"
-                style={{
-                  background: C.accent, color: C.onAccent, border: 0, borderRadius: R.control,
-                  padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >Tell me what you needed</button>
-            </>
-          )}
-
-          {result.note && result.picks.length > 0 && (
-            <p style={{ fontSize: F.md, color: C.text, margin: "12px 0 0", lineHeight: 1.5, maxWidth: "58ch" }}>
-              {result.note}
-            </p>
-          )}
-
-          {result.picks.length > 0 && (
-            <div className="flex flex-col mt-3" style={{ gap: S.md }}>
-              {result.picks.map((p) => {
-                const t = tools.find((x) => x.id === p.id);
-                const col = catOf(t.cat).color;
-                return (
-                  <button key={p.id} onClick={() => onOpen(t.id)}
-                    className="flex items-start text-left cursor-pointer"
-                    style={{
-                      gap: S.md, background: C.subtle, border: `1px solid ${C.line}`,
-                      borderLeft: `3px solid ${col}`, borderRadius: R.control, padding: S.md, width: "100%",
-                      fontFamily: "inherit", color: C.text,
-                    }}>
-                    <Logo tool={t} size={30} />
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                        <span style={{ fontSize: F.lg, fontWeight: 600 }}>{t.name}</span>
-                        <span style={{ fontSize: F.xs, color: ink(col) }}>{catOf(t.cat).label}</span>
-                        <span style={{ fontSize: F.xs, color: C.dim }}>{t.price}</span>
-                      </span>
-                      <span className="block mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5 }}>
-                        {p.why}
-                      </span>
-                      {/* Context only, attached in the browser: the model never
-                          saw it, so it cannot have preferred the tool for it. */}
-                      {editorUseBadge(t.editorUse) && (
-                        <span className="block mt-1"><Pill>{editorUseBadge(t.editorUse)}</Pill></span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* The recommender, offered here because this is when it is
-              relevant: somebody has just asked which tools fit their app. */}
-          {result.status !== "failed" && (
-            <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.md}px 0 0` }}>
-              Have an app on the App Store?{" "}
-              <a href="/recommend" style={{ color: C.text, fontWeight: 600, textUnderlineOffset: 3 }}>
-                Get three picks for your listing
-              </a>
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ================================================================== */
 /*  Ordering                                                           */
 /* ================================================================== */
@@ -982,7 +688,7 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
       const question = ask === "1" ? "" : ask.trim().slice(0, 500);
       setMatcherAsk(question);
       setMatcherOpen(true);
-      if (!question) requestAnimationFrame(() => document.getElementById("matcher-q")?.focus());
+      if (!question) requestAnimationFrame(() => document.getElementById("ask-q")?.focus());
     } catch { /* fine */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1099,13 +805,10 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
      */
     <div className="content" style={{ color: C.text }}>
       <main id="main" tabIndex={-1} style={{ outline: "none" }}>
-        {/* The matcher, opened from the sidebar's prompt. It is here only once
-            somebody asks, so the grid never moves on load. */}
-        {matcherOpen && (
-          <section aria-label="Match a problem to tools" style={{ marginBottom: S.xl }}>
-            <Matcher key={matcherAsk} initial={matcherAsk} tools={tools} onOpen={openTool} onSuggest={setShowSuggest} onClose={() => { setMatcherOpen(false); setMatcherAsk(""); }} />
-          </section>
-        )}
+        {/* Ask the directory (components/Ask.jsx): the primary action, always
+            open, answering from every section. The catalogue is directly below
+            it, so nobody has to use it to reach the tools. */}
+        <Ask key={matcherAsk} initial={matcherAsk} tools={tools} onOpenTool={openTool} onSuggest={setShowSuggest} />
 
         {/*
           * One row above the first card: the heading, the one-sentence

@@ -26,10 +26,10 @@ ok((frame.match(/<ThemeToggle \/>/g) || []).length === 1, "rendered once by the 
 ok(!/footer[\s\S]*ThemeToggle/.test(frame.slice(frame.indexOf("export function SiteFooter"))), "and not in the footer");
 
 console.log("\nthe hero:");
-const matcher = fn("Matcher");
-const form = matcher.slice(0, matcher.indexOf("{result && ("));
-ok(!/\/recommend/.test(form), "the recommender is not a second call to action beside Find tools");
-ok(/\/recommend/.test(matcher.slice(matcher.indexOf("{result && ("))), "it is offered after an answer");
+const askSrc = src("components/Ask.jsx");
+const form = askSrc.slice(askSrc.indexOf("<form"), askSrc.indexOf("</form>"));
+ok(!/\/recommend/.test(form), "the recommender is not a second call to action beside Ask");
+ok(/\/recommend/.test(askSrc.slice(askSrc.indexOf("{result && !busy"))), "it is offered after an answer");
 ok(/href="\/recommend"/.test(src("components/ToolPage.jsx")), "and on every tool page");
 /* 2026-10-18: the recommender is the one place a visitor gives an email for
    something built for their app, so it is in the spotlight, not a footnote. */
@@ -41,8 +41,7 @@ ok(/\{i === 0 && <PicksCard where="picks-narrow" \/>\}/.test(dir) && /\{i === Ma
   "and a card in the grid: after the first card on a phone, opening the second row wider, never above the first card");
 ok(/Sign in with your email/.test(frameSrc) && /Sign in with your email/.test(dir), "both say it needs an email before anyone clicks");
 ok(!/<details/.test(form), "examples are not behind a disclosure");
-const examples = dir.slice(dir.indexOf("const EXAMPLES = ["), dir.indexOf("];", dir.indexOf("const EXAMPLES = [")));
-ok((examples.match(/label:/g) || []).length === 3, "three examples, each a chip");
+ok(/\[0, 2, 4, 6\]\.map/.test(askSrc) && !/setInterval|setTimeout/.test(askSrc), "four examples, each a chip, chosen by the day and never on a timer");
 ok(/`\$\{toolTotal\} tools for Shopify app builders in \$\{CATEGORIES\.length\} categories, updated \$\{LAST_UPDATED\}\.`/.test(dir), "the stats are one short sentence");
 
 console.log("\nthe card and the bar:");

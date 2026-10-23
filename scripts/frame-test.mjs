@@ -63,7 +63,7 @@ console.log("\nthe content column:");
 ok(!/masthead|hero-title|className="rail"|dir-body/.test(dir), "no hero, no masthead, no rail");
 ok(order(dir, ['className="content-head"', "<h1", 'aria-label="Sort tools by"', "<ViewToggle", 'className="cards"']),
   "heading, description, sort and the view toggle, then the cards");
-ok(/\{matcherOpen && \(/.test(dir) && /<Matcher [^>]*onClose=/.test(dir), "the matcher appears only when asked for, with its own way out");
+ok(/<Ask [^>]*initial=\{matcherAsk\}/.test(dir) && !/\{matcherOpen && \(\s*<Ask/.test(dir), "Ask the directory is always open at the top of the directory (2026-10-23), not behind the prompt");
 ok(/\.cards \{ display: grid;[^}]*minmax\(0, 1fr\)/.test(css) && /min-width: 768px\) \{ \.cards \{ grid-template-columns: repeat\(2/.test(css)
   && /min-width: 1200px\) \{ \.cards \{ grid-template-columns: repeat\(3/.test(css), "three cards from 1200px, two from 768px, one below");
 ok(/@media \(min-width: 1200px\) \{\s*\.shell \{[\s\S]*?grid-template-columns: 248px/.test(css) && /\.sidebar \{\s*position: sticky;\s*top: 0;\s*height: 100vh;/.test(css),

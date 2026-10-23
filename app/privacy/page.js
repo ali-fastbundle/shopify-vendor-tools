@@ -101,8 +101,10 @@ export default function Page() {
         <P>
           Separately, the site counts a few things Vercel cannot see, as plain totals with no cookie
           and no identifier: how often each listing is opened, each section is viewed, and each
-          screen of the recommender is reached. What is typed into the matcher is kept as text,
-          the last 50 queries only, never linked to who typed it.
+          screen of the recommender is reached. What is typed into Ask the directory is kept as
+          text with what it returned, the last 1,000 questions, so the editor can see what the
+          directory could not answer. It is never linked to who typed it: no address, no IP, no
+          session.
         </P>
 
         <H>Email addresses</H>
