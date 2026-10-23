@@ -149,6 +149,12 @@ export default async function AdminPage({ searchParams }) {
       const m = await import("@/lib/mentions");
       return m.mentionList(await m.getMentions(), { includeRemoved: true });
     }, empty: [] },
+    /* What each mentions source did on its last run: blocked must not read as empty. */
+    { key: "mentionSources", load: async () => {
+      const m = await import("@/lib/mentions");
+      const st = await m.getMentions();
+      return { lastRunAt: st.lastRunAt || "", sources: st.sources || {} };
+    }, empty: { lastRunAt: "", sources: {} } },
     { key: "eventFindings", load: async () => (await import("@/lib/eventRefresh")).getEventFindings(), empty: [] },
     { key: "eventRefresh", load: async () => {
       const r = await (await import("@/lib/eventRefresh")).getEventRefresh();

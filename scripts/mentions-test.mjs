@@ -110,5 +110,40 @@ ok(!("reddit" in M.SOURCES) && ["hackernews", "bluesky", "shopify-community", "s
   ok(rows.length === 3 && rows.every((x) => x.repeat && !M.isThirdParty(x)), "one account linking one listing three times is marked, not counted as other people");
 }
 
+console.log("\nfrom production: blocked is not empty");
+{
+  const { write } = await L("lib/store.js");
+  await write(KEYS.mentions, {});
+  const small = targets.filter((t) => ["storeleads.app", "appstorepulse.com"].includes(t.domain));
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("api.bsky.app")) return new Response("Forbidden", { status: 403 });
+    if (u.includes("api.github.com")) return new Response("<html><title>Just a moment...</title></html>", { status: 200, headers: { "content-type": "text/html" } });
+    if (u.includes("community.shopify.dev")) return new Response(JSON.stringify({ posts: [], topics: [] }), { status: 200 });
+    if (u.includes("community.shopify.com")) {
+      const posts = u.includes("shopify%20after") ? [{ topic_id: 1, post_number: 1, created_at: "2026-11-01", username: "x", blurb: "about shopify" }] : [];
+      return new Response(JSON.stringify({ posts, topics: [{ id: 1, title: "t" }] }), { status: 200 });
+    }
+    if (u.includes("hn.algolia.com")) throw Object.assign(new Error("timed out"), { name: "TimeoutError" });
+    return realFetch(url);
+  };
+  const r = await M.collectMentions({ targets: small, today: "2026-11-10", budgetMs: 60_000 });
+  globalThis.fetch = realFetch;
+  const st = await M.getMentions();
+  ok(st.sources.bluesky.state === "blocked" && /403/.test(st.sources.bluesky.last), "a 403 is recorded as blocked, with the status", st.sources.bluesky.last);
+  ok(st.sources.github.state === "blocked" && /instead of JSON/.test(st.sources.github.last), "a page where JSON was expected is a challenge, so blocked");
+  ok(st.sources.hackernews.state === "error", "a timeout is failing, not empty");
+  ok(st.sources["shopify-dev-community"].state === "empty", "an answer with nothing for a query that always has results is suspicious, not a quiet week");
+  ok(st.sources["shopify-community"].state === "ok", "and a working source is answering");
+  ok(!Object.keys(st.checked).some((k) => /^(bluesky|github|hackernews)\|/.test(k)), "nothing blocked or failed is marked as searched, so it is tried again");
+  ok(M.unreadableSources(st).map((x) => x.source).sort().join() === "bluesky,github,hackernews,shopify-dev-community", "the sources that cannot be read are listed for the admin");
+  ok(r.sources.bluesky.state === "blocked", "and the run's answer says so too");
+}
+{
+  const A = src("components/Admin.jsx");
+  ok(/label: "Mentions"/.test(A) && /unreadableSources|unreadable/.test(A), "the System status strip has a Mentions line that names unreadable sources");
+}
+
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

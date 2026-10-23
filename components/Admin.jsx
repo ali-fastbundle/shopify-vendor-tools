@@ -92,6 +92,7 @@ export default function AdminPanel({
   askLog = [],
   eventFindings = [],
   mentions = [],
+  mentionSources = { lastRunAt: "", sources: {} },
   eventCoverage = [],
   eventRefresh = {},
   announcements = [],
@@ -392,7 +393,7 @@ export default function AdminPanel({
         )}
 
         {tab === "audience" && (
-          <Audience stats={stats} interest={interest || {}} entries={entryRows} recommend={recommend} askLog={askLog} mentions={mentionRows}
+          <Audience stats={stats} interest={interest || {}} entries={entryRows} recommend={recommend} askLog={askLog} mentions={mentionRows} mentionSources={mentionSources}
             accounts={accounts || {}} claims={claimRows} verified={verifiedClaims}
             subscribers={subscribers || []} subscriberRows={subscriberRows}
             reviews={reviewRows} comments={commentRows} act={act} busy={busy} />
@@ -917,7 +918,7 @@ const BURST_DAYS = 7;
 function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, coverage = [], changelog = [], inventory = [], publishing = { canPublish: false, log: [] }, discards = [], reviewed = [], outOfScope = [], deleted = [], publishedSuggestions = [], allSuggestions = [], onSuggestions, onEntries, act, busy }) {
   return (
     <>
-      <StatusStrip health={health} maillog={maillog} coverage={coverage} />
+      <StatusStrip health={health} maillog={maillog} coverage={coverage} mentionSources={mentionSources} />
 
       {/* What happened to things that were once work. */}
       <Reference title="Records">
@@ -1159,7 +1160,7 @@ function Housekeeping({ inventory = [] }) {
  * consequence of it being wrong, because "RESEND_API_KEY missing" is a fact and
  * "no email is being sent, including sign-in links" is the thing to act on.
  */
-function StatusStrip({ health, maillog = [], coverage = [] }) {
+function StatusStrip({ health, maillog = [], coverage = [], mentionSources = { lastRunAt: "", sources: {} } }) {
   const cov = coverageCounts(coverage);
   const notCovered = uncovered(coverage).length;
   if (!health) {
@@ -1215,6 +1216,24 @@ function StatusStrip({ health, maillog = [], coverage = [] }) {
         : "no recorded fire",
       note: cron.monitor ? "" : "Nothing has invoked it since this started recording.",
     },
+    (() => {
+      /* Blocked is not empty (invariant 58): a source refusing Vercel's
+         servers would otherwise look exactly like a week nobody posted. */
+      const src = Object.entries(mentionSources.sources || {});
+      const unreadable = src.filter(([, v]) => v.state !== "ok");
+      const blocked = unreadable.filter(([, v]) => v.state === "blocked" || v.state === "error");
+      return {
+        label: "Mentions",
+        bad: blocked.length > 0,
+        warn: !mentionSources.lastRunAt || unreadable.length > 0 || stale(mentionSources.lastRunAt, 3),
+        value: mentionSources.lastRunAt
+          ? `${String(mentionSources.lastRunAt).slice(0, 10)} · ${src.length - unreadable.length} of ${src.length} sources answering`
+          : "never run",
+        note: unreadable.length
+          ? `${unreadable.map(([k, v]) => `${MENTION_SOURCE[k] || k} ${v.state}${v.last ? ` (${v.last})` : ""}`).join("; ")}. Mentions from these are not being collected, so an empty list is not evidence nobody posted.`
+          : !mentionSources.lastRunAt ? "The daily collection has not run yet." : stale(mentionSources.lastRunAt, 3) ? "More than three days since the last run. The daily cron may not be firing." : "",
+      };
+    })(),
     {
       label: "Coverage",
       bad: false,
@@ -1280,7 +1299,7 @@ function StatusStrip({ health, maillog = [], coverage = [] }) {
  * Audience, not health. What visitors are doing, kept away from what is
  * broken so neither has to be read through the other.
  */
-function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {}, recommend = { runs: [], summary: null }, askLog = [], mentions = [], accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], reviews = [], comments = [], act, busy }) {
+function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {}, recommend = { runs: [], summary: null }, askLog = [], mentions = [], mentionSources = { lastRunAt: "", sources: {} }, accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], reviews = [], comments = [], act, busy }) {
   const read = comments.filter((c) => c.reviewed);
   return (
     <>
@@ -1292,7 +1311,7 @@ function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries 
 
       {/* The people, and everything already decided about what they wrote. */}
       <Reference>
-        <AllMentions rows={mentions} act={act} busy={busy} />
+        <AllMentions rows={mentions} sources={mentionSources} act={act} busy={busy} />
         <Accounts accounts={accounts} claims={claims} />
         <Subscribers list={subscribers} rows={subscriberRows} />
         <Collapsible title="Verified claims"
@@ -1319,6 +1338,8 @@ function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries 
  * Read is all most need. Remove is only for the three reasons, kept and
  * logged: disagreeing with what somebody said is not one of them.
  */
+const MENTION_SOURCE = { hackernews: "Hacker News", bluesky: "Bluesky", "shopify-community": "Shopify Community", "shopify-dev-community": "Shopify developer community", github: "GitHub" };
+const MENTION_STATE = { ok: "answering", empty: "answering, but empty where results were expected", blocked: "blocked", error: "failing" };
 const REMOVE_LABEL = { "wrong-listing": "Not about this listing", spam: "Spam", private: "Private data" };
 function MentionRow({ m, act, busy, all = false }) {
   return (
@@ -1352,13 +1373,32 @@ function MentionsToRead({ rows = [], act, busy }) {
   );
 }
 
-function AllMentions({ rows = [], act, busy }) {
+function AllMentions({ rows = [], sources = { lastRunAt: "", sources: {} }, act, busy }) {
+  const [run, setRun] = useState("");
+  async function runNow() {
+    setRun("running");
+    try {
+      const res = await fetch("/api/cron/mentions", { method: "POST" });
+      const d = res.ok ? await res.json() : null;
+      setRun(d ? `${d.checked} searches, ${d.found} new. ${Object.entries(d.sources || {}).map(([k, v]) => `${MENTION_SOURCE[k] || k}: ${MENTION_STATE[v.state] || v.state}${v.last ? ` (${v.last})` : ""}`).join(". ")}. Reload to see them.` : `Failed: HTTP ${res.status}`);
+    } catch { setRun("Could not reach the server."); }
+  }
   const by = {};
   for (const m of rows) if (m.status !== "removed") by[m.listing?.name] = (by[m.listing?.name] || 0) + 1;
   const top = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, c]) => `${n} (${c})`).join(", ");
   return (
     <Collapsible title="Mentions" count={rows.length}
       hint={`Every mention collected, newest first, removed ones included with their reason.${top ? ` Most mentioned: ${top}.` : ""}`}>
+      <p style={{ margin: `0 0 ${S.sm}px` }}>
+        <Btn onClick={runNow} busy={run === "running"}>Run the collection now</Btn>
+        {run && run !== "running" && <span style={{ fontSize: F.xs, color: C.muted, marginLeft: S.sm }}>{run}</span>}
+      </p>
+      {Object.entries(sources.sources || {}).map(([k, v]) => (
+        <Row key={k} title={MENTION_SOURCE[k] || k} tag={MENTION_STATE[v.state] || v.state}
+          tagColor={v.state === "ok" ? undefined : C.warnInk}
+          meta={`${String(v.at).slice(0, 16).replace("T", " ")} · ${v.requests} searches · ${v.blocked} blocked · ${v.errors} failed · ${v.matched} new · canary ${v.canary < 0 ? "refused" : v.canary}${v.last ? ` · last: ${v.last}` : ""}${v.since && v.state !== "ok" ? ` · since ${String(v.since).slice(0, 10)}` : ""}`} />
+      ))}
+      {!Object.keys(sources.sources || {}).length && <Empty>The collection has not run yet, so no source has answered.</Empty>}
       {rows.length === 0 ? <Empty>Nothing collected yet.</Empty>
         : rows.slice(0, 300).map((m) => <MentionRow key={m.id} m={m} act={act} busy={busy} all />)}
     </Collapsible>

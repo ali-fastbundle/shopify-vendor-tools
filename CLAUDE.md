@@ -508,6 +508,16 @@ panel before proposing it again. Items are marked `own` (the listing's own accou
 (a referral link) and `repeat` (one account, one listing, three or more times), and only the
 rest count as other people (`isThirdParty`).
 
+**Blocked is not empty.** The SAMI and Ranksy gap (invariant 23) in another shape: a source
+refusing Vercel's servers would leave the Inbox empty for the wrong reason. So every run
+records each source's outcome in `state.sources`: answering, blocked (401, 403, 429, or a page
+where JSON was expected), failing (a timeout or a 5xx, after three tries), or answering but
+empty on the canary, a query for "shopify" over two weeks that always has results. A blocked or
+failed search is never marked as searched (`checked` is per source and domain), so it is tried
+again. The System status strip has a Mentions line that goes red and names the source, and the
+Audience panel shows each source's last run with a Run now button. Measured from this machine
+on 2026-10-24, all five answered; production is read from that line, not assumed.
+
 **The policy, confirmed by the editor on 2026-10-24, and it goes on any public page:**
 - The directory links and never hosts. An item is the link, the source, the author's handle, the
   date and one factual line built in code from the source's own heading. Never the post's text.
