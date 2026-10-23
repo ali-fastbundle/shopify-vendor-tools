@@ -12,8 +12,8 @@
  *                              nothing waiting and never reaches the broken line
  *
  * The bug only appeared with something in the inbox, on a tab that is not the
- * default. So this posts a suggestion and a report first, then walks all four
- * tabs. A build is not a browser, and a page that renders when there is nothing
+ * default. So this posts a suggestion and a report first, then walks all six
+ * tabs, and checks that every old ?tab= value still lands on its panel. A build is not a browser, and a page that renders when there is nothing
  * on it has not been tested.
  *
  * Run it against localhost before shipping a change to components/Admin.jsx.
@@ -21,7 +21,13 @@
 
 const COOKIE = process.argv[2];
 const BASE = (process.argv[3] || "http://localhost:3000").replace(/\/$/, "");
-const TABS = ["", "?tab=catalogue", "?tab=updates", "?tab=announcements", "?tab=ideas", "?tab=data", "?tab=outreach", "?tab=people", "?tab=audience", "?tab=system"];
+const TABS = ["", "?tab=updates", "?tab=listings", "?tab=write", "?tab=audience", "?tab=system"];
+/* The tabs this layout replaced (2026-10-23), and where each one lands now. */
+const LEGACY = {
+  catalogue: "/admin?tab=listings", data: "/admin?tab=listings#details-to-confirm",
+  announcements: "/admin?tab=write#announcements", ideas: "/admin?tab=write#ideas",
+  outreach: "/admin?tab=write#outreach", people: "/admin?tab=audience",
+};
 
 if (!COOKIE) {
   console.error("usage: node scripts/admin-smoke.mjs <svt_session cookie value> [baseUrl]");
@@ -70,8 +76,23 @@ await walk("populated");
    here means the early return was taken and the walk above proved nothing. */
 console.log("\nthe populated inbox really did render its sections:");
 const { body } = await admin("");
-for (const section of ["Suggestions to review", "Reports and corrections", "Claims to check", "Discovered competitors"]) {
+for (const section of ["Waiting on you", "Suggestions to review", "Reports and corrections", "Claims to check", "Reviews to decide"]) {
   check(body.includes(section), section);
+}
+const listings = await admin("?tab=listings");
+check(listings.body.includes("Discovered competitors"), "Discovered competitors is on Listings, as reference");
+check(listings.body.includes("Details to confirm"), "and Details to confirm is on Listings, as work");
+
+console.log("\nan old ?tab= lands on the tab that holds its panel now:");
+for (const [old, to] of Object.entries(LEGACY)) {
+  const res = await fetch(`${BASE}/admin?tab=${old}`, { headers: { cookie: `svt_session=${COOKIE}` }, redirect: "manual" });
+  const loc = res.headers.get("location") || "";
+  check(res.status >= 300 && res.status < 400 && loc.endsWith(to), `?tab=${old}`, `HTTP ${res.status} -> ${loc}`);
+}
+{
+  const res = await fetch(`${BASE}/admin?tab=catalogue`, { redirect: "manual" });
+  check(res.status === 200 && (await res.text()).includes("Not authorised"),
+    "and a stranger is not redirected anywhere", `HTTP ${res.status}`);
 }
 
 /* The System tab's whole job is answering "is anything broken" above the fold,
