@@ -376,7 +376,7 @@ that every surface reports the same total and the same per-category counts.
 
 **54. Every content page has a Markdown version at its path plus .md, and it says nothing the page does not.**
 `/tools/<id>.md`, `/categories/<id>.md`, `/newsletters.md` and `/newsletters/<id>.md`,
-`/events.md` and `/events/<id>.md`, `/owners/<id>.md`, `/blog.md` and `/blog/<slug>.md`,
+`/events.md` and `/events/<id>.md`, `/owners.md` and `/owners/<id>.md`, `/blog.md` and `/blog/<slug>.md`,
 `/changes.md`, `/about.md`, and `/index.md` for the directory (2026-10-23). `middleware.js`
 rewrites any path ending in `.md` to `app/md/[[...path]]/route.js`, which builds the text with
 `lib/markdown.js` from the same loaders the HTML page uses, per request. `text/markdown`, with
@@ -2173,6 +2173,16 @@ the one sentence the owner's page states about this relationship.
   Elevate and Orbit live on marmeto.com, and the domain check in `isVacuousOwner`, which is
   right for monitor free text, hid "part of Marmeto". `ownerOf` and `ownershipOf` both apply
   this.
+- **`/owners` lists every owner of a published listing, of any kind** (2026-10-23,
+  `allOwners` in `lib/ownerIndex.js`): a mark (a `logo` on the row, then the favicon of its
+  `domain` or `url` host, then initials, through `EventLogo`), company or person, the row's
+  `notes`, its site, and every listing it is behind with how it relates. The owner is the
+  entry's `ownership` reference, or else the publisher or organizer it states, matched to a
+  known row by name. Compared with the entry on its name only (an event's `domain` is its
+  organizer's site, and an edition year is not part of a name), and a name that is only the
+  entry's own says nothing and is left out. An owner known only by name borrows its event's
+  `domain` for the mark and nothing else. It is a section in the sidebar, with no count, and
+  has `/owners.md`. **A future section reaches it with one line in `KINDS`.**
 - **Pages only for two or more published entries**: `/owners/[id]`
   (`components/Owners.jsx`, no client state, Organization or Person JSON-LD with the owner's
   site as `sameAs`, in the sitemap, dated by its newest entry) and `/owners`. A one-entry
@@ -2398,7 +2408,7 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   by `listsChanged()` on every write that can open or close the section
   (`lib/listsSection.js`).
 - **The sidebar, top to bottom:** the wordmark (a link home); the sections (Directory,
-  Newsletters, Events, Lists once it has content, Recent updates, Blog) with the current
+  Newsletters, Events, Owners, Lists once it has content, Recent updates, Blog) with the current
   one marked and a count beside each; Growth picks, the recommender's block with the one
   green button (invariant 42); Your lists, signed in only; search; the matcher as one prompt; the categories as a vertical list ordered by
   count with All first; the filters, open, not behind a button; the active filters as

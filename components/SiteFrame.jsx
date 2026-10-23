@@ -38,9 +38,13 @@ import {
 /* The sections, in order, and which paths count as being in each. A tool page
    and a category page are the directory seen one entry at a time. */
 export const SITE_VIEWS = [
-  { id: "directory", label: "Directory", href: "/", match: (p) => p === "/" || p.startsWith("/tools/") || p.startsWith("/categories") || p.startsWith("/owners") || p.startsWith("/alternatives") || p.startsWith("/compare") },
+  { id: "directory", label: "Directory", href: "/", match: (p) => p === "/" || p.startsWith("/tools/") || p.startsWith("/categories") || p.startsWith("/alternatives") || p.startsWith("/compare") },
   { id: "newsletters", label: "Newsletters", href: "/newsletters", match: (p) => p.startsWith("/newsletters") },
   { id: "events", label: "Events", href: "/events", match: (p) => p.startsWith("/events") },
+  /* Who is behind the listings, across every kind (2026-10-23). No count:
+     the page counts from the merged lists, and a second figure here would be
+     a second source for one number (invariant 53's lesson). */
+  { id: "owners", label: "Owners", href: "/owners", match: (p) => p.startsWith("/owners") },
   /* Published lists, the section. It is in the nav only once it has a list
      worth showing (`when`): a section enters the nav when it has content, not
      when its code ships. /lists/mine is your own lists, a tool, not this. */
@@ -469,7 +473,7 @@ function FeedRefine() {
  */
 const MD_ROUTES = [
   /^\/$/, /^\/tools\/[^/]+$/, /^\/categories\/[^/]+$/, /^\/newsletters(\/[^/]+)?$/,
-  /^\/events(\/[^/]+)?$/, /^\/owners\/[^/]+$/, /^\/blog(\/[^/]+)?$/, /^\/changes$/, /^\/about$/,
+  /^\/events(\/[^/]+)?$/, /^\/owners(\/[^/]+)?$/, /^\/blog(\/[^/]+)?$/, /^\/changes$/, /^\/about$/,
 ];
 export const markdownPathFor = (path) =>
   (MD_ROUTES.some((re) => re.test(path)) ? (path === "/" ? "/index.md" : `${path}.md`) : "");

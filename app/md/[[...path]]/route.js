@@ -8,7 +8,7 @@ import { todayISO } from "@/lib/events";
 import { SITE } from "@/lib/seo";
 import {
   toolMarkdown, indexMarkdown, categoryMarkdown, newsletterMarkdown, newslettersMarkdown,
-  eventMarkdown, eventsMarkdown, ownerMarkdown, postMarkdown, blogMarkdown, changesMarkdown, aboutMarkdown,
+  eventMarkdown, eventsMarkdown, ownerMarkdown, ownersMarkdown, postMarkdown, blogMarkdown, changesMarkdown, aboutMarkdown,
 } from "@/lib/markdown";
 
 /*
@@ -44,8 +44,9 @@ async function build(parts) {
     const [tools, newsletters, r] = await Promise.all([mergedTools(), mergedNewsletters(), reviews()]);
     return { md: eventMarkdown(b, { events, tools, newsletters, reviews: r }, todayISO()), path: `/events/${b}` };
   }
-  if (a === "owners" && b) {
+  if (a === "owners") {
     const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
+    if (!b) return { md: ownersMarkdown({ tools, newsletters, events }), path: "/owners" };
     return { md: ownerMarkdown(b, { tools, newsletters, events }), path: `/owners/${b}` };
   }
   if (a === "blog") return b ? { md: postMarkdown(b), path: `/blog/${b}` } : { md: blogMarkdown(), path: "/blog" };
@@ -60,7 +61,7 @@ export async function GET(_request, { params }) {
   /* The index builder returns the text itself; give it the shape the rest use. */
   if (typeof out === "string") out = { md: out, path: "/" };
   if (!out?.md) {
-    return new Response("Not found. Append .md to a content page's path: a tool, a category, a newsletter, an event, an owner, a blog post, or /index.md, /events.md, /newsletters.md, /blog.md, /changes.md, /about.md.\n", {
+    return new Response("Not found. Append .md to a content page's path: a tool, a category, a newsletter, an event, an owner, a blog post, or /index.md, /events.md, /newsletters.md, /owners.md, /blog.md, /changes.md, /about.md.\n", {
       status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }

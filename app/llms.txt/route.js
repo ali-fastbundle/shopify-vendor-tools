@@ -56,7 +56,7 @@ Last updated ${LAST_UPDATED}. ${counted.total} tools listed.
 Append .md to the path of any content page for the same page as Markdown:
 ${SITE}/tools/<id>.md, ${SITE}/categories/<id>.md, ${SITE}/newsletters/<id>.md,
 ${SITE}/events/<id>.md, ${SITE}/owners/<id>.md, ${SITE}/blog/<slug>.md, and the
-indexes ${SITE}/index.md (the directory), ${SITE}/newsletters.md, ${SITE}/events.md,
+indexes ${SITE}/index.md (the directory), ${SITE}/newsletters.md, ${SITE}/events.md, ${SITE}/owners.md,
 ${SITE}/blog.md, ${SITE}/changes.md and ${SITE}/about.md. Each carries everything
 its page shows and nothing it does not, including the labelled "Watch for" caveat,
 which this file leaves out. Each page also links its version from its head.

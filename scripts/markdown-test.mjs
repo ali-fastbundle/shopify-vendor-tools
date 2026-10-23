@@ -37,7 +37,7 @@ const eventIds = pick("lib/events.js", /^\s{4}id: "([a-z0-9-]+)",$/gm);
 
 console.log("every content route:");
 const fixed = ["/index.md", "/newsletters.md", "/events.md", "/blog.md", "/changes.md", "/about.md",
-  "/categories/aso.md", "/owners/mantle.md", "/blog/shopify-app-store-aso-tools-compared.md"];
+  "/categories/aso.md", "/owners.md", "/owners/mantle.md", "/blog/shopify-app-store-aso-tools-compared.md"];
 for (const p of fixed) {
   const r = await get(p);
   ok(r.status === 200 && /text\/markdown/.test(r.type) && /rel="canonical"/.test(r.link) && r.text.startsWith("# "), p, `${r.status} ${r.type}`);

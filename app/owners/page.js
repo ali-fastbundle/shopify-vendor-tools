@@ -1,6 +1,6 @@
 import { withShareImage } from "@/lib/ogCard";
 import { mergedTools, mergedNewsletters, mergedEvents } from "@/lib/listings";
-import { ownersWithPages } from "@/lib/ownerIndex";
+import { allOwners } from "@/lib/ownerIndex";
 import { ownersIndexGraph } from "@/lib/seo";
 import { OwnerIndex } from "@/components/Owners";
 import JsonLd from "@/components/JsonLd";
@@ -8,11 +8,11 @@ import JsonLd from "@/components/JsonLd";
 export const dynamic = "force-dynamic";
 
 const title = "Owners | watchfor.tools";
-const description = "Companies and people behind more than one listing on watchfor.tools, across tools, newsletters and events.";
+const description = "The companies and people behind the tools, newsletters and events on watchfor.tools, with their sites and every listing each is behind.";
 
 const baseMetadata = {
   title, description,
-  alternates: { canonical: "/owners" },
+  alternates: { canonical: "/owners", types: { "text/markdown": [{ url: "/owners.md", title: "Plain text for agents" }] } },
   openGraph: { title, description, type: "website", siteName: "watchfor.tools" },
 };
 
@@ -22,8 +22,7 @@ export async function generateMetadata() {
 
 export default async function Page() {
   const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
-  const owners = ownersWithPages({ tools, newsletters, events })
-    .sort((a, b) => b.entries.length - a.entries.length || a.name.localeCompare(b.name));
+  const owners = allOwners({ tools, newsletters, events });
   return (
     <>
       <JsonLd data={ownersIndexGraph(owners)} />

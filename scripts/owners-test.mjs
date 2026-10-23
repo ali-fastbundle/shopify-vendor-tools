@@ -127,5 +127,31 @@ console.log("\nthe monitor and the override:");
   await store.write("svt:overrides", {});
 }
 
+console.log("\nthe owners index, every owner of every kind:");
+{
+  const all = X.allOwners();
+  const { TOOLS: T } = await load("lib/tools.js");
+  const { NEWSLETTERS: N } = await load("lib/newsletters.js");
+  const { EVENTS: E } = await load("lib/events.js");
+  const listed = new Set(all.flatMap((o) => o.entries.map((m) => `${m.kind}:${m.id}`)));
+  ok(["tool", "newsletter", "event"].every((k) => all.some((o) => o.entries.some((m) => m.kind === k))), "owners of tools, newsletters and events are all on it");
+  ok(N.filter((n) => n.publisher && !ALL_TOOLS.some(() => false)).every((n) => listed.has(`newsletter:${n.id}`)
+    || O.isVacuousOwner?.(n.publisher, n) || !O.findOwner(n.publisher) && n.publisher.replace(/\W/g, "").toLowerCase() === n.name.replace(/\W/g, "").toLowerCase()),
+    "a newsletter's publisher counts as its owner, unless it is only its own name");
+  const bareName = (v) => String(v).replace(/\s*['’]?\d{2,4}\b/g, "").replace(/\W/g, "").toLowerCase();
+  const dropped = E.filter((e) => e.organizer && !listed.has(`event:${e.id}`) && bareName(e.organizer) !== bareName(e.name));
+  ok(dropped.length === 0, "an event's organizer counts as its owner, unless it is only the event's own name", dropped.map((e) => e.id).join(", "));
+  ok(listed.has("event:holiday-a-list") && listed.has("event:nexfal-freelancers-meetup"),
+    "an organizer whose site is the event's domain is still an owner (Shoplift, Nexfal)");
+  ok(!listed.has("event:web-summit"), "an organizer that is the event's name without the year says nothing (Web Summit)");
+  ok(T.filter((t) => !O.ownershipOf(t, "tool")).every((t) => !listed.has(`tool:${t.id}`)), "a tool that names no owner is on nobody's row: nothing inferred");
+  ok(all.every((o) => !o.page || X.hasOwnerPage(o.id, {})), "a row links an owner page only where that page exists");
+  ok(all.filter((o) => o.entries.length === 1).every((o) => !o.page), "an owner behind one listing has no page (invariant 46), and its row links the listing");
+  ok(new Set(all.map((o) => o.key)).size === all.length, "one row per owner");
+  ok(all.every((o) => o.entries.every((m) => m.relation && !/[\u2014]/.test(m.relation))), "every listing on a row says how it relates, with no em dash");
+  ok(all.filter((o) => o.url).every((o) => o.domain && !/^https?:/.test(o.domain)), "an owner with a site has a domain for its mark");
+  ok(/id: "owners", label: "Owners", href: "\/owners"/.test(readFileSync(join(ROOT, "components/SiteFrame.jsx"), "utf8")), "Owners is a section in the sidebar");
+}
+
 console.log(bad ? `\n${bad} failed` : "\nall passed");
 process.exit(bad ? 1 : 0);

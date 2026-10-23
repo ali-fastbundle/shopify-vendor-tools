@@ -3,6 +3,7 @@ import { C, S, R, F, TRACK } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
 import { outbound } from "@/lib/outbound";
 import { relationOf } from "@/lib/seo";
+import EventLogo from "@/components/EventLogo";
 
 /*
  * /owners and /owners/[id], server-rendered with no client state, the same
@@ -63,7 +64,20 @@ export function OwnerPage({ owner, entries, others = [] }) {
   );
 }
 
+/*
+ * Every owner of a published listing, of any kind (allOwners in
+ * lib/ownerIndex.js): a mark, the name, whether a company or a person, the
+ * brief note on it, its site, and every listing it is behind, each linked.
+ * An owner behind two or more listings links to its own page; one behind a
+ * single listing does not have one (invariant 46), so its row is the whole of
+ * what there is to say and links the listing instead.
+ *
+ * No client state, the same contract as the rest of this file. The mark is
+ * EventLogo's chain (a hosted file, the favicon of the owner's own site, then
+ * initials), which is a client island like it is on every event row.
+ */
 export function OwnerIndex({ owners }) {
+  const shared = owners.filter((o) => o.entries.length >= 2).length;
   return (
     <main style={{ background: C.bg, color: C.text }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
@@ -71,21 +85,55 @@ export function OwnerIndex({ owners }) {
           Owners
         </h1>
         <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
-          Companies and people behind more than one listing. When two listings share an owner, read them as one
-          source, not two.
+          The companies and people behind the tools, newsletters and events listed here. {owners.length} in
+          all, {shared} of them behind more than one listing. When two listings share an owner, read them
+          as one source, not two.
+        </p>
+        <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
+          An owner is listed only where the listing's own site, or the owner's, says who it is. A listing
+          that names nobody is not on this page.
         </p>
         <ul style={{ listStyle: "none", padding: 0, margin: `${S.xl}px 0 0` }}>
-          {owners.map((o) => (
-            <li key={o.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
-              <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                <a href={`/owners/${o.id}`} style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none" }}>{o.name}</a>
-                <span className="tnum" style={{ fontSize: F.xs, color: C.dim }}>{o.entries.length} listings</span>
-              </div>
-              <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.5 }}>
-                {o.entries.map((m) => m.name).join(", ")}
-              </p>
-            </li>
-          ))}
+          {owners.map((o) => {
+            const site = o.url ? o.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "") : "";
+            return (
+              <li key={o.key} id={o.id || undefined} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
+                <div className="flex items-start" style={{ gap: S.md }}>
+                  <EventLogo e={{ name: o.name, logo: o.logo, domain: o.domain }} size={40} status="upcoming" />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+                      {o.page
+                        ? <a href={o.page} style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none" }}>{o.name}</a>
+                        : <span style={{ fontWeight: 700, fontSize: F.lg }}>{o.name}</span>}
+                      <span className="tnum" style={{ fontSize: F.xs, color: C.dim }}>
+                        {[o.type === "Person" ? "A person" : o.type ? "A company" : "",
+                          `${o.entries.length} listing${o.entries.length === 1 ? "" : "s"}`].filter(Boolean).join(", ")}
+                      </span>
+                    </div>
+                    {o.notes && (
+                      <p style={{ fontSize: F.sm, color: C.text, margin: `${S.xs}px 0 0`, lineHeight: 1.55, maxWidth: "68ch" }}>{o.notes}</p>
+                    )}
+                    <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
+                      {o.entries.map((m) => (
+                        <li key={`${m.kind}:${m.id}`} style={{ fontSize: F.sm, lineHeight: 1.6 }}>
+                          <a href={m.href} style={{ color: C.text, fontWeight: 600 }}>{m.name}</a>
+                          <span style={{ color: C.dim }}> {m.kindLabel.toLowerCase()}. </span>
+                          <span style={{ color: C.muted }}>{m.relation}</span>
+                          {m.dying && <> <Pill tone="warn">winding down</Pill></>}
+                        </li>
+                      ))}
+                    </ul>
+                    {(site || o.page) && (
+                      <p className="flex flex-wrap" style={{ gap: S.lg, fontSize: F.sm, margin: `${S.sm}px 0 0` }}>
+                        {o.page && <a href={o.page} style={{ color: C.muted }}>Owner page</a>}
+                        {site && <a href={outbound(o.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{site}</a>}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </main>
