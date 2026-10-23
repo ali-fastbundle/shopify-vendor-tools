@@ -104,6 +104,15 @@ ok((await post("admin@test.invalid", { action: "confirm-structured", toolId: "ra
   ok(!(await merged("ranksy")).structured, "and the tool is back to the file's price");
   ok((await store.read("svt:structured", {})).ranksy.history.length === 1, "keeping what was confirmed in history");
 }
+{
+  /* SASI: confirmed as winding down, then found running. The flag is the fact. */
+  const prev = await store.read("svt:structured", {});
+  await store.write("svt:structured", { ...prev, sasi: { confirmedAt: new Date().toISOString(),
+    data: { attrs: {}, integrations: [], pricing: { published: true, free: true, trialDays: "unknown", tiers: [], note: "Free. Winding down with Mantle" } } } });
+  const m = await merged("sasi");
+  ok(!m.dying && !/wind/i.test(m.price) && m.structuredStale, "a confirmed price saying winding down does not show on a tool that is not", m.price);
+  await store.write("svt:structured", prev);
+}
 ok(listings.PROTECTED.includes("structured") && !listings.EDITABLE.includes("structured"), "structured data is protected from vendor edits");
 
 console.log("\nwhere it shows:");
