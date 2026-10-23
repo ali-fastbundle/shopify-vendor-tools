@@ -1037,11 +1037,13 @@ export async function POST(request) {
   if (action === "resolve-change") {
     const rows = await readChangelog(500);
     if (!rows.some((r) => r.id === id)) return new Response("Unknown change", { status: 400 });
-    const [published, applied, rewritten] = await Promise.all([
+    const [published, applied, rewritten, edited] = await Promise.all([
       read(KEYS.changesPublished, {}), read(KEYS.changesApplied, {}), read(KEYS.changesRewritten, {}),
+      read(KEYS.changesEdited, {}),
     ]);
     const destinations = [
       published[id] && "published", applied[id] && "applied", rewritten[id] && "rewritten",
+      edited?.[id] && "edited",
     ].filter(Boolean);
     if (!destinations.length) return new Response("Nothing has been done with this finding yet. Dismiss it instead.", { status: 400 });
     const seen = await read(KEYS.changesSeen, {});
@@ -1110,6 +1112,24 @@ export async function POST(request) {
     const seen = await read(KEYS.changesSeen, {});
     if (seen[id]?.via === "wrong") { delete seen[id]; await write(KEYS.changesSeen, seen); }
     return Response.json({ dismissed: seen, errors: await readCapped(KEYS.monitorErrors, 200) });
+  }
+
+  /*
+   * The listing was edited by hand because of this finding: through the edit
+   * form somewhere other than the link on the finding, or in the file. A
+   * destination like publishing, applying or rewriting, so Resolve accepts it.
+   */
+  if (action === "mark-edited" || action === "unmark-edited") {
+    const row = (await readChangelog(500)).find((r) => r.id === id);
+    if (!row) return new Response("Unknown change", { status: 400 });
+    const edited = (await read(KEYS.changesEdited, {})) || {};
+    if (action === "mark-edited") {
+      edited[id] = { at: new Date().toISOString(), by: session.email, via: "hand", toolId: row.entryId };
+    } else {
+      delete edited[id];
+    }
+    await write(KEYS.changesEdited, edited);
+    return Response.json({ edited });
   }
 
   if (action === "dismiss-change" || action === "reopen-change") {

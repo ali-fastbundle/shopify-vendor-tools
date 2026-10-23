@@ -157,7 +157,9 @@ function OwnerInvite({ tool, viewer = {}, watchLog = [] }) {
             are a hand edit to the catalogue file.</>
           )}
         </p>
-        <a href={href} style={{
+        {/* Straight to the form: the directory opens the listing with its
+            editor already open (`edit=1`), rather than a second Edit to press. */}
+        <a href={`${href}&edit=1`} style={{
           display: "inline-block", marginTop: S.md,
           background: C.accent, color: C.onAccent, borderRadius: R.control,
           padding: "8px 16px", fontSize: F.sm, fontWeight: 700, textDecoration: "none",

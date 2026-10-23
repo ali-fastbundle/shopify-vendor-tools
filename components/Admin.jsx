@@ -136,6 +136,7 @@ export default function AdminPanel({
   coverage = [],
   publishedChanges = {},
   rewrittenChanges = {},
+  editedChanges = {},
   rewriteLog = [],
   monitorErrors = [],
   verifiedChanges = {},
@@ -370,7 +371,7 @@ export default function AdminPanel({
           <RecentUpdates feed={feed}
             changes={changelog || []} sinceVisit={sinceVisit} monitor={monitor} seen={seen} coverage={coverage}
             appliedChanges={appliedChanges || {}} publishedChanges={publishedChanges || {}}
-            rewrittenChanges={rewrittenChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen} />
+            rewrittenChanges={rewrittenChanges || {}} editedChanges={editedChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen} />
         )}
 
         {tab === "announcements" && <Announcements initial={announcements} />}
@@ -4329,7 +4330,7 @@ const isHandled = (id, seen = {}, published = {}, applied = {}) => Boolean(
   || (published[id] && !published[id].awaitsResolve)
   || (applied[id] && !applied[id].awaitsResolve));
 
-function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, onSeen }) {
+function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, onSeen }) {
   const [busy, setBusy] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
@@ -4337,6 +4338,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
   const [applied, setApplied] = useState(appliedChanges || {});
   const [published, setPublished] = useState(publishedChanges || {});
   const [rewritten, setRewritten] = useState(rewrittenChanges || {});
+  const [edited, setEdited] = useState(editedChanges || {});
   const [openTool, setOpenTool] = useState("");
   const [showEarlier, setShowEarlier] = useState(false);
   const [showAll, setShowAll] = useState(false);
@@ -4361,6 +4363,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
       if (d.applied) setApplied(d.applied);
       if (d.published) setPublished(d.published);
       if (d.rewritten) setRewritten(d.rewritten);
+      if (d.edited) setEdited(d.edited);
       return d;
     } catch {
       setResult("Could not reach the server.");
@@ -4477,7 +4480,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
             )}
             {(showAll || groups.length <= ROW_LIMIT) && groups.map((g) => (
               <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
-                applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} verified={verifiedChanges} busy={busy} onAct={mark} />
+                applied={applied} published={published} rewritten={rewritten} edited={edited} dismissed={dismissed} verified={verifiedChanges} busy={busy} onAct={mark} />
             ))}
           </>
         )}
@@ -4492,7 +4495,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
           </button>
           {showEarlier && earlierGroups.map((g) => (
             <ToolChanges key={g.id} group={g} openTool={openTool} setOpenTool={setOpenTool}
-              applied={applied} published={published} rewritten={rewritten} dismissed={dismissed} verified={verifiedChanges} busy={busy} onAct={mark} />
+              applied={applied} published={published} rewritten={rewritten} edited={edited} dismissed={dismissed} verified={verifiedChanges} busy={busy} onAct={mark} />
           ))}
         </div>
       )}
@@ -4516,7 +4519,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
  * outgrows its layout: it is not that the rows are wrong, it is that they
  * crowd out the two things that needed a decision.
  */
-function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritten, dismissed, verified = {}, busy, onAct }) {
+function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritten, edited = {}, dismissed, verified = {}, busy, onAct }) {
   const expanded = openTool === group.id;
   const [batch, setBatch] = useState("");
   const tool = ALL_TOOLS.find((t) => t.id === group.id);
@@ -4525,7 +4528,7 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
   async function dismissAll() {
     setBatch("dismiss");
     for (const r of group.rows) {
-      if (!dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id]) await onAct(r.id, "dismiss-change");
+      if (!dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id] && !edited[r.id]) await onAct(r.id, "dismiss-change");
     }
     setBatch("");
   }
@@ -4534,8 +4537,8 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
      and only wait for Resolve. Resolving each by hand was one click per
      finding for a decision already made. Untouched findings are left alone:
      those still need a look, and resolving refuses a finding with nowhere to go. */
-  const ready = group.rows.filter((r) => !dismissed[r.id] && (published[r.id] || applied[r.id] || rewritten[r.id]));
-  const untouched = group.rows.filter((r) => !dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id]);
+  const ready = group.rows.filter((r) => !dismissed[r.id] && (published[r.id] || applied[r.id] || rewritten[r.id] || edited[r.id]));
+  const untouched = group.rows.filter((r) => !dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id] && !edited[r.id]);
   async function resolveReady() {
     setBatch("resolve");
     for (const r of ready) await onAct(r.id, "resolve-change");
@@ -4593,7 +4596,7 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
               )}
               {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "74ch" }}>{r.why}</p>}
               <ChangeAction r={r} done={Boolean(dismissed[r.id])} seenRecord={dismissed[r.id]} applied={applied[r.id]}
-                published={published[r.id]} rewritten={rewritten[r.id]} busy={busy} onAct={onAct} />
+                published={published[r.id]} rewritten={rewritten[r.id]} edited={edited[r.id]} busy={busy} onAct={onAct} />
             </div>
           ))}
         </div>
@@ -4688,7 +4691,7 @@ function AdminLogo({ tool, size = 22 }) {
  *             guess here would be a button claiming it will write something
  *             and then writing the wrong thing.
  */
-function ChangeAction({ r, done, seenRecord, applied, published, rewritten, busy, onAct }) {
+function ChangeAction({ r, done, seenRecord, applied, published, rewritten, edited, busy, onAct }) {
   const wrong = seenRecord?.via === "wrong";
   const edit = r.edit || { state: "unmapped" };
   const [writing, setWriting] = useState(false);
@@ -4698,13 +4701,27 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, busy
   const [meta, setMeta] = useState(null);
   const [err, setErr] = useState("");
 
+  /*
+   * Straight to the edit form, in one click: the listing opens with the
+   * editor already open (`edit=1`), and saving records the edit as this
+   * finding's destination (`finding`), so Resolve is there when you come back.
+   * It used to be the listing page, then Edit, then the directory's modal,
+   * then Edit again. A newsletter's editor is on its own page.
+   */
+  const page = r.entryKind === "newsletter" ? `/newsletters/${encodeURIComponent(r.entryId)}` : `/tools/${encodeURIComponent(r.entryId)}`;
+  const editHref = r.entryKind === "newsletter"
+    ? `${page}?edit=1&finding=${encodeURIComponent(r.id)}`
+    : `/?tool=${encodeURIComponent(r.entryId)}&edit=1&finding=${encodeURIComponent(r.id)}`;
+  const linkStyle = {
+    background: "transparent", border: `1px solid ${C.edge}`, color: C.muted,
+    borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
+    textDecoration: "none", whiteSpace: "nowrap",
+  };
   const openListing = (
-    <a href={`/tools/${encodeURIComponent(r.entryId)}`} target="_blank" rel="noopener noreferrer"
-      style={{
-        background: "transparent", border: `1px solid ${C.edge}`, color: C.muted,
-        borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
-        textDecoration: "none", whiteSpace: "nowrap",
-      }}>Open the listing</a>
+    <>
+      <a href={editHref} target="_blank" rel="noopener noreferrer" style={{ ...linkStyle, color: C.text }}>Edit the listing</a>
+      <a href={page} target="_blank" rel="noopener noreferrer" style={linkStyle}>Open the listing</a>
+    </>
   );
 
   const source = r.url && (
@@ -4928,6 +4945,19 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, busy
           <Btn onClick={() => setRewriting(true)}>Rewrite with AI</Btn>
         )}
 
+        {/* Edited by hand: through the link above (recorded on save), or
+            anywhere else and marked here. A destination like the others. */}
+        {edited ? (
+          <>
+            <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
+              Listing edited {String(edited.at || "").slice(0, 10)}{edited.fields?.length ? ` (${edited.fields.join(", ")})` : " by hand"}
+            </span>
+            {edited.via === "hand" && <Btn onClick={() => onAct(r.id, "unmark-edited")} busy={busy === r.id}>Not edited</Btn>}
+          </>
+        ) : !done && (
+          <Btn onClick={() => onAct(r.id, "mark-edited")} busy={busy === r.id}>Edited by hand</Btn>
+        )}
+
         {openListing}
         {source}
 
@@ -4944,7 +4974,7 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, busy
             </span>
             <Btn onClick={() => onAct(r.id, "unmark-wrong")} busy={busy === r.id}>Unmark</Btn>
           </>
-        ) : (applied || published || rewritten)
+        ) : (applied || published || rewritten || edited)
           ? (done
             ? (
               <>
@@ -4959,7 +4989,7 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, busy
 
         {/* On every finding that is not already marked: being wrong is
             independent of what was done with it. */}
-        {!wrong && <MarkWrong r={r} busy={busy} onAct={onAct} hasDestinations={Boolean(applied || published || rewritten)} />}
+        {!wrong && <MarkWrong r={r} busy={busy} onAct={onAct} hasDestinations={Boolean(applied || published || rewritten || edited)} />}
       </div>
     </div>
   );
@@ -5658,7 +5688,7 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
  * seen on the vendor's own site, which is a check to make before pressing:
  * the form says so rather than trusting it to be remembered.
  */
-function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, verifiedChanges = {}, onSeen }) {
+function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, onSeen }) {
   const tools = useMemo(() => published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name)), []);
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
@@ -5714,7 +5744,7 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
       )}
       <ChangeMonitor rows={changes} monitor={monitor} seen={seen} coverage={coverage}
         appliedChanges={appliedChanges} publishedChanges={publishedChanges}
-        rewrittenChanges={rewrittenChanges} verifiedChanges={verifiedChanges} onSeen={onSeen} />
+        rewrittenChanges={rewrittenChanges} editedChanges={editedChanges} verifiedChanges={verifiedChanges} onSeen={onSeen} />
       <Section title="Post a vendor announcement"
         hint="News a vendor told us about, by email or on a call, for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all. News the monitor found is published from its finding in the Inbox.">
       <div style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, marginBottom: S.md }}>

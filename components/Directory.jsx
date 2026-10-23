@@ -747,6 +747,8 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
    * does not retype it.
    */
   const [showSuggest, setShowSuggest] = useState(null);
+  /* Opened from an edit link: which listing, and the finding it answers. */
+  const [editIntent, setEditIntent] = useState(null);
   const gridRef = useRef(null);
 
   useEffect(() => {
@@ -1070,12 +1072,20 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
     try { params = new URLSearchParams(window.location.search); } catch { return; }
     if (!params.has("tool") && !params.has("signin")) return;
     const id = params.get("tool");
-    params.delete("tool"); params.delete("signin");
+    /* `edit=1` opens the listing with its edit form already open, for an
+       admin or the owner (OwnerPanel decides), and `finding` is the monitor
+       finding the edit answers, recorded on save. Stripped with the rest. */
+    const wantsEdit = params.get("edit") === "1";
+    const finding = params.get("finding") || "";
+    params.delete("tool"); params.delete("signin"); params.delete("edit"); params.delete("finding");
     const rest = params.toString();
     try {
       window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
     } catch {}
-    if (id && (initialTools || TOOLS).some((t) => t.id === id)) openTool(id);
+    if (id && (initialTools || TOOLS).some((t) => t.id === id)) {
+      if (wantsEdit) setEditIntent({ id, finding: finding.slice(0, 80) });
+      openTool(id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1282,6 +1292,8 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
           session={session}
           refreshSession={refreshSession}
           onTools={setTools}
+          startEditing={editIntent?.id === detail}
+          finding={editIntent?.id === detail ? editIntent.finding : ""}
         />
       )}
       {showSuggest && (
@@ -1717,7 +1729,7 @@ function Shell({ children, onClose, width = 860 }) {
   );
 }
 
-function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0 }) {
+function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0, startEditing = false, finding = "" }) {
   const col = catOf(tool.cat).color;
   /*
    * Most helpful first, most recent to break a tie. The comparator lives in
@@ -1803,7 +1815,8 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
           </div>
         </div>
 
-        <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools} />
+        <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools}
+          startEditing={startEditing} finding={finding} />
 
         <div className="mt-6" style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg }}>
           <ReviewForm toolId={tool.id} name={tool.name} onSubmit={onReview} initialRating={initialRating}

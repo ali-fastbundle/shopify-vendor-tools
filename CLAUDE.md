@@ -1629,6 +1629,16 @@ must not be indistinguishable afterwards. Records written before this carry no
 `awaitsResolve` and count as handled. `isHandled` in `components/Admin.jsx` is the
 one copy of that rule, used by both the Recent updates count and the monitor panel.
 
+**Edited by hand is a destination too** (2026-10-23). A finding often ends with an editor
+rewriting the description themselves, and Resolve used to refuse that: none of publish, apply
+or rewrite had happened. Every finding now has **Edit the listing**, which opens the listing
+with its form already open (`/?tool=<id>&edit=1&finding=<row id>`, or the newsletter's own
+page), and saving through it records `edited` in `svt:changes:edited` with the fields
+changed (admin only, and only for a finding about that listing). An edit made anywhere else,
+a commit to the file included, is recorded with **Edited by hand**. Resolve accepts either.
+The tool page's Edit this listing opens the form directly too (`edit=1`), instead of a
+modal with a second Edit to press. `scripts/edit-link-test.mjs`.
+
 **The voice examples are lifted from the catalogue, not written for the prompt.**
 `houseVoice()` reads real `one` and `watch` lines out of `TOOLS`, so the examples
 cannot drift from the site they are meant to match. Telling a model "plain,
@@ -3351,6 +3361,7 @@ node scripts/search-test.mjs         # one search across every section, past eve
 node scripts/tool-count-test.mjs [baseUrl] # one public tool count, and every surface states the same one
 node scripts/dying-test.mjs          # winding down: admin-only override, back to the file removes it, the matcher sees it
 node scripts/declined-test.mjs       # a dismissed or wrong finding is remembered by what it said, and not raised again
+node scripts/edit-link-test.mjs      # one click from a finding to the edit form; an edit is a destination Resolve accepts
 node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
 node scripts/frame-test.mjs [baseUrl] # the sidebar frame: order, counts, drawer, Suspense, server HTML
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers

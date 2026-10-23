@@ -136,6 +136,20 @@ export default function Engagement({ entity, kind = "tool", initialReviews = [],
 function ListingEngagement({ entity, kind, initialReviews }) {
   const [session, refresh] = useSession();
   const [reviews, setReviews] = useState(initialReviews);
+  /* Arrived from an edit link (`?edit=1`, and `finding` when it came from a
+     monitor finding): the owner panel opens its form at once. Read once and
+     taken off the address, so a refresh or a copied link does not reopen it. */
+  const [editIntent, setEditIntent] = useState({ edit: false, finding: "" });
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("edit") !== "1") return;
+      setEditIntent({ edit: true, finding: (params.get("finding") || "").slice(0, 80) });
+      params.delete("edit"); params.delete("finding");
+      const rest = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    } catch { /* no history API: the form just does not open by itself */ }
+  }, []);
   const id = entity.id;
   const noun = NOUN[kind] || "listing";
   const { votes, myVote, vote } = useVote(id);
@@ -171,6 +185,7 @@ function ListingEngagement({ entity, kind, initialReviews }) {
 
       {!session.loading && (
         <OwnerPanel tool={entity} kind={kind} session={session} refresh={refresh}
+          startEditing={editIntent.edit} finding={editIntent.finding}
           onTools={() => { try { location.reload(); } catch {} }} />
       )}
     </div>

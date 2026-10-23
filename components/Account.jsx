@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect, useRef, createContext, useContext } from "react";
 import { C, S, R, F, SOCIALS } from "@/lib/tools";
 import EditorUseControl from "./EditorUseControl";
 import DyingControl from "./DyingControl";
@@ -313,7 +313,7 @@ const FIELDS = {
   event: ["one", "url", "social"],
 };
 
-export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
+export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool", startEditing = false, finding = "" }) {
   const copy = OWNER_COPY[kind] || OWNER_COPY.tool;
   const owns = session.owned?.includes(tool.id) || session.admin;
   // Signing in from the tool's own domain is itself proof, so that path skips publishing.
@@ -322,6 +322,20 @@ export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [editing, setEditing] = useState(false);
+  /* Arrived from an edit link (`?edit=1`): open the form once, as soon as the
+     session says this person may edit, and bring it into view. The session
+     loads after the modal, so this waits for it rather than deciding on the
+     first render, and it fires once so Cancel stays cancelled. */
+  const panelRef = useRef(null);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!startEditing || opened.current || !owns) return;
+    opened.current = true;
+    setEditing(true);
+    requestAnimationFrame(() => {
+      try { panelRef.current?.scrollIntoView({ block: "start" }); } catch {}
+    });
+  }, [startEditing, owns]);
 
   async function act(action) {
     setBusy(true); setMsg("");
@@ -371,7 +385,7 @@ export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
 
   if (owns) {
     return (
-      <div style={{ marginTop: S.lg, border: `1px solid ${C.accentEdge}`, borderRadius: R.card, padding: S.lg }}>
+      <div ref={panelRef} style={{ marginTop: S.lg, border: `1px solid ${C.accentEdge}`, borderRadius: R.card, padding: S.lg, scrollMarginTop: S.lg }}>
         <div className="flex flex-wrap items-center justify-between" style={{ gap: S.md }}>
           <span style={{ fontSize: F.md, fontWeight: 600, color: C.accentInk }}>
             {session.admin && !session.owned?.includes(tool.id) ? "Editing as admin" : "You own this listing"}
@@ -383,7 +397,7 @@ export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
             padding: "8px 16px", fontSize: F.sm, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
           }}>{editing ? "Cancel" : "Edit details"}</button>
         </div>
-        {editing && <EditForm tool={tool} kind={kind} onDone={onTools} onClose={() => setEditing(false)} />}
+        {editing && <EditForm tool={tool} kind={kind} finding={session.admin ? finding : ""} onDone={onTools} onClose={() => setEditing(false)} />}
         {!editing && (
           <p style={{ fontSize: F.xs, color: C.dim, marginTop: S.md, lineHeight: 1.55 }}>
             You can change {copy.can}. {copy.keeps}
@@ -473,7 +487,7 @@ export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
 }
 
 /* ------------------------------------------------------------------ */
-function EditForm({ tool, onDone, onClose, kind = "tool" }) {
+function EditForm({ tool, onDone, onClose, kind = "tool", finding = "" }) {
   const has = (f) => (FIELDS[kind] || FIELDS.tool).includes(f);
   const [form, setForm] = useState({
     one: tool.one || "", note: tool.note || "", price: tool.price || "",
@@ -492,6 +506,9 @@ function EditForm({ tool, onDone, onClose, kind = "tool" }) {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         toolId: tool.id,
+        /* The monitor finding this edit answers, when opened from one. The
+           route records it as that finding's destination (admin only). */
+        ...(finding ? { finding } : {}),
         // Only the fields this kind lets an owner set. The server drops the
         // rest anyway (editableFor); sending them would only look like it worked.
         edit: Object.fromEntries(Object.entries({
