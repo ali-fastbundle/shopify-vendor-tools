@@ -10,7 +10,7 @@ import { catalogueTools } from "@/lib/entries";
 import { dismissFinding, restoreFinding, getDiscovery, clearDiscovery, discoveryKey } from "@/lib/discovery";
 import { storeInventory, resetTestData, deleteRow } from "@/lib/inventory";
 import { timesAsked, findListed, findDuplicate, normaliseDomain } from "@/lib/suggestions";
-import { readChangelog } from "@/lib/monitor";
+import { readChangelog, declineFinding, undeclineFinding } from "@/lib/monitor";
 import { carryInterest, getInterest } from "@/lib/interest";
 import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry, getFeed } from "@/lib/feed";
 import { tally } from "@/lib/tallies";
@@ -1095,6 +1095,9 @@ export async function POST(request) {
     const seen = await read(KEYS.changesSeen, {});
     seen[id] = { at: at.slice(0, 10), by: session.email, via: "wrong", reason };
     await write(KEYS.changesSeen, seen);
+    /* And by what it said, so a later run reading the page the same wrong
+       way, from a different pair, does not raise it again. */
+    await declineFinding(change, { by: session.email, via: "wrong" });
     return Response.json({ dismissed: seen, errors: await readCapped(KEYS.monitorErrors, 200) });
   }
 
@@ -1102,6 +1105,8 @@ export async function POST(request) {
     const errors = await readCapped(KEYS.monitorErrors, 200);
     if (!errors.some((e) => e.changeId === id)) return new Response("That finding is not marked wrong.", { status: 400 });
     await writeCapped(KEYS.monitorErrors, errors.filter((e) => e.changeId !== id), 200);
+    const row = (await readChangelog(500)).find((r) => r.id === id);
+    if (row) await undeclineFinding(row);
     const seen = await read(KEYS.changesSeen, {});
     if (seen[id]?.via === "wrong") { delete seen[id]; await write(KEYS.changesSeen, seen); }
     return Response.json({ dismissed: seen, errors: await readCapped(KEYS.monitorErrors, 200) });
@@ -1109,12 +1114,17 @@ export async function POST(request) {
 
   if (action === "dismiss-change" || action === "reopen-change") {
     const rows = await readChangelog(500);
-    if (!rows.some((r) => r.id === id)) return new Response("Unknown change", { status: 400 });
+    const row = rows.find((r) => r.id === id);
+    if (!row) return new Response("Unknown change", { status: 400 });
     const dismissed = await read(KEYS.changesSeen, {});
     if (action === "dismiss-change") {
       dismissed[id] = { at: new Date().toISOString().slice(0, 10), by: session.email };
+      /* Remembered by what it said, not by this run's row id, so next week's
+         run does not raise the same finding again (lib/monitor.js findingPrint). */
+      await declineFinding(row, { by: session.email, via: "dismissed" });
     } else {
       delete dismissed[id];
+      await undeclineFinding(row);
     }
     await write(KEYS.changesSeen, dismissed);
     return Response.json({ dismissed });

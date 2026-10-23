@@ -846,6 +846,23 @@ beside how many were confirmed by the next run, so a monitor that is wrong about
 pricing half the time says so in a number. Marking wrong resolves the finding
 but undoes nothing already done with it.
 
+**Declined stays declined** (2026-10-23). Every finding gets a fresh row id per run, and a
+snapshot is a model's reading, so when the model named a feature or a tier a little
+differently the next week, a finding the editor had dismissed came back. Dismiss and Mark as
+wrong now also record what the finding said (`findingPrint` in `lib/monitor.js`: tool, kind,
+field, and the value as a sorted set of its words with filler and the verbs of change taken
+out) in `svt:monitor:declined`, and a run drops any new finding with the same print, logged
+as `[monitor] dropped`. Reopen and Unmark undo it. A different value prints differently, so
+a price that moves again is still news. Dismissals made before this are read from
+`svt:changes:seen` and the changelog. `scripts/declined-test.mjs`.
+
+**A homepage can stop saying what a tool does.** Apricot CX redesigned its homepage into a
+two-way choice of about 360 characters, its services moved to subpages, and the monitor,
+which reads the homepage plus declared pages, saw them disappear and (correctly) recorded
+that as not observed rather than removed. Nothing was reported. When a listing changes and
+Recent updates said nothing, check what the homepage now carries and declare the page that
+describes the product as `changelogUrl`.
+
 **Non-findings are filtered in code, not just discouraged in the prompt.**
 `isNonFinding()` drops a change whose old and new values are the same once
 formatting is ignored, one whose value already appears in the entry we publish,
@@ -3333,6 +3350,7 @@ node scripts/filters-test.mjs        # one Filters control, state in the URL, ca
 node scripts/search-test.mjs         # one search across every section, past events included, drafts never, every word must match
 node scripts/tool-count-test.mjs [baseUrl] # one public tool count, and every surface states the same one
 node scripts/dying-test.mjs          # winding down: admin-only override, back to the file removes it, the matcher sees it
+node scripts/declined-test.mjs       # a dismissed or wrong finding is remembered by what it said, and not raised again
 node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
 node scripts/frame-test.mjs [baseUrl] # the sidebar frame: order, counts, drawer, Suspense, server HTML
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers
