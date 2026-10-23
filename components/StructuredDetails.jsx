@@ -1,6 +1,7 @@
 import React from "react";
 import { C, S, F } from "@/lib/tools";
 import { attributesFor, attributeValue, formatValue, isUnknown, integrationLabel } from "@/lib/categories";
+import { launchCell } from "@/lib/launched";
 
 /*
  * A tool's confirmed attributes and integrations (lib/categories.js), as one
@@ -18,6 +19,11 @@ export default function StructuredDetails({ tool }) {
       <h2 style={{ fontSize: F.xs, color: C.dim, margin: 0, fontWeight: 600 }}>Details</h2>
       <table style={{ borderCollapse: "collapse", marginTop: S.sm, fontSize: F.sm, width: "100%", maxWidth: 520 }}>
         <tbody>
+          {/* On every tool, whatever its category: age is a caveat here. */}
+          <tr style={{ borderTop: `1px solid ${C.line}` }}>
+            <th scope="row" style={{ textAlign: "left", fontWeight: 500, color: C.muted, padding: "6px 12px 6px 0", width: "50%" }}>Launched</th>
+            <td style={{ padding: "6px 0", color: launchCell(tool) === "Unknown" ? C.dim : C.text }}>{launchCell(tool)}</td>
+          </tr>
           {attrs.map((a) => {
             const v = attributeValue(a, s);
             return (

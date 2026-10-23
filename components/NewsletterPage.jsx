@@ -2,6 +2,7 @@ import React from "react";
 import { AlsoFrom } from "@/components/OwnerLine";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
+import { launchLabel } from "@/lib/launched";
 import { Pill } from "@/components/Pill";
 import Engagement from "@/components/Engagement";
 import FollowBox from "@/components/FollowBox";
@@ -32,7 +33,9 @@ const Fact = ({ children }) => (
  * facts follow in muted type.
  */
 function Facts({ n, owner }) {
-  const since = n.started ? `since ${formatStarted(n.started)}` : "";
+  /* The first issue beside the issue count: together they show whether it
+     has shipped steadily (lib/launched.js). */
+  const since = launchLabel(n, "newsletter");
   const run = [n.cadence, n.issueCount ? `${n.issueCount.toLocaleString()} issues` : (n.cadence ? "" : "New")]
     .filter(Boolean).join(", ");
   const facts = [
@@ -60,15 +63,6 @@ function Facts({ n, owner }) {
       ))}
     </p>
   );
-}
-
-/* YYYY, YYYY-MM or YYYY-MM-DD into something a reader scans: "Feb 2026",
-   "2022". The run-gap check is the reader's, so the month is kept when known. */
-function formatStarted(s) {
-  const [y, m] = String(s).split("-");
-  if (!m) return y;
-  const month = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m)] || "";
-  return month ? `${month} ${y}` : y;
 }
 
 /* The publication's own domain, for verifying a claim. Same derivation as

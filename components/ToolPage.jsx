@@ -1,5 +1,6 @@
 import React from "react";
 import { outbound } from "@/lib/outbound";
+import { launchLabel } from "@/lib/launched";
 import {
   C, S, R, F, TRACK, ink, catOf, secondaryCats, socialLabel, SOCIALS,
   formatDay,
@@ -61,6 +62,9 @@ function Facts({ tool, owner }) {
        page every attribute is type. Absent or true renders nothing, per
        invariant 19: there is no "Shopify-only" label. */
     tool.shopifyExclusive === false && "not Shopify-only",
+    /* Age is a caveat in a market this young (lib/launched.js). Unknown says
+       nothing here; the details and compare tables say "Unknown". */
+    launchLabel(tool, "tool"),
     tool.claimed && "claimed",
   ].filter(Boolean);
 

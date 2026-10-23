@@ -20,6 +20,7 @@ import QA from "./QA";
 import VendorMedia from "./VendorMedia";
 import SaveToList from "./SaveToList";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
+import { launchLabel, launchKey, launchCell, launchedWithinYear } from "@/lib/launched";
 import { ownershipOf as resolveOwnership } from "@/lib/owners";
 import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
@@ -396,10 +397,13 @@ const SORTS = {
   /* Using, then used, then tested, then unset. A fact about the editor, so it
      orders the grid only when somebody asks for it (lib/editorUse.js). */
   editor: { label: "Editor use first", dir: "desc", value: (t) => editorUseRank(t) },
+  /* Newest first, unknown last (an unknown date is "", which sorts below any
+     date in a descending order). lib/launched.js. */
+  launched: { label: "Newest first", dir: "desc", value: (t) => launchKey(t) },
 };
 
 /* The four worth browsing by. The rest are reachable from a column header. */
-const SELECT_SORTS = ["rating", "votes", "name", "cat"];
+const SELECT_SORTS = ["rating", "votes", "name", "cat", "launched"];
 
 /* ================================================================== */
 /*  App                                                                */
@@ -659,6 +663,7 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
   const resultCount = rows.length;
   const panel = useMemo(() => ({
     freeCount: tools.filter((t) => t.free).length, editorCount,
+    recentCount: tools.filter((t) => launchedWithinYear(t)).length,
     integrations: integrationOptions, attributes: attributeOptions, resultCount,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [tools, editorCount, JSON.stringify(integrationOptions), JSON.stringify(attributeOptions), resultCount]);
@@ -1204,6 +1209,7 @@ function Facts({ tool, owner }) {
        says nothing about this one; the number is information once it is
        demand rather than provenance. Counted in lib/interest.js. */
     tool.suggestedBy >= 2 && `suggested by ${tool.suggestedBy} people`,
+    launchLabel(tool, "tool"),
     tool.claimed && "claimed",
   ].filter(Boolean);
   if (!facts.length) return null;
@@ -1915,6 +1921,7 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
       ? "General tool, not Shopify-only"
       : "Shopify only")]] : []),
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
+    ["Launched", (t) => launchCell(t)],
     ["Listing maintained by", (t) => (t.claimed ? "The vendor" : "Editors")],
     ["Ownership", ownershipOf],
     ["Site", (t) => t.domain],

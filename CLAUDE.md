@@ -426,6 +426,33 @@ reason for this question.
 
 `scripts/ask-test.mjs [baseUrl]`.
 
+**56. Age is a caveat in a market this young, so every entry says when it started.**
+A tool launched last month and one running since 2007 make the same claims on their
+homepages, and only one has shown it lasts. Every kind carries `launched` (2026-10-23): a
+tool's launch, a newsletter's first issue (its `started`, read through `launchedOf`), an
+event's first edition, and the same for every section to come. `lib/launched.js` reads,
+words, sorts and filters it.
+
+- **Researched from the entry's own pages, never guessed.** An about page, a changelog's
+  first entry when that entry is the launch, a first issue, an organizer's history, the
+  vendor's own "since" or founding year where the company is the product. **Not** a domain
+  registration, a copyright range, the oldest blog post that is not a launch, a third-party
+  article, or arithmetic from an edition or issue count ("5th annual" does not make a year:
+  Merchant Inspiration Talks skipped three). Each known value carries its source and quote
+  in a comment beside it, and "unknown" says it was looked for.
+- **Values**: "YYYY-MM-DD", "YYYY-MM", "YYYY" or "unknown". Absent means not researched
+  yet and reads as unknown: set it when an entry is added.
+- **Shown plainly**: "Launched March 2026", "First issue July 2024" beside the issue count,
+  "First held 2016", in the facts line of the listing, the tool page and the modal. Unknown
+  says nothing there (rule E), and says "Unknown" in the details table, the compare tables
+  and the Markdown version, where a reader comparing needs the absence (invariant 47).
+- **Sorts and filters**: "Newest first" on the directory (unknown last), and "Launched in the
+  last year" (`?new=1`), which counts only a known date wholly inside the window.
+- **In `PROTECTED`**, restated in `mergedTools()`: a vendor does not set its own age.
+
+As of 2026-10-23: 11 of 55 tools, 14 of 42 events and 4 of 9 newsletters have a date their
+own pages state; the rest are unknown. `scripts/launched-test.mjs`.
+
 **15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
@@ -2590,6 +2617,7 @@ and the server HTML.
 | `lib/inventory.js` | Every store key, what it holds, and the only two ways to delete from it |
 | `lib/markdown.js` `app/md/[[...path]]/route.js` `middleware.js` | The Markdown version of every content page: what each says, the route, and the .md rewrite |
 | `lib/intentMatch.js` `lib/matchLog.js` `components/Ask.jsx` `app/api/match` | Ask the directory: what may be returned and the prompt, the question log, the box, the route |
+| `lib/launched.js` | When an entry started: reading `launched`, the wording per kind, the sort key and the last-year filter |
 | `lib/seo.js` | The JSON-LD graph, per-tool and per-category descriptions, and the related-tool and related-category links |
 | `components/Categories.jsx` | The category page and the category index, server-rendered, no client state |
 | `app/categories` `app/categories/[id]` | The category index and one page per category. Title, description, canonical and graph each |
@@ -3442,6 +3470,7 @@ node scripts/declined-test.mjs       # a dismissed or wrong finding is remembere
 node scripts/edit-link-test.mjs      # one click from a finding to the edit form; an edit is a destination Resolve accepts
 node scripts/markdown-test.mjs [baseUrl] # every content page as .md: Watch for on every entry, nothing the page hides, the four ways in
 node scripts/ask-test.mjs [baseUrl]  # Ask the directory: every section, the matcher's rules, the answer checked, gaps said, every question logged
+node scripts/launched-test.mjs       # launch dates: every entry has one or "unknown", sourced, worded, sorted, filtered, protected
 node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
 node scripts/frame-test.mjs [baseUrl] # the sidebar frame: order, counts, drawer, Suspense, server HTML
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers

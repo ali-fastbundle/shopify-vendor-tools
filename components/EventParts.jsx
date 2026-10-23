@@ -1,6 +1,7 @@
 import React from "react";
 import { AlsoFrom } from "@/components/OwnerLine";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
+import { launchLabel } from "@/lib/launched";
 import { outbound } from "@/lib/outbound";
 import { countdown, RELEVANCE_LABEL, dayLabel } from "@/lib/events";
 import { Pill } from "@/components/Pill";
@@ -166,6 +167,7 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
       : `by ${e.organizer}`),
     e.attendees && `${e.attendees} attendees, by the organizer's count`,
     e.focus,
+    launchLabel(e, "event"),
   ].filter(Boolean);
 
   let when;

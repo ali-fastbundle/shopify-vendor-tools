@@ -1,6 +1,7 @@
 import React from "react";
 import { C, S, R, F, TRACK, ink, catOf, priceLine } from "@/lib/tools";
 import { attributesFor, attributeValue, formatValue, isUnknown, integrationLabel, pricingDisplay } from "@/lib/categories";
+import { launchCell } from "@/lib/launched";
 import { OwnerFact } from "@/components/OwnerLine";
 import { Pill } from "@/components/Pill";
 import { outbound } from "@/lib/outbound";
@@ -136,6 +137,7 @@ export function ComparePage({ a, b, ownerA, ownerB, why, diffsA, diffsB }) {
     ["Integrations", (t) => (!t.structured ? "Not confirmed yet" : t.structured.integrations.length ? t.structured.integrations.map(integrationLabel).join(", ") : "None stated")],
     ["Ownership", (t, o) => (o?.line ? <OwnerFact ctx={o} /> : "Independent, as far as its site says")],
     ["Status", (t) => (t.dying ? "Winding down" : "Active")],
+    ["Launched", (t) => launchCell(t)],
   ];
   return (
     <main style={{ background: C.bg, color: C.text }}>

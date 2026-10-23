@@ -42,6 +42,14 @@ export function FilterGroups({ f, set, options }) {
         <Check checked={f.free} onChange={(v) => set({ free: v })} label="Free plan" count={options.freeCount} />
       </Group>
 
+      {/* Only once a known launch date falls in the last year: a filter that
+          can only ever empty the grid is not one. */}
+      {options.recentCount > 0 && (
+        <Group title="Age">
+          <Check checked={f.recent} onChange={(v) => set({ recent: v })} label="Launched in the last year" count={options.recentCount} />
+        </Group>
+      )}
+
       {options.editorCount > 0 && (
         <Group title="Editor">
           <Check checked={f.used} onChange={(v) => set({ used: v })} label="Editor has used" count={options.editorCount} />
@@ -77,6 +85,7 @@ export function ActiveFilters({ f, set, labels, onClear }) {
   const chips = [
     f.free && { k: "free", label: "Free plan", off: () => set({ free: false }) },
     f.used && { k: "used", label: "Editor has used", off: () => set({ used: false }) },
+    f.recent && { k: "recent", label: "Launched in the last year", off: () => set({ recent: false }) },
     ...f.int.map((i) => ({ k: `int:${i}`, label: labels.integration(i), off: () => set({ int: f.int.filter((x) => x !== i) }) })),
     ...f.has.map((a) => ({ k: `has:${a}`, label: labels.attribute(a), off: () => set({ has: f.has.filter((x) => x !== a) }) })),
   ].filter(Boolean);
