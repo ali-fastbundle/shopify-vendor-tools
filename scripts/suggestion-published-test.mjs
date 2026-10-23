@@ -73,7 +73,7 @@ ok(/\(\{ status, \.\.\.r \}\) => \(\{ \.\.\.r, publishedId: "" \}\)/.test(route)
 ok(/settlePublished\(catalogue\)/.test(src("app/admin/page.js")), "/admin catches ones published before this existed");
 const admin = src("components/Admin.jsx");
 ok(/const live = rows\.filter\(\(s\) => !s\.status\)/.test(admin), "the queue, Inbox and Reviewed lists leave published rows out");
-ok(/title="Published" count=\{publishedSuggestions\.length\}/.test(admin), "they show in a collapsed Published group");
+ok(/<Collapsible title="Published suggestions" count=\{publishedSuggestions\.length\}/.test(admin), "they show in a collapsed Published suggestions group (System, Records)");
 ok(/!s\.status/.test(src("app/api/data/route.js")), "and leave the public list");
 
 console.log(bad ? `\n${bad} failed` : "\nall passed");

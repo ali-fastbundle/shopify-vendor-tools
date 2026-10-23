@@ -121,7 +121,7 @@ never pulls data into the render tree. Do not move a read above that check.
 cannot be used to test who is on the list, and it only emails a genuinely new address so
 it cannot be used to mail-bomb a stranger. `/api/subscribe/remove` answers the same page
 whether or not the address was there. **No route reads the list back out.** The one place
-it is shown is the Subscribers panel on the People tab, rendered by `/admin` itself after the
+it is shown is the Subscribers panel on the Audience tab (reference), rendered by `/admin` itself after the
 isAdmin check (`lib/subscriberList.js`, one row per address across the site-wide list and
 per-item follows, newest first). It used to render a count only, which was more caution than
 a page behind an admin check needs, and it left no way to remove a bounce.
@@ -462,7 +462,7 @@ buying as a star, so it costs the same thing to cast.
 - Nothing is emailed, either side. It is a vote.
 
 **A review can be excluded from the average, and it stays on the page.**
-An admin flags it from the Reviews panel at the top of People, with one of two
+An admin flags it from Reviews to decide in the Inbox (decided ones are on Audience), with one of two
 reasons in `EXCLUSION_REASONS` (`lib/reviews.js`): from the vendor, or
 unverifiable. The review is still shown, labelled "Not counted in the rating"
 with the reason, and counts toward neither the displayed average nor
@@ -557,8 +557,8 @@ not for a visitor has to be added to `publicOf` in the same commit. `/admin` sor
 pill, because being able to see demand is the entire point of counting it.
 
 **A suggestion that became a listing leaves the queue as published** (`lib/suggestionPublished.js`).
-It gets `status: "published"`, the entry id and the date, moves to a collapsed Published group
-in Catalogue, and drops off the Inbox and the public list (both filter on any status). Both
+It gets `status: "published"`, the entry id and the date, moves to a collapsed Published suggestions group
+in System, Records, and drops off the Inbox and the public list (both filter on any status). Both
 paths do it: Approve and publish, and Publish on a file draft, which used to leave the
 suggestion untouched because nothing linked an entry back to the request. A pass on /admin
 load catches entries published by hand before this existed. The match is `findListed`, the
@@ -578,7 +578,7 @@ Publishing into the file is still an edit to `lib/tools.js` (or the catalogue fi
 the kind), either by hand or, once the entry is written there as a draft, with the
 Publish button in the Drafts panel, which commits that same edit (invariant 12). Marking
 a suggestion reviewed does neither: `note` and `watch` are editorial writing, not a state
-to flip. `/admin` says so in the hint over Suggestions to review, and Catalogue has a collapsed How publishing works, rather than leaving it to be rediscovered.
+to flip. `/admin` says so in the hint over Suggestions to review, and the Drafts hint on Listings says what Publish commits, rather than leaving it to be rediscovered.
 
 **Copy as entry stub** does the mechanical half: the id, the domain, the URL and
 today's date, which are all derivable and are where a typo'd id comes from. It
@@ -794,7 +794,7 @@ exactly which pages were fetched and forbids saying anything about the others.
 is live and refusing us, usually because a WAF dislikes the datacentre range a
 serverless function runs from. That is **a property of our coverage, not an
 event in the vendor's week**, so it is recorded as `blocked` on the snapshot,
-alerted on never, and surfaced in Monitor coverage in Catalogue. One
+alerted on never, and surfaced in Monitor coverage on Updates. One
 successful read clears the flag by itself.
 
 **Coverage is stated per listing, because silence is ambiguous.** SAMI refused
@@ -1063,79 +1063,88 @@ hand-written entry and a published one both get it.
   of the link they asked for. `scripts/interest-test.mjs` runs against a live
   server and checks exactly this, including the fourth submission in an hour.
 
-**25. `/admin` is tabs, ordered by whether there is anything to do.**
-Inbox, Catalogue, Recent updates, Announcements, Ideas, Structured data, People, Audience, System. It had grown to thirteen headings in one
-column, and finding the two that needed a decision meant scrolling past eleven
-that did not.
+**25. `/admin` is six tabs, each work first and reference second (2026-10-23).**
+Inbox, Updates, Listings, Write, Audience, System. It had grown to ten tabs added in
+the order they were built, with Catalogue holding six unrelated jobs and every panel at
+the same weight, so finding the two things that needed a decision meant reading past
+everything that did not. The tab list and the map from the old names live in
+`lib/adminTabs.js`.
 
-- **Inbox is the default**: suggestions to review (sorted by interest), open
-  reports, claims to check and comments to read. Its count is in the tab label,
-  so "is there anything for me" is answered without clicking.
-- **Monitor findings are decided on Recent updates** (`?tab=updates`), which
-  carries their count in its own tab label, in the accent like the Inbox's. Most
-  findings end as a feed entry or as nothing, so they sit beside the vendor
-  announcement form and everything already on the feed, where the decision is
-  made. They were in the Inbox, and a vendor announcement had to be hunted for in
-  Catalogue. The Inbox keeps one line saying how many are waiting, with a link,
-  so moving them did not hide them. **When it is empty it says so in one line** rather than
-  rendering four empty panels, which is the state it is in most days.
-- **A tab's count is what needs you there, never what exists.** Inbox counts the
-  queues, Recent updates the open findings, Catalogue the drafts waiting for Publish,
-  Discard or Hold (not the ones on hold, not published entries or deleted rows), People
-  the reviews to decide (not the accounts), Ideas and Announcements the open ones,
-  Structured data what is not confirmed. Audience and System carry no count: one is
-  what happened and the other answers with its status strip.
-- **A list of things to decide is a `WorkList`** (2026-10-18): open on its own while it
-  holds ten or fewer, so a short to-do is on screen with the tab and an empty one says so
-  in one line; past ten it is shut with its count, like every other long list. The
-  Inbox's queues, Reports, Reviews to decide, Drafts, Ideas, Announcements and Structured
-  data are work lists, and past ten tools the monitor's groups are shut behind "N tools
-  with changes". History (verified claims, published entries, discovered competitors,
-  directory stats, recommender runs and feedback) is always collapsed.
-  `scripts/admin-panels-test.mjs` checks every open panel for a list, not a list of names.
-- **Each tool's findings have two batch actions**: Dismiss all for the untouched ones,
-  and Resolve N for the ones already published, applied or rewritten, which only wait for
-  the Resolve that closes them. Each runs the same server action as the single button.
-- **Any list that can exceed about ten rows is collapsed by default, with a
-  count in its header.** Nothing opens itself into a full list: Monitor coverage used to open
-  whenever a listing was not covered, which in production is always. A row with an editor
-  in it (an announcement, an idea, a structured-data draft) is one line until clicked.
-  `scripts/admin-panels-test.mjs` holds this. `Collapsible` does this. The count is the part you
-  read; the rows are what you open when the count says something. A page of
-  open panels answers "what happened" and buries "what needs me", and this
-  console has had to be rescued from that twice.
-- **The page answers "what needs me" first and "what happened" second.** That
-  ordering is the whole of the tab layout, and it is why audience data is not
-  in System and why the changelog archive is not in the Inbox.
-- **Changes are grouped by tool, not listed chronologically.** One collapsed
-  line per tool with a count, ordered by whether it needs a decision and then
-  by recency, under a single summary sentence that is usually the whole answer.
-  A tool leaves the list once every one of its changes has a destination.
+- **Inbox is the default, and it opens with one line**: "Waiting on you", each queue with
+  its count and a link to its list, and the monitor's findings linking to Updates. Under
+  it, quieter, "Your backlog": drafts, details to confirm, announcements to post, ideas to
+  decide, each linking to its tab. Then the queues other people's actions create:
+  suggestions to review (sorted by interest), reports, reviews to decide, comments, media,
+  lists, questions and claims. Every Inbox panel is work; there is no reference there.
+- **Updates** is where monitor findings are decided, beside the vendor announcement form,
+  with what is on the feed and Monitor coverage as reference.
+- **Listings** is the entries: Drafts and Details to confirm (structured data) as work;
+  On hold, Needs verifying, Editor use, Published from the queue, Vendor media and
+  Discovered competitors as reference.
+- **Write** is what you author: Announcements, Send to the list and the About page as
+  work; Ideas and Outreach (temporary, invariant 52) as reference.
+- **Audience** is who uses the site: the recommender, stats and interest, then accounts,
+  subscribers, verified claims, decided reviews and read comments as reference. Nothing
+  on it is work.
+- **System answers "is anything broken" above the fold** with the status strip, then three
+  reference groups: Records (reviewed, published, out-of-scope and deleted suggestions,
+  Discarded, Committed from here, Counts), Logs (changelog archive, AI rewrites, monitor
+  accuracy, dedup decisions, mail log) and Tools (store contents and the reset, Test an
+  event). A mail or commit failure is surfaced by the strip, not by a log opening itself.
+- **Every tab is work first, then one `Reference` group.** Reference is a hairline and a
+  small muted heading over quieter panels, all shut whatever they would open on, and
+  **nothing in it counts towards any tab's number**. The two layers are marked in the HTML
+  (`data-panel="work"` or `"reference"`).
+- **A tab's count is what needs you there, never what exists.** Inbox counts the queues
+  (reviews to decide, not reviews), Updates the open findings, Listings the drafts waiting
+  for Publish, Discard or Hold (not the ones on hold) plus the tools whose details are not
+  confirmed or are stale, Write the announcements in draft or ready. Audience and System
+  carry no count. The tab labels, the Inbox summary line and the lists' own headers all
+  read one set of figures (`waiting` and `backlog` in `AdminPanel`), so they cannot
+  disagree.
+- **An old `?tab=` still lands.** catalogue, data, announcements, ideas, outreach and people
+  redirect on the server, after the admin check and before any read, to the tab that
+  holds the panel now, with the panel's anchor; a panel opens itself when the URL names
+  its anchor. Link to the new names.
+- **A list of things to decide is a `WorkList`**: open on its own while it holds ten or
+  fewer, so a short to-do is on screen with the tab and an empty one says so in one line;
+  past ten it is shut with its count. Past ten tools the monitor's groups are shut behind
+  "N tools with changes".
+- **Any list that can exceed about ten rows is collapsed by default, with a count in its
+  header.** Nothing opens itself into a full list. A row with an editor in it (a draft, a
+  tool's findings, an announcement, an idea, a structured-data draft) is one line until
+  clicked. A page of open panels answers "what happened" and buries "what needs me", and
+  this console has had to be rescued from that three times.
+- **Changes are grouped by tool, not listed chronologically**, one line per tool with a
+  count, ordered by whether it needs a decision and then by recency, under a summary
+  sentence that is usually the whole answer. Each tool carries Resolve N (for findings
+  already published, applied or rewritten) and Dismiss all on its title line.
 - **The findings panel holds the latest run, matched on its exact timestamp.** Every row
-  from one sweep shares an `at` stamped once in `runMonitor`. Matching on the
-  *day* looks equivalent and is not: three runs in an afternoon collapse into
-  one, which put 90 changes in the panel instead of the 8 the last sweep found.
-  Older unhandled findings go to Earlier, collapsed.
-- **System answers "is anything broken" above the fold.** A status strip of
-  store, mail, monitor, discovery, cron, coverage and env, each green or a
-  number, each naming the consequence rather than the variable. Everything else
-  on that tab is shut until the strip says to look.
-- **One `Row` for every list, on every tab.** Title, one coloured tag, neutral
-  badges, a grey meta line, body, actions, optional footer. Before this each
-  panel had invented its own arrangement and no two were alike. Adding a panel
-  means using `Row`, not writing a twelfth layout.
-- **Every destructive action is a `ConfirmBtn`.** Revoke, delete, dismiss and
-  unpublish are all one click from something unrecoverable, and they used to look
-  identical to Resolve. It arms rather than opening a modal, and disarms itself
-  after four seconds so a half-press is not a trap for the next click.
+  from one sweep shares an `at` stamped once in `runMonitor`. Matching on the *day* put 90
+  changes in the panel instead of the 8 the last sweep found. Older ones go to Earlier.
+- **One `Row` for every list, on every tab.** Title, one coloured tag, neutral badges, a
+  grey meta line, body, actions, footer, plus three modes: `expandable` (one line until
+  opened), group (`children` indented under it, with `headActions` on the title line) and
+  `inset` (an editor inside another row). Drafts, a tool's findings, a listing's reviews
+  and the research draft all use it. Adding a panel means using `Row`, not a new layout.
+- **Every two-press action is a `ConfirmBtn`.** Revoke, delete, dismiss, unpublish,
+  discard, hold, publish, confirming a burst, sending to the list and posting a vendor
+  announcement. `tone` is stop, go or plain; `reason` adds a required one-line field;
+  `choices` gives one second press per answer; `note` shows what the second press will do.
+  It disarms after four seconds unless it has a field, choices or a note to read. Publish,
+  Discard and the caveat editor (`components/WatchEditor.jsx`) are exactly two presses.
 - **Every section states its empty case in one line.**
-- The palette and type scale are the public site's, from `lib/tools.js`. There
-  is no second design language here, and `components/Pill.jsx` is the badge.
+- The palette and type scale are the public site's, from `lib/tools.js`. There is no
+  second design language here, and `components/Pill.jsx` is the badge.
+
+`scripts/admin-panels-test.mjs` holds the tabs, the layers, the counts, the collapsed
+lists, the one row and the one confirm; `scripts/admin-smoke.mjs` loads every tab and
+every legacy `?tab=` against a running server.
 
 **34. The store can be read before it is written to, and the reset names what it deletes.**
 `lib/inventory.js` reports every key this application writes: what it holds, how
 many rows, and for anything small enough to read, the rows themselves. It renders
-as **Store contents** on the System tab.
+as **Store contents** on the System tab, under Tools.
 
 Every other panel here shows one slice of the store shaped for a decision. None
 of them answered "what is actually in here", which is the question you have after
@@ -1373,7 +1382,7 @@ editor reading one extra row, and there is deliberately no string heuristic:
 reject anything with "bundle" in the name.
 
 **Out of scope is stored but not public** (`publicList` filters it) and lives in
-its own collapsed section in **Catalogue**, never the Inbox, because it needs no
+its own collapsed section in **System, Records**, never the Inbox, because it needs no
 decision and would otherwise inflate the one count on that page that is supposed
 to mean there is work here. It is kept because what people arrive expecting to
 find is worth knowing: a run of them says the front page is not being read the
@@ -1393,7 +1402,7 @@ suggested" can only be answered about whatever nobody threw away.
 
 Deleted rows leave every working list: the queue, the public list, `/api/data`,
 and every count of what is waiting. They live in a collapsed **Deleted** section
-in Catalogue with a **Restore** that puts one back exactly as it was.
+in System, Records, with a **Restore** that puts one back exactly as it was.
 
 **The counts are never derived from the list.** `lib/tallies.js` increments a
 counter in `svt:stats` at the moment each thing happens: received, published,
@@ -1588,9 +1597,9 @@ A pricing move is usually both: the feed records that it happened, the listing
 says what is true now.
 
 **A vendor announcement is a feed entry the vendor told us about.** Posted from
-the Recent updates tab on `/admin` (`?tab=updates`), for news the monitor could not
+the Updates tab on `/admin` (`?tab=updates`), for news the monitor could not
 have seen. That tab also lists everything on the feed, from either door, with an
-Unpublish on each; it was a collapsed panel in Catalogue and could not be found. The
+Unpublish on each; it was a collapsed panel in the old Catalogue tab and could not be found. The
 row carries `source: "vendor"` and `announcedOn`, and the page and RSS say "Vendor
 announcement" on it, because the vendor's word and our reading of their site are
 different strengths of claim. Only what has shipped, checked on the vendor's own
@@ -1847,7 +1856,7 @@ The site footer carries `FooterLinks`: the maintainer's LinkedIn (`AUTHOR_URL`) 
 Phosphor icon, About, Contact and Privacy.
 
 **`/about` is Ali's own text, verbatim** (`app/about/page.js`), and Ali edits it from
-/admin (Catalogue, About page; "Edit this page" on /about for an admin). The file's text is
+/admin (Write, About page; "Edit this page" on /about for an admin). The file's text is
 `DEFAULT` in `lib/aboutText.js`; a saved edit lives in `svt:about` with the versions it
 replaced, and Reset goes back to the file. `aboutIssues` refuses an email address or a phone
 number on the page and again on the server, and that is the only check: no voice rules.
@@ -2084,7 +2093,7 @@ pattern means the matching is wrong for that tool. Then most recommended, most r
 every comment in full with its inputs. `lib/recommendFeedback.js`, `scripts/shipping-test.mjs`.
 
 **43. Announcements: drafted on a button, grounded in the catalogue, posted by hand.**
-The Announcements tab on `/admin` (`?tab=announcements`, `lib/announcements.js`) queues a LinkedIn post for
+The Announcements panel on the Write tab of `/admin` (`?tab=write#announcements`, `lib/announcements.js`) queues a LinkedIn post for
 something that shipped. Nothing queues itself: the editor says what shipped and presses Draft.
 The model is given figures from the published catalogue at that moment and may state no
 others; `unsupportedNumbers` and `hypeIn` check the result in code and the panel shows any
@@ -2098,7 +2107,7 @@ touched, and are stored from then on.
 `editorUse` records whether the editor uses a tool, used it (until a date), tested it
 and did not adopt it, or never used it. Unset is the default and the honest state for
 most of the catalogue. **Never infer a value**: it is set by a person, from the Editor
-use panel on the Catalogue tab, the admin box on a tool page or the admin state of the
+use panel on the Listings tab, the admin box on a tool page or the admin state of the
 listing modal (`components/EditorUseControl.jsx`, one control for all three).
 
 - **Redis, not the file** (`svt:editoruse`, `lib/editorUseStore.js`), so a change is
@@ -2127,7 +2136,7 @@ listing modal (`components/EditorUseControl.jsx`, one control for all three).
 that no rating or recommendation path reads it.
 
 **45. Ideas: a backlog with an advisory AI review, and a prompt handed over by hand.**
-The Ideas tab on `/admin` (`?tab=ideas`). An idea is its text in whatever form it arrived,
+The Ideas panel, in Reference on the Write tab of `/admin` (`?tab=write#ideas`). An idea is its text in whatever form it arrived,
 plus an optional surface and size. Statuses: new, reviewed, approved, in progress, shipped,
 dropped, sorted in that order and then newest first. `lib/ideas.js` (pure: statuses,
 sorting, seeds, the handoff prompt), `lib/ideaStore.js` (`svt:ideas`), `lib/ideaReview.js`
@@ -2225,7 +2234,7 @@ Each tool has category attributes, pricing tiers and integrations. The shapes ar
 - **Drafts are not public.** `lib/structured.js` holds a draft per published tool, made on
   2026-10-16 from each entry's own text and nothing fetched, with the quote each value rests
   on (`evidence`) and what could not be settled (`doubts`). Only `/admin` imports it.
-- **Confirming is the publish step.** The Structured data tab (`?tab=data`) shows each draft
+- **Confirming is the publish step.** Details to confirm on the Listings tab (`?tab=listings#details-to-confirm`) shows each draft
   beside its price, note and watch. Every value is editable before Confirm. Confirm writes
   the validated record to `svt:structured` (`lib/structuredStore.js`, with history), and
   `sanitiseStructured` runs again on the server. Clear takes it back off the site.
@@ -2370,7 +2379,7 @@ in the owner panel).
 only in production.
 
 **52. Outreach to vendors (temporary): addresses only from their own site, copy by default, Resend guarded.**
-The Outreach tab on `/admin` writes to a listed vendor about their listing. Remove the tab,
+The Outreach panel (Write, Reference) on `/admin` writes to a listed vendor about their listing. Remove the panel,
 `lib/outreach.js`, `lib/outreachTemplate.js` and `app/api/admin/outreach` when the round is
 done. Keep `lib/vendorContacts.js`: the addresses are research.
 
@@ -3140,7 +3149,7 @@ reader can act on, and next to a competitor carrying no badge it read as a mark
 against the tool. Same failure as "None found" on external ratings: a note about
 how much work we have done, phrased as a verdict on somebody else.
 
-It shows in exactly one place, the **Needs verifying** panel on the Catalogue
+It shows in exactly one place, the **Needs verifying** panel on the Listings
 tab, which lists every *published* entry still at `false`. Drafts are excluded:
 they are unverified nearly by definition, they are already listed one panel up,
 and including them would bury the entries that are live and thin. Do not put it
@@ -3344,7 +3353,7 @@ on it: no hype, no unsupported number, no sentence past the limit. Say in the re
 it was added. Admin-only work, internal fixes, small catalogue additions and anything not
 yet visible get no seed. A feature that is live but not ready to talk about (pages that
 state nothing until data is confirmed) gets a seed whose `what` says when to post it.
-Nothing posts itself: the seed waits in the Announcements tab for the editor.
+Nothing posts itself: the seed waits in Announcements on the Write tab for the editor.
 
 **The procedure, on every push, and a commit cannot skip it (2026-10-18).**
 

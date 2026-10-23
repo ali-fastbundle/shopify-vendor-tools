@@ -110,7 +110,7 @@ export default async function Page() {
 
         {admin && (
           <p style={{ fontSize: F.sm, margin: `${S.xl}px 0 0` }}>
-            <a href="/admin?tab=catalogue#about-page" style={{ color: C.muted }}>Edit this page</a>
+            <a href="/admin?tab=write#about-page" style={{ color: C.muted }}>Edit this page</a>
           </p>
         )}
       </div>

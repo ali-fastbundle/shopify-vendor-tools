@@ -1,4 +1,6 @@
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { LEGACY_TABS, resolveAdminTab } from "@/lib/adminTabs";
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { read, readStats, readMailLog, readCapped, KEYS } from "@/lib/store";
 import { getClaims } from "@/lib/listings";
@@ -42,6 +44,17 @@ export default async function AdminPage({ searchParams }) {
   }
 
   // Past the gate, and only now.
+
+  /* A ?tab= from before the six-tab layout (a bookmark, a link in an email or
+     in CLAUDE.md) lands on the tab that holds its panel now, scrolled to it.
+     After the check, so the redirect confirms nothing to a stranger, and
+     before any read, so it costs nothing. */
+  const asked = typeof searchParams?.tab === "string" ? searchParams.tab : "";
+  if (LEGACY_TABS[asked]) {
+    const { tab, anchor } = resolveAdminTab(asked);
+    redirect(`/admin?tab=${tab}${anchor ? `#${anchor}` : ""}`);
+  }
+
   /*
    * Every read defaults to empty, and every one is settled rather than raced.
    *

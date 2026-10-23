@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useContext, createContext } from "react";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
@@ -29,6 +29,7 @@ import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
 import { SCREENS, PRIMING, questionOf } from "@/lib/recommendOptions";
 import { STAT_SECTIONS } from "@/lib/beacon";
+import { ADMIN_TABS, resolveAdminTab } from "@/lib/adminTabs";
 
 /*
  * Admin console.
@@ -38,57 +39,35 @@ import { STAT_SECTIONS } from "@/lib/beacon";
  * its own.
  *
  * ------------------------------------------------------------------
- *  Four tabs, ordered by whether there is anything to do
+ *  Six tabs, each one job, each in two layers (2026-10-23)
  * ------------------------------------------------------------------
- * This page grew one panel at a time until it was thirteen headings in a
- * column and the only way to find the two things that needed a decision was to
- * scroll past eleven that did not. The order now is: what is waiting on you,
- * what the directory contains, who the people are, and how the machinery is
- * doing.
+ * It had grown to ten tabs added in the order they were built, with Catalogue
+ * holding six unrelated jobs and every panel at the same weight. Now:
  *
- * Inbox is first and is the default because it is the only tab with a deadline.
- * Its count is in the tab label so the answer to "is there anything for me" is
- * visible without clicking, and when it is zero it says so in one line rather
- * than rendering four empty panels.
+ *   Inbox     is there anything for me. A summary line first, then the queues
+ *             other people's actions create, reviews to decide included.
+ *   Updates   the monitor's findings, a vendor's announcement, the feed.
+ *   Listings  the entries: drafts and details to confirm, then reference.
+ *   Write     what you author: LinkedIn posts, the list email, the About page;
+ *             ideas and outreach as reference.
+ *   Audience  who uses the site: the recommender, stats, interest, accounts,
+ *             subscribers, verified claims. Nothing there is work.
+ *   System    is anything broken: the status line, then Records, Logs, Tools.
  *
- * Every list on every tab is the same `Row`. Before this, each panel had
- * invented its own arrangement of a bold name, a coloured word and a grey date,
- * and no two were quite alike. Every destructive button is a `ConfirmBtn`,
- * because revoking a claim and dismissing a report are both one click from a
- * thing you cannot get back.
+ * Every tab is work first (WorkList, open while ten rows or fewer), then one
+ * `Reference` group: lighter, shut, and adding nothing to the tab's count. A
+ * count is work waiting, never volume.
+ *
+ * Every list on every tab is the same `Row`, and every two-press action is the
+ * same `ConfirmBtn`, so a confirmation looks the same everywhere it is.
  *
  * The palette and the type scale are the public site's, from lib/tools.js.
  * There is no second design language here.
  */
 
-const TABS = [
-  ["inbox", "Inbox"],
-  ["catalogue", "Catalogue"],
-  /* Recent updates is the public feed, and writing to it is its own job: a
-     vendor's announcement had nowhere obvious to go when the form sat in a
-     collapsed panel half way down Catalogue. Everything that is on the feed,
-     and the one form for adding to it by hand, lives here. */
-  ["updates", "Recent updates"],
-  /* Announcements are their own job, writing for LinkedIn about what shipped,
-     not a decision about the directory, so they get a tab rather than a panel
-     somewhere down Catalogue. */
-  ["announcements", "Announcements"],
-  /* The backlog: ideas with an AI review, and the prompt an approved one is
-     handed to Claude Code with. Its count is what still needs a decision. */
-  ["ideas", "Ideas"],
-  /* Structured data drafted from the notes, confirmed one tool at a time.
-     Its count is what is not confirmed yet, or confirmed and out of date. */
-  ["data", "Structured data"],
-  /* Temporary: writing to listed vendors about their listing. Remove the tab
-     and lib/outreach.js when the outreach round is done. */
-  ["outreach", "Outreach"],
-  ["people", "People"],
-  /* Audience is not system health. Tool opens, matcher queries and interest
-     counts say what visitors are doing, which is a different question from
-     whether anything is broken, and mixing them made both harder to read. */
-  ["audience", "Audience"],
-  ["system", "System"],
-];
+/* The tabs, and the map from the ten this replaced, live in lib/adminTabs.js:
+   the server page reads them too, to redirect an old ?tab= to its panel. */
+const TABS = ADMIN_TABS;
 
 /*
  * Every collection defaults to empty right here, in the signature.
@@ -151,13 +130,16 @@ export default function AdminPanel({
   /*
    * The tab comes from the URL, so every tab renders on the server.
    *
-   * Useful in itself: /admin?tab=people is a link somebody can send. It also
+   * Useful in itself: /admin?tab=audience is a link somebody can send. It also
    * makes each tab reachable without a browser, which is how the whole page
    * shipped broken once. Only the default tab server-renders, so a bad
-   * reference in Catalogue, People or System is invisible to any check that
+   * reference in Listings, Audience or System is invisible to any check that
    * loads /admin and reads the response.
    */
-  const [tab, setTab] = useState(TABS.some(([id]) => id === initialTab) ? initialTab : "inbox");
+  const [tab, setTab] = useState(resolveAdminTab(initialTab).tab);
+  /* Holds live here, not in the drafts list, because two panels read them:
+     Drafts (work) and On hold (reference), and the Listings count. */
+  const [holdMap, setHoldMap] = useState(holds || {});
   const [rows, setRows] = useState(suggestions || []);
   const [claimRows, setClaimRows] = useState(claims || {});
   const [reportRows, setReportRows] = useState(reports || []);
@@ -202,28 +184,41 @@ export default function AdminPanel({
   /* Most asked first, everywhere a queue is shown. Demand decides order. */
   const byDemand = (a, b) => timesAsked(b) - timesAsked(a);
 
-  /* Monitor findings are counted on Recent updates, where they are decided:
-     most of them end as an entry on the feed or as nothing. */
-  const inboxCount = pending.length + openReports.length + pendingClaims.length + unreadComments.length + unreadQuestions.length + unreadLists.length + pendingMedia.length;
   /*
-   * A tab's count is what needs you there, never what exists. Catalogue counts
-   * drafts waiting for Publish, Discard or Hold (not the ones on hold, which
-   * were decided, and not published entries, out-of-scope rows or deleted
-   * ones, which are history). People counts reviews to decide, not accounts.
+   * What is waiting, one number per queue. The tab labels, the Inbox's summary
+   * line and the lists' own headers all read these, so the three can never
+   * disagree. A tab's count is what needs you there, never what exists: drafts
+   * waiting on Publish, Discard or Hold (not the ones on hold, which were
+   * decided), reviews still to decide (not reviews), announcements in draft or
+   * ready. Reference panels add nothing to any of it.
    */
-  const catalogueCount = [
-    ["tool", ALL_TOOLS], ["newsletter", ALL_NEWSLETTERS], ["group", ALL_COMMUNITIES], ["podcast", ALL_PODCASTS],
-    ["youtube", ALL_YOUTUBE], ["award", ALL_AWARDS], ["event", ALL_EVENTS],
-  ].reduce((n, [kind, list]) => n + drafted(list).filter((e) => !(holds || {})[`${kind}:${e.id}`]).length, 0);
   const reviewsToDecide = (reviewRows || []).reduce((n, g) => n + (g.needs || 0), 0);
-  const counts = {
-    inbox: inboxCount,
-    catalogue: catalogueCount,
-    updates: openChanges.length,
+  const waiting = {
+    suggestions: pending.length,
+    reports: openReports.length,
+    claims: pendingClaims.length,
+    comments: unreadComments.length,
+    questions: unreadQuestions.length,
+    lists: unreadLists.length,
+    media: pendingMedia.length,
+    reviews: reviewsToDecide,
+  };
+  const backlog = {
+    drafts: [
+      ["tool", ALL_TOOLS], ["newsletter", ALL_NEWSLETTERS], ["group", ALL_COMMUNITIES], ["podcast", ALL_PODCASTS],
+      ["youtube", ALL_YOUTUBE], ["award", ALL_AWARDS], ["event", ALL_EVENTS],
+    ].reduce((n, [kind, list]) => n + drafted(list).filter((e) => !holdMap[`${kind}:${e.id}`]).length, 0),
+    details: published(ALL_TOOLS).filter((t) => !structured?.[t.id]?.confirmedAt || priceOverrides?.[t.id]?.priceAt > structured[t.id].confirmedAt).length,
     announcements: (announcements || []).filter((r) => r.status === "draft" || r.status === "ready").length,
     ideas: (ideas || []).filter((r) => r.status === "new" || r.status === "reviewed").length,
-    data: published(ALL_TOOLS).filter((t) => !structured?.[t.id]?.confirmedAt || priceOverrides?.[t.id]?.priceAt > structured[t.id].confirmedAt).length,
-    people: reviewsToDecide,
+  };
+  const inboxCount = Object.values(waiting).reduce((a, b) => a + b, 0);
+  const counts = {
+    inbox: inboxCount,
+    updates: openChanges.length,
+    listings: backlog.drafts + backlog.details,
+    write: backlog.announcements,
+    audience: 0,
     system: 0,
   };
 
@@ -322,48 +317,23 @@ export default function AdminPanel({
 
         {tab === "inbox" && (
           <Inbox
+            waiting={waiting}
+            backlog={backlog}
             pending={[...pending].sort(byDemand)}
             reports={reportRows}
             claims={pendingClaims}
             openChanges={openChanges}
-            sinceVisit={sinceVisit}
             onTab={go}
-            discovery={discovery}
-            coverage={coverage}
             comments={unreadComments}
             questions={unreadQuestions}
             lists={unreadLists}
             media={pendingMedia}
+            reviews={reviewRows}
             canCommit={Boolean(publishing?.canPublish)}
             act={act}
             busy={busy}
             onSuggestions={setRows}
             onEntries={setEntryRows}
-          />
-        )}
-
-        {tab === "catalogue" && (
-          <Catalogue
-            publishing={publishing}
-            holds={holds}
-            discards={discards}
-            reviewed={[...reviewed].sort(byDemand)}
-            entries={entryRows}
-            onEntries={setEntryRows}
-            onSuggestions={setRows}
-            interest={interest || {}}
-            editorUse={editorUse}
-            about={about}
-            aboutPhoto={aboutPhoto}
-            mediaLive={mediaState.live || {}}
-            outOfScope={outOfScopeRows}
-            deleted={deletedRows}
-            publishedSuggestions={publishedRows}
-            coverage={coverage}
-            stats={stats}
-            allSuggestions={rows}
-            act={act}
-            busy={busy}
           />
         )}
 
@@ -374,38 +344,54 @@ export default function AdminPanel({
             rewrittenChanges={rewrittenChanges || {}} editedChanges={editedChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen} />
         )}
 
-        {tab === "announcements" && <Announcements initial={announcements} />}
-
-        {tab === "ideas" && <Ideas initial={ideas} />}
-
-        {tab === "outreach" && <Outreach initial={outreach} claims={claims || {}} />}
-
-        {tab === "data" && <StructuredData initial={structured} priceOverrides={priceOverrides} />}
-
-        {tab === "people" && (
-          <People
-            accounts={accounts || {}}
-            claims={claimRows}
-            verified={verifiedClaims}
-            subscribers={subscribers || []}
-            subscriberRows={subscriberRows}
-            feed={feed}
-            reviews={reviewRows}
-            comments={commentRows}
+        {tab === "listings" && (
+          <Listings
+            publishing={publishing}
+            holds={holdMap}
+            onHolds={setHoldMap}
+            structured={structured}
+            priceOverrides={priceOverrides}
+            entries={entryRows}
+            onEntries={setEntryRows}
+            onSuggestions={setRows}
+            editorUse={editorUse}
+            mediaLive={mediaState.live || {}}
+            discovery={discovery}
             act={act}
             busy={busy}
           />
         )}
 
+        {tab === "write" && (
+          <Write
+            announcements={announcements}
+            subscribers={subscribers || []}
+            feed={feed}
+            about={about}
+            aboutPhoto={aboutPhoto}
+            ideas={ideas}
+            outreach={outreach}
+            claims={claims || {}}
+          />
+        )}
+
         {tab === "audience" && (
-          <Audience stats={stats} interest={interest || {}} entries={entryRows} recommend={recommend} />
+          <Audience stats={stats} interest={interest || {}} entries={entryRows} recommend={recommend}
+            accounts={accounts || {}} claims={claimRows} verified={verifiedClaims}
+            subscribers={subscribers || []} subscriberRows={subscriberRows}
+            reviews={reviewRows} comments={commentRows} act={act} busy={busy} />
         )}
 
         {tab === "system" && (
           <System stats={stats} maillog={maillog || []} dedupelog={dedupelog || []} rewriteLog={rewriteLog || []}
             monitorErrors={monitorErrors || []} verifiedChanges={verifiedChanges || {}}
             health={health} coverage={coverage} changelog={changelog || []}
-            inventory={inventory || []} />
+            inventory={inventory || []}
+            publishing={publishing} discards={discards}
+            reviewed={[...reviewed].sort(byDemand)} outOfScope={outOfScopeRows} deleted={deletedRows}
+            publishedSuggestions={publishedRows} allSuggestions={rows}
+            onSuggestions={setRows} onEntries={setEntryRows}
+            act={act} busy={busy} />
         )}
 
         <div style={{ height: 60 }} />
@@ -419,60 +405,78 @@ export default function AdminPanel({
 /*  Tabs                                                               */
 /* ================================================================== */
 
-function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinceVisit = [], onTab, discovery = { findings: [] }, coverage = [], comments = [], questions = [], lists = [], media = [], canCommit = false, act, busy, onSuggestions, onEntries }) {
-  const openReports = reports.filter((r) => r.status === "open");
-  const nothing = !pending.length && !openReports.length && !claims.length && !comments.length && !questions.length && !lists.length && !media.length;
+/*
+ * The first thing on the page: is there anything for me.
+ *
+ * One line per queue with its number, each a link to its list on this tab,
+ * and the monitor's findings, which are decided on Updates. Under it, quieter,
+ * your own backlog: drafts, details to confirm, announcements and ideas. Both
+ * lines read the numbers the tab labels read, so they cannot disagree.
+ */
+const WAITING_LABEL = {
+  suggestions: ["suggestion", "suggestions", "q-suggestions"],
+  reports: ["report", "reports", "q-reports"],
+  claims: ["claim to check", "claims to check", "q-claims"],
+  comments: ["comment", "comments", "q-comments"],
+  questions: ["question", "questions", "q-questions"],
+  lists: ["list published", "lists published", "q-lists"],
+  media: ["media set", "media sets", "q-media"],
+  reviews: ["review to decide", "reviews to decide", "q-reviews"],
+};
 
-  /* The monitor's findings are decided on Recent updates. One line here says
-     they are waiting, so moving them did not hide them. */
-  const pointer = openChanges.length > 0 && (
-    <p style={{ fontSize: F.sm, color: C.accentInk, margin: `0 0 ${S["2xl"]}px`, lineHeight: 1.6, fontWeight: 600 }}>
-      {openChanges.length} monitor finding{openChanges.length === 1 ? "" : "s"} waiting
-      {sinceVisit.length > 0 ? `, ${sinceVisit.length} since your last visit` : ""}.{" "}
-      <button onClick={() => onTab("updates")} style={{
-        background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
-        fontSize: "inherit", fontWeight: 600, color: C.accentInk, textDecoration: "underline",
-      }}>Open Recent updates</button>
-    </p>
+function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
+  const parts = Object.entries(waiting).filter(([, n]) => n > 0);
+  const link = { color: C.text, fontWeight: 700, textDecoration: "underline", textUnderlineOffset: 3 };
+  const tabLink = (label, id) => (
+    <button onClick={() => onTab(id)} style={{ ...link, background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "inherit" }}>{label}</button>
   );
+  const back = [
+    backlog.drafts > 0 && ["draft", "drafts", "listings"],
+    backlog.details > 0 && ["listing with details to confirm", "listings with details to confirm", "listings"],
+    backlog.announcements > 0 && ["announcement to post", "announcements to post", "write"],
+    backlog.ideas > 0 && ["idea to decide", "ideas to decide", "write"],
+  ].filter(Boolean);
+  const n = (key, one, many) => `${backlog[key]} ${backlog[key] === 1 ? one : many}`;
+  const keyOf = { draft: "drafts", "listing with details to confirm": "details", "announcement to post": "announcements", "idea to decide": "ideas" };
+  return (
+    <section data-summary="" style={{ paddingBottom: S["2xl"] }}>
+      <p style={{ fontSize: F.lg, margin: 0, lineHeight: 1.7 }}>
+        {parts.length || findings
+          ? <>
+              <span style={{ fontWeight: 700 }}>Waiting on you: </span>
+              {parts.map(([key, count], i) => {
+                const [one, many, anchor] = WAITING_LABEL[key];
+                return <React.Fragment key={key}>{i ? ", " : ""}<a href={`#${anchor}`} style={link}>{count} {count === 1 ? one : many}</a></React.Fragment>;
+              })}
+              {findings > 0 && <>{parts.length ? ", " : ""}{tabLink(`${findings} monitor finding${findings === 1 ? "" : "s"}`, "updates")}</>}
+              .
+            </>
+          : <span style={{ color: C.muted }}>Nothing is waiting on you.</span>}
+      </p>
+      {back.length > 0 && (
+        <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.6 }}>
+          Your backlog:{" "}
+          {back.map(([one, many, tab], i) => (
+            <React.Fragment key={one}>{i ? ", " : ""}
+              <button onClick={() => onTab(tab)} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "inherit", color: C.muted, textDecoration: "underline", textUnderlineOffset: 3 }}>
+                {n(keyOf[one], one, many)}
+              </button>
+            </React.Fragment>
+          ))}.
+        </p>
+      )}
+    </section>
+  );
+}
 
-  /*
-   * `nothing` is about deadlines, and discovery findings are not one: they are
-   * leads to work through whenever there is time, which is why they are absent
-   * from this check and from the count in the tab label.
-   *
-   * They are not absent from the page, though. The early return used to end
-   * before the Discovered panel, so on the ordinary day when nothing is
-   * actually waiting, the one list with anything in it was the one you could
-   * not reach. Either the panel belongs on this tab or it does not, and the
-   * answer cannot depend on whether something else happens to be open.
-   */
-  if (nothing) {
-    return (
-      <>
-        {pointer}
-        <section className="pb-10">
-          <p style={{ fontSize: F.lg, color: C.muted, margin: 0, lineHeight: 1.6, maxWidth: "62ch" }}>
-            Nothing else is waiting on you. No suggestions to review, no open reports, no claims to check
-            and no blog comments to read.
-          </p>
-          <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.6, maxWidth: "62ch" }}>
-            The Catalogue tab has the drafts and what is published. The monitor runs on Mondays.
-          </p>
-          <CoverageLine rows={coverage} />
-        </section>
-        <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
-      </>
-    );
-  }
-
+function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims = [], openChanges = [], onTab, comments = [], questions = [], lists = [], media = [], reviews = [], canCommit = false, act, busy, onSuggestions, onEntries }) {
   return (
     <>
-      {pointer}
+      <Summary waiting={waiting} backlog={backlog} findings={openChanges.length} onTab={onTab} />
 
-      <WorkList rows={pending.length} title="Suggestions to review"
+      <WorkList rows={pending.length} title="Suggestions to review" anchor="q-suggestions"
         count={pending.length}
-        hint="Sorted by how many people asked. Mark reviewed clears the moderation hold so the row is public; it does not create a listing. Research and draft writes one for you to check."
+        hint="Sorted by how many people asked. Mark reviewed clears the moderation hold so the row is public; it does not create a listing. Research and draft writes one for you to check, and Approve and publish puts it in the store, not the file."
       >
         {pending.length === 0
           ? <Empty>Nothing waiting. With MODERATE_SUGGESTIONS unset, suggestions go public on submit and never land here.</Empty>
@@ -489,35 +493,37 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
 
       <OpenReports rows={reports} act={act} busy={busy} />
 
+      <ReviewsToDecide groups={reviews} act={act} busy={busy} />
+
       {comments.length > 0 && (
-        <WorkList rows={comments.length} title="Comments to read" count={comments.length}
+        <WorkList rows={comments.length} title="Comments to read" count={comments.length} anchor="q-comments"
           hint="Blog comments are live the moment they are posted. Read each one: Looks fine takes it out of here, Hide takes it off the post with a reason and keeps it, Delete removes it for good.">
           {comments.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
         </WorkList>
       )}
 
       {media.length > 0 && (
-        <WorkList rows={media.length} title="Media to approve" count={media.length}
+        <WorkList rows={media.length} title="Media to approve" count={media.length} anchor="q-media"
           hint="Screenshots and demo links from verified vendors. Nothing shows until you approve. Approving commits the new images to the repository in one commit and puts the set on the listing, labelled as the vendor's. Reject needs a reason, which the vendor is sent.">
           {media.map(([toolId, p]) => <MediaRow key={toolId} toolId={toolId} p={p} canCommit={canCommit} act={act} busy={busy} />)}
         </WorkList>
       )}
 
       {lists.length > 0 && (
-        <WorkList rows={lists.length} title="Lists published" count={lists.length}
+        <WorkList rows={lists.length} title="Lists published" count={lists.length} anchor="q-lists"
           hint="Lists visitors made public. They are live at once and not indexed until you mark one fine. Hide takes one off the site with a reason and keeps it.">
           {lists.map((l) => <ListRow key={l.id} l={l} act={act} busy={busy} />)}
         </WorkList>
       )}
 
       {questions.length > 0 && (
-        <WorkList rows={questions.length} title="Questions to read" count={questions.length}
+        <WorkList rows={questions.length} title="Questions to read" count={questions.length} anchor="q-questions"
           hint="Questions on tool pages are live the moment they are asked. Looks fine takes one out of here. Hide takes a question or an answer off the page with a reason and keeps it. Delete removes it for good.">
           {questions.map((q) => <QuestionRow key={q.toolId + q.id} q={q} act={act} busy={busy} />)}
         </WorkList>
       )}
 
-      <WorkList rows={claims.length} title="Claims to check"
+      <WorkList rows={claims.length} title="Claims to check" anchor="q-claims"
         count={claims.length}
         hint="Started but not proved. They have a token to publish on their own domain; nothing is editable until they do."
       >
@@ -525,90 +531,60 @@ function Inbox({ pending = [], reports = [], claims = [], openChanges = [], sinc
           ? <Empty>No claims waiting.</Empty>
           : claims.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} />)}
       </WorkList>
-
-      <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
     </>
   );
 }
 
-function Catalogue({ publishing = { canPublish: false, log: [] }, holds = {}, discards = [], reviewed = [], entries = {}, onEntries, onSuggestions, interest = {}, editorUse = {}, about = null, aboutPhoto = "", mediaLive = {}, outOfScope = [], deleted = [], publishedSuggestions = [], stats = {}, allSuggestions = [], coverage = [], act, busy }) {
+/*
+ * The directory's entries. Work first: drafts waiting on Publish, Hold or
+ * Discard, and confirmed details still to confirm. Then reference: what is
+ * held, live but unverified, editor use, entries published from the queue,
+ * vendor media, and the competitors vendors name that are not listed.
+ */
+function Listings({ publishing = { canPublish: false, log: [] }, holds = {}, onHolds, structured = {}, priceOverrides = {}, entries = {}, onEntries, onSuggestions, editorUse = {}, mediaLive = {}, discovery = { findings: [] }, act, busy }) {
   return (
     <>
-      <Drafts publishing={publishing} holds={holds} discards={discards} />
-      <PublishingNote />
-      <NeedsVerifying />
-      <EditorUse editorUse={editorUse} entries={entries} />
-      <AboutPage initial={about} photo={aboutPhoto} />
-      <Collapsible title="Vendor media" count={Object.keys(mediaLive).length}
-        hint="Screenshots and demo links vendors supplied and you approved, as they show on each listing. Remove takes them off the listing. The image files stay in the repository's history.">
-        {Object.keys(mediaLive).length === 0 ? <Empty>No vendor media on any listing.</Empty>
-          : Object.entries(mediaLive).map(([toolId, m]) => (
-            <Row key={toolId}
-              title={<a href={`/tools/${toolId}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{ALL_TOOLS.find((t) => t.id === toolId)?.name || toolId}</a>}
-              meta={`${m.screenshots.length} screenshot${m.screenshots.length === 1 ? "" : "s"}${m.video ? ", a video link" : ""} · approved ${String(m.approvedAt).slice(0, 10)} by ${m.approvedBy}${m.commit ? ` · commit ${m.commit.slice(0, 7)}` : ""}`}
-              actions={<ConfirmBtn busy={busy === "media-remove" + toolId} onConfirm={() => act("media-remove", toolId, { toolId })} confirm="Take it off the listing?">Remove</ConfirmBtn>}
-            />
-          ))}
-      </Collapsible>
-      <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
-      <Interest interest={interest} entries={entries} />
-      <Collapsible title="Monitor coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
-        hint="Every published tool and newsletter, and whether the weekly monitor can actually read it. A listing it cannot see produces no findings, which looks exactly like a listing with nothing new, so silence only means something for the ones marked Monitored.">
-        <CoverageList rows={coverage} />
-      </Collapsible>
-      {/* Running totals are what happened, so they follow the work. */}
-      <Tallies stats={stats} rows={allSuggestions} />
-      <OutOfScope rows={outOfScope} />
-      <Deleted rows={deleted} act={act} busy={busy} />
-      <Collapsible title="Published" count={publishedSuggestions.length}
-        hint="Suggestions that became listings, with the entry and the date. They have left the queue and the public list. What people asked carried across to the listing's interest count.">
-        {publishedSuggestions.length === 0 ? <Empty>No suggestion has become a listing yet.</Empty>
-          : publishedSuggestions.map((s) => (
-            <Row key={s.id} title={s.name}
-              badges={<Pill>{`asked ${timesAsked(s)}`}</Pill>}
-              meta={<>Published {String(s.publishedAt).slice(0, 10)} as{" "}
-                <a href={`/${s.publishedKind === "newsletter" ? "newsletters" : s.publishedKind === "event" ? "events" : "tools"}/${s.publishedId}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{s.publishedId}</a>
-                {s.date ? ` · suggested ${String(s.date).slice(0, 10)}` : ""}</>}
-            />
-          ))}
-      </Collapsible>
-      <Collapsible title="Reviewed suggestions" count={reviewed.length}
-        hint="Public on the site. Still suggestions, not listings. Sorted by how many people asked.">
-        {reviewed.length === 0
-          ? <Empty>No suggestions yet.</Empty>
-          : reviewed.map((s) => (
-            <SuggestionRow key={s.id} s={s}
-              footer={<DraftPanel s={s} onSuggestions={onSuggestions} onEntries={onEntries} />}>
-              <ConfirmBtn onConfirm={() => act("delete-suggestion", s.id)}
-                busy={busy === "delete-suggestion" + s.id}>Delete</ConfirmBtn>
-            </SuggestionRow>
-          ))}
-      </Collapsible>
+      <Drafts publishing={publishing} holds={holds} onHolds={onHolds} part="work" />
+      <StructuredData initial={structured} priceOverrides={priceOverrides} />
+
+      <Reference>
+        <Drafts publishing={publishing} holds={holds} onHolds={onHolds} part="held" />
+        <NeedsVerifying />
+        <EditorUse editorUse={editorUse} entries={entries} />
+        <PublishedEntries entries={entries} onEntries={onEntries} act={act} busy={busy} />
+        <Collapsible title="Vendor media" count={Object.keys(mediaLive).length}
+          hint="Screenshots and demo links vendors supplied and you approved, as they show on each listing. Remove takes them off the listing. The image files stay in the repository's history.">
+          {Object.keys(mediaLive).length === 0 ? <Empty>No vendor media on any listing.</Empty>
+            : Object.entries(mediaLive).map(([toolId, m]) => (
+              <Row key={toolId}
+                title={<a href={`/tools/${toolId}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{ALL_TOOLS.find((t) => t.id === toolId)?.name || toolId}</a>}
+                meta={`${m.screenshots.length} screenshot${m.screenshots.length === 1 ? "" : "s"}${m.video ? ", a video link" : ""} · approved ${String(m.approvedAt).slice(0, 10)} by ${m.approvedBy}${m.commit ? ` · commit ${m.commit.slice(0, 7)}` : ""}`}
+                actions={<ConfirmBtn busy={busy === "media-remove" + toolId} onConfirm={() => act("media-remove", toolId, { toolId })} confirm="Take it off the listing?">Remove</ConfirmBtn>}
+              />
+            ))}
+        </Collapsible>
+        <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
+      </Reference>
     </>
   );
 }
 
-function People({ accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], feed = [], reviews = [], comments = [], act, busy }) {
-  const read = comments.filter((c) => c.reviewed);
+/*
+ * What you write. Work: LinkedIn posts in draft or ready, the email to the
+ * list, the About page. Reference: the ideas backlog, and outreach while the
+ * round runs (temporary, invariant 52).
+ */
+function Write({ announcements = [], subscribers = [], feed = [], about = null, aboutPhoto = "", ideas = [], outreach = { contacts: {}, state: {}, meta: {} }, claims = {} }) {
   return (
     <>
-      <Reviews groups={reviews} act={act} busy={busy} />
-      <Collapsible title="Blog comments" count={read.length}
-        hint="Comments already read, including hidden ones. Unread comments are in the Inbox.">
-        {read.length === 0 ? <Empty>No comments read yet.</Empty>
-          : read.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
-      </Collapsible>
-      <Collapsible title="Verified claims"
-        count={verified.length}
-        hint="These addresses can edit their listing. Revoke access drops the claim and leaves the published copy as the vendor left it; revoke and revert also restores the editorial original."
-      >
-        {verified.length === 0
-          ? <Empty>No verified claims yet.</Empty>
-          : verified.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} verified />)}
-      </Collapsible>
-      <Accounts accounts={accounts} claims={claims} />
-      <Subscribers list={subscribers} rows={subscriberRows} />
+      <Announcements initial={announcements} />
       <Compose count={subscribers.length} feed={feed} />
+      <AboutPage initial={about} photo={aboutPhoto} />
+
+      <Reference>
+        <Ideas initial={ideas} />
+        <Outreach initial={outreach} claims={claims} />
+      </Reference>
     </>
   );
 }
@@ -782,83 +758,80 @@ function QuestionRow({ q, act, busy }) {
 
 const MARKER_LABEL = { burst: "in a burst", domain: "same domain as listing" };
 
-function Reviews({ groups = [], act, busy }) {
+function sortReviews(groups = []) {
   const all = groups.flatMap((g) => g.reviews.map((r) => ({ g, r })));
-  const open = groups.filter((g) => g.needs > 0);
+  return {
+    all,
+    open: groups.filter((g) => g.needs > 0),
+    excluded: all.filter(({ r }) => r.excluded),
+    confirmed: all.filter(({ r }) => !r.excluded && r.confirmed && !r.active.length),
+    rest: all.filter(({ r }) => !r.excluded && !r.confirmed && !r.active.length),
+  };
+}
+
+/* The work half, on the Inbox: listings with a review nobody has decided. */
+function ReviewsToDecide({ groups = [], act, busy }) {
+  const { all, open } = sortReviews(groups);
   const needs = open.reduce((n, g) => n + g.needs, 0);
-  const excluded = all.filter(({ r }) => r.excluded);
-  const confirmed = all.filter(({ r }) => !r.excluded && r.confirmed && !r.active.length);
-  const rest = all.filter(({ r }) => !r.excluded && !r.confirmed && !r.active.length);
+  return (
+    <WorkList rows={open.length} title="Reviews to decide" count={needs} anchor="q-reviews"
+      hint="Reviews carrying a marker nobody has looked at. Markers say look, not exclude. Confirm keeps a review counted and clears what it was raised for; Exclude keeps it on the listing, labelled, and out of the average and the structured-data rating. Decided reviews are on Audience.">
+      {open.length === 0
+        ? <Empty>{all.length ? "Nothing needs a decision." : "No reviews yet."}</Empty>
+        : open.map((g) => <ReviewGroup key={g.id} g={g} act={act} busy={busy} />)}
+    </WorkList>
+  );
+}
+
+/* The record half, in Audience's reference: every review already decided. */
+function ReviewsRecord({ groups = [], act, busy }) {
+  const { excluded, confirmed, rest } = sortReviews(groups);
   const item = ({ g, r }) => <ReviewItem key={`${g.id}:${r.id}`} g={g} r={r} act={act} busy={busy} showListing />;
   return (
     <>
-      <WorkList rows={open.length} title="Reviews to decide" count={needs}
-        hint="Reviews carrying a marker nobody has looked at. Markers say look, not exclude. Confirm keeps a review counted and clears what it was raised for; Exclude keeps it on the listing, labelled, and out of the average and the structured-data rating.">
-        {open.length === 0
-          ? <Empty>{all.length ? "Nothing needs a decision." : "No reviews yet."}</Empty>
-          : open.map((g) => <ReviewGroup key={g.id} g={g} act={act} busy={busy} />)}
-      </WorkList>
-      {excluded.length > 0 && (
-        <Collapsible title="Excluded" count={excluded.length}
-          hint="Shown on the listing with the reason, counted nowhere. Unexclude if the call was wrong; the exclusion stays in the review's history.">
-          {excluded.map(item)}
-        </Collapsible>
-      )}
-      {confirmed.length > 0 && (
-        <Collapsible title="Confirmed" count={confirmed.length}
-          hint="Looked at and fine. Not raised again by the marker it was confirmed for; a marker of another kind, or an edit to the text, brings it back.">
-          {confirmed.map(item)}
-        </Collapsible>
-      )}
-      {rest.length > 0 && (
-        <Collapsible title="Other reviews" count={rest.length} openWhen={false}
-          hint="No marker and no decision. The same controls apply.">
-          {rest.map(item)}
-        </Collapsible>
-      )}
+      <Collapsible title="Excluded reviews" count={excluded.length}
+        hint="Shown on the listing with the reason, counted nowhere. Unexclude if the call was wrong; the exclusion stays in the review's history.">
+        {excluded.length === 0 ? <Empty>No review is excluded.</Empty> : excluded.map(item)}
+      </Collapsible>
+      <Collapsible title="Confirmed reviews" count={confirmed.length}
+        hint="Looked at and fine. Not raised again by the marker it was confirmed for; a marker of another kind, or an edit to the text, brings it back.">
+        {confirmed.length === 0 ? <Empty>No review is confirmed.</Empty> : confirmed.map(item)}
+      </Collapsible>
+      <Collapsible title="Other reviews" count={rest.length}
+        hint="No marker and no decision. The same controls apply.">
+        {rest.length === 0 ? <Empty>No other reviews.</Empty> : rest.map(item)}
+      </Collapsible>
     </>
   );
 }
 
 /* One listing's open reviews, and the bulk confirm when it has a burst. */
 function ReviewGroup({ g, act, busy }) {
-  const [armed, setArmed] = useState(false);
   const openReviews = g.reviews.filter((r) => r.active.length);
   const summary = g.average == null ? "no rating shown" : `${g.average} from ${g.counted} counted`;
   return (
-    <div style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0 4px" }}>
-      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-        <a href={`/${g.kind === "newsletter" ? "newsletters" : "tools"}/${g.id}`}
-          style={{ fontSize: F.lg, fontWeight: 700, color: C.text, textDecoration: "none" }}>{g.name}</a>
+    <Row
+      title={<a href={`/${g.kind === "newsletter" ? "newsletters" : "tools"}/${g.id}`}
+        style={{ color: C.text, textDecoration: "none" }}>{g.name}</a>}
+      badges={<>
         <span className="tnum" style={{ fontSize: F.xs, color: C.dim }}>
           {g.needs} of {g.reviews.length} to decide, {summary}{g.domain ? `, ${g.domain}` : ""}
         </span>
         {g.burst && g.burstOpen.length > 0 && (
           <Pill tone="warn">{g.burst.count} in {BURST_DAYS} days, {g.burst.from} to {g.burst.to}</Pill>
         )}
-      </div>
-      {g.burstOpen.length > 1 && (
-        <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
-          {armed ? (
-            <>
-              <Btn tone="go" busy={busy === `confirm-burst${g.id}`}
-                onClick={() => { setArmed(false); act("confirm-burst", "", { toolId: g.id }, g.id); }}>
-                Confirm {g.burstOpen.length} as genuine
-              </Btn>
-              <Btn onClick={() => setArmed(false)}>Cancel</Btn>
-              <span style={{ fontSize: F.xs, color: C.muted }}>
-                Clears the burst marker on each and keeps them counted. A same-domain marker stays.
-              </span>
-            </>
-          ) : (
-            <Btn onClick={() => setArmed(true)}>Confirm all {g.burstOpen.length} in this burst</Btn>
-          )}
-        </div>
-      )}
-      <div style={{ paddingLeft: S.lg }}>
-        {openReviews.map((r) => <ReviewItem key={r.id} g={g} r={r} act={act} busy={busy} />)}
-      </div>
-    </div>
+      </>}
+      actions={g.burstOpen.length > 1 ? (
+        <ConfirmBtn tone="go" busy={busy === `confirm-burst${g.id}`}
+          confirm={`Confirm ${g.burstOpen.length} as genuine`}
+          note="Clears the burst marker on each and keeps them counted. A same-domain marker stays."
+          onConfirm={() => act("confirm-burst", "", { toolId: g.id }, g.id)}>
+          Confirm all {g.burstOpen.length} in this burst
+        </ConfirmBtn>
+      ) : null}
+    >
+      {openReviews.map((r) => <ReviewItem key={r.id} g={g} r={r} act={act} busy={busy} />)}
+    </Row>
   );
 }
 
@@ -919,43 +892,75 @@ const BURST_DAYS = 7;
  * look. A dumping ground with the diagnosis buried in it is a tab people stop
  * opening.
  */
-function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, coverage = [], changelog = [], inventory = [] }) {
+function System({ stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, coverage = [], changelog = [], inventory = [], publishing = { canPublish: false, log: [] }, discards = [], reviewed = [], outOfScope = [], deleted = [], publishedSuggestions = [], allSuggestions = [], onSuggestions, onEntries, act, busy }) {
   return (
     <>
       <StatusStrip health={health} maillog={maillog} coverage={coverage} />
 
-      <Housekeeping inventory={inventory} />
+      {/* What happened to things that were once work. */}
+      <Reference title="Records">
+        <Collapsible title="Reviewed suggestions" count={reviewed.length}
+          hint="Public on the site. Still suggestions, not listings. Sorted by how many people asked.">
+          {reviewed.length === 0
+            ? <Empty>No suggestions yet.</Empty>
+            : reviewed.map((s) => (
+              <SuggestionRow key={s.id} s={s}
+                footer={<DraftPanel s={s} onSuggestions={onSuggestions} onEntries={onEntries} />}>
+                <ConfirmBtn onConfirm={() => act("delete-suggestion", s.id)}
+                  busy={busy === "delete-suggestion" + s.id}>Delete</ConfirmBtn>
+              </SuggestionRow>
+            ))}
+        </Collapsible>
+        <Collapsible title="Published suggestions" count={publishedSuggestions.length}
+          hint="Suggestions that became listings, with the entry and the date. They have left the queue and the public list. What people asked carried across to the listing's interest count.">
+          {publishedSuggestions.length === 0 ? <Empty>No suggestion has become a listing yet.</Empty>
+            : publishedSuggestions.map((s) => (
+              <Row key={s.id} title={s.name}
+                badges={<Pill>{`asked ${timesAsked(s)}`}</Pill>}
+                meta={<>Published {String(s.publishedAt).slice(0, 10)} as{" "}
+                  <a href={`/${s.publishedKind === "newsletter" ? "newsletters" : s.publishedKind === "event" ? "events" : "tools"}/${s.publishedId}`} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{s.publishedId}</a>
+                  {s.date ? ` · suggested ${String(s.date).slice(0, 10)}` : ""}</>}
+              />
+            ))}
+        </Collapsible>
+        <OutOfScope rows={outOfScope} />
+        <Deleted rows={deleted} act={act} busy={busy} />
+        <Drafts publishing={publishing} discards={discards} part="records" />
+        <Tallies stats={stats} rows={allSuggestions} />
+      </Reference>
 
-      <Collapsible title="Mail log" count={maillog.length}
-        openWhen={maillog.some((r) => !r.ok)}
-        hint="Every send attempt, newest first. A send that leaves no row here never happened.">
-        <MailLog rows={maillog} />
-      </Collapsible>
+      {/* What the machinery did, newest first. */}
+      <Reference title="Logs">
+        <Collapsible title="Changelog archive" count={changelog.length}
+          hint="Every monitor finding ever recorded, including the handled ones. Updates shows what is still open.">
+          <ChangelogArchive rows={changelog} />
+        </Collapsible>
+        <Collapsible title="AI rewrites" count={rewriteLog.length}
+          hint="Every description rewritten with AI, with the finding that prompted it, what the model proposed and what was saved. Newest first.">
+          <RewriteLog rows={rewriteLog} />
+        </Collapsible>
+        <Collapsible title="Monitor accuracy" count={monitorErrors.length}
+          hint="How often each kind of finding was marked wrong, over the findings still in the window. A finding marked wrong is the monitor misreading a page, not a finding that was merely not worth acting on.">
+          <MonitorAccuracy rows={changelog} errors={monitorErrors} verified={verifiedChanges} />
+        </Collapsible>
+        <Collapsible title="Dedup decisions" count={dedupelog.length}
+          hint="Every submission, what it was matched to, and what decided it.">
+          <DedupeLog rows={dedupelog} />
+        </Collapsible>
+        <Collapsible title="Mail log" count={maillog.length}
+          hint="Every send attempt, newest first. A send that leaves no row here never happened. Failures in the last day are counted in the status strip above.">
+          <MailLog rows={maillog} />
+        </Collapsible>
+      </Reference>
 
-      <Collapsible title="Test an event" count=""
-        hint="Fires a real send through the same dispatcher the routes use, with dummy data, to your address only.">
-        <NotificationTest />
-      </Collapsible>
-
-      <Collapsible title="Dedup decisions" count={dedupelog.length}
-        hint="Every submission, what it was matched to, and what decided it.">
-        <DedupeLog rows={dedupelog} />
-      </Collapsible>
-
-      <Section title="Monitor accuracy" count={monitorErrors.length}
-        hint="How often each kind of finding was marked wrong, over the findings still in the window. A finding marked wrong is the monitor misreading a page, not a finding that was merely not worth acting on.">
-        <MonitorAccuracy rows={changelog} errors={monitorErrors} verified={verifiedChanges} />
-      </Section>
-
-      <Collapsible title="AI rewrites" count={rewriteLog.length}
-        hint="Every description rewritten with AI, with the finding that prompted it, what the model proposed and what was saved. Newest first.">
-        <RewriteLog rows={rewriteLog} />
-      </Collapsible>
-
-      <Collapsible title="Changelog archive" count={changelog.length}
-        hint="Every monitor finding ever recorded, including the handled ones. The Inbox shows what is still open.">
-        <ChangelogArchive rows={changelog} />
-      </Collapsible>
+      {/* Things you run by hand. */}
+      <Reference title="Tools">
+        <Housekeeping inventory={inventory} />
+        <Collapsible title="Test an event" count=""
+          hint="Fires a real send through the same dispatcher the routes use, with dummy data, to your address only.">
+          <NotificationTest />
+        </Collapsible>
+      </Reference>
     </>
   );
 }
@@ -1193,7 +1198,7 @@ function StatusStrip({ health, maillog = [], coverage = [] }) {
       bad: false,
       warn: notCovered > 0,
       value: `${cov.monitored} of ${cov.total} monitored`,
-      note: notCovered ? `${notCovered} not covered: ${uncovered(coverage).map((r) => r.name).join(", ")}. Catalogue, Monitor coverage.` : "",
+      note: notCovered ? `${notCovered} not covered: ${uncovered(coverage).map((r) => r.name).join(", ")}. Updates, Monitor coverage, has each one.` : "",
     },
   ];
 
@@ -1253,13 +1258,34 @@ function StatusStrip({ health, maillog = [], coverage = [] }) {
  * Audience, not health. What visitors are doing, kept away from what is
  * broken so neither has to be read through the other.
  */
-function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {}, recommend = { runs: [], summary: null } }) {
+function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {}, recommend = { runs: [], summary: null }, accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], reviews = [], comments = [], act, busy }) {
+  const read = comments.filter((c) => c.reviewed);
   return (
     <>
       <RecommenderRuns runs={recommend.runs || []} summary={recommend.summary} />
       <RecommenderFeedback feedback={recommend.feedback} />
       <Stats stats={stats} />
       <Interest interest={interest} entries={entries} />
+
+      {/* The people, and everything already decided about what they wrote. */}
+      <Reference>
+        <Accounts accounts={accounts} claims={claims} />
+        <Subscribers list={subscribers} rows={subscriberRows} />
+        <Collapsible title="Verified claims"
+          count={verified.length}
+          hint="These addresses can edit their listing. Revoke access drops the claim and leaves the published copy as the vendor left it; revoke and revert also restores the editorial original."
+        >
+          {verified.length === 0
+            ? <Empty>No verified claims yet.</Empty>
+            : verified.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} verified />)}
+        </Collapsible>
+        <ReviewsRecord groups={reviews} act={act} busy={busy} />
+        <Collapsible title="Blog comments read" count={read.length}
+          hint="Comments already read, including hidden ones. Unread comments are in the Inbox.">
+          {read.length === 0 ? <Empty>No comments read yet.</Empty>
+            : read.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
+        </Collapsible>
+      </Reference>
     </>
   );
 }
@@ -1414,7 +1440,7 @@ function StructuredData({ initial = {}, priceOverrides = {} }) {
   const done = tools.filter((t) => stateOf(t) === "confirmed");
   return (
     <>
-      <WorkList rows={open.length} title="Structured data to confirm" count={open.length}
+      <WorkList rows={open.length} title="Details to confirm" count={open.length} anchor="details-to-confirm"
         hint="Each tool's attributes, pricing and integrations, drafted from its note. Read the draft against the note on the left, fix anything wrong, and press Confirm. Only confirmed values are public. A blank value means unknown, and the site shows it as Unknown. A price edited by the vendor or the monitor after you confirm puts the tool back here.">
         {open.length === 0 ? <Empty>Everything is confirmed.</Empty>
           : open.map((t) => <StructuredRow key={t.id} tool={t} record={records[t.id]} state={stateOf(t)} override={priceOverrides[t.id]}
@@ -1633,7 +1659,7 @@ function Outreach({ initial = { contacts: {}, state: {}, meta: {} }, claims = {}
   const counts = tools.reduce((n, t) => { const s = statusOf(t.id).split(" ")[0]; n[s] = (n[s] || 0) + 1; return n; }, {});
   const field = { ...FIELD, width: "100%" };
   return (
-    <Section title="Outreach" count={`${counts["not"] || 0} not contacted`}
+    <Collapsible title="Outreach" anchor="outreach" count={`${counts["not"] || 0} not contacted`}
       hint="Temporary. Write to a listed vendor about their listing. Pick a tool: the draft fills from the catalogue. By default you copy it and send it from your own mailbox, so a vendor replies to a person. Every send, either way, is logged.">
       <div style={{ padding: "12px 0" }}>
         <p style={{ margin: `0 0 ${S.sm}px`, fontSize: F.xs, color: C.dim }}>
@@ -1743,7 +1769,7 @@ function Outreach({ initial = { contacts: {}, state: {}, meta: {} }, claims = {}
           </>
         )}
       </div>
-    </Section>
+    </Collapsible>
   );
 }
 
@@ -1781,7 +1807,7 @@ function Ideas({ initial = [] }) {
 
   return (
     <>
-      <WorkList rows={open.length} title="Ideas" count={open.length}
+      <WorkList rows={open.length} title="Ideas" count={open.length} anchor="ideas"
         hint="Write it in whatever form it arrived. Review this asks a model what it would take, what already covers it, which invariants it touches and what is wrong with it. The review is advice: it is kept with the idea, and approving against it is recorded. An approved idea can be copied as a prompt for Claude Code; paste the commit hash back when it ships.">
         <div style={{ padding: "12px 0" }}>
           <textarea value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })}
@@ -1963,7 +1989,7 @@ function Announcements({ initial = [] }) {
 
   return (
     <>
-      <WorkList rows={open.length} title="Announcements" count={open.length}
+      <WorkList rows={open.length} title="Announcements" count={open.length} anchor="announcements"
         hint="A LinkedIn post for something that shipped, queued until it is posted or dropped. Drafting is a button you press; posting is you, pasting it into LinkedIn and marking it posted. Figures come from the published catalogue at the moment of drafting.">
         <div style={{ padding: "12px 0", borderTop: 0 }}>
           <div className="flex flex-wrap" style={{ gap: S.sm }}>
@@ -2141,19 +2167,28 @@ function Section({ title, count, hint, children }) {
  * a thing with nothing in it stays shut and a thing on fire does not.
  */
 function Collapsible({ title, count, hint, openWhen = false, anchor = "", children }) {
-  const [open, setOpen] = useState(openWhen);
-  /* A link to /admin?tab=...#<anchor> opens this panel and scrolls to it. */
+  /* Inside a Reference group the panel is the quieter kind, and always starts
+     shut: reference is what you go looking for, never what greets you. */
+  const quiet = useContext(QuietCtx);
+  const [open, setOpen] = useState(quiet ? false : openWhen);
+  /* A link to /admin?tab=...#<anchor>, or a summary link on this page to
+     #<anchor>, opens this panel and scrolls to it. */
   useEffect(() => {
-    if (!anchor) return;
-    try {
-      if (window.location.hash === `#${anchor}`) {
-        setOpen(true);
-        setTimeout(() => document.getElementById(anchor)?.scrollIntoView(), 0);
-      }
-    } catch {}
+    if (!anchor) return undefined;
+    const check = () => {
+      try {
+        if (window.location.hash === `#${anchor}`) {
+          setOpen(true);
+          setTimeout(() => document.getElementById(anchor)?.scrollIntoView(), 0);
+        }
+      } catch {}
+    };
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
   }, [anchor]);
   return (
-    <section className="pb-6" id={anchor || undefined}>
+    <section className={quiet ? "pb-3" : "pb-6"} id={anchor || undefined} data-panel={quiet ? "reference" : "work"}>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open}
         className="flex flex-wrap items-baseline" style={{
           gap: S.sm, background: "none", border: 0, padding: 0, width: "100%",
@@ -2162,9 +2197,11 @@ function Collapsible({ title, count, hint, openWhen = false, anchor = "", childr
         <span aria-hidden="true" style={{
           fontSize: F.xs, color: C.dim, width: 10, display: "inline-block",
         }}>{open ? "\u25be" : "\u25b8"}</span>
-        <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
+        <h2 style={quiet
+          ? { fontSize: F.md, fontWeight: 600, margin: 0, color: C.muted }
+          : { fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
         {count !== "" && count !== undefined && (
-          <span className="tnum" style={{ fontSize: F.sm, color: Number(count) > 0 ? C.muted : C.dim }}>{count}</span>
+          <span className="tnum" style={{ fontSize: quiet ? F.xs : F.sm, color: !quiet && Number(count) > 0 ? C.muted : C.dim }}>{count}</span>
         )}
       </button>
       {open && (
@@ -2192,6 +2229,23 @@ function WorkList({ rows = 0, ...props }) {
   return <Collapsible {...props} openWhen={rows <= ROW_LIMIT} />;
 }
 
+/*
+ * The second layer of every tab: what you go looking for, never what needs
+ * you. A hairline and a small muted heading, then panels in the quieter style,
+ * all shut. Nothing in here counts towards a tab's number, which is the rule
+ * that keeps a count meaning "work waiting" (invariant 25). System uses it
+ * three times, titled Records, Logs and Tools.
+ */
+const QuietCtx = createContext(false);
+function Reference({ title = "Reference", children }) {
+  return (
+    <div data-layer="reference" style={{ borderTop: `1px solid ${C.line}`, marginTop: S.lg, paddingTop: S.lg }}>
+      <p style={{ fontSize: F.xs, fontWeight: 700, color: C.dim, margin: `0 0 ${S.md}px`, letterSpacing: "0.02em" }}>{title}</p>
+      <QuietCtx.Provider value={true}>{children}</QuietCtx.Provider>
+    </div>
+  );
+}
+
 /* Every section states its empty case in one line. */
 function Empty({ children }) {
   return <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: "16px 0" }}>{children}</p>;
@@ -2209,22 +2263,66 @@ function Empty({ children }) {
  * footer   anything that expands underneath, like a draft editor
  * dim      closed, dismissed or resolved rows, which stay rather than vanish
  */
-function Row({ title, tag, tagColor, badges, meta, body, actions, footer, dim }) {
+/*
+ * Two more modes, so no list needs markup of its own (invariant 25):
+ *
+ * expandable  the row is one line until opened: the title line and `summary`
+ *             show shut, and body, meta, actions and footer only open. Drafts,
+ *             a tool's findings, announcements and ideas read this way, so a
+ *             long list is a list of names, not a wall. `open` and `onToggle`
+ *             make it controlled (one tool open at a time); without them it
+ *             keeps its own state from `defaultOpen`.
+ * children    group mode: rows under this one, indented, after its actions.
+ *             A tool's findings under the tool, a burst's reviews under the
+ *             listing. With `expandable` they show only when it is open.
+ * inset       a raised box, for an editor that sits inside another row (the
+ *             research draft under a suggestion).
+ * headActions actions on the title line itself, for a group whose common
+ *             verdict is reachable without opening it.
+ */
+function Row({ title, tag, tagColor, badges, meta, body, actions, footer, dim, expandable = false, summary, open: openProp, onToggle, defaultOpen = false, children, inset = false, headActions }) {
+  const [ownOpen, setOwnOpen] = useState(defaultOpen);
+  const controlled = typeof openProp === "boolean";
+  const open = !expandable || (controlled ? openProp : ownOpen);
+  const toggle = () => (controlled ? onToggle?.() : setOwnOpen((v) => !v));
+  const head = (
+    <span className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+      {expandable && <span aria-hidden="true" style={{ fontSize: F.xs, color: C.dim, width: 10, display: "inline-block" }}>{open ? "▾" : "▸"}</span>}
+      <span style={{ fontSize: inset ? F.sm : F.lg, fontWeight: 700 }}>{title}</span>
+      {tag && <span style={{ fontSize: F.xs, color: tagColor || C.muted }}>{tag}</span>}
+      {badges}
+    </span>
+  );
+  const indent = expandable ? 18 : 0;
   return (
-    <div style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0", opacity: dim ? 0.55 : 1 }}>
-      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-        <span style={{ fontSize: F.lg, fontWeight: 700 }}>{title}</span>
-        {tag && <span style={{ fontSize: F.xs, color: tagColor || C.muted }}>{tag}</span>}
-        {badges}
+    <div style={inset
+      ? { marginTop: S.md, background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, opacity: dim ? 0.55 : 1 }
+      : { borderTop: `1px solid ${C.line}`, padding: "12px 0", opacity: dim ? 0.55 : 1 }}>
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        {expandable
+          ? <button onClick={toggle} aria-expanded={open} style={{
+              flex: 1, minWidth: 0, textAlign: "left", background: "none", border: 0, padding: 0,
+              cursor: "pointer", fontFamily: "inherit", color: C.text,
+            }}>{head}</button>
+          : <span style={{ flex: 1, minWidth: 0 }}>{head}</span>}
+        {headActions}
       </div>
-      {body && (
-        <div style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: "4px 0 0", maxWidth: "76ch" }}>
-          {body}
+      {expandable && summary && (
+        <div style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `4px 0 0 ${indent}px`, maxWidth: "76ch" }}>{summary}</div>
+      )}
+      {open && (
+        <div style={{ marginLeft: indent }}>
+          {body && (
+            <div style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: "4px 0 0", maxWidth: "76ch" }}>
+              {body}
+            </div>
+          )}
+          {meta && <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0", lineHeight: 1.5 }}>{meta}</p>}
+          {actions && <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>{actions}</div>}
+          {footer}
+          {children && <div style={{ paddingLeft: S.lg, marginTop: S.sm }}>{children}</div>}
         </div>
       )}
-      {meta && <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0", lineHeight: 1.5 }}>{meta}</p>}
-      {actions && <div className="flex flex-wrap mt-2" style={{ gap: S.sm }}>{actions}</div>}
-      {footer}
     </div>
   );
 }
@@ -2260,31 +2358,64 @@ function Btn({ onClick, busy, tone, disabled, children, title }) {
  * row stays readable, and it disarms itself after four seconds so a half-press
  * left on screen is not a trap for the next click.
  */
-function ConfirmBtn({ onConfirm, busy, children, confirm = "Sure?" }) {
+/*
+ * Every two-press action on this page is this component, so a confirmation
+ * looks and behaves the same wherever it is (invariant 25).
+ *
+ * tone     "stop" (the default, for anything destructive), "go" (Publish,
+ *          sending, confirming as genuine) or "plain" (Hold, Mark as wrong).
+ * reason   a placeholder: arming shows a one-line field, and the second press
+ *          is refused until it holds text. onConfirm receives the text.
+ * choices  [[label, value]]: arming shows one second-press button per answer
+ *          instead of one (discovery's three reasons that need no research).
+ * note     what the second press will do, shown while armed. The click is the
+ *          approval, so everything needed to judge it is beside the button.
+ *
+ * It disarms itself after four seconds, unless it has a field, choices or a
+ * note to read, which take longer than four seconds and must not vanish
+ * under someone reading them.
+ */
+const TONE_FILL = { stop: "#FF6B8A", go: "#00E08A" };
+function ConfirmBtn({ onConfirm, busy, children, confirm = "Sure?", tone = "stop", reason = "", choices = null, note = null, disabled = false, title, stay }) {
   const [armed, setArmed] = useState(false);
+  const [text, setText] = useState("");
+  const holds = stay ?? Boolean(reason || choices || note);
   useEffect(() => {
-    if (!armed) return undefined;
+    if (!armed || holds) return undefined;
     const t = setTimeout(() => setArmed(false), 4000);
     return () => clearTimeout(t);
-  }, [armed]);
+  }, [armed, holds]);
 
-  if (busy) return <Btn busy tone="stop">{children}</Btn>;
+  const first = tone === "plain" ? undefined : tone;
+  if (busy) return <Btn busy tone={first}>{children}</Btn>;
+  if (!armed) return <Btn onClick={() => setArmed(true)} tone={first} disabled={disabled} title={title}>{children}</Btn>;
 
-  return armed ? (
-    <span className="inline-flex" style={{ gap: S.xs }}>
-      <button onClick={() => { setArmed(false); onConfirm(); }} style={{
-        background: "#FF6B8A", color: C.onAccent, border: 0, borderRadius: R.control,
-        padding: "4px 12px", fontSize: F.xs, fontWeight: 700, cursor: "pointer",
-        fontFamily: "inherit", whiteSpace: "nowrap",
-      }}>{confirm}</button>
-      <button onClick={() => setArmed(false)} style={{
+  const fill = TONE_FILL[tone];
+  const second = (label, value, off = false) => (
+    <button key={label} disabled={off} onClick={() => { setArmed(false); const v = value ?? text.trim(); setText(""); onConfirm(v); }} style={{
+      background: off ? C.subtle : fill || C.text, color: off ? C.dim : fill ? C.onAccent : C.bg,
+      border: 0, borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 700,
+      cursor: off ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+    }}>{label}</button>
+  );
+  return (
+    <span className="inline-flex flex-wrap items-center" style={{ gap: S.xs, flexBasis: reason || note ? "100%" : undefined }}>
+      {reason && (
+        <input value={text} onChange={(e) => setText(e.target.value)} placeholder={reason} maxLength={200} autoFocus
+          onKeyDown={(e) => { if (e.key === "Escape") setArmed(false); }}
+          aria-label={reason}
+          style={{ ...FIELD, flex: "1 1 280px", width: "auto", fontSize: F.sm, padding: "4px 8px" }} />
+      )}
+      {choices
+        ? choices.map(([label, value]) => second(label, value))
+        : second(confirm, undefined, Boolean(reason) && !text.trim())}
+      <button onClick={() => { setArmed(false); setText(""); }} style={{
         background: "transparent", border: `1px solid ${C.edge}`, color: C.dim,
         borderRadius: R.control, padding: "4px 10px", fontSize: F.xs, fontWeight: 600,
         cursor: "pointer", fontFamily: "inherit",
-      }}>No</button>
+      }}>{reason || choices || note ? "Cancel" : "No"}</button>
+      {note && <span style={{ fontSize: F.xs, color: C.muted, flexBasis: "100%", lineHeight: 1.5 }}>{note}</span>}
     </span>
-  ) : (
-    <Btn onClick={() => setArmed(true)} tone="stop">{children}</Btn>
   );
 }
 
@@ -2320,7 +2451,7 @@ function OpenReports({ rows = [], act, busy }) {
   const open = rows.filter((r) => r.status === "open");
   const closed = rows.filter((r) => r.status !== "open");
   return (
-    <WorkList rows={open.length} title="Reports and corrections" count={open.length}
+    <WorkList rows={open.length} title="Reports and corrections" count={open.length} anchor="q-reports"
       hint="Sent by visitors without signing in. Nothing is applied automatically: make the change yourself, then resolve. A submitted social profile only goes in once it is published on the company's own site.">
       {rows.length === 0 ? <Empty>Nothing reported.</Empty> : [...open, ...closed].map((r) => {
         const tool = ALL_TOOLS.find((t) => t.id === r.toolId);
@@ -2391,42 +2522,6 @@ function Interest({ interest = {}, entries = {} }) {
             ) : null}
           />
         ))}
-    </Collapsible>
-  );
-}
-/* ------------------------------------------------------------------ */
-/*  What the buttons above actually do                                 */
-/*                                                                     */
-/*  The button used to say "Approve", which reads like the last step    */
-/*  before something appears in the directory. It never was: it clears  */
-/*  a moderation hold on a suggestion and nothing else, and people      */
-/*  reasonably waited for a listing that was never coming. So the       */
-/*  button says what it does, and this says what it does not.           */
-/* ------------------------------------------------------------------ */
-function PublishingNote() {
-  /* Reference, not work, so it is one line after the drafts rather than a
-     screen above them. */
-  const p = { fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0`, lineHeight: 1.6, maxWidth: "76ch" };
-  const code = { fontSize: F.xs, color: C.text };
-  return (
-    <Collapsible title="How publishing works" count="">
-      <p style={p}>
-        <b style={{ color: C.text }}>Mark reviewed does not publish anything.</b> It clears the moderation
-        hold on a suggestion, so it shows in the public list. It does not create a listing.
-      </p>
-      <p style={p}>
-        A listing is published two ways. A draft in a catalogue file is published from Drafts above:
-        Publish commits the file on GitHub with <code style={code}>draft: true</code> removed and{" "}
-        <code style={code}>updated</code> set to the day, and Vercel deploys it. A suggestion you researched
-        is published with Approve and publish, which writes it to the store, not the file.
-      </p>
-      <p style={p}>
-        Either way the <b style={{ color: C.text }}>note</b> and the <b style={{ color: C.text }}>watch</b> are
-        writing a person does. Anything not confirmed on the vendor's own site is{" "}
-        <code style={code}>verified: false</code>. <b style={{ color: C.text }}>Copy as entry stub</b> on a
-        suggestion gives you the object with the known facts filled in and <code style={code}>draft: true</code>,
-        to paste into the right file.
-      </p>
     </Collapsible>
   );
 }
@@ -2897,12 +2992,10 @@ function factValue(v) {
  */
 function DraftActions({ kind, entry, canCommit, build, hold, onHolds }) {
   const problems = readiness(entry, kind);
-  const [mode, setMode] = useState("idle");      // idle | publish | discard | hold | unhold
-  const [text, setText] = useState("");
   const [state, setState] = useState({ status: "idle", msg: "", url: "", sha: "", what: "" });
   const sectionClosed = !kindOf(kind).live;
   const file = FILE_OF[kind] || "its source file";
-  const reset = () => { setMode("idle"); setText(""); setState({ status: "idle", msg: "", url: "", sha: "", what: "" }); };
+  const reset = () => setState({ status: "idle", msg: "", url: "", sha: "", what: "" });
 
   async function send(action, extra, what) {
     setState({ status: "busy", msg: "", url: "", sha: "", what });
@@ -2931,20 +3024,13 @@ function DraftActions({ kind, entry, canCommit, build, hold, onHolds }) {
         {state.what === "discard" ? "Discarded" : "Committed"}{state.sha ? ` ${state.sha.slice(0, 7)}` : ""}.{" "}
         {state.url && <a href={state.url} target="_blank" rel="noopener noreferrer" style={{ color: C.accentInk }}>See the commit</a>}
         {" "}{state.what === "discard"
-          ? "It leaves this list when Vercel finishes building, and the reason is kept in Discarded below."
+          ? "It leaves this list when Vercel finishes building, and the reason is kept in Discarded (System, Records)."
           : "It goes live when Vercel finishes building it, usually a minute or two, and stays in this list until then."}
       </p>
     );
   }
 
   const busy = state.status === "busy";
-  const field = (placeholder) => (
-    <input value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} maxLength={200}
-      autoFocus style={{
-        flex: "1 1 280px", minWidth: 0, fontSize: F.sm, fontFamily: "inherit", color: C.text,
-        background: C.bg, border: `1px solid ${C.edge}`, borderRadius: R.control, padding: "4px 8px",
-      }} />
-  );
 
   return (
     <div style={{ marginTop: S.md }}>
@@ -2954,67 +3040,33 @@ function DraftActions({ kind, entry, canCommit, build, hold, onHolds }) {
         </ul>
       )}
 
-      {mode === "idle" && (
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-          <Btn onClick={() => setMode("publish")} tone="go" disabled={!canCommit || problems.length > 0}
-            title={!canCommit ? "GITHUB_TOKEN is not set" : problems.length ? "Not ready yet" : "Publish this entry"}>Publish</Btn>
-          {hold
-            ? <Btn onClick={() => setMode("unhold")}>Move back to drafts</Btn>
-            : <Btn onClick={() => setMode("hold")}>Hold</Btn>}
-          <Btn onClick={() => setMode("discard")} tone="stop" disabled={!canCommit}
-            title={!canCommit ? "GITHUB_TOKEN is not set" : "Remove this draft from the file"}>Discard</Btn>
-          {!canCommit && (
-            <span style={{ fontSize: F.xs, color: C.dim }}>
-              Publish and Discard need a GITHUB_TOKEN in the Vercel environment to commit with. Until then they are hand edits to the file.
-            </span>
-          )}
-          {canCommit && problems.length > 0 && (
-            <span style={{ fontSize: F.xs, color: C.dim }}>Fix the items above in the file before publishing.</span>
-          )}
-        </div>
-      )}
-
-      {mode === "publish" && (
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-          <Btn onClick={() => send("publish-file-draft", {}, "publish")} busy={busy} tone="go">Commit to main</Btn>
-          <Btn onClick={reset}>Cancel</Btn>
-          <span style={{ fontSize: F.xs, color: C.muted }}>
-            Removes <code>draft: true</code> from {entry.id} in {file} and sets <code>updated</code> to today. The note and watch above are what goes live.
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        <ConfirmBtn tone="go" confirm="Commit to main" busy={busy && state.what === "publish"}
+          disabled={!canCommit || problems.length > 0}
+          title={!canCommit ? "GITHUB_TOKEN is not set" : problems.length ? "Not ready yet" : "Publish this entry"}
+          note={<>Removes <code>draft: true</code> from {entry.id} in {file} and sets <code>updated</code> to today. The note and watch above are what goes live.</>}
+          onConfirm={() => send("publish-file-draft", {}, "publish")}>Publish</ConfirmBtn>
+        {hold
+          ? <ConfirmBtn tone="plain" confirm="Move back to drafts" busy={busy && state.what === "unhold"}
+              note="Clears the hold note and returns it to the active drafts."
+              onConfirm={() => send("unhold-draft", {}, "unhold")}>Move back to drafts</ConfirmBtn>
+          : <ConfirmBtn tone="plain" confirm="Put on hold" reason="What it is waiting on" busy={busy && state.what === "hold"}
+              note="Stays a draft and moves to On hold with this note. Nothing is committed and nothing a visitor sees changes."
+              onConfirm={(note) => send("hold-draft", { note }, "hold")}>Hold</ConfirmBtn>}
+        <ConfirmBtn confirm="Remove from file and commit" reason="Why it is not being listed, in one line"
+          busy={busy && state.what === "discard"} disabled={!canCommit}
+          title={!canCommit ? "GITHUB_TOKEN is not set" : "Remove this draft from the file"}
+          note={<>Deletes the {entry.id} entry from {file}, with the reason in the commit message, and keeps the reason and the research in Discarded (System, Records). Revert the commit to bring it back as a draft.</>}
+          onConfirm={(reason) => send("discard-file-draft", { reason }, "discard")}>Discard</ConfirmBtn>
+        {!canCommit && (
+          <span style={{ fontSize: F.xs, color: C.dim }}>
+            Publish and Discard need a GITHUB_TOKEN in the Vercel environment to commit with. Until then they are hand edits to the file.
           </span>
-        </div>
-      )}
-
-      {mode === "discard" && (
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-          {field("Why it is not being listed, in one line")}
-          <Btn onClick={() => send("discard-file-draft", { reason: text }, "discard")} busy={busy} tone="stop"
-            disabled={!text.trim()}>Remove from file and commit</Btn>
-          <Btn onClick={reset}>Cancel</Btn>
-          <span style={{ fontSize: F.xs, color: C.muted, flexBasis: "100%" }}>
-            Deletes the {entry.id} entry from {file}, with the reason in the commit message, and keeps the reason and the research in Discarded below.
-            Revert the commit to bring it back as a draft.
-          </span>
-        </div>
-      )}
-
-      {mode === "hold" && (
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-          {field("What it is waiting on")}
-          <Btn onClick={() => send("hold-draft", { note: text }, "hold")} busy={busy} disabled={!text.trim()}>Put on hold</Btn>
-          <Btn onClick={reset}>Cancel</Btn>
-          <span style={{ fontSize: F.xs, color: C.muted, flexBasis: "100%" }}>
-            Stays a draft and moves to On hold with this note. Nothing is committed and nothing a visitor sees changes.
-          </span>
-        </div>
-      )}
-
-      {mode === "unhold" && (
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-          <Btn onClick={() => send("unhold-draft", {}, "unhold")} busy={busy}>Move back to drafts</Btn>
-          <Btn onClick={reset}>Cancel</Btn>
-          <span style={{ fontSize: F.xs, color: C.muted }}>Clears the hold note and returns it to the active drafts.</span>
-        </div>
-      )}
+        )}
+        {canCommit && problems.length > 0 && (
+          <span style={{ fontSize: F.xs, color: C.dim }}>Fix the items above in the file before publishing.</span>
+        )}
+      </div>
 
       {sectionClosed && (
         <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>
@@ -3041,69 +3093,68 @@ const FILE_OF = { tool: "lib/tools.js", newsletter: "lib/newsletters.js", event:
  * discarded without the text a button cannot check having been on screen.
  */
 function DraftRow({ kind, entry, canCommit, build, hold, onHolds, pending }) {
-  const [open, setOpen] = useState(false);
   const facts = Object.entries(entry).filter(([key, v]) => !SKIP.includes(key) && factValue(v) !== "");
   return (
-    <div style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0" }}>
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} style={{
-        display: "block", width: "100%", textAlign: "left", background: "none", border: 0, padding: 0,
-        cursor: "pointer", fontFamily: "inherit", color: C.text,
-      }}>
-        <span className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-          <span aria-hidden="true" style={{ fontSize: F.xs, color: C.dim, width: 10, display: "inline-block" }}>{open ? "▾" : "▸"}</span>
-          <span style={{ fontSize: F.lg, fontWeight: 700 }}>{entry.name}</span>
-          <Pill>{kindOf(kind).label}</Pill>
-          {!entry.watch && <Pill tone="warn">no watch note</Pill>}
-        </span>
-        {entry.one && <span style={{ display: "block", fontSize: F.sm, color: C.muted, margin: "4px 0 0 18px", lineHeight: 1.5 }}>{entry.one}</span>}
+    <Row expandable
+      title={entry.name}
+      badges={<>
+        <Pill>{kindOf(kind).label}</Pill>
+        {!entry.watch && <Pill tone="warn">no watch note</Pill>}
+      </>}
+      summary={<>
+        {entry.one && <span style={{ display: "block" }}>{entry.one}</span>}
         {hold && (
-          <span style={{ display: "block", fontSize: F.xs, color: C.dim, margin: "4px 0 0 18px", lineHeight: 1.5 }}>
+          <span style={{ display: "block", fontSize: F.xs, color: C.dim, marginTop: 4 }}>
             On hold: {hold.note} · {hold.by} · {String(hold.at || "").slice(0, 10)}
           </span>
         )}
         {pending && (
-          <span style={{ display: "block", fontSize: F.xs, color: C.accentInk, margin: "4px 0 0 18px", lineHeight: 1.5 }}>
+          <span style={{ display: "block", fontSize: F.xs, color: C.accentInk, marginTop: 4 }}>
             {pending.outcome === "discarded" ? "Discarded" : "Published"} in {String(pending.sha).slice(0, 7)} at {String(pending.at).slice(11, 16)} UTC, waiting for Vercel to deploy it. Reload in a minute.
           </span>
         )}
-      </button>
-
-      {open && (
-        <div style={{ margin: "8px 0 0 18px", fontSize: F.sm, color: C.muted, maxWidth: "76ch" }}>
-          <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>
-            {entry.id}
-            {/* A positive tag; absent renders nothing. */}
-            {entry.shopifySpecific ? " · Shopify-specific" : ""}
+      </>}
+      body={<div style={{ marginTop: S.xs }}>
+        <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>
+          {entry.id}
+          {/* A positive tag; absent renders nothing. */}
+          {entry.shopifySpecific ? " · Shopify-specific" : ""}
+        </p>
+        <dl className="drafts-facts" style={{ margin: `${S.md}px 0 0` }}>
+          {facts.map(([key, v]) => (
+            <React.Fragment key={key}>
+              <dt style={{ fontSize: F.xs, color: C.dim, fontWeight: 600 }}>{key}</dt>
+              <dd style={{ fontSize: F.xs, color: C.muted, margin: 0, wordBreak: "break-word" }}>{factValue(v)}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+        {entry.note && <p style={{ margin: `${S.md}px 0 0`, lineHeight: 1.6 }}>{entry.note}</p>}
+        {entry.watch
+          ? <p style={{ margin: "8px 0 0", lineHeight: 1.6 }}>
+            <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
           </p>
-          <dl className="drafts-facts" style={{ margin: `${S.md}px 0 0` }}>
-            {facts.map(([key, v]) => (
-              <React.Fragment key={key}>
-                <dt style={{ fontSize: F.xs, color: C.dim, fontWeight: 600 }}>{key}</dt>
-                <dd style={{ fontSize: F.xs, color: C.muted, margin: 0, wordBreak: "break-word" }}>{factValue(v)}</dd>
-              </React.Fragment>
-            ))}
-          </dl>
-          {entry.note && <p style={{ margin: `${S.md}px 0 0`, lineHeight: 1.6 }}>{entry.note}</p>}
-          {entry.watch
-            ? <p style={{ margin: "8px 0 0", lineHeight: 1.6 }}>
-              <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{entry.watch}
-            </p>
-            : <p style={{ color: C.badInk, margin: "8px 0 0" }}>No watch note. Not publishable without one.</p>}
-          {pending
-            ? <p style={{ fontSize: F.xs, color: C.muted, margin: `${S.md}px 0 0` }}>
-              Already committed{pending.url ? <> (<a href={pending.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>the commit</a>)</> : ""}. No action until the deploy that removes it from this list.
-            </p>
-            : <DraftActions kind={kind} entry={entry} canCommit={canCommit} build={build} hold={hold} onHolds={onHolds} />}
-        </div>
-      )}
-    </div>
+          : <p style={{ color: C.badInk, margin: "8px 0 0" }}>No watch note. Not publishable without one.</p>}
+      </div>}
+      footer={pending
+        ? <p style={{ fontSize: F.xs, color: C.muted, margin: `${S.md}px 0 0` }}>
+          Already committed{pending.url ? <> (<a href={pending.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>the commit</a>)</> : ""}. No action until the deploy that removes it from this list.
+        </p>
+        : <DraftActions kind={kind} entry={entry} canCommit={canCommit} build={build} hold={hold} onHolds={onHolds} />}
+    />
   );
 }
 
-function Drafts({ publishing = { canPublish: false, log: [], build: "" }, holds = {}, discards = [] }) {
-  const [holdMap, setHoldMap] = useState(holds);
+/*
+ * The drafts, in three parts on two tabs, all from one list so they cannot
+ * disagree: `work` is the Drafts list on Listings (what is waiting on Publish,
+ * Hold or Discard, and the one number the Listings tab counts), `held` the On
+ * hold reference panel under it, and `records` the Discarded and Committed
+ * from here panels in System, Records. Holds are lifted to the page so a hold
+ * moves a row from work to held without a reload.
+ */
+function Drafts({ publishing = { canPublish: false, log: [], build: "" }, holds = {}, onHolds, discards = [], part = "work" }) {
   const rows = SOURCES.flatMap(({ kind, entries }) => drafted(entries).map((entry) => ({ kind, entry })));
-  const holdOf = ({ kind, entry }) => holdMap[`${kind}:${entry.id}`] || null;
+  const holdOf = ({ kind, entry }) => holds[`${kind}:${entry.id}`] || null;
   /* A draft this build still has, which the log says was committed away: the
      commit exists and the deploy has not landed. Without this a refresh in that
      minute looks exactly like a press that did nothing. */
@@ -3113,54 +3164,55 @@ function Drafts({ publishing = { canPublish: false, log: [], build: "" }, holds 
   const held = rows.filter((r) => holdOf(r));
   const row = (r) => (
     <DraftRow key={`${r.kind}:${r.entry.id}`} kind={r.kind} entry={r.entry}
-      canCommit={publishing.canPublish} build={publishing.build} hold={holdOf(r)} onHolds={setHoldMap} pending={pendingOf(r)} />
+      canCommit={publishing.canPublish} build={publishing.build} hold={holdOf(r)} onHolds={onHolds} pending={pendingOf(r)} />
   );
 
-  return (
-    <>
-      <WorkList rows={active.length} title="Drafts"
+  if (part === "work") {
+    return (
+      <WorkList rows={active.length} title="Drafts" anchor="drafts"
         count={active.length}
-        hint="Written but not published, and invisible everywhere a visitor looks. Open one to read it in full and decide: Publish commits it live, Hold parks it below with a note, Discard removes it from the file with a reason that is kept. Read the note and the watch first: that is the part a button cannot check."
+        hint="Written but not published, and invisible everywhere a visitor looks. Open one, read the note and the watch in full, then decide. Publish removes draft: true in a commit to main and Vercel deploys it; Hold parks it with a note; Discard removes it from the file with a reason that is kept. Every one is two presses and a revert undoes it."
       >
         {active.length === 0
           ? <Empty>{held.length ? "Nothing active. Everything still in draft is on hold." : "Nothing in progress. An entry becomes a draft by carrying `draft: true`."}</Empty>
           : active.map(row)}
       </WorkList>
+    );
+  }
 
-      {held.length > 0 && (
-        <Collapsible title="On hold" count={held.length}
-          hint="Still drafts, waiting on something named in the note. Move one back to drafts when it is unblocked.">
-          {held.map(row)}
-        </Collapsible>
-      )}
+  if (part === "held") {
+    return (
+      <Collapsible title="On hold" count={held.length}
+        hint="Still drafts, waiting on something named in the note. Move one back to drafts when it is unblocked.">
+        {held.length === 0 ? <Empty>Nothing on hold.</Empty> : held.map(row)}
+      </Collapsible>
+    );
+  }
 
-      {discards.length > 0 && (
-        <Collapsible title="Discarded" count={discards.length}
-          hint="Drafts removed from their file, with the reason. A suggestion or a discovery that names one is labelled previously discarded. Revert the commit to bring one back; it stops counting as discarded once it is in a file again.">
-          {discards.map((d) => (
-            <Row key={d.key} title={d.name} tag={kindOf(d.kind).label} dim={!d.standing}
-              badges={!d.standing ? <Pill>restored</Pill> : null}
-              body={<p style={{ margin: 0, lineHeight: 1.55 }}>{d.reason}</p>}
-              meta={`${String(d.at || "").slice(0, 10)} · ${d.by || ""}${d.domain ? ` · ${d.domain}` : ""}${d.sha ? ` · ${d.sha.slice(0, 7)}` : ""}`}
-              actions={d.commitUrl ? <a href={d.commitUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
-          ))}
-        </Collapsible>
-      )}
+  return (
+    <>
+      <Collapsible title="Discarded" count={discards.length}
+        hint="Drafts removed from their file, with the reason. A suggestion or a discovery that names one is labelled previously discarded. Revert the commit to bring one back; it stops counting as discarded once it is in a file again.">
+        {discards.length === 0 ? <Empty>Nothing discarded.</Empty> : discards.map((d) => (
+          <Row key={d.key} title={d.name} tag={kindOf(d.kind).label} dim={!d.standing}
+            badges={!d.standing ? <Pill>restored</Pill> : null}
+            body={<p style={{ margin: 0, lineHeight: 1.55 }}>{d.reason}</p>}
+            meta={`${String(d.at || "").slice(0, 10)} · ${d.by || ""}${d.domain ? ` · ${d.domain}` : ""}${d.sha ? ` · ${d.sha.slice(0, 7)}` : ""}`}
+            actions={d.commitUrl ? <a href={d.commitUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
+        ))}
+      </Collapsible>
 
-      {publishing.log?.length > 0 && (
-        <Collapsible title="Committed from here" count={publishing.log.length}
-          openWhen={publishing.log.slice(0, 5).some((r) => r.outcome === "failed")}
-          hint="Every publish, discard and hold made from this panel, newest first, and every one that failed, with the reason it gave.">
-          {publishing.log.map((r) => (
-            <Row key={`${r.at}-${r.id}`} title={r.name || r.id}
-              tag={`${r.kind}, ${r.outcome === "failed" ? `${String(r.action || "").replace(/-file-draft|-draft/, "")} failed` : r.outcome || "published"}`}
-              tagColor={r.outcome === "failed" ? C.badInk : undefined}
-              body={r.outcome === "failed" ? <p style={{ margin: 0, lineHeight: 1.5 }}>{r.error}</p> : null}
-              meta={`${String(r.at).slice(0, 16).replace("T", " ")} · ${r.by}${r.sha ? ` · ${r.sha.slice(0, 7)}` : ""}${r.reason ? ` · ${r.reason}` : ""}`}
-              actions={r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
-          ))}
-        </Collapsible>
-      )}
+      <Collapsible title="Committed from here" count={(publishing.log || []).length}
+        hint="Every publish, discard, hold and caveat edit made from this console, newest first, and every one that failed, with the reason it gave. A recent failure also shows in the status strip.">
+        {!(publishing.log || []).length ? <Empty>Nothing committed from here yet.</Empty> : publishing.log.map((r) => (
+          <Row key={`${r.at}-${r.id}`} title={r.name || r.id}
+            tag={`${r.kind}, ${r.outcome === "failed" ? `${String(r.action || "").replace(/-file-draft|-draft/, "")} failed` : r.outcome || "published"}`}
+            tagColor={r.outcome === "failed" ? C.badInk : undefined}
+            body={r.outcome === "failed" ? <p style={{ margin: 0, lineHeight: 1.5 }}>{r.error}</p> : null}
+            meta={`${String(r.at).slice(0, 16).replace("T", " ")} · ${r.by}${r.sha ? ` · ${r.sha.slice(0, 7)}` : ""}${r.reason ? ` · ${r.reason}` : ""}`}
+            actions={r.url ? <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Commit</a> : null} />
+        ))}
+      </Collapsible>
     </>
   );
 }
@@ -3220,7 +3272,7 @@ function SuggestionRow({ s, children, footer }) {
               <p key={i} style={{ fontSize: F.xs, color: C.dim, margin: i ? "6px 0 0" : 0, lineHeight: 1.5 }}>
                 <b style={{ color: C.muted }}>{a.by || "Anonymous"}</b> · {a.date}
                 {a.email ? ` · ${a.email}` : ""}
-                {a.why ? ` — ${a.why}` : ""}
+                {a.why ? `: ${a.why}` : ""}
               </p>
             ))}
           </div>
@@ -3239,12 +3291,6 @@ function SuggestionRow({ s, children, footer }) {
 
 
 /*
- * Compose and send. The count in the confirmation comes from the server render,
- * so it is what the list held when the page loaded — the send itself reads the
- * list again, which is why the result reports its own numbers rather than
- * assuming this one.
- */
-/*
  * The weekly email, and the reason there is anything to send.
  *
  * "Three changes this week" with links is a better reason to open an email
@@ -3255,12 +3301,16 @@ function SuggestionRow({ s, children, footer }) {
  * Pre-filled, never sent automatically. The same rule the feed itself follows:
  * a machine assembles the list, a person writes the sentence around it and
  * presses send.
+ *
+ * Sending is a ConfirmBtn like every other two-press action here. The count on
+ * it comes from the server render, so it is what the list held when the page
+ * loaded; the send reads the list again, which is why the result reports its
+ * own numbers rather than assuming this one.
  */
 function Compose({ count, feed = [] }) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState("");
-  const [confirming, setConfirming] = useState(false);
   const [result, setResult] = useState(null);
   const [err, setErr] = useState("");
 
@@ -3283,7 +3333,6 @@ function Compose({ count, feed = [] }) {
       "",
       "All of it, dated and in order: https://watchfor.tools/changes",
     ].join("\n"));
-    setConfirming(false);
   }
 
   async function send(test) {
@@ -3296,7 +3345,6 @@ function Compose({ count, feed = [] }) {
       });
       if (!res.ok) { setErr(await res.text()); return; }
       setResult(await res.json());
-      setConfirming(false);
     } catch {
       setErr("Could not reach the server.");
     } finally {
@@ -3304,125 +3352,46 @@ function Compose({ count, feed = [] }) {
     }
   }
 
+  const field = {
+    background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
+    padding: S.md, fontSize: F.md, color: C.text, fontFamily: "inherit", width: "100%",
+  };
   return (
-    <section className="pb-10">
-      <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>Send to the list</h2>
-      <p style={{ fontSize: F.sm, color: C.muted, margin: "4px 0 0", maxWidth: "72ch", lineHeight: 1.55 }}>
-        Plain text. An unsubscribe link is appended to every copy automatically, and each
-        recipient is sent their own message — nobody sees another subscriber's address.
-        Test it on yourself first.
-      </p>
+    <Collapsible title="Send to the list" anchor="send" count={`${count} on the list`}
+      hint="Plain text. An unsubscribe link is appended to every copy automatically, and each recipient is sent their own message, so nobody sees another subscriber's address. Test it on yourself first.">
+      <div className="flex flex-col" style={{ padding: "12px 0", gap: S.md }}>
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" style={field} />
+        <textarea value={body} onChange={(e) => setBody(e.target.value)}
+          placeholder="Two new tools went into App Store data this week."
+          style={{ ...field, minHeight: 170, resize: "vertical", lineHeight: 1.6 }} />
 
-      <div className="mt-3 flex flex-col" style={{
-        background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, gap: S.md,
-      }}>
-        <input
-          value={subject}
-          onChange={(e) => { setSubject(e.target.value); setConfirming(false); }}
-          placeholder="Subject"
-          style={{
-            background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
-            padding: S.md, fontSize: F.md, color: C.text, fontFamily: "inherit", width: "100%",
-          }}
-        />
-        <textarea
-          value={body}
-          onChange={(e) => { setBody(e.target.value); setConfirming(false); }}
-          placeholder="Two new tools went into App Store data this week…"
-          style={{
-            background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,
-            padding: S.md, fontSize: F.md, color: C.text, fontFamily: "inherit",
-            width: "100%", minHeight: 170, resize: "vertical", lineHeight: 1.6,
-          }}
-        />
-
-        {!confirming ? (
-          <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-            <button onClick={draftFromFeed} disabled={!week.length} style={{
-              background: C.subtle, border: `1px solid ${C.line}`,
-              color: week.length ? C.text : C.dim, borderRadius: R.control, padding: "8px 16px",
-              fontSize: F.sm, fontWeight: 600, cursor: week.length ? "pointer" : "default",
-              fontFamily: "inherit",
-            }}>
-              {week.length ? `Draft from this week (${week.length})` : "No recent updates this week"}
-            </button>
-
-            <button onClick={() => send(true)} disabled={!ready || Boolean(busy)} style={{
-              background: C.subtle, border: `1px solid ${C.line}`,
-              color: ready ? C.text : C.dim, borderRadius: R.control, padding: "8px 16px",
-              fontSize: F.sm, fontWeight: 600, cursor: ready && !busy ? "pointer" : "default",
-              fontFamily: "inherit",
-            }}>{busy === "test" ? "Sending…" : "Send test to me"}</button>
-
-            <button onClick={() => { setResult(null); setErr(""); setConfirming(true); }}
-              disabled={!ready || Boolean(busy) || count === 0} style={{
-                background: ready && count ? C.accent : C.subtle,
-                color: ready && count ? C.onAccent : C.dim, border: 0, borderRadius: R.control,
-                padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
-                cursor: ready && count && !busy ? "pointer" : "default", fontFamily: "inherit",
-              }}>Send to the list</button>
-
-            {count === 0 && <span style={{ fontSize: F.xs, color: C.dim }}>Nobody on the list yet.</span>}
-          </div>
-        ) : (
-          <div style={{
-            border: `1px solid ${C.badEdge}`, background: C.badSoft,
-            borderRadius: R.control, padding: S.lg,
-          }}>
-            <p style={{ fontSize: F.md, margin: 0, lineHeight: 1.55 }}>
-              Send <b>{subject}</b> to <b>{count}</b> {count === 1 ? "address" : "addresses"}?
-            </p>
-            <p style={{ fontSize: F.xs, color: C.muted, margin: "8px 0 0", lineHeight: 1.55 }}>
-              There is no recall once this goes out.
-            </p>
-            <div className="flex flex-wrap mt-3" style={{ gap: S.sm }}>
-              <button onClick={() => send(false)} disabled={Boolean(busy)} style={{
-                background: "#FF6B8A", color: C.onAccent, border: 0, borderRadius: R.control,
-                padding: "8px 16px", fontSize: F.sm, fontWeight: 700,
-                cursor: busy ? "default" : "pointer", fontFamily: "inherit",
-              }}>{busy === "send" ? "Sending…" : `Yes, send to ${count}`}</button>
-              <button onClick={() => setConfirming(false)} disabled={Boolean(busy)} style={{
-                background: "transparent", border: `1px solid ${C.line}`, color: C.muted,
-                borderRadius: R.control, padding: "8px 16px", fontSize: F.sm, fontWeight: 600,
-                cursor: busy ? "default" : "pointer", fontFamily: "inherit",
-              }}>Cancel</button>
-            </div>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+          <Btn onClick={draftFromFeed} disabled={!week.length}>
+            {week.length ? `Draft from this week (${week.length})` : "No recent updates this week"}
+          </Btn>
+          <Btn onClick={() => send(true)} busy={busy === "test"} disabled={!ready || Boolean(busy)}>Send test to me</Btn>
+          <ConfirmBtn tone="stop" busy={busy === "send"} disabled={!ready || Boolean(busy) || count === 0}
+            confirm={`Yes, send to ${count}`}
+            note={<>Sends <b>{subject}</b> to {count} {count === 1 ? "address" : "addresses"}. There is no recall once this goes out.</>}
+            onConfirm={() => send(false)}>Send to the list</ConfirmBtn>
+          {count === 0 && <span style={{ fontSize: F.xs, color: C.dim }}>Nobody on the list yet.</span>}
+        </div>
 
         {err && <p style={{ fontSize: F.sm, color: C.badInk, margin: 0, lineHeight: 1.55 }}>{err}</p>}
         {result && (
           <p style={{ fontSize: F.sm, color: result.failed ? C.warnInk : C.accentInk, margin: 0, lineHeight: 1.55 }}>
             {result.test
               ? `Test sent to ${result.to}.`
-              : `Sent ${result.sent} of ${result.total}.${result.failed ? ` ${result.failed} failed — check the server log.` : ""}`}
+              : `Sent ${result.sent} of ${result.total}.${result.failed ? ` ${result.failed} failed. The mail log in System has each one.` : ""}`}
           </p>
         )}
       </div>
-    </section>
+    </Collapsible>
   );
 }
 
-/*
- * Corrections sent in from the site. Nothing here has touched the catalogue —
- * /api/report only ever writes to svt:reports — so resolving one means "I have
- * made the change by hand", not "apply this". Dismissed rows stay, because a
- * dismissal is evidence somebody read it.
- */
-/*
- * Corrections sent in from the site. Nothing here has touched the catalogue —
- * /api/report only ever writes to svt:reports — so resolving one means "I have
- * made the change by hand", not "apply this". Dismissed rows stay, because a
- * dismissal is evidence somebody read it.
- */
-/*
- * Sends a real notification and reports what came back. Its own fetch rather
- * than act(), because the useful answer here is a diagnostic string, not a
- * refreshed list of rows.
- */
-
 const when = (iso) => {
-  if (!iso) return "—";
+  if (!iso) return "none";
   // Stored as a full ISO timestamp; the minute is enough to read at a glance.
   return String(iso).slice(0, 16).replace("T", " ");
 };
@@ -3739,12 +3708,12 @@ function NotificationTest() {
         <div style={{ padding: "4px 0 12px" }}>
           {result.nothingToSend ? (
             <p style={{ fontSize: F.sm, color: C.muted, margin: 0 }}>
-              Nothing sent — this event mails nobody by design.
+              Nothing sent. This event mails nobody by design.
             </p>
           ) : (
             (result.sends || []).map((sd, i) => (
               <p key={i} style={{ fontSize: F.sm, margin: "2px 0", color: sd.ok ? C.accentInk : C.badInk }}>
-                {sd.cls} → {sd.to}: {sd.ok ? "ok" : `failed — ${sd.error}`}
+                {sd.cls} → {sd.to}: {sd.ok ? "ok" : `failed: ${sd.error}`}
               </p>
             ))
           )}
@@ -3944,27 +3913,17 @@ function DraftPanel({ s, onSuggestions, onEntries }) {
   }
 
   return (
-    <div style={{
-      marginTop: S.md, background: C.raised, border: `1px solid ${C.line}`,
-      borderLeft: `3px solid ${published ? C.accent : C.edge}`,
-      borderRadius: R.card, padding: S.lg,
-    }}>
-      <div className="flex flex-wrap items-baseline justify-between" style={{ gap: S.sm }}>
-        <span style={{ fontSize: F.sm, fontWeight: 700 }}>
-          {published ? "Published" : "Draft, not published"}
-        </span>
-        <span style={{ fontSize: F.xs, color: C.dim }}>
-          {draft.researchedBy ? `drafted by ${draft.researchedBy}` : "hand written"}
-          {draft.researchedAt ? ` · ${String(draft.researchedAt).slice(0, 16).replace("T", " ")}` : ""}
-        </span>
-      </div>
-
-      {(draft.pagesRead?.length || draft.pagesFailed?.length) && (
-        <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>
-          Read: {draft.pagesRead?.join(", ") || "nothing"}
-          {draft.pagesFailed?.length ? ` · could not read: ${draft.pagesFailed.join(", ")}` : ""}
-        </p>
-      )}
+    <Row inset
+      title={published ? "Published" : "Draft, not published"}
+      badges={<span style={{ fontSize: F.xs, color: C.dim }}>
+        {draft.researchedBy ? `drafted by ${draft.researchedBy}` : "hand written"}
+        {draft.researchedAt ? ` · ${String(draft.researchedAt).slice(0, 16).replace("T", " ")}` : ""}
+      </span>}
+      meta={(draft.pagesRead?.length || draft.pagesFailed?.length)
+        ? <>Read: {draft.pagesRead?.join(", ") || "nothing"}
+          {draft.pagesFailed?.length ? ` · could not read: ${draft.pagesFailed.join(", ")}` : ""}</>
+        : null}
+      footer={<>
 
       {/* The reason this screen exists. Anything the model repeated without
           being able to check it is listed before the fields, not after. */}
@@ -4066,15 +4025,16 @@ function DraftPanel({ s, onSuggestions, onEntries }) {
         <Btn onClick={() => post("save-draft", { entry: draft })} busy={busy === "save-draft"}>Save draft</Btn>
         <Btn onClick={research} busy={busy === "research"}>Research again</Btn>
         {published && (
-          <Btn onClick={() => post("unpublish-entry", { id: s.publishedId })}
-            busy={busy === "unpublish-entry"} tone="stop">Unpublish</Btn>
+          <ConfirmBtn onConfirm={() => post("unpublish-entry", { id: s.publishedId })}
+            busy={busy === "unpublish-entry"} confirm="Take it off the site">Unpublish</ConfirmBtn>
         )}
         <CopyStub s={{ ...s, draft }} />
       </div>
 
       {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>}
       {note && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "8px 0 0" }}>{note}</p>}
-    </div>
+      </>}
+    />
   );
 }
 
@@ -4343,7 +4303,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
   const [showEarlier, setShowEarlier] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
-  /* Handled means dismissed or resolved. Handled ones leave the Inbox. */
+  /* Handled means dismissed or resolved. Handled ones leave Updates. */
   const handled = (r) => isHandled(r.id, dismissed, published, applied);
 
   async function mark(id, action, extra = {}) {
@@ -4394,9 +4354,9 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
    *
    * This was the run's *day* at first, which looks equivalent and is not: run
    * the monitor three times in an afternoon and every row from all three
-   * collapses into "current", which put 90 changes in the Inbox instead of the
+   * collapses into "current", which put 90 changes in the panel instead of the
    * 8 the last sweep actually found. The whole point of the cap is that the
-   * Inbox holds one run.
+   * panel holds one run.
    */
   const latestRun = rows.length ? rows.reduce((a, r) => (r.at > a ? r.at : a), "") : "";
 
@@ -4545,26 +4505,19 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
     setBatch("");
   }
 
+  /* A tool's weekly changes usually share a verdict, so the common one is on
+     the title line, available without opening anything. Publishing is per
+     change because each needs a sentence written. */
   return (
-    <div style={{ borderTop: `1px solid ${C.line}` }}>
-      <div className="flex flex-wrap items-center" style={{ gap: S.sm, padding: "12px 0" }}>
-        <button onClick={() => setOpenTool(expanded ? "" : group.id)} aria-expanded={expanded}
-          className="flex items-center" style={{
-            gap: S.sm, background: "none", border: 0, padding: 0, cursor: "pointer",
-            fontFamily: "inherit", flex: 1, minWidth: 0, textAlign: "left",
-          }}>
-          <span aria-hidden="true" style={{ fontSize: F.xs, color: C.dim, width: 10 }}>{expanded ? "\u25be" : "\u25b8"}</span>
-          {tool && <AdminLogo tool={tool} />}
-          <span style={{ fontSize: F.lg, fontWeight: 700 }}>{group.name}</span>
-          <span style={{ fontSize: F.sm, color: C.muted }}>
-            {n} change{n === 1 ? "" : "s"}
-          </span>
-          {group.needsDecision && <Pill tone="warn">listing may need editing</Pill>}
-        </button>
-
-        {/* A tool's weekly changes usually share a verdict, so the common one
-            is available without opening anything. Publishing is per change
-            because each needs a sentence written. */}
+    <Row expandable open={expanded} onToggle={() => setOpenTool(expanded ? "" : group.id)}
+      title={<span className="inline-flex items-center" style={{ gap: S.sm }}>
+        {tool && <AdminLogo tool={tool} />}{group.name}
+      </span>}
+      badges={<>
+        <span style={{ fontSize: F.sm, color: C.muted }}>{n} change{n === 1 ? "" : "s"}</span>
+        {group.needsDecision && <Pill tone="warn">listing may need editing</Pill>}
+      </>}
+      headActions={<>
         {ready.length > 0 && (
           <Btn tone="go" onClick={resolveReady} busy={batch === "resolve"}>
             Resolve {ready.length}
@@ -4575,33 +4528,27 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
             Dismiss all
           </ConfirmBtn>
         )}
-      </div>
-
-      {expanded && (
-        <div style={{ paddingBottom: S.md }}>
-          {group.rows.map((r) => (
-            <div key={r.id} style={{ borderTop: `1px solid ${C.line}`, padding: "12px 0 4px", paddingLeft: S.lg }}>
-              <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                <span style={{ fontSize: F.xs, fontWeight: 700, color: LOUD.has(r.kind) ? C.warnInk : C.muted }}>
-                  {KIND_LABEL[r.kind] || r.kind}
-                </span>
-                <ConfidenceLine r={r} verified={verified} />
-              </div>
-              <p style={{ fontSize: F.sm, color: C.text, margin: "6px 0 0", lineHeight: 1.55, maxWidth: "74ch" }}>{r.what}</p>
-              {(r.old || r.new) && (
-                <p className="tnum" style={{ fontSize: F.sm, color: C.muted, margin: "6px 0 0", lineHeight: 1.55 }}>
-                  <span style={{ color: C.dim }}>was</span> {r.old || "absent"}
-                  {"  "}<span style={{ color: C.dim }}>now</span> <b style={{ color: C.text }}>{r.new || "absent"}</b>
-                </p>
-              )}
-              {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "74ch" }}>{r.why}</p>}
-              <ChangeAction r={r} done={Boolean(dismissed[r.id])} seenRecord={dismissed[r.id]} applied={applied[r.id]}
-                published={published[r.id]} rewritten={rewritten[r.id]} edited={edited[r.id]} busy={busy} onAct={onAct} />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      </>}
+    >
+      {group.rows.map((r) => (
+        <Row key={r.id}
+          title={<span style={{ fontSize: F.xs, color: LOUD.has(r.kind) ? C.warnInk : C.muted }}>{KIND_LABEL[r.kind] || r.kind}</span>}
+          badges={<ConfidenceLine r={r} verified={verified} />}
+          body={<>
+            <p style={{ fontSize: F.sm, color: C.text, margin: "2px 0 0", lineHeight: 1.55 }}>{r.what}</p>
+            {(r.old || r.new) && (
+              <p className="tnum" style={{ margin: "6px 0 0", lineHeight: 1.55 }}>
+                <span style={{ color: C.dim }}>was</span> {r.old || "absent"}
+                {"  "}<span style={{ color: C.dim }}>now</span> <b style={{ color: C.text }}>{r.new || "absent"}</b>
+              </p>
+            )}
+            {r.why && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>{r.why}</p>}
+          </>}
+          footer={<ChangeAction r={r} done={Boolean(dismissed[r.id])} seenRecord={dismissed[r.id]} applied={applied[r.id]}
+            published={published[r.id]} rewritten={rewritten[r.id]} edited={edited[r.id]} busy={busy} onAct={onAct} />}
+        />
+      ))}
+    </Row>
   );
 }
 
@@ -4630,34 +4577,21 @@ function ConfidenceLine({ r, verified = {} }) {
  * negative example, and what the error rate on System is made of.
  */
 function MarkWrong({ r, busy, onAct, hasDestinations }) {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
-  if (!open) return <Btn onClick={() => setOpen(true)}>Mark as wrong</Btn>;
-  const submit = async () => {
+  const submit = async (reason) => {
     setErr("");
     const res = await onAct(r.id, "mark-wrong", { reason });
     if (res?.error) setErr(res.error);
   };
   return (
-    <div style={{ flexBasis: "100%", marginTop: S.sm }}>
-      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-        <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} autoFocus
-          onKeyDown={(e) => { if (e.key === "Enter" && reason.trim()) submit(); if (e.key === "Escape") setOpen(false); }}
-          aria-label="What the monitor got wrong"
-          placeholder="What it got wrong, in one line. e.g. annual prices are behind a toggle"
-          style={{ ...FIELD, flex: "1 1 320px", width: "auto" }} />
-        <Btn onClick={submit} busy={busy === r.id} tone="go" disabled={!reason.trim()}>Mark wrong</Btn>
-        <Btn onClick={() => { setOpen(false); setReason(""); }}>Cancel</Btn>
-      </div>
-      {hasDestinations && (
-        <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>
-          This resolves the finding but does not undo what was already done with it. Remove it from
-          updates or undo the listing change with their own buttons.
-        </p>
-      )}
-      {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "6px 0 0" }}>{err}</p>}
-    </div>
+    <>
+      <ConfirmBtn tone="plain" busy={busy === r.id} confirm="Mark wrong" onConfirm={submit}
+        reason="What it got wrong, in one line. e.g. annual prices are behind a toggle"
+        note={hasDestinations
+          ? "This resolves the finding but does not undo what was already done with it. Remove it from updates or undo the listing change with their own buttons."
+          : null}>Mark as wrong</ConfirmBtn>
+      {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "6px 0 0", flexBasis: "100%" }}>{err}</p>}
+    </>
   );
 }
 
@@ -5205,7 +5139,7 @@ function RewriteEditor({ r, busy, onAct, onClose }) {
 /*
  * Suggestions that are not what this directory is for.
  *
- * Collapsed, in Catalogue rather than Inbox, because they need no decision:
+ * Collapsed, in System, Records, rather than the Inbox, because they need no decision:
  * the submitter has already been told, clearly and by name, that a merchant
  * app belongs in the Shopify App Store. They are kept because what people
  * arrive expecting to find is worth knowing, and a run of them would say the
@@ -5246,7 +5180,7 @@ function OutOfScope({ rows = [] }) {
 }
 
 /*
- * The counts, at the top of the tab that is about what the directory holds.
+ * The suggestion counts, in System, Records: what happened, not what to do.
  *
  * Every figure but one is a counter incremented when the thing happened, read
  * from svt:stats. None is derived from the current list, because the list is
@@ -5265,17 +5199,9 @@ function Tallies({ stats = { fields: {} }, rows = [] }) {
   const anything = figures.some(([, n]) => n > 0);
 
   return (
-    <section className="pb-10">
-      <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-        <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>Counts</h2>
-      </div>
-      <p style={{ fontSize: F.sm, color: C.muted, margin: "4px 0 0", maxWidth: "72ch", lineHeight: 1.55 }}>
-        Incremented when each thing happened, never recounted from the list. They are allowed to
-        disagree with what is on screen, and when they do these are the ones telling the truth.
-      </p>
-      <div className="mt-3" style={{
-        background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg,
-      }}>
+    <Collapsible title="Counts" count=""
+      hint="Incremented when each thing happened, never recounted from the list. They are allowed to disagree with what is on screen, and when they do these are the ones telling the truth.">
+      <div style={{ padding: "12px 0" }}>
         {!anything && (
           <p style={{ fontSize: F.sm, color: C.dim, margin: "0 0 12px", lineHeight: 1.55 }}>
             Nothing counted yet. These start from zero rather than from the rows already stored, so
@@ -5295,7 +5221,7 @@ function Tallies({ stats = { fields: {} }, rows = [] }) {
           ))}
         </div>
       </div>
-    </section>
+    </Collapsible>
   );
 }
 
@@ -5394,7 +5320,6 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
   const [state, setState] = useState(discovery);
   const findings = state?.findings || [];
   const dismissed = state?.dismissed || [];
-  const [arming, setArming] = useState("");
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
@@ -5433,7 +5358,6 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
         return;
       }
       setState(await res.json());
-      setArming("");
     } catch {
       setErrors((e) => ({ ...e, [label]: "Could not reach the server." }));
     } finally { setWorking(""); }
@@ -5589,25 +5513,15 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
                               title={f.url ? "" : "No URL to read"}>
                               Research and draft
                             </Btn>
-                            {arming === f.name ? (
-                              <>
-                                <span style={{ fontSize: F.xs, color: C.dim }}>Why?</span>
-                                {DISMISS_REASONS.map(([label, reason]) => (
-                                  <Btn key={label} busy={working === `d:${f.name}`}
-                                    onClick={() => decide("dismiss-discovery",
-                                      { name: f.name, url: f.url, reason }, `d:${f.name}`)}>
-                                    {label}
-                                  </Btn>
-                                ))}
-                                <Btn onClick={() => decide("dismiss-discovery",
-                                  { name: f.name, url: f.url, reason: "" }, `d:${f.name}`)}>
-                                  No reason
-                                </Btn>
-                                <Btn onClick={() => setArming("")}>Cancel</Btn>
-                              </>
-                            ) : (
-                              <Btn onClick={() => setArming(f.name)}>Dismiss</Btn>
-                            )}
+                            {/* The three reasons that need no research are one
+                                press each once armed; the value sent is the
+                                reason's text, kept with the decision. */}
+                            <ConfirmBtn tone="plain" busy={working === `d:${f.name}`}
+                              choices={[...DISMISS_REASONS, ["No reason", ""]]}
+                              onConfirm={(reason) => decide("dismiss-discovery",
+                                { name: f.name, url: f.url, reason }, `d:${f.name}`)}>
+                              Dismiss
+                            </ConfirmBtn>
                           </div>
                           {!f.url && (
                             <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5, maxWidth: "70ch" }}>
@@ -5693,10 +5607,9 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
   const [rows, setRows] = useState(feed);
-  const [armed, setArmed] = useState(false);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
-  const set = (k, v) => { setArmed(false); setForm((f) => ({ ...f, [k]: v })); };
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const tool = tools.find((t) => t.id === form.toolId);
   const ready = tool && form.headline.trim().length >= 12 && /^\d{4}-\d{2}-\d{2}$/.test(form.announcedOn);
 
@@ -5714,7 +5627,6 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
   }
 
   async function publish() {
-    if (!armed) { setArmed(true); return; }
     const d = await post("post-vendor-announcement", form.toolId, {
       headline: form.headline, sourceUrl: form.sourceUrl || tool.url, kind: form.kind,
       announcedOn: form.announcedOn, sourceNote: form.sourceNote,
@@ -5722,7 +5634,6 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
     if (d?.feedEntry) {
       setRows((r) => [d.feedEntry, ...r]);
       setForm({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
-      setArmed(false);
     }
   }
 
@@ -5746,14 +5657,13 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
         appliedChanges={appliedChanges} publishedChanges={publishedChanges}
         rewrittenChanges={rewrittenChanges} editedChanges={editedChanges} verifiedChanges={verifiedChanges} onSeen={onSeen} />
       <Section title="Post a vendor announcement"
-        hint="News a vendor told us about, by email or on a call, for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all. News the monitor found is published from its finding in the Inbox.">
-      <div style={{ background: C.raised, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, marginBottom: S.md }}>
+        hint="News a vendor told us about, by email or on a call, for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all. News the monitor found is published from its finding above.">
+      <div style={{ padding: "12px 0" }}>
         <div className="flex flex-wrap" style={{ gap: S.md }}>
           <div style={{ flex: "1 1 220px" }}>
             <Field label="Listing">
               <select value={form.toolId} onChange={(e) => {
                 const t = tools.find((x) => x.id === e.target.value);
-                setArmed(false);
                 setForm((f) => ({ ...f, toolId: e.target.value, sourceUrl: f.sourceUrl || t?.url || "" }));
               }} style={FIELD}>
                 <option value="">Choose a tool</option>
@@ -5790,27 +5700,26 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
         <Field label="Where it came from (private)" hint="For the record, e.g. an email from the founder. Never shown on the site.">
           <input value={form.sourceNote} onChange={(e) => set("sourceNote", e.target.value)} style={FIELD} />
         </Field>
-        {armed && tool && (
-          <div style={{ marginTop: S.md, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
-            <p style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>
-              Will appear on /changes today as {tool.name}, marked as a vendor announcement of {form.announcedOn}:
-            </p>
-            <p style={{ fontSize: F.md, color: C.text, margin: "6px 0 0", lineHeight: 1.6, maxWidth: "64ch" }}>{form.headline.trim()}</p>
-            <p style={{ fontSize: F.xs, color: C.warnInk, margin: "6px 0 0", lineHeight: 1.5 }}>
-              Anything it calls shipped, check on {(form.sourceUrl || tool.url).replace(/^https?:\/\//, "")} first.
-            </p>
-          </div>
-        )}
         <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
-          <Btn onClick={publish} busy={busy === "post-vendor-announcement" + form.toolId} tone="go" disabled={!ready}>
-            {armed ? "Publish to Recent updates" : "Review before publishing"}
-          </Btn>
-          {armed && <Btn onClick={() => setArmed(false)}>Back to editing</Btn>}
+          {/* The first press shows exactly what will appear; the second publishes it. */}
+          <ConfirmBtn tone="go" onConfirm={publish} busy={busy === "post-vendor-announcement" + form.toolId}
+            disabled={!ready} confirm="Publish to Recent updates"
+            note={tool ? <span style={{ display: "block", borderTop: `1px solid ${C.line}`, paddingTop: S.sm }}>
+              <span style={{ display: "block", color: C.dim }}>Will appear on /changes today as {tool.name}, marked as a vendor announcement of {form.announcedOn}:</span>
+              <span style={{ display: "block", fontSize: F.md, color: C.text, margin: "6px 0 0", lineHeight: 1.6, maxWidth: "64ch" }}>{form.headline.trim()}</span>
+              <span style={{ display: "block", color: C.warnInk, marginTop: 6 }}>
+                Anything it calls shipped, check on {(form.sourceUrl || tool.url).replace(/^https?:\/\//, "")} first.
+              </span>
+            </span> : null}>
+            Review before publishing
+          </ConfirmBtn>
           {!ready && <span style={{ fontSize: F.xs, color: C.dim }}>Needs a listing, a line of at least a sentence, and a date.</span>}
         </div>
         {err && <p style={{ fontSize: F.xs, color: C.warnInk, margin: "8px 0 0" }}>{err}</p>}
       </div>
       </Section>
+
+      <Reference>
       <Collapsible title="On Recent updates" count={rows.length}
         hint="Everything published to the feed, newest first, as visitors see it at /changes. Unpublishing is soft: the row is kept and marked removed.">
         {rows.length === 0
@@ -5835,6 +5744,11 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
             );
           })}
       </Collapsible>
+      <Collapsible title="Monitor coverage" anchor="coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
+        hint="Every published tool and newsletter, and whether the weekly monitor can actually read it. A listing it cannot see produces no findings, which looks exactly like a listing with nothing new, so silence only means something for the ones marked Monitored.">
+        <CoverageList rows={coverage} />
+      </Collapsible>
+      </Reference>
     </>
   );
 }
@@ -5908,7 +5822,7 @@ function CoverageLine({ rows = [] }) {
       {`The monitor can read ${c.monitored} of ${c.total} listings`}
       {c.partial ? `, ${c.partial} of them only in part` : ""}
       {out.length
-        ? `. Not covered, so silence about them means nothing: ${out.map((r) => `${r.name} (${COVERAGE_LABEL[r.state].toLowerCase()}${r.stale ? ", stale" : ""})`).join(", ")}. Catalogue, Monitor coverage.`
+        ? `. Not covered, so silence about them means nothing: ${out.map((r) => `${r.name} (${COVERAGE_LABEL[r.state].toLowerCase()}${r.stale ? ", stale" : ""})`).join(", ")}. Monitor coverage, at the foot of this tab, has each one.`
         : "."}
     </p>
   );
