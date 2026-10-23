@@ -28,7 +28,7 @@ export async function generateMetadata({ params }) {
   const description = ownerDescription(owner, owner.entries);
   return withShareImage({
     title, description,
-    alternates: { canonical: `/owners/${owner.id}` },
+    alternates: { canonical: `/owners/${owner.id}`, types: { "text/markdown": [{ url: `/owners/${owner.id}.md`, title: "Plain text for agents" }] } },
     openGraph: { title, description, type: "profile", siteName: "watchfor.tools" },
   });
 }

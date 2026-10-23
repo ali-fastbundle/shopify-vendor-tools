@@ -41,7 +41,7 @@ async function baseMetadata({ params }) {
   return {
     title,
     description,
-    alternates: { canonical: `/newsletters/${n.id}` },
+    alternates: { canonical: `/newsletters/${n.id}`, types: { "text/markdown": [{ url: `/newsletters/${n.id}.md`, title: "Plain text for agents" }] } },
     openGraph: {
       title, description, type: "article",
       url: newsletterUrl(n.id), siteName: "watchfor.tools",

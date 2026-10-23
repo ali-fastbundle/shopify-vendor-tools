@@ -19,7 +19,7 @@ const description =
 const baseMetadata = {
   title,
   description,
-  alternates: { canonical: "/events" },
+  alternates: { canonical: "/events", types: { "text/markdown": [{ url: "/events.md", title: "Plain text for agents" }] } },
   openGraph: { title, description, type: "website", url: EVENTS_URL, siteName: "watchfor.tools" },
   twitter: { card: "summary", title, description },
 };

@@ -87,7 +87,7 @@ async function baseMetadata({ params }) {
   return {
     title,
     description,
-    alternates: { canonical: `/tools/${tool.id}` },
+    alternates: { canonical: `/tools/${tool.id}`, types: { "text/markdown": [{ url: `/tools/${tool.id}.md`, title: "Plain text for agents" }] } },
     openGraph: {
       title, description, type: "article",
       url: toolUrl(tool.id),

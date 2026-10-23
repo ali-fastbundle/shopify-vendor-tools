@@ -50,7 +50,7 @@ async function baseMetadata({ params }) {
   return {
     title,
     description,
-    alternates: { canonical: `/categories/${cat.id}` },
+    alternates: { canonical: `/categories/${cat.id}`, types: { "text/markdown": [{ url: `/categories/${cat.id}.md`, title: "Plain text for agents" }] } },
     openGraph: {
       title, description, type: "website",
       url: categoryUrl(cat.id),

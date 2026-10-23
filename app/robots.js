@@ -15,11 +15,20 @@ import { SITE } from "@/lib/seo";
  */
 const READERS = ["GPTBot", "ClaudeBot", "Claude-Web", "PerplexityBot", "Google-Extended", "CCBot", "Applebot-Extended"];
 
+/*
+ * The Markdown version of every content page (lib/markdown.js) is allowed by
+ * name, as a decision rather than by the "/" that already covers it: it exists
+ * for exactly these readers. /md/ is where middleware.js sends those requests
+ * internally, and is kept out so the same text is not indexed at two addresses.
+ */
+const MARKDOWN = ["/*.md$", "/index.md"];
+const OFF = ["/admin", "/api/", "/md/"];
+
 export default function robots() {
   return {
     rules: [
-      { userAgent: "*", allow: "/", disallow: ["/admin", "/api/"] },
-      ...READERS.map((userAgent) => ({ userAgent, allow: "/", disallow: ["/admin", "/api/"] })),
+      { userAgent: "*", allow: ["/", ...MARKDOWN], disallow: OFF },
+      ...READERS.map((userAgent) => ({ userAgent, allow: ["/", ...MARKDOWN], disallow: OFF })),
     ],
     sitemap: `${SITE}/sitemap.xml`,
     host: SITE,

@@ -19,7 +19,10 @@ const baseMetadata = {
   description,
   alternates: {
     canonical: "/blog",
-    types: { "application/rss+xml": [{ url: "/blog/rss", title: "watchfor.tools: blog" }] },
+    types: {
+      "application/rss+xml": [{ url: "/blog/rss", title: "watchfor.tools: blog" }],
+      "text/markdown": [{ url: "/blog.md", title: "Plain text for agents" }],
+    },
   },
   openGraph: { title, description, type: "website", url: BLOG_URL, siteName: "watchfor.tools" },
   twitter: { card: "summary", title, description },

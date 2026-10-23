@@ -27,6 +27,9 @@ export async function generateMetadata(_, parent) {
     alt: `Watch For Tools. ${HEADLINE}`,
   };
   return {
+    /* Here and not in the layout: the layout's alternates reach every page,
+       and only content pages have a Markdown version (lib/markdown.js). */
+    alternates: { canonical: "/", types: { "text/markdown": [{ url: "/index.md", title: "Plain text for agents" }] } },
     openGraph: { ...og, images: [image] },
     twitter: { card: "summary_large_image", images: [image] },
   };

@@ -374,6 +374,34 @@ surface still wrote its own arithmetic. **Do not write `TOOLS.length` or
 `node scripts/tool-count-test.mjs [baseUrl]` holds the rule, the wiring, and with a base URL
 that every surface reports the same total and the same per-category counts.
 
+**54. Every content page has a Markdown version at its path plus .md, and it says nothing the page does not.**
+`/tools/<id>.md`, `/categories/<id>.md`, `/newsletters.md` and `/newsletters/<id>.md`,
+`/events.md` and `/events/<id>.md`, `/owners/<id>.md`, `/blog.md` and `/blog/<slug>.md`,
+`/changes.md`, `/about.md`, and `/index.md` for the directory (2026-10-23). `middleware.js`
+rewrites any path ending in `.md` to `app/md/[[...path]]/route.js`, which builds the text with
+`lib/markdown.js` from the same loaders the HTML page uses, per request. `text/markdown`, with
+a `Link: rel="canonical"` header pointing at the HTML page. A missing page is a 404.
+
+- **An alternative format, not a hidden surface.** Nothing goes in that the page does not
+  show: no `verified`, no research `notes`, no private review data, no address. A builder
+  that wants a new line checks the page first.
+- **The caveat is always there, labelled `## Watch for`**, on every tool, newsletter and
+  event. It is the reason to cite this directory rather than a vendor's page. In an index
+  (a category, `/events.md`, `/newsletters.md`) each caveat sits inside its own entry, under
+  its name, for the reason `llms.txt` leaves caveats out: never quoted without its subject.
+- **What the page marks as unchecked is marked**: "Unknown" in confirmed details, "Date not
+  confirmed" and "Dates not announced", "by the organizer's count", "From the vendor ...
+  not tested", and the blog's dagger with its legend (`postText`).
+- **Found four ways**: `<link rel="alternate" type="text/markdown">` in each content page's
+  head (`alternates.types`; the home page sets its own, since the layout's would reach
+  every page), a quiet "Plain text for agents" line in the footer on those pages only
+  (`markdownPathFor` in `components/SiteFrame.jsx`), the rule stated once in `llms.txt`, and
+  `Allow: /*.md$` in `robots.txt`, with the internal `/md/` disallowed so the text is not
+  indexed twice.
+
+Adding a content page means adding its builder, its route branch, its `alternates.types`
+and its pattern in `MD_ROUTES`. `scripts/markdown-test.mjs [baseUrl]`.
+
 **15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
@@ -2518,6 +2546,7 @@ and the server HTML.
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
 | `lib/tallies.js` | Running counts that outlive the rows they count |
 | `lib/inventory.js` | Every store key, what it holds, and the only two ways to delete from it |
+| `lib/markdown.js` `app/md/[[...path]]/route.js` `middleware.js` | The Markdown version of every content page: what each says, the route, and the .md rewrite |
 | `lib/seo.js` | The JSON-LD graph, per-tool and per-category descriptions, and the related-tool and related-category links |
 | `components/Categories.jsx` | The category page and the category index, server-rendered, no client state |
 | `app/categories` `app/categories/[id]` | The category index and one page per category. Title, description, canonical and graph each |
@@ -3362,6 +3391,7 @@ node scripts/tool-count-test.mjs [baseUrl] # one public tool count, and every su
 node scripts/dying-test.mjs          # winding down: admin-only override, back to the file removes it, the matcher sees it
 node scripts/declined-test.mjs       # a dismissed or wrong finding is remembered by what it said, and not raised again
 node scripts/edit-link-test.mjs      # one click from a finding to the edit form; an edit is a destination Resolve accepts
+node scripts/markdown-test.mjs [baseUrl] # every content page as .md: Watch for on every entry, nothing the page hides, the four ways in
 node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
 node scripts/frame-test.mjs [baseUrl] # the sidebar frame: order, counts, drawer, Suspense, server HTML
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers

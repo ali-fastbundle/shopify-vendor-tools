@@ -18,7 +18,10 @@ const baseMetadata = {
   /* So a reader that lands on the page can find the feed without being told. */
   alternates: {
     canonical: "/changes",
-    types: { "application/rss+xml": [{ url: "/changes/rss", title: "watchfor.tools: recent updates" }] },
+    types: {
+      "application/rss+xml": [{ url: "/changes/rss", title: "watchfor.tools: recent updates" }],
+      "text/markdown": [{ url: "/changes.md", title: "Plain text for agents" }],
+    },
   },
   openGraph: { title, description, type: "website", url: `${SITE}/changes`, siteName: "watchfor.tools" },
 };

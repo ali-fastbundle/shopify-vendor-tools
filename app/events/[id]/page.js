@@ -35,7 +35,7 @@ async function baseMetadata({ params }) {
   return {
     title,
     description,
-    alternates: { canonical: `/events/${e.id}` },
+    alternates: { canonical: `/events/${e.id}`, types: { "text/markdown": [{ url: `/events/${e.id}.md`, title: "Plain text for agents" }] } },
     openGraph: { title, description, type: "article", url: eventUrl(e.id), siteName: "watchfor.tools" },
     twitter: { card: "summary", title, description },
   };

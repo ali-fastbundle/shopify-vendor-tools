@@ -27,7 +27,10 @@ async function baseMetadata({ params }) {
     description: post.description,
     alternates: {
       canonical: `/blog/${post.slug}`,
-      types: { "application/rss+xml": [{ url: "/blog/rss", title: "watchfor.tools: blog" }] },
+      types: {
+        "application/rss+xml": [{ url: "/blog/rss", title: "watchfor.tools: blog" }],
+        "text/markdown": [{ url: `/blog/${post.slug}.md`, title: "Plain text for agents" }],
+      },
     },
     openGraph: {
       title, description: post.description, type: "article", url: postUrl(post.slug), siteName: "watchfor.tools",

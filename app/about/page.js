@@ -21,7 +21,7 @@ const description = "Ali A. maintains watchfor.tools. Head of Partnerships & Str
 const baseMetadata = {
   title,
   description,
-  alternates: { canonical: "/about" },
+  alternates: { canonical: "/about", types: { "text/markdown": [{ url: "/about.md", title: "Plain text for agents" }] } },
   openGraph: { title, description, type: "profile", siteName: "watchfor.tools" },
 };
 

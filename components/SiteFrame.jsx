@@ -461,9 +461,23 @@ function FeedRefine() {
  * This stays because it carries the promise: no paid placement and no
  * affiliate links, which has to be visible on every page.
  */
+/*
+ * The page's Markdown twin (lib/markdown.js), for the content pages that have
+ * one. A quiet line at the foot, never a badge or a header link: it is for an
+ * agent that reads the page, and the <link rel="alternate"> in the head says
+ * the same thing to one that reads markup.
+ */
+const MD_ROUTES = [
+  /^\/$/, /^\/tools\/[^/]+$/, /^\/categories\/[^/]+$/, /^\/newsletters(\/[^/]+)?$/,
+  /^\/events(\/[^/]+)?$/, /^\/owners\/[^/]+$/, /^\/blog(\/[^/]+)?$/, /^\/changes$/, /^\/about$/,
+];
+export const markdownPathFor = (path) =>
+  (MD_ROUTES.some((re) => re.test(path)) ? (path === "/" ? "/index.md" : `${path}.md`) : "");
+
 export function SiteFooter() {
   const path = usePathname() || "/";
   if (outsideFrame(path)) return null;
+  const md = markdownPathFor(path);
   return (
     <footer className="content" style={{ paddingBottom: BAND.mobile }}>
       <p style={{ fontSize: F.xs, color: C.dim, maxWidth: "78ch", lineHeight: 1.65, margin: `${S["3xl"]}px 0 0`, borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
@@ -477,6 +491,11 @@ export function SiteFooter() {
         profiles are linked only where the vendor publishes them. Ratings, reviews and suggestions are
         contributed by visitors and shared with everyone.
       </p>
+      {md && (
+        <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.sm}px 0 0` }}>
+          <a href={md} rel="alternate" type="text/markdown" style={{ color: C.dim }}>Plain text for agents</a>
+        </p>
+      )}
     </footer>
   );
 }
