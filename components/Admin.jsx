@@ -91,6 +91,7 @@ export default function AdminPanel({
   recommend = { runs: [], summary: null },
   askLog = [],
   eventFindings = [],
+  mentions = [],
   eventCoverage = [],
   eventRefresh = {},
   announcements = [],
@@ -150,6 +151,8 @@ export default function AdminPanel({
   const [entryRows, setEntryRows] = useState(entries || {});
   const [reviewRows, setReviewRows] = useState(reviewSignals);
   const [eventRows, setEventRows] = useState(eventFindings);
+  const [mentionRows, setMentionRows] = useState(mentions);
+  const newMentions = mentionRows.filter((m) => m.status === "new");
   const openEventFindings = eventRows.filter((f) => f.status === "open");
   const [commentRows, setCommentRows] = useState(comments);
   const unreadComments = commentRows.filter((c) => !c.reviewed);
@@ -209,6 +212,7 @@ export default function AdminPanel({
     media: pendingMedia.length,
     reviews: reviewsToDecide,
     events: openEventFindings.length,
+    mentions: newMentions.length,
   };
   const backlog = {
     drafts: [
@@ -268,6 +272,7 @@ export default function AdminPanel({
       if (d.entries) setEntryRows(d.entries);
       if (d.reviewSignals) setReviewRows(d.reviewSignals);
       if (d.eventFindings) setEventRows(d.eventFindings);
+      if (d.mentions) setMentionRows(d.mentions);
       if (d.comments) setCommentRows(d.comments);
       if (d.questions) setQuestionRows(d.questions);
       if (d.lists) setListRows(d.lists);
@@ -338,6 +343,7 @@ export default function AdminPanel({
             media={pendingMedia}
             reviews={reviewRows}
             events={openEventFindings}
+            mentions={newMentions}
             canCommit={Boolean(publishing?.canPublish)}
             act={act}
             busy={busy}
@@ -386,7 +392,7 @@ export default function AdminPanel({
         )}
 
         {tab === "audience" && (
-          <Audience stats={stats} interest={interest || {}} entries={entryRows} recommend={recommend} askLog={askLog}
+          <Audience stats={stats} interest={interest || {}} entries={entryRows} recommend={recommend} askLog={askLog} mentions={mentionRows}
             accounts={accounts || {}} claims={claimRows} verified={verifiedClaims}
             subscribers={subscribers || []} subscriberRows={subscriberRows}
             reviews={reviewRows} comments={commentRows} act={act} busy={busy} />
@@ -433,6 +439,7 @@ const WAITING_LABEL = {
   media: ["media set", "media sets", "q-media"],
   reviews: ["review to decide", "reviews to decide", "q-reviews"],
   events: ["event finding", "event findings", "q-events"],
+  mentions: ["mention to read", "mentions to read", "q-mentions"],
 };
 
 function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
@@ -480,7 +487,7 @@ function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
   );
 }
 
-function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims = [], openChanges = [], onTab, comments = [], questions = [], lists = [], media = [], reviews = [], events = [], canCommit = false, act, busy, onSuggestions, onEntries }) {
+function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims = [], openChanges = [], onTab, comments = [], questions = [], lists = [], media = [], reviews = [], events = [], mentions = [], canCommit = false, act, busy, onSuggestions, onEntries }) {
   return (
     <>
       <Summary waiting={waiting} backlog={backlog} findings={openChanges.length} onTab={onTab} />
@@ -507,6 +514,8 @@ function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims 
       <ReviewsToDecide groups={reviews} act={act} busy={busy} />
 
       {events.length > 0 && <EventFindings rows={events} act={act} busy={busy} />}
+
+      {mentions.length > 0 && <MentionsToRead rows={mentions} act={act} busy={busy} />}
 
       {comments.length > 0 && (
         <WorkList rows={comments.length} title="Comments to read" count={comments.length} anchor="q-comments"
@@ -1271,7 +1280,7 @@ function StatusStrip({ health, maillog = [], coverage = [] }) {
  * Audience, not health. What visitors are doing, kept away from what is
  * broken so neither has to be read through the other.
  */
-function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {}, recommend = { runs: [], summary: null }, askLog = [], accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], reviews = [], comments = [], act, busy }) {
+function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries = {}, recommend = { runs: [], summary: null }, askLog = [], mentions = [], accounts = {}, claims = {}, verified = [], subscribers = [], subscriberRows = [], reviews = [], comments = [], act, busy }) {
   const read = comments.filter((c) => c.reviewed);
   return (
     <>
@@ -1283,6 +1292,7 @@ function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries 
 
       {/* The people, and everything already decided about what they wrote. */}
       <Reference>
+        <AllMentions rows={mentions} act={act} busy={busy} />
         <Accounts accounts={accounts} claims={claims} />
         <Subscribers list={subscribers} rows={subscriberRows} />
         <Collapsible title="Verified claims"
@@ -1301,6 +1311,57 @@ function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries 
         </Collapsible>
       </Reference>
     </>
+  );
+}
+
+/*
+ * Mentions of a listed domain, from the weekly collection (lib/mentions.js).
+ * Read is all most need. Remove is only for the three reasons, kept and
+ * logged: disagreeing with what somebody said is not one of them.
+ */
+const REMOVE_LABEL = { "wrong-listing": "Not about this listing", spam: "Spam", private: "Private data" };
+function MentionRow({ m, act, busy, all = false }) {
+  return (
+    <Row title={m.listing?.name} tag={m.status === "removed" ? `removed: ${REMOVE_LABEL[m.reason] || m.reason}` : m.own ? "the vendor's own account" : m.affiliate ? "affiliate link" : m.repeat ? "same account, 3+ times" : m.source}
+      tagColor={m.status === "removed" ? C.warnInk : undefined} dim={m.status === "removed"}
+      body={m.line}
+      meta={<>
+        {m.at} · {m.author || "unknown author"} · matched {m.matched}
+        {" \u00b7 "}<a href={m.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>open</a>
+        {" \u00b7 "}<a href={m.listing?.href} style={{ color: C.muted }}>listing</a>
+        {m.decidedBy ? ` · ${m.status} by ${m.decidedBy} ${String(m.decidedAt).slice(0, 10)}` : ""}
+      </>}
+      actions={m.status === "removed"
+        ? <Btn onClick={() => act("mention", m.id, { decision: "restore" })} busy={busy === "mention" + m.id}>Restore</Btn>
+        : <>
+          {!all && <Btn onClick={() => act("mention", m.id, { decision: "seen" })} busy={busy === "mention" + m.id} tone="go">Read</Btn>}
+          {Object.entries(REMOVE_LABEL).map(([k, label]) => (
+            <ConfirmBtn key={k} onConfirm={() => act("mention", m.id, { decision: "remove", reason: k })} busy={busy === "mention" + m.id}>Remove: {label}</ConfirmBtn>
+          ))}
+        </>}
+    />
+  );
+}
+
+function MentionsToRead({ rows = [], act, busy }) {
+  return (
+    <WorkList rows={rows.length} title="Mentions to read" count={rows.length} anchor="q-mentions"
+      hint="Posts that link a listed domain, from Hacker News, Bluesky, the Shopify forums and GitHub, collected weekly. Not public: other people's words are not the directory's, and the public page waits until there is enough to show. Matched on the domain only. Read takes one out of here. Remove only when it is not about the listing, is spam, or exposes private data; it is kept with the reason.">
+      {rows.map((m) => <MentionRow key={m.id} m={m} act={act} busy={busy} />)}
+    </WorkList>
+  );
+}
+
+function AllMentions({ rows = [], act, busy }) {
+  const by = {};
+  for (const m of rows) if (m.status !== "removed") by[m.listing?.name] = (by[m.listing?.name] || 0) + 1;
+  const top = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([n, c]) => `${n} (${c})`).join(", ");
+  return (
+    <Collapsible title="Mentions" count={rows.length}
+      hint={`Every mention collected, newest first, removed ones included with their reason.${top ? ` Most mentioned: ${top}.` : ""}`}>
+      {rows.length === 0 ? <Empty>Nothing collected yet.</Empty>
+        : rows.slice(0, 300).map((m) => <MentionRow key={m.id} m={m} act={act} busy={busy} all />)}
+    </Collapsible>
   );
 }
 

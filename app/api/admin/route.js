@@ -1181,6 +1181,15 @@ export async function POST(request) {
 
   /* A decision on a monthly event refresh finding (lib/eventRefresh.js).
      Nothing here edits the catalogue. */
+  /* A decision on a mention (lib/mentions.js): seen, removed for one of the
+     three reasons (kept and logged), or restored. */
+  if (action === "mention") {
+    const m = await import("@/lib/mentions");
+    const r = await m.decideMention(String(id || ""), { action: String(body.decision || ""), reason: String(body.reason || "") }, session.email);
+    if (r.error) return new Response(r.error, { status: 400 });
+    return Response.json({ mentions: m.mentionList(await m.getMentions(), { includeRemoved: true }) });
+  }
+
   if (action === "event-finding") {
     const { decideEventFinding, getEventFindings } = await import("@/lib/eventRefresh");
     const r = await decideEventFinding(String(id || ""), String(body.decision || ""), session.email);

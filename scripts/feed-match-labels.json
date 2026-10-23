@@ -112,5 +112,25 @@
   "krutva": [
    "a personal trading project"
   ]
+ },
+ "volume": {
+  "window": "2026-08-01 to 2026-10-24",
+  "domains": 90,
+  "sources": [
+   "hackernews",
+   "bluesky",
+   "shopify-community",
+   "shopify-dev-community",
+   "github",
+   "reddit (0: search never matches a link)"
+  ],
+  "matches": 227,
+  "genuine": 24,
+  "own_account": "about 110 (94 of them Retail Insider's own Bluesky account)",
+  "bots_automated": "about 73 (56 from one AI filler account linking partnerstack.com)",
+  "affiliate_spam": "about 14",
+  "wrong_site": "6 (pattern.com creator pages, not Pattern's Accelerate event)",
+  "per_week": "about 2; under 1 without BuiltWith, Web Summit and Retail Insider",
+  "decision": "below the bar of about five a week: admin-only, no public page"
  }
 }

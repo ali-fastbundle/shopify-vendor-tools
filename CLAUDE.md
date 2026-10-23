@@ -488,6 +488,36 @@ Three parts (2026-10-23).
 
 `scripts/events-digest-test.mjs`.
 
+**58. Mentions: other people's words, matched on a domain, linked and never hosted.**
+`lib/mentions.js` collects posts that link a listed domain (every tool, newsletter, event and
+owner with a domain of its own) from Hacker News, Bluesky, the Shopify Community, the Shopify
+developer community and GitHub. `/api/cron/mentions` runs daily and searches each domain once a
+week, budgeted and resumable. Matching is on the domain only, on a boundary, with the longest
+needle winning (marmeto.com/elevate goes to Elevate, sasi.heymantle.com to SASI). A name is never
+matched: the 2026-10-23 probe found names right 10 times in 185 and domains 16 in 16
+(`scripts/feed-match-probe.py`, `scripts/feed-match-labels.json`). Reddit is not a source: its
+search never matches on a link.
+
+**It is admin-only, in the Inbox ("Mentions to read") and on Audience ("Mentions").** A public
+page was measured first and does not clear the bar of about five genuine items a week. Over 1
+August to 24 October 2026, 227 domain matches were 24 other people's words, about 110 the
+vendor's own account, about 73 bots and automated pull requests, about 14 affiliate spam and 6
+another site on the same domain: about two a week, and under one a week without BuiltWith, Web
+Summit and Retail Insider. A page at that rate looks abandoned. Re-measure from the Audience
+panel before proposing it again. Items are marked `own` (the listing's own account), `affiliate`
+(a referral link) and `repeat` (one account, one listing, three or more times), and only the
+rest count as other people (`isThirdParty`).
+
+**The policy, confirmed by the editor on 2026-10-24, and it goes on any public page:**
+- The directory links and never hosts. An item is the link, the source, the author's handle, the
+  date and one factual line built in code from the source's own heading. Never the post's text.
+- These are other people's words, not the editor's, and the page says so in those words.
+- An item is removed only when it is not about the listing, is spam, or exposes private data
+  (`REMOVAL_REASONS`). The row is kept with the reason, who and when.
+- Disagreeing with what somebody said is not grounds for removal.
+
+`scripts/mentions-test.mjs`.
+
 **15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
@@ -2625,6 +2655,7 @@ and the server HTML.
 | `app/contact` `components/ContactForm.jsx` `app/api/contact` | The contact form and its route |
 | `app/about/page.js` `app/about/photo` `lib/aboutText.js` `lib/aboutStore.js` | The maintainer's page: Ali's prose, editable from /admin with no address or phone allowed, the photo, LinkedIn and the contact form |
 | `components/FooterLinks.jsx` | LinkedIn, About, Contact and Privacy, in the site footer |
+| `lib/mentions.js` `app/api/cron/mentions` | Mentions of listed domains on free sources: the targets, the domain match, the one line, the weekly collection, removal with a reason |
 | `lib/eventDigest.js` `lib/eventRegions.js` `lib/eventRefresh.js` `app/api/cron/events` | The monthly events digest (editor and subscribers), regions (client-safe), and the monthly event refresh with its coverage |
 | `lib/follows.js` `lib/followCopy.js` | Who follows what (confirmed only), stop tokens, and the one-sentence promise |
 | `lib/notify.js` `lib/feeds.js` | The daily run: detect news, queue it per person, send one digest each; the RSS and Atom reader |
@@ -3551,6 +3582,7 @@ node scripts/editoruse-test.mjs      # editor use: wording, admin-only, history,
 node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
+node scripts/mentions-test.mjs       # mentions: domain only, never a name, never a post body, vendor and repeat accounts marked, removal reasons
 node scripts/events-digest-test.mjs  # the monthly events digest and the event refresh: regions, chase, once a month, blocked not dead, verification
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/privacy-test.mjs        # /privacy names every browser key; one cookie; no IP stored; stat lists fixed

@@ -144,6 +144,11 @@ export default async function AdminPage({ searchParams }) {
     { key: "askLog", load: () => readCapped(KEYS.matchLog, 500), empty: [] },
     /* The monthly event refresh (lib/eventRefresh.js): findings for the Inbox,
        and what it can see of each event for Updates. */
+    /* Mentions of listed domains (lib/mentions.js), every status. */
+    { key: "mentions", load: async () => {
+      const m = await import("@/lib/mentions");
+      return m.mentionList(await m.getMentions(), { includeRemoved: true });
+    }, empty: [] },
     { key: "eventFindings", load: async () => (await import("@/lib/eventRefresh")).getEventFindings(), empty: [] },
     { key: "eventRefresh", load: async () => {
       const r = await (await import("@/lib/eventRefresh")).getEventRefresh();
