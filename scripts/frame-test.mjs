@@ -34,7 +34,9 @@ const fd = src("lib/frameData.js");
    never a direct catalogue or store read in the layout. */
 ok(!/from "(@\/lib\/|\.\/)(store|listings|entries)"|mergedTools|catalogueTools/.test(layout + fd) && /toolCounts\(\)/.test(layout),
   "its tool counts are the one public count, through one cached read");
-ok(/directory: tools\.total, newsletters: NEWSLETTERS\.length, events: upcoming, blog: POSTS\.length/.test(fd), "a count for each section");
+ok(/directory: tools\.total, newsletters: NEWSLETTERS\.length, events: upcoming, owners: allOwners\(/.test(fd) && /blog: POSTS\.length/.test(fd), "a count for each section");
+ok(/owners = await ownerCount\(\)/.test(layout) && /allOwners\(\{ tools, newsletters, events \}\)\.length/.test(src("lib/ownerCountStore.js")),
+  "the Owners count is the page's own: allOwners over the merged lists, through one cached read");
 ok(/at\.mode !== "inferred"/.test(fd), "events counts dated ones ahead, not guessed dates");
 ok(/if \(outsideFrame\(path\)\) return children;/.test(shell), "/admin keeps its own frame");
 

@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeScript } from "@/components/Theme";
 import { SiteFrameProvider, SiteShell, SiteFooter } from "@/components/SiteFrame";
+import { ownerCount } from "@/lib/ownerCountStore";
 import { frameData } from "@/lib/frameData";
 import { publishedListCount } from "@/lib/listsSection";
 import { toolCounts } from "@/lib/toolCountStore";
@@ -73,7 +74,11 @@ export default async function RootLayout({ children }) {
   const fd = frameData(tools);
   let lists = 0;
   try { lists = await publishedListCount(); } catch { /* store down: the section stays out of the nav */ }
-  const frame = { ...fd, counts: { ...fd.counts, lists } };
+  /* Owners: the number the Owners page states (lib/ownerCountStore.js). Store
+     down: frameData's count from the files, through the same function. */
+  let owners = fd.counts.owners;
+  try { owners = await ownerCount(); } catch { /* keep the file count */ }
+  const frame = { ...fd, counts: { ...fd.counts, lists, owners } };
   return (
     /*
      * suppressHydrationWarning is for the one attribute ThemeScript sets on

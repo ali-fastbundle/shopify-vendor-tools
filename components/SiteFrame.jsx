@@ -41,9 +41,8 @@ export const SITE_VIEWS = [
   { id: "directory", label: "Directory", href: "/", match: (p) => p === "/" || p.startsWith("/tools/") || p.startsWith("/categories") || p.startsWith("/alternatives") || p.startsWith("/compare") },
   { id: "newsletters", label: "Newsletters", href: "/newsletters", match: (p) => p.startsWith("/newsletters") },
   { id: "events", label: "Events", href: "/events", match: (p) => p.startsWith("/events") },
-  /* Who is behind the listings, across every kind (2026-10-23). No count:
-     the page counts from the merged lists, and a second figure here would be
-     a second source for one number (invariant 53's lesson). */
+  /* Who is behind the listings, across every kind (2026-10-23). The count is
+     the page's own: allOwners over the merged lists (lib/ownerCountStore.js). */
   { id: "owners", label: "Owners", href: "/owners", match: (p) => p.startsWith("/owners") },
   /* Published lists, the section. It is in the nav only once it has a list
      worth showing (`when`): a section enters the nav when it has content, not

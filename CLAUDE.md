@@ -2284,8 +2284,8 @@ the one sentence the owner's page states about this relationship.
   known row by name. Compared with the entry on its name only (an event's `domain` is its
   organizer's site, and an edition year is not part of a name), and a name that is only the
   entry's own says nothing and is left out. An owner known only by name borrows its event's
-  `domain` for the mark and nothing else. It is a section in the sidebar, with no count, and
-  has `/owners.md`. **A future section reaches it with one line in `KINDS`.**
+  `domain` for the mark and nothing else. It is a section in the sidebar, with the page's own count beside
+  it, and has `/owners.md`. **A future section reaches it with one line in `KINDS`.**
 - **Pages only for two or more published entries**: `/owners/[id]`
   (`components/Owners.jsx`, no client state, Organization or Person JSON-LD with the owner's
   site as `sameAs`, in the sitemap, dated by its newest entry) and `/owners`. A one-entry
@@ -2522,7 +2522,9 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
 - **Counts:** tools from the public count (invariant 53), read once per five minutes from the
   store with the queue entries in it, so the sidebar and the directory heading state the same
   number; newsletters, events still ahead with a real date (an inferred one is a guess and is
-  not counted) and posts from the catalogue files (`frameData` in `lib/frameData.js`). Recent updates
+  not counted) and posts from the catalogue files (`frameData` in `lib/frameData.js`). Owners
+  is the number the Owners page states: `allOwners` over the merged lists, read once per five
+  minutes (`ownerCount` in `lib/ownerCountStore.js`), with the files as the fallback. Recent updates
   shows what is new to this browser and nothing at zero, the per-browser mark the header
   used to carry (`useFeedForCount`, stamped by opening `/changes`).
 - **Search is one box with one meaning, on every page** (2026-10-21). Enter goes to
