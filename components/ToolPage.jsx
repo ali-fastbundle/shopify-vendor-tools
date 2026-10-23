@@ -19,6 +19,7 @@ import VendorMedia from "@/components/VendorMedia";
 import WatchEditor from "@/components/WatchEditor";
 import SaveToList from "@/components/SaveToList";
 import EditorUseControl from "@/components/EditorUseControl";
+import DyingControl from "@/components/DyingControl";
 import { editorUseBadge } from "@/lib/editorUse";
 import PostLinks from "@/components/PostLinks";
 import { postsForTool } from "@/lib/blog";
@@ -167,6 +168,12 @@ function OwnerInvite({ tool, viewer = {}, watchLog = [] }) {
           <div style={{ marginTop: S.lg, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
             <p style={{ fontSize: F.sm, fontWeight: 600, margin: `0 0 ${S.sm}px` }}>Editor use</p>
             <EditorUseControl tool={tool} initial={tool.editorUse || null} />
+          </div>
+        )}
+        {viewer.admin && (
+          <div style={{ marginTop: S.lg, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
+            <p style={{ fontSize: F.sm, fontWeight: 600, margin: `0 0 ${S.sm}px` }}>Winding down</p>
+            <DyingControl tool={tool} />
           </div>
         )}
       </div>

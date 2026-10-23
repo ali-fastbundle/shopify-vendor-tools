@@ -265,6 +265,14 @@ export async function POST(request) {
     return Response.json({ toolId, editorUse: { value, note, date, at } });
   }
 
+  /* Winding down on or off for one tool (lib/listings.js setDying). */
+  if (action === "set-dying") {
+    const { setDying } = await import("@/lib/listings");
+    const res = await setDying(String(body.toolId || ""), body.dying, { by: session.email });
+    if (res.error) return new Response(res.error, { status: 400 });
+    return Response.json({ toolId: String(body.toolId), ...res });
+  }
+
   if (action === "exclude-review" || action === "unexclude-review") {
     const toolId = String(body.toolId || "");
     const reason = action === "unexclude-review" || body.reason == null || body.reason === "" ? null : String(body.reason);

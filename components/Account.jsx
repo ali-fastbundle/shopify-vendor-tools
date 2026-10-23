@@ -3,6 +3,7 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import { C, S, R, F, SOCIALS } from "@/lib/tools";
 import EditorUseControl from "./EditorUseControl";
+import DyingControl from "./DyingControl";
 import MediaEditor from "./MediaEditor";
 import WatchEditor from "./WatchEditor";
 
@@ -399,6 +400,14 @@ export function OwnerPanel({ tool, session, refresh, onTools, kind = "tool" }) {
             <EditorUseControl tool={tool} initial={tool.editorUse || null}
               onSaved={(id, eu) => onTools?.((ts) => ts.map((t) => t.id !== id ? t
                 : { ...t, editorUse: eu.value ? { value: eu.value, note: eu.note, date: eu.date } : undefined }))} />
+          </div>
+        )}
+        {/* Winding down is the admin's call too, never an owner's (lib/listings.js setDying). */}
+        {session.admin && kind === "tool" && (
+          <div style={{ marginTop: S.md, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
+            <p style={{ fontSize: F.sm, fontWeight: 600, margin: `0 0 ${S.sm}px` }}>Winding down</p>
+            <DyingControl tool={tool}
+              onSaved={(id, dying) => onTools?.((ts) => ts.map((t) => (t.id !== id ? t : { ...t, dying })))} />
           </div>
         )}
       </div>

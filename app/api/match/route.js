@@ -1,5 +1,6 @@
 import { catOf, recommendable } from "@/lib/tools";
 import { catalogueTools } from "@/lib/entries";
+import { getOverrides } from "@/lib/listings";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { askJson, configured } from "@/lib/model";
 
@@ -65,7 +66,11 @@ export async function POST(request) {
    */
   const all = await catalogueTools();
   const tools = all.filter(recommendable);
-  const catalogue = tools.filter((t) => !t.dying)
+  /* Winding down is read with the admin's override over the file
+     (lib/listings.js setDying), the way every page shows it. */
+  const overrides = await getOverrides().catch(() => ({}));
+  const dying = (t) => (overrides[t.id] && "dying" in overrides[t.id] ? overrides[t.id].dying === true : t.dying === true);
+  const catalogue = tools.filter((t) => !dying(t))
     .map((t) => `${t.id} | ${t.name} | ${catOf(t.cat).label} | ${t.price} | ${t.one} | tags: ${t.tags.join(", ")}`)
     .join("\n");
 

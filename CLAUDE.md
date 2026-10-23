@@ -722,6 +722,16 @@ vendor should not get to assert about themselves. `PROTECTED` is what no route
 may write: `watch`, `cat`, `alsoIn`, `verified`, `ratings`, `updated`, `id`, `name`,
 `noRecommend`, `competes`.
 
+**Winding down is an admin toggle as well as a monitor proposal** (2026-10-23).
+`DyingControl` on the tool page's admin box and in the admin state of the listing modal
+sets `dying` through `setDying` in `lib/listings.js`: an override over the file, two
+presses, and setting it back to what the file says removes the override rather than storing
+a copy. A vendor still cannot assert it (`EDITABLE`). The matcher reads the catalogue rather
+than `mergedTools()`, so `/api/match` reads the override itself. It changes the flag only:
+`one`, `note` and the caveat still describe whatever they describe, and the control says to
+check them. SASI was the case: marked as dying with Mantle and found running.
+`scripts/dying-test.mjs`.
+
 **A proposal touching a protected field gets no button, ever.** It renders as
 "needs a hand edit" with the reason stated rather than left as a missing
 affordance. A monitor that could rewrite a caveat because a vendor stopped
@@ -2474,6 +2484,7 @@ and the server HTML.
 | `components/YourLists.jsx` `lib/listsSection.js` | Your lists: the one shared copy and the sidebar block; whether the Lists section has content, cached |
 | `lib/media.js` `components/MediaEditor.jsx` `components/VendorMedia.jsx` `app/api/media` | Vendor screenshots and demo link: submission, approval by commit, the editor in the owner panel, the labelled display |
 | `lib/vendorContacts.js` `lib/outreach.js` `lib/outreachTemplate.js` `app/api/admin/outreach` | Outreach (temporary): vendors' published addresses with their sources (server only), the tracking, the template |
+| `components/DyingControl.jsx` | The admin toggle for winding down, on the tool page and the listing modal |
 | `components/WatchEditor.jsx` | The admin-only caveat editor: before and after, a reason, two presses, a commit to lib/tools.js, the history |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
 | `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
@@ -3321,6 +3332,7 @@ node scripts/categories-test.mjs     # one primary category plus the rest, and a
 node scripts/filters-test.mjs        # one Filters control, state in the URL, categories ordered by count
 node scripts/search-test.mjs         # one search across every section, past events included, drafts never, every word must match
 node scripts/tool-count-test.mjs [baseUrl] # one public tool count, and every surface states the same one
+node scripts/dying-test.mjs          # winding down: admin-only override, back to the file removes it, the matcher sees it
 node scripts/decisions-test.mjs      # one theme control, one hero action, three examples, no Compare on cards
 node scripts/frame-test.mjs [baseUrl] # the sidebar frame: order, counts, drawer, Suspense, server HTML
 node scripts/review-exclusion.mjs    # excluded reviews: shown, labelled, counted nowhere; the markers
