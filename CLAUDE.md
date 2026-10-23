@@ -2163,8 +2163,11 @@ the one sentence the owner's page states about this relationship.
 
 - **Nothing is inferred.** An owner is recorded only where the catalogue's own text says
   it. App Store Analytics is named in SASI's note but is not a listing, so Mantle's page
-  has two entries. The Wide Event is run by one person, and nothing here connects him to
-  The Wide Company, so it is not on that page.
+  has two entries. The Wide Event was kept off The Wide Company's page until its own
+  sources connected them (2026-10-23): AppstorePulse's terms name The Wide Company at an
+  address in Pierrelaye with a contact on matdesousa.com, and WideBundle's App Store listing
+  names Mat De Sousa as developer at that address. Now the event points at the company with
+  him named on its line.
 - **The owner's own product is a member, not an owner line.** Mantle, Marmeto and
   ShopExperts point at their own owner so they appear on its page; `ownershipOf` marks them
   `own` and the line says nothing (invariant 32). In a sibling list they read as "the Mantle
