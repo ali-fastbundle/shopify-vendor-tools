@@ -1,8 +1,7 @@
-import { readFile } from "fs/promises";
-import { join } from "path";
 import { ImageResponse } from "next/og";
 import { DARK, CATEGORIES, HEADLINE } from "@/lib/tools";
 import { ogFacts, ogVersion } from "@/lib/ogCard";
+import { inter } from "@/lib/ogFont";
 
 /*
  * The share card, served from a route we name ourselves.
@@ -42,28 +41,6 @@ const size = { width: 1200, height: 630 };
  * saying so. next.config.mjs traces app/_fonts into the bundle so the read still
  * works once deployed.
  */
-const FACES = [
-  { weight: 800, file: "Inter-800.ttf" },
-  { weight: 500, file: "Inter-500.ttf" },
-];
-
-async function inter() {
-  try {
-    return await Promise.all(
-      FACES.map(async ({ weight, file }) => ({
-        name: "Inter",
-        data: await readFile(join(process.cwd(), "app", "_fonts", file)),
-        weight,
-        style: "normal",
-      })),
-    );
-  } catch {
-    // Falls back to next/og's bundled face. A share image is not worth failing a
-    // build over, but the card will look wrong, so check here first if it does.
-    return [];
-  }
-}
-
 export async function GET() {
   const fonts = await inter();
   /* The facts the card draws, from the one function its URL version is a

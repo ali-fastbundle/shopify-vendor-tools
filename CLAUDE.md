@@ -1686,6 +1686,16 @@ across the homepage graph, each tool page, the sitemap and llms.txt.
   a wrong price is a wrong price, and that is the number that gets quoted back
   at you. The first version emitted a priceless `Offer` on nine tools, which is
   invalid; `scripts/validate-jsonld.mjs` caught it and now guards it.
+- **Optional fields are filled only from published facts.** A Search Console suggestion is
+  not a reason to emit a value we do not have. For an Event (2026-10-24, `eventGraph`):
+  `organizer` only with the organizer's own site (its owner row's url, or the event's `domain`
+  where the organizer's name and the domain agree), and no organizer node at all without one;
+  `performer` only from `performers` written from the event's own page, never the organizer as
+  a stand-in; `offers` only from `tickets` (price, currency, URL, the date read), for an edition
+  still ahead and read within 120 days; `image` is the event's own card from `/og/event/<id>`
+  (`eventOgFacts` in `lib/ogCard.js`), the same card as its share image, never the site card.
+  Search Console will go on suggesting performer and offers on most events, and that is the
+  correct state. `scripts/event-schema-test.mjs`.
 - Run `node scripts/validate-jsonld.mjs <url>` before shipping a change to the
   graph. It checks what the Rich Results Test checks, so the paste into Google
   is a confirmation rather than a discovery.
@@ -3592,6 +3602,7 @@ node scripts/editoruse-test.mjs      # editor use: wording, admin-only, history,
 node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
+node scripts/event-schema-test.mjs   # Event schema: organizer only with a URL, performers and offers only from recorded facts, a card per event
 node scripts/mentions-test.mjs       # mentions: domain only, never a name, never a post body, vendor and repeat accounts marked, removal reasons
 node scripts/events-digest-test.mjs  # the monthly events digest and the event refresh: regions, chase, once a month, blocked not dead, verification
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first

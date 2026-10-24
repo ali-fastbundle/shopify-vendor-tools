@@ -1,4 +1,4 @@
-import { withShareImage } from "@/lib/ogCard";
+import { withShareImage, eventSharePath } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
 import { placed, todayISO } from "@/lib/events";
 import { mergedEvents } from "@/lib/listings";
@@ -6,7 +6,7 @@ import { ownerContext } from "@/lib/ownerIndex";
 import { read, KEYS } from "@/lib/store";
 import { publicReviews } from "@/lib/reviews";
 import { LAST_UPDATED } from "@/lib/tools";
-import { eventUrl, eventDescription, eventGraph } from "@/lib/seo";
+import { eventUrl, eventDescription, eventGraph, SITE } from "@/lib/seo";
 import EventPage from "@/components/EventPage";
 import JsonLd from "@/components/JsonLd";
 
@@ -47,7 +47,7 @@ export default async function Page({ params }) {
   const { e, all, today, reviews } = found;
   return (
     <>
-      <JsonLd data={eventGraph(e)} />
+      <JsonLd data={eventGraph(e, { image: `${SITE}${eventSharePath(e)}` })} />
       <EventPage e={e} all={all} today={today} reviews={reviews} lastUpdated={LAST_UPDATED} />
     </>
   );
@@ -56,5 +56,7 @@ export default async function Page({ params }) {
 /* Wrapped so every page carries the one share card, versioned on what it
    draws (lib/ogCard.js), rather than each page writing its own. */
 export async function generateMetadata(props) {
-  return withShareImage(await baseMetadata(props));
+  /* The event's own card, not the site's (lib/ogCard.js eventSharePath). */
+  const found = await load(props.params.id);
+  return withShareImage(await baseMetadata(props), found ? { path: eventSharePath(found.e) } : {});
 }
