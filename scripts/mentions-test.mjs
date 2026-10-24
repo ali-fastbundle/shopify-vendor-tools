@@ -100,7 +100,21 @@ console.log("\nwhose words:");
 ok(M.isOwnAccount("retailinsider.bsky.social", { domain: "retail-insider.com", name: "Retail Insider" }) && M.isOwnAccount("storeinspect.bsky.social", { domain: "storeinspect.com", name: "StoreInspect" }), "the listing's own account is marked as the vendor's");
 ok(!M.isOwnAccount("andreslucero.com", { domain: "builtwith.com", name: "BuiltWith" }), "and somebody else's is not");
 ok(M.hasAffiliateLink("https://winninghunter.com/?via=firstsalesociety", "winninghunter.com") && M.hasAffiliateLink("https://partnerstack.com/go/clickup", "partnerstack.com") && !M.hasAffiliateLink("see builtwith.com for that", "builtwith.com"), "a referral link is marked as one");
-ok(!M.isThirdParty({ own: true }) && !M.isThirdParty({ affiliate: true }) && M.isThirdParty({}), "other people's words are the rest");
+ok(M.isOwnAccount("someone", { domain: "storeinspect.com", name: "StoreInspect" }, "storeinspect/cli"), "a repository under the vendor's own name is the vendor's");
+ok(!M.isThirdParty({ affiliate: true }) && M.isThirdParty({}), "other people's words are the rest");
+{
+  const { write } = await L("lib/store.js");
+  await write(KEYS.mentions, { items: { old1: { id: "old1", own: true, status: "new" } } });
+  const self = { bluesky: async (term) => term === "retail-insider.com" ? [
+    { url: "https://bsky.app/p/self", at: "2026-11-12", author: "retailinsider.bsky.social", text: "Our story https://retail-insider.com/a" },
+    { url: "https://bsky.app/p/other", at: "2026-11-12", author: "someone.bsky.social", text: "Worth reading https://retail-insider.com/a" },
+  ] : [] };
+  await M.collectMentions({ targets, sources: self, today: "2026-11-20", budgetMs: 60_000 });
+  const st = await M.getMentions();
+  const authors = Object.values(st.items).map((x) => x.author);
+  ok(!authors.includes("retailinsider.bsky.social") && authors.includes("someone.bsky.social"), "the listing's own account is not collected, somebody else posting the same link is");
+  ok(!st.items.old1, "and own-account items stored before this are cleared");
+}
 
 ok(!("reddit" in M.SOURCES) && ["hackernews", "bluesky", "shopify-community", "shopify-dev-community", "github"].every((k) => k in M.SOURCES), "the sources in use, Reddit left out");
 {

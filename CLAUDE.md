@@ -504,9 +504,13 @@ August to 24 October 2026, 227 domain matches were 24 other people's words, abou
 vendor's own account, about 73 bots and automated pull requests, about 14 affiliate spam and 6
 another site on the same domain: about two a week, and under one a week without BuiltWith, Web
 Summit and Retail Insider. A page at that rate looks abandoned. Re-measure from the Audience
-panel before proposing it again. Items are marked `own` (the listing's own account), `affiliate`
-(a referral link) and `repeat` (one account, one listing, three or more times), and only the
-rest count as other people (`isThirdParty`).
+panel before proposing it again. **A listing's own account is not collected at all** (the editor's call,
+2026-10-24): Retail Insider posting retail-insider.com from its own handle, or a repository
+under the vendor's own name, is the vendor talking about itself (`isOwnAccount`, on the handle
+and the repository owner). A founder posting from a personal handle cannot be told apart by the
+handle and is left to Remove. Items are marked `affiliate` (a referral link) and `repeat` (one
+account, one listing, three or more times), and only the rest count as other people
+(`isThirdParty`).
 
 **Blocked is not empty.** The SAMI and Ranksy gap (invariant 23) in another shape: a source
 refusing Vercel's servers would leave the Inbox empty for the wrong reason. So every run

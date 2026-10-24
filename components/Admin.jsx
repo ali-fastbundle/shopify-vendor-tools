@@ -1343,7 +1343,7 @@ const MENTION_STATE = { ok: "answering", empty: "answering, but empty where resu
 const REMOVE_LABEL = { "wrong-listing": "Not about this listing", spam: "Spam", private: "Private data" };
 function MentionRow({ m, act, busy, all = false }) {
   return (
-    <Row title={m.listing?.name} tag={m.status === "removed" ? `removed: ${REMOVE_LABEL[m.reason] || m.reason}` : m.own ? "the vendor's own account" : m.affiliate ? "affiliate link" : m.repeat ? "same account, 3+ times" : m.source}
+    <Row title={m.listing?.name} tag={m.status === "removed" ? `removed: ${REMOVE_LABEL[m.reason] || m.reason}` : m.affiliate ? "affiliate link" : m.repeat ? "same account, 3+ times" : m.source}
       tagColor={m.status === "removed" ? C.warnInk : undefined} dim={m.status === "removed"}
       body={m.line}
       meta={<>
@@ -1367,7 +1367,7 @@ function MentionRow({ m, act, busy, all = false }) {
 function MentionsToRead({ rows = [], act, busy }) {
   return (
     <WorkList rows={rows.length} title="Mentions to read" count={rows.length} anchor="q-mentions"
-      hint="Posts that link a listed domain, from Hacker News, Bluesky, the Shopify forums and GitHub, collected weekly. Not public: other people's words are not the directory's, and the public page waits until there is enough to show. Matched on the domain only. Read takes one out of here. Remove only when it is not about the listing, is spam, or exposes private data; it is kept with the reason.">
+      hint="Posts that link a listed domain, from Hacker News, Bluesky, the Shopify forums and GitHub, collected weekly. Not public: other people's words are not the directory's, and the public page waits until there is enough to show. Matched on the domain only, and never from the listing's own account. Read takes one out of here. Remove only when it is not about the listing, is spam, or exposes private data; it is kept with the reason.">
       {rows.map((m) => <MentionRow key={m.id} m={m} act={act} busy={busy} />)}
     </WorkList>
   );
