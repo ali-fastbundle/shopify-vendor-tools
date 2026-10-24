@@ -1206,6 +1206,7 @@ export async function POST(request) {
     const m = state.items[String(id || "")];
     if (!m) return new Response("Unknown mention", { status: 400 });
     if (m.status === "removed") return new Response("That mention was removed.", { status: 400 });
+    if (m.vendor) return new Response("Marked as from the vendor: it is never published as somebody else's words.", { status: 400 });
     const { mergedTools, mergedNewsletters, mergedEvents } = await import("@/lib/listings");
     const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
     const pool = m.listing.kind === "tool" ? tools : m.listing.kind === "newsletter" ? newsletters : m.listing.kind === "event" ? events : [];

@@ -63,9 +63,9 @@ ok(m("marmeto.com/elevate is free") === "elevate" && m("marmeto.com/orbit") === 
 ok(m("sasi.heymantle.com") === "sasi" && m("heymantle.com/pricing") === "mantle", "a subdomain goes to its own listing");
 
 console.log("\nthe one line:");
-const item = { source: "reddit", where: "r/shopify", title: "Best way to find stores using an app?", listing: { name: "Store Leads" } };
+const item = { source: "shopify-community", author: "sam", title: "Best way to find stores using an app?", listing: { name: "Store Leads" } };
 const line = M.lineOf(item);
-ok(/Reddit post in r\/shopify/.test(line) && /links Store Leads/.test(line), "says where it is and what it links", line);
+ok(line === "sam linked Store Leads in a Shopify Community thread.", "the fallback line says who linked what, and where", line);
 ok(M.lineOf({ source: "bluesky", listing: { name: "Applora" } }) === "A Bluesky post links Applora.", "a post with no heading gets no words from its body");
 
 console.log("\ncollection:");
@@ -179,6 +179,113 @@ console.log("\npublishing a mention to What's moving:");
   const st = await M.getMentions();
   ok(st.items.p1.status === "published" && st.items.p1.feedId === "feed1", "a published mention keeps its feed row");
   ok(!M.mentionList(st).filter((x) => x.status === "new").length, "and does not come back to the Inbox");
+}
+
+console.log("\nthe post, not the thread (worked example, structure of community.shopify.dev/t/38510):");
+{
+  const { write } = await L("lib/store.js");
+  await write(KEYS.mentions, {});
+  const Ctx = await L("lib/mentionContext.js");
+  const Draft = await L("lib/mentionDraft.js");
+  const base = "https://community.shopify.dev";
+  /* A made-up thread with the real one's shape: post 3 links LetsMetrix only
+     behind its link text, post 14 links it again, post 17 replies to post 15
+     and links AppNavigator. None of the real posts' words. */
+  const posts = {
+    101159: { post_number: 3, username: "dev_a", created_at: "2026-10-11T10:00:00Z", topic_id: 38510, topic_slug: "reviews-thread", reply_to_post_number: null,
+      cooked: '<p>I looked the reviewer up: <a href="https://letsmetrix.com/dashboard/review?reviewer_name=x">their review history</a>. FIXTUREPOST3 The same review text appears on three apps from three partners.</p>' },
+    101242: { post_number: 14, username: "dev_b", created_at: "2026-10-12T09:00:00Z", topic_id: 38510, topic_slug: "reviews-thread", reply_to_post_number: 13, reply_to_user: { username: "dev_a" },
+      cooked: '<p>That site is useful: <a href="https://letsmetrix.com/dashboard/review?reviewer_name=y">https://letsmetrix.com/dashboard/review?reviewer_name=y</a></p>' },
+    101250: { post_number: 15, username: "dev_b", created_at: "2026-10-12T10:00:00Z", topic_id: 38510, topic_slug: "reviews-thread", reply_to_post_number: 13,
+      cooked: "<p>FIXTUREPOST15 There is a deleted-reviews view too.</p>" },
+    101257: { post_number: 17, username: "dev_a", created_at: "2026-10-12T12:46:56Z", topic_id: 38510, topic_slug: "reviews-thread", reply_to_post_number: 15, reply_to_user: { username: "dev_b" },
+      cooked: '<p>FIXTUREPOST17 Also <a href="https://appnavigator.io/">https://appnavigator.io/</a> is lighter, fine for simple checks.</p>' },
+  };
+  const byNumber = Object.fromEntries(Object.values(posts).map((p) => [p.post_number, p]));
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    const json = (o) => new Response(JSON.stringify(o), { status: 200 });
+    if (u.startsWith(`${base}/search.json`)) {
+      const term = decodeURIComponent(u).includes("letsmetrix.com") ? [101159, 101242] : decodeURIComponent(u).includes("appnavigator.io") ? [101257] : decodeURIComponent(u).includes("shopify after") ? [101250] : [];
+      return json({ posts: term.map((id) => ({ id, topic_id: 38510, post_number: posts[id].post_number, username: posts[id].username, created_at: posts[id].created_at, blurb: "an excerpt with no link" })), topics: [{ id: 38510, title: "Sophisticated 1-Star Review Mercenaries for Hire" }] });
+    }
+    const m1 = u.match(/\/posts\/(\d+)\.json/); if (m1) return json(posts[m1[1]]);
+    const m2 = u.match(/\/posts\/by_number\/38510\/(\d+)\.json/); if (m2) return json(byNumber[m2[1]]);
+    return new Response("[]", { status: 200 });
+  };
+  const two = targets.filter((t) => ["letsmetrix.com", "appnavigator.io"].includes(t.domain));
+  const seen = [];
+  await M.collectMentions({ targets: two, sources: { "shopify-dev-community": M.SOURCES["shopify-dev-community"] }, today: "2026-10-24", firstSince: "2026-10-01", budgetMs: 60_000, summarise: async (m) => { seen.push(m); return { summary: `summary of post ${m.post?.number}` }; } });
+  const items = Object.values((await M.getMentions()).items);
+  const lm = items.find((x) => x.listing.id === "letsmetrix"), an = items.find((x) => x.listing.id === "appnavigator");
+  ok(items.length === 2 && lm && an, "two mentions, one per tool, not one per thread", `${items.length}`);
+  ok(/\/38510\/3$/.test(lm.url) && lm.post.number === 3 && lm.author === "dev_a", "LetsMetrix is anchored to post 3, found from a link inside link text", lm.url);
+  ok((lm.alsoIn || []).some((x) => x.number === 14), "post 14 linking it again is recorded on that mention, not as a second one");
+  ok(/\/38510\/17$/.test(an.url) && an.replyTo?.author === "dev_b" && an.replyTo.number === 15, "AppNavigator is anchored to post 17, in reply to post 15");
+  ok(M.contextLine(an) === "Post 17 by dev_a, in reply to dev_b, in a thread about “Sophisticated 1-Star Review Mercenaries for Hire”", "the admin row reads: in reply to X, in a thread about Y", M.contextLine(an));
+  ok(lm.summary === "summary of post 3" && an.summary === "summary of post 17", "each summary is written per post");
+  ok(!JSON.stringify(await M.getMentions()).includes("FIXTUREPOST"), "and no post text is stored");
+  const ctx = await Ctx.postContext(an);
+  const prompt = Draft.summaryPrompt(an, ctx);
+  ok(/FIXTUREPOST17/.test(prompt) && /FIXTUREPOST15/.test(prompt) && /THE POST IT REPLIES TO, by dev_b/.test(prompt), "the summary is written from the post and the one it answers, not the title");
+  ok(/Your own words/.test(prompt) && /Quote at most five words/.test(prompt), "in our own words, never the post's");
+  globalThis.fetch = realFetch;
+
+  const id = an.id;
+  await M.decideMention(id, { action: "dismiss" }, "admin@example.com");
+  let st = await M.getMentions();
+  ok(st.items[id].status === "dismissed" && M.mentionList(st).some((x) => x.id === id), "Dismiss keeps the record and needs no reason");
+  ok(!M.mentionList(st).filter((x) => x.status === "new").some((x) => x.id === id), "and clears it from the Inbox");
+  await M.decideMention(lm.id, { action: "vendor" }, "admin@example.com");
+  st = await M.getMentions();
+  ok(st.items[lm.id].vendor && !M.isThirdParty(st.items[lm.id]), "marked from the vendor by hand: kept, visible, never counted as other people");
+  ok((await M.decideMention(lm.id, { action: "interest" }, "a")).error, "has an interest needs a note");
+  await M.decideMention(lm.id, { action: "interest", reason: "runs a review-analysis platform" }, "admin@example.com");
+  st = await M.getMentions();
+  ok(st.items[lm.id].interest?.note === "runs a review-analysis platform" && !M.isThirdParty(st.items[lm.id]), "has an interest is recorded with its note, and not counted as neutral");
+  const route = src("app/api/admin/route.js");
+  ok(/if \(m\.vendor\) return new Response\("Marked as from the vendor/.test(route), "a mention marked from the vendor cannot be published");
+  const A = src("components/Admin.jsx");
+  ok(/Remove…/.test(A) && /Why remove it\?/.test(A) && !/Remove: \{label\}/.test(A), "the three removal reasons sit behind one Remove control");
+}
+
+console.log("\nrelevance: general brands only, judged by the model, kept when filtered:");
+{
+  const { write } = await L("lib/store.js");
+  await write(KEYS.mentions, {});
+  const g = (d) => targets.find((t) => t.domain === d);
+  ok(g("partnerstack.com")?.general && g("builtwith.com")?.general && !g("appnavigator.io")?.general && !g("storeleads.app")?.general, "general: tools marked shopifyExclusive false; Shopify-only tools are not");
+  ok(g("retail-insider.com")?.general && targets.filter((t) => t.kind === "owner").every((t) => t.general), "a newsletter that is not Shopify-specific is general, and so is every owner");
+  const rows = {
+    bluesky: async (term) => term === "builtwith.com" ? [
+      { url: "https://bsky.app/p/w", at: "2026-11-02", author: "webdev", text: "builtwith.com says this site runs WordPress" },
+      { url: "https://bsky.app/p/s", at: "2026-11-02", author: "appdev", text: "Using builtwith.com to find Shopify stores for my app" },
+    ] : term === "appnavigator.io" ? [{ url: "https://bsky.app/p/a", at: "2026-11-02", author: "x", text: "appnavigator.io is neat" }] : [],
+    "shopify-community": async (term) => term === "partnerstack.com" ? [{ url: "https://community.shopify.com/t/1/2", at: "2026-11-02", author: "y", text: "we moved our affiliates to partnerstack.com" }] : [],
+  };
+  const judged = [];
+  const judge = async (m) => { judged.push(m.url); return /shopify/i.test(m.url.includes("/p/s") ? "shopify" : "") ? { relevant: true, reason: "Names Shopify stores and an app." } : { relevant: false, reason: "About WordPress detection, nothing about Shopify." }; };
+  const r = await M.collectMentions({ targets, sources: rows, today: "2026-11-10", firstSince: "2026-11-01", budgetMs: 60_000, judge });
+  const st = await M.getMentions();
+  const by = (u) => Object.values(st.items).find((x) => x.url === u);
+  ok(judged.sort().join() === "https://bsky.app/p/s,https://bsky.app/p/w", "only a general brand outside the Shopify forums is judged");
+  ok(by("https://bsky.app/p/w").status === "filtered" && /WordPress/.test(by("https://bsky.app/p/w").relevance.reason), "an irrelevant one is kept as filtered, with the model's reason");
+  ok(by("https://bsky.app/p/s").status === "new" && by("https://bsky.app/p/s").relevance.by === "model", "a relevant one reaches the Inbox, with the reason it passed");
+  ok(by("https://community.shopify.com/t/1/2").status === "new" && by("https://community.shopify.com/t/1/2").relevance.by === "source", "a general brand in the Shopify Community passes by where it was posted");
+  ok(by("https://bsky.app/p/a").status === "new" && by("https://bsky.app/p/a").relevance.by === "listing", "a Shopify-only listing skips the test");
+  ok(r.found === 4 && r.passed === 3 && r.filtered === 1 && r.byListing.BuiltWith.in === 2 && r.byListing.BuiltWith.passed === 1, "the run reports what came in, what passed, and the split by listing");
+  await M.decideMention(by("https://bsky.app/p/w").id, { action: "keep" }, "admin@example.com");
+  const kept = Object.values((await M.getMentions()).items).find((x) => x.url === "https://bsky.app/p/w");
+  ok(kept.status === "new" && kept.relevance.by === "editor" && /WordPress/.test(kept.relevance.overruled), "Keep it overrules the filter, and the overruled reason is kept");
+  await write(KEYS.mentions, {});
+  await M.collectMentions({ targets, sources: rows, today: "2026-11-10", firstSince: "2026-11-01", budgetMs: 60_000 });
+  const noModel = Object.values((await M.getMentions()).items).filter((x) => x.listing.general && x.source === "bluesky");
+  ok(noModel.length === 2 && noModel.every((x) => x.status === "filtered" && x.relevance.by === "pending"), "with no model, a general brand's mention waits as not judged yet, out of the Inbox, never passed by keyword");
+  const D = await L("lib/mentionDraft.js");
+  const jp = D.judgePrompt({ listing: { name: "BuiltWith" }, author: "a", source: "bluesky" }, { text: "x", reply: null }, ["Store Leads"]);
+  ok(/Shopify is named/.test(jp) && /another of these listed tools is mentioned: Store Leads/.test(jp) && /"reason"/.test(jp), "the judge looks for Shopify, an app-vendor topic, another listed tool or an ecosystem handle, and gives a reason");
+  ok(/Filtered as not Shopify-relevant/.test(src("components/Admin.jsx")), "filtered mentions are shown in their own collapsed group");
 }
 
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");

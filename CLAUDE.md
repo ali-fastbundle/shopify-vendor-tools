@@ -522,6 +522,41 @@ again. The System status strip has a Mentions line that goes red and names the s
 Audience panel shows each source's last run with a Run now button. Measured from this machine
 on 2026-10-24, all five answered; production is read from that line, not assumed.
 
+**A mention is a post, not a thread** (2026-10-24). A thread title does not say what one reply
+in it said, so each mention is anchored to the post that links the listing: its number, author,
+date, a direct link to that post, and the post it replies to (`post`, `replyTo`, the thread's
+title as `title`). Discourse posts are read in full (`lib/mentionContext.js`), because a domain
+is often only in an href. Every listed tool a post links gets its own mention, one per tool per
+thread: a later post in the same thread linking the same tool is recorded on the first as
+`alsoIn`. The admin row shows a summary of that post in our own words, one or two sentences,
+written by the model from the post and enough of the reply it answers (`summariseMention`), and
+under it "Post N by X, in reply to Y, in a thread about Z" (`contextLine`). The post's text is
+read, used and dropped, never stored. The worked example is community.shopify.dev/t/38510:
+LetsMetrix from post 3 (post 14 as also linked), AppNavigator from post 17 in reply to post 15.
+
+**The row: Read, Dismiss and Publish, with the rest behind them.** Dismiss is the ordinary end:
+a genuine mention not worth acting on, kept, out of the Inbox, no reason, and quiet on the row.
+Remove is one control that asks for one of the three reasons. Two hand markers, because a
+handle cannot show them: **From the vendor** (a founder on a personal account, an employee, an
+agency for a client), kept and visible, never counted as other people and never publishable;
+and **Has an interest**, with a short note, for somebody neither the vendor nor neutral
+(recommending a tool while running a related business). Neither counts as other people
+(`isThirdParty`).
+
+**Relevance: general brands only, judged on the post** (2026-10-24). A general brand
+(a tool marked `shopifyExclusive: false`, a newsletter that is not Shopify-specific, an event
+whose relevance is not high, every owner) is mentioned constantly for reasons unrelated to
+this audience: 15 of the 24 genuine mentions in the volume probe were BuiltWith, Web Summit and
+Retail Insider. So after the domain match: a Shopify-only listing passes by construction;
+anything posted in the Shopify Community or the developer community passes by where it was
+posted; a general brand anywhere else is judged by the model on the post (Shopify named, an
+app-vendor topic, another listed tool, a known ecosystem handle), never by keywords, and the
+reason is stored either way (`judgeRelevance`). What fails is kept as `filtered`, out of the
+Inbox, in a collapsed "Filtered as not Shopify-relevant" group with its reason and Keep it,
+which records that the filter was overruled. With no model, a general brand's mention waits as
+"not judged yet" and is judged on the next run. Each run reports what came in, what passed and
+the split by listing.
+
 **A mention can be published to What's moving** (2026-10-24), from its row in the Inbox, with
 the same editor as a monitor finding: a drafted line, edited, published on a second press. The
 draft (`lib/mentionDraft.js`) reads the post at that moment from the source's own API, hands it
@@ -954,6 +989,24 @@ that data (`readableText`). Ranksy is watched through `/changelog` and Retail In
 through its feed. SAMI has nothing else to read and stays blocked; its news comes in
 as vendor announcements (invariant 31). A reading with any declared page refused is
 incomplete, so absence on it never accumulates towards a removal.
+
+**Feeds are discovered, and a working one beats the diff** (2026-10-24, `lib/feedDiscovery.js`).
+Before each weekly sweep the cron looks for every listing's feed or changelog, the ones the
+monitor cannot see first: a `<link rel="alternate">` feed in the homepage head, a changelog link
+in the nav or footer, then the common paths (/feed, /rss, /blog/feed, /changelog/feed,
+/changelog, /whats-new, /releases, /updates). A blocked homepage goes straight to the paths,
+which is how a blocked domain can be covered again. What is found is kept in `svt:feeds` with
+how and when; a `changelogUrl` or `feedUrl` set by hand is verified and never overwritten. A
+feed counts as active only if it parses and has an entry in the last twelve months; older is
+recorded as stale and shown, because an abandoned changelog says something about the tool.
+Where a listing has an active feed, the monitor reads it as a page (so its titles reach the
+snapshot), reports each new entry as a `shipped` finding at 0.9 ("stated in the vendor's own
+changelog", `feedFindings`), and drops the snapshot's inferred `new-capability` findings for
+that listing: a changelog entry is the vendor stating what shipped, and inference is what
+produced the AppJubilee and PPSPY false positives. The first read of a feed is a baseline.
+Pricing, free tier, wind-down, ownership and availability still come from the pages, because
+a changelog does not announce a price rise. Monitor coverage on Updates shows each listing's
+feed and has Find feeds now (`/api/cron/monitor?only=feeds`). `scripts/feed-discovery-test.mjs`.
 
 **Features have a field.** The snapshot records `capabilities`, the named features
 the pages present, so a shipped feature can be seen at all; before it, only the
@@ -3625,6 +3678,7 @@ node scripts/interest-test.mjs       # needs a running server
 AUTH_SECRET=... node scripts/engagement-test.mjs   # every section's engagement set, contact, location
 node scripts/follow-test.mjs         # double opt-in, detection, one digest per person, stop links
 node scripts/event-schema-test.mjs   # Event schema: organizer only with a URL, performers and offers only from recorded facts, a card per event
+node scripts/feed-discovery-test.mjs # feeds: found three ways, active within a year or stale, hand values kept, a feed beats the diff
 node scripts/mentions-test.mjs       # mentions: domain only, never a name, never a post body, vendor and repeat accounts marked, removal reasons
 node scripts/events-digest-test.mjs  # the monthly events digest and the event refresh: regions, chase, once a month, blocked not dead, verification
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first

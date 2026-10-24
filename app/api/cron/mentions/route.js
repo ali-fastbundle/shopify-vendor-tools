@@ -36,7 +36,14 @@ async function run(request, by) {
 
   const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
   const owners = allOwners({ tools, newsletters, events });
-  const result = await collectMentions({ targets: targetsOf({ tools, newsletters, events, owners }), budgetMs: 240_000 });
+  const { summariseMention, judgeRelevance } = await import("@/lib/mentionDraft");
+  const listed = tools.filter((t) => t.shopifyExclusive !== false).map((t) => t.name);
+  const result = await collectMentions({
+    targets: targetsOf({ tools, newsletters, events, owners }), budgetMs: 180_000,
+    summarise: (m) => summariseMention(m),
+    judge: (m) => judgeRelevance(m, { listed }),
+  });
+  console.log(`[mentions] ${result.found} in, ${result.passed} passed, ${result.filtered} filtered. ${Object.entries(result.byListing || {}).map(([k, v]) => `${k} ${v.passed}/${v.in}`).join(", ")}`);
   return Response.json(result);
 }
 

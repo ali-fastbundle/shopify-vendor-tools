@@ -23,7 +23,7 @@ import { C, S, R, F, TRACK, ink, CATEGORIES, catOf, formatDay } from "@/lib/tool
 
 const KIND_LABEL = {
   pricing: "Pricing", "free-tier": "Free tier", "wind-down": "Winding down",
-  acquisition: "Acquired", "new-capability": "New capability",
+  acquisition: "Acquired", "new-capability": "New capability", shipped: "Shipped",
   "dead-page": "Availability", scale: "Scale", ownership: "Ownership",
 };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useContext, createContext } from "react";
+import { contextLine } from "@/lib/feedSource";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
@@ -1344,24 +1345,74 @@ const MENTION_SOURCE = { hackernews: "Hacker News", bluesky: "Bluesky", "shopify
 const MENTION_STATE = { ok: "answering", empty: "answering, but empty where results were expected", blocked: "blocked", error: "failing" };
 const REMOVE_LABEL = { "wrong-listing": "Not about this listing", spam: "Spam", private: "Private data" };
 function MentionRow({ m, act, busy, all = false }) {
+  const [publishing, setPublishing] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [reason, setReason] = useState("");
+  const [interestOpen, setInterestOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const b = busy === "mention" + m.id;
+  const quiet = { background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: F.xs, color: C.muted, textDecoration: "underline", textUnderlineOffset: 2 };
+  const done = m.status === "removed" || m.status === "published" || m.status === "dismissed";
+  const tag = m.status === "removed" ? `removed: ${REMOVE_LABEL[m.reason] || m.reason}`
+    : m.status === "published" ? "published" : m.status === "dismissed" ? "dismissed" : MENTION_SOURCE[m.source] || m.source;
   return (
-    <Row title={m.listing?.name} tag={m.status === "removed" ? `removed: ${REMOVE_LABEL[m.reason] || m.reason}` : m.affiliate ? "affiliate link" : m.repeat ? "same account, 3+ times" : m.source}
-      tagColor={m.status === "removed" ? C.warnInk : undefined} dim={m.status === "removed"}
-      body={m.line}
+    <Row title={m.listing?.name} tag={tag}
+      tagColor={m.status === "removed" ? C.warnInk : undefined} dim={m.status === "removed" || m.status === "dismissed"}
+      badges={<>
+        {m.vendor && <Pill>from the vendor</Pill>}
+        {m.interest && <Pill>has an interest</Pill>}
+        {m.affiliate && <Pill>affiliate link</Pill>}
+        {m.repeat && <Pill>same account, 3+ times</Pill>}
+      </>}
+      body={<>
+        {m.summary || m.line}
+        {m.interest && <span style={{ display: "block", fontSize: F.xs, color: C.muted, marginTop: S.xs }}>Interest: {m.interest.note}</span>}
+      </>}
       meta={<>
-        {m.at} · {m.author || "unknown author"} · matched {m.matched}
-        {" \u00b7 "}<a href={m.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>open</a>
+        {contextLine(m)} · {m.at}
+        {" \u00b7 "}<a href={m.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>open the post</a>
         {" \u00b7 "}<a href={m.listing?.href} style={{ color: C.muted }}>listing</a>
+        {m.alsoIn?.length ? ` · also linked in ${m.alsoIn.map((x) => (x.number ? `post ${x.number}` : "a later post") + (x.author ? ` by ${x.author}` : "")).join(", ")}` : ""}
+        {!m.summary && m.summaryTried ? " · no summary (post unreadable or no model)" : ""}
         {m.decidedBy ? ` · ${m.status} by ${m.decidedBy} ${String(m.decidedAt).slice(0, 10)}` : ""}
       </>}
-      footer={m.status !== "removed" && m.status !== "published" ? <MentionPublisher m={m} act={act} busy={busy} /> : null}
+      footer={<>
+        {publishing && !done && !m.vendor && <MentionPublisher m={m} act={act} busy={busy} onCancel={() => setPublishing(false)} />}
+        {!done && (
+          <div className="flex flex-wrap items-center" style={{ gap: S.md, marginTop: S.sm }}>
+            {/* Secondary: whose words these are, and removal for one of three reasons. */}
+            <button type="button" style={quiet} disabled={b} onClick={() => act("mention", m.id, { decision: m.vendor ? "unvendor" : "vendor" })}>
+              {m.vendor ? "Not from the vendor" : "From the vendor"}
+            </button>
+            {m.interest
+              ? <button type="button" style={quiet} disabled={b} onClick={() => act("mention", m.id, { decision: "uninterest" })}>No interest</button>
+              : interestOpen
+                ? <span className="inline-flex items-center" style={{ gap: S.xs }}>
+                    <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What the interest is" style={{ ...FIELD, width: 220, padding: "4px 8px", fontSize: F.xs }} />
+                    <Btn disabled={!note.trim()} busy={b} onClick={() => { act("mention", m.id, { decision: "interest", reason: note }); setInterestOpen(false); }}>Save</Btn>
+                    <button type="button" style={quiet} onClick={() => setInterestOpen(false)}>Cancel</button>
+                  </span>
+                : <button type="button" style={quiet} onClick={() => setInterestOpen(true)}>Has an interest</button>}
+            {removing
+              ? <span className="inline-flex items-center" style={{ gap: S.xs }}>
+                  <select value={reason} onChange={(e) => setReason(e.target.value)} aria-label="Why remove it" style={{ ...FIELD, width: "auto", padding: "4px 8px", fontSize: F.xs }}>
+                    <option value="">Why remove it?</option>
+                    {Object.entries(REMOVE_LABEL).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                  </select>
+                  <ConfirmBtn disabled={!reason} onConfirm={() => act("mention", m.id, { decision: "remove", reason })} busy={b}>Remove</ConfirmBtn>
+                  <button type="button" style={quiet} onClick={() => { setRemoving(false); setReason(""); }}>Cancel</button>
+                </span>
+              : <button type="button" style={quiet} onClick={() => setRemoving(true)}>Remove…</button>}
+          </div>
+        )}
+      </>}
       actions={m.status === "removed"
-        ? <Btn onClick={() => act("mention", m.id, { decision: "restore" })} busy={busy === "mention" + m.id}>Restore</Btn>
-        : m.status === "published" ? null : <>
-          {!all && <Btn onClick={() => act("mention", m.id, { decision: "seen" })} busy={busy === "mention" + m.id} tone="go">Read</Btn>}
-          {Object.entries(REMOVE_LABEL).map(([k, label]) => (
-            <ConfirmBtn key={k} onConfirm={() => act("mention", m.id, { decision: "remove", reason: k })} busy={busy === "mention" + m.id}>Remove: {label}</ConfirmBtn>
-          ))}
+        ? <Btn onClick={() => act("mention", m.id, { decision: "restore" })} busy={b}>Restore</Btn>
+        : done ? null : <>
+          {!all && m.status === "new" && <Btn onClick={() => act("mention", m.id, { decision: "seen" })} busy={b}>Read</Btn>}
+          {/* The ordinary end for a mention: kept, out of the Inbox. Quiet on purpose. */}
+          <button type="button" style={{ ...quiet, fontSize: F.sm }} disabled={b} onClick={() => act("mention", m.id, { decision: "dismiss" })}>Dismiss</button>
+          {!m.vendor && <Btn tone="go" onClick={() => setPublishing(true)} disabled={publishing}>Publish</Btn>}
         </>}
     />
   );
@@ -1373,8 +1424,8 @@ function MentionRow({ m, act, busy, all = false }) {
  * attributed, one line, and never the post's text; the post is read on the
  * server for the draft and not kept (lib/mentionDraft.js, invariant 58).
  */
-function MentionPublisher({ m, act, busy }) {
-  const [open, setOpen] = useState(false);
+function MentionPublisher({ m, act, busy, onCancel }) {
+  const [open, setOpen] = useState(true);
   const [headline, setHeadline] = useState("");
   const [drafting, setDrafting] = useState(false);
   const [meta, setMeta] = useState(null);
@@ -1389,7 +1440,9 @@ function MentionPublisher({ m, act, busy }) {
     } catch { setErr("Could not reach the server. Write it yourself below."); }
     finally { setDrafting(false); }
   }
-  if (!open) return <Btn onClick={start}>Publish to {FEED_NAME}</Btn>;
+  /* Opened by the row's Publish: draft straight away. */
+  useEffect(() => { if (!headline && !drafting && !meta && !err) start(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  if (!open) return null;
   return (
     <div style={{ background: C.raised, border: `1px solid ${C.accentEdge}`, borderRadius: R.card, padding: S.lg, marginTop: S.sm }}>
       <div className="flex flex-wrap" style={{ gap: S.lg }}>
@@ -1414,9 +1467,30 @@ function MentionPublisher({ m, act, busy }) {
       <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.md }}>
         <Btn tone="go" disabled={!headline.trim() || drafting} busy={busy === "publish-mention" + m.id}
           onClick={async () => { const r = await act("publish-mention", m.id, { headline }); if (r?.error) setErr(r.error); }}>Publish</Btn>
-        <Btn onClick={() => setOpen(false)}>Cancel</Btn>
+        <Btn onClick={() => { setOpen(false); onCancel && onCancel(); }}>Cancel</Btn>
       </div>
     </div>
+  );
+}
+
+/*
+ * Mentions of a general brand that the relevance test judged not
+ * Shopify-relevant, kept with the reason so an over-eager filter shows. Keep it
+ * puts one in the Inbox and records that the filter was overruled.
+ */
+function FilteredMentions({ rows = [], act, busy }) {
+  const by = {};
+  for (const m of rows) by[m.listing?.name] = (by[m.listing?.name] || 0) + 1;
+  return (
+    <Collapsible title="Filtered as not Shopify-relevant" count={rows.length}
+      hint={`Mentions of general brands posted outside the Shopify forums, judged by the model to have nothing to do with Shopify app vendors. Kept, with the reason, so the filter can be checked.${rows.length ? ` By listing: ${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n} (${c})`).join(", ")}.` : ""}`}>
+      {rows.length === 0 ? <Empty>Nothing filtered.</Empty> : rows.slice(0, 200).map((m) => (
+        <Row key={m.id} title={m.listing?.name} tag={m.relevance?.by === "pending" ? "not judged yet" : "filtered"} dim
+          body={m.relevance?.reason || "No reason recorded."}
+          meta={<>{contextLine(m)} · {m.at}{" \u00b7 "}<a href={m.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>open the post</a></>}
+          actions={<Btn onClick={() => act("mention", m.id, { decision: "keep" })} busy={busy === "mention" + m.id}>Keep it</Btn>} />
+      ))}
+    </Collapsible>
   );
 }
 
@@ -1436,7 +1510,7 @@ function AllMentions({ rows = [], sources = { lastRunAt: "", sources: {} }, act,
     try {
       const res = await fetch("/api/cron/mentions", { method: "POST" });
       const d = res.ok ? await res.json() : null;
-      setRun(d ? `${d.checked} searches, ${d.found} new. ${Object.entries(d.sources || {}).map(([k, v]) => `${MENTION_SOURCE[k] || k}: ${MENTION_STATE[v.state] || v.state}${v.last ? ` (${v.last})` : ""}`).join(". ")}. Reload to see them.` : `Failed: HTTP ${res.status}`);
+      setRun(d ? `${d.checked} searches, ${d.found} new, ${d.passed ?? d.found} passed, ${d.filtered ?? 0} filtered${d.byListing ? ` (${Object.entries(d.byListing).map(([k, v]) => `${k} ${v.passed}/${v.in}`).join(", ")})` : ""}. ${Object.entries(d.sources || {}).map(([k, v]) => `${MENTION_SOURCE[k] || k}: ${MENTION_STATE[v.state] || v.state}${v.last ? ` (${v.last})` : ""}`).join(". ")}. Reload to see them.` : `Failed: HTTP ${res.status}`);
     } catch { setRun("Could not reach the server."); }
   }
   const by = {};
@@ -1455,8 +1529,9 @@ function AllMentions({ rows = [], sources = { lastRunAt: "", sources: {} }, act,
           meta={`${String(v.at).slice(0, 16).replace("T", " ")} · ${v.requests} searches · ${v.blocked} blocked · ${v.errors} failed · ${v.matched} new · canary ${v.canary < 0 ? "refused" : v.canary}${v.last ? ` · last: ${v.last}` : ""}${v.since && v.state !== "ok" ? ` · since ${String(v.since).slice(0, 10)}` : ""}`} />
       ))}
       {!Object.keys(sources.sources || {}).length && <Empty>The collection has not run yet, so no source has answered.</Empty>}
-      {rows.length === 0 ? <Empty>Nothing collected yet.</Empty>
-        : rows.slice(0, 300).map((m) => <MentionRow key={m.id} m={m} act={act} busy={busy} all />)}
+      {rows.filter((m) => m.status !== "filtered").length === 0 ? <Empty>Nothing collected yet.</Empty>
+        : rows.filter((m) => m.status !== "filtered").slice(0, 300).map((m) => <MentionRow key={m.id} m={m} act={act} busy={busy} all />)}
+      <FilteredMentions rows={rows.filter((m) => m.status === "filtered")} act={act} busy={busy} />
     </Collapsible>
   );
 }
@@ -4546,7 +4621,7 @@ function DedupeLog({ rows = [] }) {
 
 const KIND_LABEL = {
   pricing: "Pricing", "free-tier": "Free tier", "wind-down": "Winding down",
-  acquisition: "Acquired", "new-capability": "New capability",
+  acquisition: "Acquired", "new-capability": "New capability", shipped: "From its changelog",
   "dead-page": "Page dead", scale: "Scale numbers", ownership: "Ownership",
 };
 
@@ -6048,7 +6123,26 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
  */
 function CoverageList({ rows = [] }) {
   const [showAll, setShowAll] = useState(false);
+  const [run, setRun] = useState("");
   if (!rows.length) return <Empty>No coverage recorded yet. It fills in after the next monitor run.</Empty>;
+  const f = { active: rows.filter((r) => r.feed?.state === "active").length, stale: rows.filter((r) => r.feed?.state === "stale").length };
+  const blockedCovered = rows.filter((r) => r.state === "blocked" && r.feed?.state === "active").map((r) => r.name);
+  async function findFeeds() {
+    setRun("running");
+    try {
+      const res = await fetch("/api/cron/monitor?only=feeds", { method: "POST" });
+      const d = res.ok ? await res.json() : null;
+      setRun(d ? `${d.feeds.checked} checked: ${d.feeds.active} active, ${d.feeds.stale} stale, ${d.feeds.none} none. Blocked and now covered: ${d.feeds.blockedCovered.join(", ") || "none"}. Reload to see them.` : `Failed: HTTP ${res.status}`);
+    } catch { setRun("Could not reach the server."); }
+  }
+  const feedsLine = (
+    <p style={{ fontSize: F.sm, color: C.muted, margin: `0 0 ${S.md}px`, lineHeight: 1.6 }}>
+      Feeds and changelogs: {f.active} active, {f.stale} stale, {rows.length - f.active - f.stale} none.
+      {blockedCovered.length ? ` Blocked homepages covered by a feed: ${blockedCovered.join(", ")}.` : ""}{" "}
+      <Btn onClick={findFeeds} busy={run === "running"}>Find feeds now</Btn>
+      {run && run !== "running" && <span style={{ fontSize: F.xs, marginLeft: S.sm }}>{run}</span>}
+    </p>
+  );
   const listingHref = (r) => (r.kind === "newsletter" ? `/newsletters/${r.id}` : `/tools/${r.id}`);
   const watched = rows.filter((r) => r.state === "monitored" && !r.partial && !r.stale);
   const rest = rows.filter((r) => !watched.includes(r));
@@ -6065,6 +6159,8 @@ function CoverageList({ rows = [] }) {
           {r.lastRead ? `last read ${String(r.lastRead).slice(0, 10)}` : "never read"}
           {r.since ? ` \u00b7 blocked since ${String(r.since).slice(0, 10)}` : ""}
           {` \u00b7 watches ${r.declared.join(", ")}`}
+          {` \u00b7 ${r.feed ? (r.feed.state === "active" ? `${r.feed.type || "feed"} active, newest ${r.feed.newest}` : r.feed.state === "stale" ? `${r.feed.type || "feed"} stale, newest ${r.feed.newest || "undated"}` : "no feed found") : "feeds not checked yet"}`}
+          {r.feed?.url ? <>{" \u00b7 "}<a href={r.feed.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{r.feed.how || "feed"}</a></> : null}
           {" \u00b7 "}<a href={listingHref(r)} style={{ color: C.muted }}>open the entry</a>
         </>}
       />
@@ -6072,6 +6168,7 @@ function CoverageList({ rows = [] }) {
   };
   return (
     <>
+      {feedsLine}
       {rest.length === 0
         ? <Empty>Every listing was read in full on its last run.</Empty>
         : rest.map(row)}

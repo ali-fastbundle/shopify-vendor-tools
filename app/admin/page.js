@@ -133,7 +133,8 @@ export default async function AdminPage({ searchParams }) {
         ...(await catalogueTools()).map((t) => ({ ...t, kind: "tool" })),
         ...NEWSLETTERS.map((n) => ({ ...n, kind: "newsletter" })),
       ];
-      return coverageOf(entries, snapshots);
+      const feeds = await (await import("@/lib/feedDiscovery")).getFeeds();
+      return coverageOf(entries, snapshots, { feeds });
     }, empty: [] },
     { key: "publishedChanges", load: () => read(KEYS.changesPublished, {}), empty: {} },
     { key: "rewrittenChanges", load: () => read(KEYS.changesRewritten, {}), empty: {} },

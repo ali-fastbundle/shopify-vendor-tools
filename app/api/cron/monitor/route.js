@@ -1,4 +1,5 @@
-import { runMonitor } from "@/lib/monitor";
+import { runMonitor, getSnapshots } from "@/lib/monitor";
+import { runDiscovery, feedCoverage } from "@/lib/feedDiscovery";
 import { catalogueTools } from "@/lib/entries";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { sendEvent } from "@/lib/mail";
@@ -64,7 +65,22 @@ async function sweep(request, by) {
     ...NEWSLETTERS.map((n) => ({ ...n, kind: "newsletter" })),
   ];
 
-  const result = await runMonitor(entries, { limit });
+  /*
+   * Feed discovery first (lib/feedDiscovery.js), with the listings the monitor
+   * cannot see at the front of the queue: a working feed on a blocked domain is
+   * how it gets covered again. Budgeted, and only what is due, so a quiet week
+   * costs a few fetches. `?only=feeds` runs this step alone, from /admin.
+   */
+  const snaps = await getSnapshots();
+  const blind = entries.filter((e) => snaps[e.id]?.blocked || Number(snaps[e.id]?.failures) > 0).map((e) => e.id);
+  const disc = await runDiscovery(entries, { blind, budgetMs: url.searchParams.get("only") === "feeds" ? 240_000 : 60_000, force: url.searchParams.get("force") === "1" });
+  const cover = feedCoverage(entries, disc.feeds, blind);
+  console.log(`[feeds] ${disc.checked} of ${disc.due} checked. ${cover.active} active, ${cover.stale} stale, ${cover.none} none. Blocked now covered by a feed: ${cover.blockedCovered.join(", ") || "none"}; not: ${cover.blockedNot.join(", ") || "none"}.`);
+  if (url.searchParams.get("only") === "feeds") {
+    return Response.json({ ok: true, by, feeds: { checked: disc.checked, due: disc.due, active: cover.active, stale: cover.stale, none: cover.none, blockedCovered: cover.blockedCovered, blockedNot: cover.blockedNot } });
+  }
+
+  const result = await runMonitor(entries, { limit, budgetMs: 200_000 });
   if (result.error) return new Response(result.error, { status: 503 });
 
   /*
