@@ -60,7 +60,7 @@ ok(/\/admin\?tab=write#about-page/.test(read("app/about/page.js")), "the About p
 console.log("\nwork first, then one Reference group:");
 const LAYERS = {
   Inbox: { work: ["Suggestions to review", "OpenReports", "ReviewsToDecide", "Claims to check"], ref: [] },
-  RecentUpdates: { work: ["ChangeMonitor", "Post a vendor announcement"], ref: ["On Recent updates", "Monitor coverage"] },
+  RecentUpdates: { work: ["ChangeMonitor", "Post a vendor announcement"], ref: ["On What's moving", "Monitor coverage"] },
   Listings: { work: ['part="work"', "StructuredData"], ref: ['part="held"', "NeedsVerifying", "EditorUse", "PublishedEntries", "Vendor media", "Discovered"] },
   Write: { work: ["Announcements", "Compose", "AboutPage"], ref: ["Ideas", "Outreach"] },
   Audience: { work: ["QuestionsAsked", "RecommenderRuns", "Stats", "Interest"], ref: ["Accounts", "Subscribers", "Verified claims", "ReviewsRecord", "Blog comments read"] },
@@ -126,7 +126,7 @@ for (const [key, anchor] of Object.entries({ suggestions: "q-suggestions", repor
 }
 
 console.log("\nlong lists are shut:");
-for (const t of ["Reviewed suggestions", "Interest in listed tools", "Accounts", "Out of scope", "Deleted", "On Recent updates",
+for (const t of ["Reviewed suggestions", "Interest in listed tools", "Accounts", "Out of scope", "Deleted", "On What's moving",
   "Monitor coverage", "Needs verifying", "Editor use", "Vendor media", "Published suggestions", "Mail log", "Store contents", "Subscribers",
   "Verified claims", "Published from the queue", "Discovered competitors", "Directory stats", "Growth recommender", "Recommender feedback",
   "On hold", "Discarded", "Committed from here", "Counts", "Excluded reviews", "Confirmed reviews", "Other reviews", "Blog comments read", "Outreach",
@@ -177,7 +177,7 @@ ok(/<ConfirmBtn confirm="Remove from file and commit" reason=[\s\S]*?>Discard<\/
 ok(/reason="What it is waiting on"[\s\S]*?>Hold<\/ConfirmBtn>/.test(da), "Hold takes a required note");
 ok(/<ConfirmBtn[\s\S]*?confirm="Take it off the site">Unpublish<\/ConfirmBtn>/.test(fn("DraftPanel")), "Unpublish from the research draft is two presses");
 ok(/<ConfirmBtn tone="go"[\s\S]*?confirm=\{`Confirm \$\{g\.burstOpen\.length\} as genuine`\}/.test(fn("ReviewGroup")), "confirming a burst is two presses");
-ok(/<ConfirmBtn tone="go"[\s\S]*?confirm="Publish to Recent updates"/.test(fn("RecentUpdates")), "a vendor announcement is two presses, with what will appear shown between them");
+ok(/<ConfirmBtn tone="go"[\s\S]*?confirm="Publish to What's moving"/.test(fn("RecentUpdates")), "a vendor announcement is two presses, with what will appear shown between them");
 ok(/<ConfirmBtn tone="stop"[\s\S]*?confirm=\{`Yes, send to \$\{count\}`\}/.test(fn("Compose")), "sending to the list is two presses");
 ok(/choices=\{\[\.\.\.DISMISS_REASONS, \["No reason", ""\]\]\}/.test(fn("Discovered")), "dismissing a discovered name is one press to arm, one per reason");
 ok(/reason="What it got wrong/.test(fn("MarkWrong")), "marking a finding wrong takes a required reason");

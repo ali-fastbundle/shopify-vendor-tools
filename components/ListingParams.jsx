@@ -17,7 +17,7 @@
  *
  * Two bridges carry what only the page knows up to the sidebar: the directory's
  * filter options (counts, confirmed integrations, a category's details), which
- * come from merged data the layout does not read, and the Recent updates
+ * come from merged data the layout does not read, and the What's moving
  * feed's list of tools. A page publishes; the sidebar renders. Neither is ever
  * a source of state.
  */

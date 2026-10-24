@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
  *
  * Page traffic is Vercel Analytics' job and is not duplicated here, see
  * CLAUDE.md. Counted here: which tool someone opened, what they typed into the
- * matcher, a view of each section (including the in-place Recent updates view,
+ * matcher, a view of each section (including the in-place What's moving view,
  * which is no navigation and so invisible to Vercel), and how far somebody got
  * through the recommender (`recommend:reached:<screen>`, once per screen per
  * page load). Completion is counted by the run route itself

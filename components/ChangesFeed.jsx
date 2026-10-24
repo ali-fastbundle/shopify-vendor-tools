@@ -4,6 +4,7 @@ import React, { Suspense, useState, useMemo } from "react";
 import { useParam, usePublishPanel } from "@/components/ListingParams";
 import CopyLink from "./CopyLink";
 import { outbound } from "@/lib/outbound";
+import { sourceOf, entryHref } from "@/lib/feedSource";
 import { C, S, R, F, TRACK, ink, CATEGORIES, catOf, formatDay } from "@/lib/tools";
 
 /*
@@ -55,7 +56,7 @@ function Logo({ entry, size = 34 }) {
 /*
  * The feed body: filters and the dated list, with no page chrome.
  *
- * Split out so the standalone page and the Recent updates tab on the directory
+ * Split out so the standalone page and the What's moving tab on the directory
  * are the same component rather than two that drift. The page wraps this in a
  * <main> with its own heading; the tab drops it straight under the tab row.
  */
@@ -132,25 +133,22 @@ function Rows({ entries = [], tools = [], tool, cat }) {
                     the directory, and the same rule: category colour appears
                     here, on the label, and on the filter. Nowhere else. */}
                 <span aria-hidden="true" style={{
-                  width: 3, borderRadius: 2, background: catOf(e.cat).color,
+                  width: 3, borderRadius: 2, background: e.cat ? catOf(e.cat).color : C.edge,
                   flexShrink: 0, alignSelf: "stretch",
                 }} />
                 <Logo entry={e} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                    <a href={`/tools/${e.toolId}`} style={{ fontSize: F.lg, fontWeight: 700, color: C.text, textDecoration: "none", letterSpacing: TRACK.tight }}>
+                    <a href={entryHref(e)} style={{ fontSize: F.lg, fontWeight: 700, color: C.text, textDecoration: "none", letterSpacing: TRACK.tight }}>
                       {e.toolName}
                     </a>
-                    <span style={{ fontSize: F.xs, color: ink(catOf(e.cat).color) }}>{catOf(e.cat).label}</span>
+                    {e.cat && <span style={{ fontSize: F.xs, color: ink(catOf(e.cat).color) }}>{catOf(e.cat).label}</span>}
                     {e.kind && <span style={{ fontSize: F.xs, color: C.dim }}>{KIND_LABEL[e.kind] || e.kind}</span>}
-                    {/* The vendor told us; we did not read it off their site.
-                        Type, not a badge (rule G), and stated on the row it
-                        qualifies rather than in a footnote. */}
-                    {e.source === "vendor" && (
-                      <span style={{ fontSize: F.xs, color: C.dim }}>
-                        Vendor announcement{e.announcedOn ? `, ${formatDay(e.announcedOn)}` : ""}
-                      </span>
-                    )}
+                    {/* Where it came from: observed, from the vendor, or
+                        mentioned (lib/feedSource.js). Type, not a badge. */}
+                    <span title={sourceOf(e).title} style={{ fontSize: F.xs, color: C.dim }}>
+                      {sourceOf(e).label}{e.source === "vendor" && e.announcedOn ? `, ${formatDay(e.announcedOn)}` : ""}
+                    </span>
                     {/* The date is the permalink, which is the convention a
                         feed already has and costs nothing to honour: same type,
                         same colour, and a right click or a middle click now
@@ -168,6 +166,9 @@ function Rows({ entries = [], tools = [], tool, cat }) {
                   <p style={{ fontSize: F.md, lineHeight: 1.6, color: C.text, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
                     {e.headline}
                   </p>
+                  {sourceOf(e).note && (
+                    <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>{sourceOf(e).note}</p>
+                  )}
                   {e.sourceUrl && (
                     <p style={{ margin: `${S.sm}px 0 0` }}>
                       <a href={outbound(e.sourceUrl)} target="_blank" rel="noopener noreferrer"
@@ -199,11 +200,12 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
 
         <header style={{ paddingTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
-            Recent updates
+            What's moving
           </h1>
           <p style={{ fontSize: F.lg, color: C.muted, maxWidth: "58ch", lineHeight: 1.5, margin: `${S.md}px 0 0` }}>
-            Pricing moves, new features, rebrands and wind-downs across the directory, dated and in
-            order. The listings say what each tool is. This says what happened to it.
+            What is moving across the directory, dated and in order. Each entry says where it came
+            from: observed on the vendor's site, from the vendor, or mentioned by someone else.
+            The listings say what each tool is. This says what is happening around it.
           </p>
         </header>
 

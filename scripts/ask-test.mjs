@@ -48,7 +48,7 @@ const past = new Set(placed(EVENTS, T).filter((e) => e.at.status === "past").map
 ok(past.size > 0 && !items.some((x) => x.kind === "event" && past.has(x.id)), "no event that is over", `${past.size} past left out`);
 const drafts = [...ALL_TOOLS, ...ALL_EVENTS].filter((x) => x.draft).map((x) => x.id);
 ok(!items.some((x) => drafts.includes(x.id)), "no draft");
-ok(items.some((x) => x.key === "page:changes") && items.some((x) => x.key === "page:recommend"), "Recent updates and Growth picks can be the answer");
+ok(items.some((x) => x.key === "page:changes") && items.some((x) => x.key === "page:recommend"), "What's moving and Growth picks can be the answer");
 const dyingByOverride = I.directoryFor({ tools: TOOLS }, { dying: (t) => t.id === "sasi" || t.dying === true, today: T });
 ok(!dyingByOverride.some((x) => x.key === "tool:sasi"), "an admin's winding-down override is honoured");
 

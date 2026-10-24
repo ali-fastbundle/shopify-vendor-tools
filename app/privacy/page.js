@@ -72,7 +72,7 @@ export default function Page() {
           <Li k="svt:theme">Your Auto, Light or Dark choice.</Li>
           <Li k="svt:mine, svt:vote:…">Which listings you liked or disliked, so a second click takes
             your vote back rather than counting it twice.</Li>
-          <Li k="svt:updates:seen">When you last opened Recent updates, so the tab can say how many
+          <Li k="svt:updates:seen">When you last opened What's moving, so the tab can say how many
             are new since then. It is a date, not a history.</Li>
           <Li k="svt:draft:…, svt:contact:draft">A review, comment or message you started and have not
             sent, so it survives a trip to your inbox to sign in. Deleted when you send it.</Li>

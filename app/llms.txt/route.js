@@ -51,6 +51,12 @@ export async function GET() {
 Maintained by ${AUTHOR}${AUTHOR_URL ? ` (${AUTHOR_URL})` : ""}.
 Last updated ${LAST_UPDATED}. ${counted.total} tools listed.
 
+## What's moving
+
+${SITE}/changes (RSS: ${SITE}/changes/rss): what is moving across the directory, dated and in
+order. Each entry says where it came from: observed on the vendor's site by the weekly monitor,
+from the vendor, or mentioned by someone else, in their words and not the directory's, linked.
+
 ## Markdown versions
 
 Append .md to the path of any content page for the same page as Markdown:

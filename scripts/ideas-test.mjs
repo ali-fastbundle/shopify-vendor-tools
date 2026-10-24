@@ -66,7 +66,7 @@ console.log("seeds:");
   const ideas = (await call({ action: "add", text: "short" })).body;
   ok(/Write the idea first/.test(ideas), "an idea needs a sentence");
 }
-const first = (await call({ action: "add", text: "Show a changelog per tool as its own RSS feed.", surface: "Recent updates", size: "a few days" })).body.ideas;
+const first = (await call({ action: "add", text: "Show a changelog per tool as its own RSS feed.", surface: "What's moving", size: "a few days" })).body.ideas;
 for (const id of ["seed-social-discussion", "seed-gated-recommender", "seed-vendor-changelog-rss", "seed-brag-video", "seed-homepage-reorg", "seed-retail-insider"]) {
   const s = first.find((r) => r.id === id);
   ok(s && s.stateNote && I.STATUSES.includes(s.status), `${id} is in the queue with a state`, s?.status);
@@ -86,7 +86,7 @@ ok((await call({ action: "add", text: "anything at all here" }, "someone@test.in
   const ranks = first.map((r) => I.STATUSES.indexOf(r.status));
   ok(ranks.every((x, i) => i === 0 || ranks[i - 1] <= x), "sorted by status", ranks.join(","));
   const added = first.find((r) => !r.seeded);
-  ok(added.status === "new" && added.surface === "Recent updates" && added.size === "a few days", "a new idea keeps its surface and size");
+  ok(added.status === "new" && added.surface === "What's moving" && added.size === "a few days", "a new idea keeps its surface and size");
   const noReason = await call({ action: "update", id: added.id, status: "dropped" });
   ok(noReason.status === 400 && /Say why/.test(noReason.body), "dropping needs a reason");
   const drop = (await call({ action: "update", id: added.id, status: "dropped", reason: "The universal feed already does this." })).body.ideas;

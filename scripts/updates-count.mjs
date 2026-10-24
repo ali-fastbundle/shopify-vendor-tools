@@ -4,7 +4,7 @@
  *
  *   node scripts/updates-count.mjs
  *
- * The count on the Recent updates tab is the one number on the page a visitor
+ * The count on the What's moving tab is the one number on the page a visitor
  * has no way to check. If it says 3 and there are 5, or it says 12 to somebody
  * on their first visit, the tab stops being worth looking at, and a counter
  * people have learned to ignore is worse than no counter.

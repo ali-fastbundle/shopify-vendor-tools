@@ -1338,6 +1338,8 @@ function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries 
  * Read is all most need. Remove is only for the three reasons, kept and
  * logged: disagreeing with what somebody said is not one of them.
  */
+/* The feed's name on screen, in one place (the section was renamed 2026-10-24). */
+const FEED_NAME = "What's moving";
 const MENTION_SOURCE = { hackernews: "Hacker News", bluesky: "Bluesky", "shopify-community": "Shopify Community", "shopify-dev-community": "Shopify developer community", github: "GitHub" };
 const MENTION_STATE = { ok: "answering", empty: "answering, but empty where results were expected", blocked: "blocked", error: "failing" };
 const REMOVE_LABEL = { "wrong-listing": "Not about this listing", spam: "Spam", private: "Private data" };
@@ -1352,15 +1354,69 @@ function MentionRow({ m, act, busy, all = false }) {
         {" \u00b7 "}<a href={m.listing?.href} style={{ color: C.muted }}>listing</a>
         {m.decidedBy ? ` · ${m.status} by ${m.decidedBy} ${String(m.decidedAt).slice(0, 10)}` : ""}
       </>}
+      footer={m.status !== "removed" && m.status !== "published" ? <MentionPublisher m={m} act={act} busy={busy} /> : null}
       actions={m.status === "removed"
         ? <Btn onClick={() => act("mention", m.id, { decision: "restore" })} busy={busy === "mention" + m.id}>Restore</Btn>
-        : <>
+        : m.status === "published" ? null : <>
           {!all && <Btn onClick={() => act("mention", m.id, { decision: "seen" })} busy={busy === "mention" + m.id} tone="go">Read</Btn>}
           {Object.entries(REMOVE_LABEL).map(([k, label]) => (
             <ConfirmBtn key={k} onConfirm={() => act("mention", m.id, { decision: "remove", reason: k })} busy={busy === "mention" + m.id}>Remove: {label}</ConfirmBtn>
           ))}
         </>}
     />
+  );
+}
+
+/*
+ * Publishing a mention to the feed: the same editor as a monitor finding. A
+ * drafted line, edited here, published on a second press. The draft is
+ * attributed, one line, and never the post's text; the post is read on the
+ * server for the draft and not kept (lib/mentionDraft.js, invariant 58).
+ */
+function MentionPublisher({ m, act, busy }) {
+  const [open, setOpen] = useState(false);
+  const [headline, setHeadline] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [meta, setMeta] = useState(null);
+  const [err, setErr] = useState("");
+  async function start() {
+    setOpen(true); setErr(""); setDrafting(true); setMeta(null);
+    try {
+      const res = await fetch("/api/admin/announce", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mentionId: m.id }) });
+      if (!res.ok) { setErr(`${await res.text()} Write it yourself below.`); return; }
+      const d = await res.json();
+      setHeadline(d.draft || ""); setMeta(d);
+    } catch { setErr("Could not reach the server. Write it yourself below."); }
+    finally { setDrafting(false); }
+  }
+  if (!open) return <Btn onClick={start}>Publish to {FEED_NAME}</Btn>;
+  return (
+    <div style={{ background: C.raised, border: `1px solid ${C.accentEdge}`, borderRadius: R.card, padding: S.lg, marginTop: S.sm }}>
+      <div className="flex flex-wrap" style={{ gap: S.lg }}>
+        <div style={{ flex: "2 1 300px", minWidth: 0 }}>
+          <label style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, display: "block", marginBottom: 4 }}>
+            The line{meta?.provider && <span style={{ fontWeight: 400 }}> · drafted by {meta.provider}</span>}
+          </label>
+          {drafting
+            ? <p style={{ fontSize: F.sm, color: C.muted, margin: 0, padding: "12px 0" }}>Reading the post and writing a draft…</p>
+            : <textarea value={headline} onChange={(e) => setHeadline(e.target.value)} rows={3}
+                placeholder="Who said what, where. One line, attributed, never their text."
+                style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />}
+          {meta?.note && <p style={{ fontSize: F.xs, color: C.warnInk, margin: `${S.xs}px 0 0` }}>{meta.note}</p>}
+          {err && <p style={{ fontSize: F.xs, color: C.warnInk, margin: `${S.xs}px 0 0` }}>{err}</p>}
+        </div>
+        <div style={{ flex: "1 1 200px", minWidth: 0, fontSize: F.xs, color: C.muted, lineHeight: 1.6 }}>
+          <b style={{ color: C.text }}>What the page will say around it</b><br />
+          Mentioned by {m.author || "someone"} on {MENTION_SOURCE[m.source] || m.source}, {m.at}. Their words, not the directory's.<br />
+          <a href={m.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>Read the post</a> before publishing.
+        </div>
+      </div>
+      <div className="flex flex-wrap" style={{ gap: S.sm, marginTop: S.md }}>
+        <Btn tone="go" disabled={!headline.trim() || drafting} busy={busy === "publish-mention" + m.id}
+          onClick={async () => { const r = await act("publish-mention", m.id, { headline }); if (r?.error) setErr(r.error); }}>Publish</Btn>
+        <Btn onClick={() => setOpen(false)}>Cancel</Btn>
+      </div>
+    </div>
   );
 }
 
@@ -3589,7 +3645,7 @@ function Compose({ count, feed = [] }) {
 
         <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
           <Btn onClick={draftFromFeed} disabled={!week.length}>
-            {week.length ? `Draft from this week (${week.length})` : "No recent updates this week"}
+            {week.length ? `Draft from this week (${week.length})` : "Nothing on What's moving this week"}
           </Btn>
           <Btn onClick={() => send(true)} busy={busy === "test"} disabled={!ready || Boolean(busy)}>Send test to me</Btn>
           <ConfirmBtn tone="stop" busy={busy === "send"} disabled={!ready || Boolean(busy) || count === 0}
@@ -3732,9 +3788,9 @@ function Stats({ stats = { fields: {}, queries: [] } }) {
   );
 }
 
-const SECTION_LABEL = { directory: "Directory", newsletters: "Newsletters", events: "Events", updates: "Recent updates", blog: "Blog", recommend: "Recommender", categories: "Categories index" };
+const SECTION_LABEL = { directory: "Directory", newsletters: "Newsletters", events: "Events", updates: "What's moving", blog: "Blog", recommend: "Recommender", categories: "Categories index" };
 
-/* One count per page load of each section. Recent updates includes the
+/* One count per page load of each section. What's moving includes the
    in-place tab on the directory, which Vercel cannot see. */
 function SectionViews({ fields = {} }) {
   const rows = STAT_SECTIONS.map((id) => [id, fields[`section:${id}`] || 0]).sort((a, b) => b[1] - a[1]);
@@ -4612,7 +4668,7 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
     <Section
       title="Listing changes"
       count={open.length}
-      hint="Proposed by the weekly monitor, grouped by tool. Nothing here has been applied: most belong in Recent updates, a few in the listing, the rest are noise."
+      hint="Proposed by the weekly monitor, grouped by tool. Nothing here has been applied: most belong in What's moving, a few in the listing, the rest are noise."
     >
       <div className="flex flex-wrap items-center" style={{ gap: S.md, padding: "12px 0" }}>
         <Btn onClick={runNow} busy={running} tone="go">Run the monitor now</Btn>
@@ -4959,7 +5015,7 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, edit
       {edit.state === "unmapped" && (
         <p style={{ fontSize: F.xs, color: C.dim, margin: `0 0 ${S.sm}px`, lineHeight: 1.55, maxWidth: "72ch" }}>
           The monitor could not map this onto a single field{edit.field ? ` (it suggested "${edit.field}", which is not one we store)` : ""}.
-          It may still be worth publishing to Recent updates, rewriting the description, or both.
+          It may still be worth publishing to What's moving, rewriting the description, or both.
         </p>
       )}
 
@@ -5038,7 +5094,7 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, edit
           </div>
 
           <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
-            <Btn onClick={publish} busy={busy === r.id || drafting} tone="go">Publish to Recent updates</Btn>
+            <Btn onClick={publish} busy={busy === r.id || drafting} tone="go">Publish to What's moving</Btn>
             <Btn onClick={startDraft} busy={drafting}>Draft again</Btn>
             <Btn onClick={() => { setWriting(false); setErr(""); }}>Cancel</Btn>
           </div>
@@ -5060,14 +5116,14 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, edit
         {published ? (
           <>
             <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
-              In Recent updates {String(published.at || "").slice(0, 10)}
+              On What's moving {String(published.at || "").slice(0, 10)}
             </span>
             <ConfirmBtn onConfirm={() => onAct(r.id, "unpublish-from-feed")} busy={busy === r.id}
               confirm="Remove">Remove from updates</ConfirmBtn>
           </>
         ) : !writing && (
           <Btn onClick={startDraft} busy={drafting} tone="go">
-            Publish to Recent updates
+            Publish to What's moving
           </Btn>
         )}
 
@@ -5267,7 +5323,7 @@ function RewriteEditor({ r, busy, onAct, onClose }) {
           )}
           {!fields.length && (
             <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>
-              If it is news rather than a change to what the tool is, Publish to Recent updates is the right home.
+              If it is news rather than a change to what the tool is, Publish to What's moving is the right home.
             </p>
           )}
 
@@ -5811,7 +5867,7 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
 }
 
 /*
- * Posting a vendor's own announcement to Recent updates.
+ * Posting a vendor's own announcement to What's moving.
  *
  * The feed's only door used to be a monitor finding, which left nothing to
  * publish from for a tool the monitor cannot read: SAMI emailed to say a
@@ -5912,7 +5968,7 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
             </Field>
           </div>
         </div>
-        <Field label="The update, as it will read on Recent updates"
+        <Field label="The update, as it will read on What's moving"
           hint="House voice: what shipped and what it does, no adjectives. Only what is live. Something announced and not released is said to be in development, or left out. No em-dash.">
           <Grow value={form.headline} onChange={(e) => set("headline", e.target.value)} rows={3} />
         </Field>
@@ -5925,7 +5981,7 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
         <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
           {/* The first press shows exactly what will appear; the second publishes it. */}
           <ConfirmBtn tone="go" onConfirm={publish} busy={busy === "post-vendor-announcement" + form.toolId}
-            disabled={!ready} confirm="Publish to Recent updates"
+            disabled={!ready} confirm="Publish to What's moving"
             note={tool ? <span style={{ display: "block", borderTop: `1px solid ${C.line}`, paddingTop: S.sm }}>
               <span style={{ display: "block", color: C.dim }}>Will appear on /changes today as {tool.name}, marked as a vendor announcement of {form.announcedOn}:</span>
               <span style={{ display: "block", fontSize: F.md, color: C.text, margin: "6px 0 0", lineHeight: 1.6, maxWidth: "64ch" }}>{form.headline.trim()}</span>
@@ -5942,17 +5998,17 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
       </Section>
 
       <Reference>
-      <Collapsible title="On Recent updates" count={rows.length}
+      <Collapsible title="On What's moving" count={rows.length}
         hint="Everything published to the feed, newest first, as visitors see it at /changes. Unpublishing is soft: the row is kept and marked removed.">
         {rows.length === 0
           ? <Empty>Nothing published yet.</Empty>
           : rows.map((r) => {
-            const vendor = r.source === "vendor";
+            const vendor = r.source === "vendor" || r.source === "mention";
             const canRemove = vendor || r.changeId;
             const action = vendor ? "unpublish-announcement" + r.id : "unpublish-from-feed" + r.changeId;
             return (
               <Row key={r.id} title={r.toolName}
-                tag={vendor ? `vendor announcement ${r.announcedOn || ""}` : "from the monitor"}
+                tag={r.source === "mention" ? `mentioned by ${r.mentionAuthor || "someone"} on ${MENTION_SOURCE[r.mentionSource] || r.mentionSource}` : vendor ? `vendor announcement ${r.announcedOn || ""}` : "from the monitor"}
                 body={r.headline}
                 meta={<>
                   published {String(r.date || "").slice(0, 10)}{r.publishedBy ? ` by ${r.publishedBy}` : ""}

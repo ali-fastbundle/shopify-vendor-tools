@@ -86,7 +86,7 @@ function trackToolOpen(id) {
   scheduleFlush();
 }
 
-/* A view of a section: the directory on load, and Recent updates when its tab
+/* A view of a section: the directory on load, and What's moving when its tab
    is opened in place, which is no navigation and so invisible to Vercel. */
 function trackSection(id) {
   statQueue.sections.push(id);

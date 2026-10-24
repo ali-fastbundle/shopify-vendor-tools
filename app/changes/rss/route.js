@@ -1,3 +1,4 @@
+import { sourceOf } from "@/lib/feedSource";
 import { feedEntries } from "@/lib/feed";
 import { SITE } from "@/lib/seo";
 import { catOf } from "@/lib/tools";
@@ -44,14 +45,14 @@ export async function GET() {
       <link>${esc(`${SITE}/changes#${e.id}`)}</link>
       <guid isPermaLink="true">${esc(`${SITE}/changes#${e.id}`)}</guid>
       <pubDate>${rfc822(e.at)}</pubDate>
-      <category>${esc(catOf(e.cat).label)}</category>
-      <description>${esc(e.headline)}${e.source === "vendor" ? esc(` Announced by ${e.toolName}${e.announcedOn ? ` on ${e.announcedOn}` : ""}.`) : ""}${e.sourceUrl ? esc(` Source: ${e.sourceUrl}`) : ""}</description>
+      ${e.cat ? `<category>${esc(catOf(e.cat).label)}</category>` : ""}
+      <description>${esc(e.headline)}${esc(` ${sourceOf(e).label}${e.source === "vendor" && e.announcedOn ? `, ${e.announcedOn}` : ""}.${sourceOf(e).note ? ` ${sourceOf(e).note}` : ""}`)}${e.sourceUrl ? esc(` Source: ${e.sourceUrl}`) : ""}</description>
     </item>`).join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>watchfor.tools: recent updates</title>
+    <title>watchfor.tools: What&apos;s moving</title>
     <link>${SITE}/changes</link>
     <atom:link href="${SITE}/changes/rss" rel="self" type="application/rss+xml" />
     <description>Pricing moves, new features, rebrands and wind-downs across tools built for Shopify app vendors.</description>

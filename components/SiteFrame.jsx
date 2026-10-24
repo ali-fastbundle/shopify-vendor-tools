@@ -49,7 +49,7 @@ export const SITE_VIEWS = [
      when its code ships. /lists/mine is your own lists, a tool, not this. */
   { id: "lists", label: "Lists", href: "/lists", when: (c) => c.lists > 0,
     match: (p) => p === "/lists" || (p.startsWith("/lists/") && p !== "/lists/mine") },
-  { id: "updates", label: "Recent updates", href: "/changes", match: (p) => p.startsWith("/changes") },
+  { id: "updates", label: "What's moving", href: "/changes", match: (p) => p.startsWith("/changes") },
   { id: "blog", label: "Blog", href: "/blog", match: (p) => p.startsWith("/blog") },
 ];
 
@@ -58,7 +58,7 @@ const FRAME_WIDTH = { maxWidth: 1280, padding: "0 20px" };
 const outsideFrame = (p) => p.startsWith("/admin");
 
 /*
- * How many updates have landed since this visitor last opened Recent updates.
+ * How many updates have landed since this visitor last opened What's moving.
  *
  * localStorage, never an account: "what is new to me" is per browser and
  * nobody's business but theirs. Stamped when /changes is opened, because
@@ -217,7 +217,7 @@ function Sidebar({ counts, categories, current, path, onClose }) {
   const feedTimes = useContext(FeedTimes);
   const [seenAt, setSeenAt] = useState("");
   /* After mount only: localStorage does not exist on the server. Opening
-     Recent updates is the look that stamps the mark. */
+     What's moving is the look that stamps the mark. */
   useEffect(() => {
     if (path.startsWith("/changes")) stampSeen();
     setSeenAt(readSeen());
@@ -227,7 +227,7 @@ function Sidebar({ counts, categories, current, path, onClose }) {
     [feedTimes, seenAt],
   );
   /*
-   * A count beside each section. Recent updates counts what is new since this
+   * A count beside each section. What's moving counts what is new since this
    * browser last looked, and nothing at zero: the size of a feed says nothing,
    * and a first visit has nothing to be new against (rule E).
    */
@@ -440,7 +440,7 @@ function DirectoryRefine({ categories, total, path, onClose }) {
   );
 }
 
-/* Recent updates: by tool and by category, through ?tool= and ?cat=. */
+/* What's moving: by tool and by category, through ?tool= and ?cat=. */
 function FeedRefine() {
   const tools = usePanel("feed") || [];
   const tool = useParam("tool") || "all";

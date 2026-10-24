@@ -55,7 +55,7 @@ const inSuspense = (name) => new RegExp(`<Suspense fallback=\\{[\\s\\S]{0,160}?\
 ok(inSuspense("SidebarSearch") && inSuspense("DirectoryRefine") && inSuspense("FeedRefine"),
   "every part that reads the URL is inside Suspense, so the rest is in the server HTML on every page");
 ok(/<CategoryList categories=\{categories\} active="all"/.test(sidebar), "and the categories' fallback is the list itself, not nothing");
-ok(/unread > 0 && current !== "updates" \? unread : null/.test(sidebar), "Recent updates counts what is new to this browser, nothing at zero");
+ok(/unread > 0 && current !== "updates" \? unread : null/.test(sidebar), "What's moving counts what is new to this browser, nothing at zero");
 
 ok(/<AccountBar session=\{session\[0\]\} refresh=\{session\[1\]\} placement="up" trailing=\{<ThemeToggle \/>\} \/>/.test(sidebar)
   && /if \(session\.signedIn && placement === "up"\)/.test(src("components/Account.jsx")),

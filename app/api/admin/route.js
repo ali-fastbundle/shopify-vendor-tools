@@ -884,8 +884,13 @@ export async function POST(request) {
      record of having been published goes with it. */
   if (action === "unpublish-announcement") {
     const row = (await getFeed()).find((r) => r.id === id && !r.deletedAt);
-    if (!row || row.source !== "vendor") return new Response("No vendor announcement with that id.", { status: 400 });
+    if (!row || (row.source !== "vendor" && row.source !== "mention")) return new Response("No vendor announcement or mention with that id.", { status: 400 });
     await removeFeedEntry(id, { by: session.email });
+    /* A mention taken off the feed goes back to read, not to the Inbox. */
+    if (row.source === "mention" && row.mentionId) {
+      const M = await import("@/lib/mentions");
+      await M.decideMention(row.mentionId, { action: "seen" }, session.email);
+    }
     return Response.json({ removed: id });
   }
 
@@ -1188,6 +1193,34 @@ export async function POST(request) {
     const r = await m.decideMention(String(id || ""), { action: String(body.decision || ""), reason: String(body.reason || "") }, session.email);
     if (r.error) return new Response(r.error, { status: 400 });
     return Response.json({ mentions: m.mentionList(await m.getMentions(), { includeRemoved: true }) });
+  }
+
+  /*
+   * A mention, published to the feed: somebody else's words, attributed and
+   * linked (invariant 58). The editor wrote the line from a draft; nothing of
+   * the post's text is stored. The mention leaves the Inbox as published.
+   */
+  if (action === "publish-mention") {
+    const M = await import("@/lib/mentions");
+    const state = await M.getMentions();
+    const m = state.items[String(id || "")];
+    if (!m) return new Response("Unknown mention", { status: 400 });
+    if (m.status === "removed") return new Response("That mention was removed.", { status: 400 });
+    const { mergedTools, mergedNewsletters, mergedEvents } = await import("@/lib/listings");
+    const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
+    const pool = m.listing.kind === "tool" ? tools : m.listing.kind === "newsletter" ? newsletters : m.listing.kind === "event" ? events : [];
+    const found = pool.find((x) => x.id === m.listing.id);
+    if (m.listing.kind !== "owner" && !found) return new Response("That listing is no longer published.", { status: 400 });
+    const tool = { id: m.listing.id, name: m.listing.name, cat: m.listing.kind === "tool" ? found.cat : "" };
+    const { entry, error } = sanitiseFeedEntry({
+      headline: body.headline, sourceUrl: m.url, source: "mention",
+      mentionAuthor: m.author, mentionSource: m.source, mentionedOn: m.at, mentionId: m.id,
+      href: m.listing.kind === "tool" ? "" : m.listing.href,
+    });
+    if (error) return new Response(error, { status: 400 });
+    const saved = await addFeedEntry(entry, { tool, publishedBy: session.email });
+    await M.markMentionPublished(m.id, saved.id, session.email);
+    return Response.json({ mentions: M.mentionList(await M.getMentions(), { includeRemoved: true }), feedEntry: saved });
   }
 
   if (action === "event-finding") {

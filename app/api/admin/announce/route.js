@@ -31,6 +31,16 @@ export async function POST(request) {
 
   let body;
   try { body = await request.json(); } catch { body = {}; }
+  /* A mention (lib/mentions.js): the post is read now, drafted from, and
+     dropped. Same editor, same second press to publish. */
+  if (body.mentionId) {
+    const { getMentions } = await import("@/lib/mentions");
+    const m = (await getMentions()).items[body.mentionId];
+    if (!m) return new Response("Unknown mention", { status: 400 });
+    const r = await (await import("@/lib/mentionDraft")).draftMentionLine(m);
+    if (r.error) return new Response(r.error, { status: 502 });
+    return Response.json({ draft: r.draft, provider: r.provider, thin: r.thin, note: r.note });
+  }
   if (!body.id) return new Response("Missing id", { status: 400 });
 
   const [rows, tools] = await Promise.all([readChangelog(500), catalogueTools()]);

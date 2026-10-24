@@ -8,9 +8,9 @@ import SectionView from "@/components/SectionView";
 
 export const dynamic = "force-dynamic";
 
-const title = "Recent updates | watchfor.tools";
+const title = "What's moving | watchfor.tools";
 const description =
-  "Pricing moves, new features, rebrands and wind-downs across tools for Shopify app vendors, dated and in order.";
+  "What is moving across the directory, dated and in order: pricing moves, new features and wind-downs seen on vendors' sites, news vendors told us, and what other people said, linked and attributed.";
 
 const baseMetadata = {
   title,
@@ -19,7 +19,7 @@ const baseMetadata = {
   alternates: {
     canonical: "/changes",
     types: {
-      "application/rss+xml": [{ url: "/changes/rss", title: "watchfor.tools: recent updates" }],
+      "application/rss+xml": [{ url: "/changes/rss", title: "watchfor.tools: What's moving" }],
       "text/markdown": [{ url: "/changes.md", title: "Plain text for agents" }],
     },
   },
@@ -44,7 +44,7 @@ export default async function Page() {
     "@type": "CollectionPage",
     "@id": `${SITE}/changes#collection`,
     url: `${SITE}/changes`,
-    name: "Recent updates",
+    name: "What's moving",
     description,
     isPartOf: { "@id": `${SITE}#website` },
     mainEntity: {

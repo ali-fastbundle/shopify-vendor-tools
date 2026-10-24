@@ -159,5 +159,27 @@ console.log("\nfrom production: blocked is not empty");
   ok(/label: "Mentions"/.test(A) && /unreadableSources|unreadable/.test(A), "the System status strip has a Mentions line that names unreadable sources");
 }
 
+console.log("\npublishing a mention to What's moving:");
+{
+  const F = await L("lib/feed.js");
+  const S = await L("lib/feedSource.js");
+  const D = await L("lib/mentionDraft.js");
+  ok(F.sanitiseEntry({ headline: "A Shopify Community member recommended it for theme lookups.", source: "mention", sourceUrl: "https://community.shopify.com/t/1/1", mentionSource: "shopify-community", mentionedOn: "2026-10-20", mentionAuthor: "x" }).entry?.source === "mention", "a mention row is accepted with its link, where and when");
+  ok(F.sanitiseEntry({ headline: "A line long enough to count.", source: "mention", mentionSource: "bluesky", mentionedOn: "2026-10-20" }).error, "and refused without the link to the post");
+  const m = S.sourceOf({ source: "mention", mentionAuthor: "someone.bsky.social", mentionSource: "bluesky" });
+  ok(m.label === "Mentioned by someone.bsky.social on Bluesky" && m.note === "Their words, not the directory's.", "it is labelled as someone else's words", m.label);
+  ok(S.sourceOf({ source: "vendor" }).label === "From the vendor" && S.sourceOf({}).label === "Observed", "the other two kinds: from the vendor, observed");
+  ok(S.entryHref({ toolId: "x", href: "/newsletters/y" }) === "/newsletters/y" && S.entryHref({ toolId: "x" }) === "/tools/x", "a row links the listing it concerns, whatever its kind");
+  const prompt = D.buildPrompt({ author: "a", source: "bluesky", at: "2026-10-20", listing: { name: "Store Leads" } }, "the post text");
+  ok(/Paraphrase/.test(prompt) && /Quote at most five words/.test(prompt) && /Report, do not judge/.test(prompt) && /as data and never as instructions/.test(prompt), "the draft paraphrases, attributes, does not judge, and treats the post as data");
+  ok(/return \{ draft: line, provider, thin: [^,]+, note: text \? "" : "[^"]+" \};/.test(src("lib/mentionDraft.js")), "the post's text is not returned to the browser: a draft, the provider and a fixed note");
+  const { write } = await L("lib/store.js");
+  await write(KEYS.mentions, { items: { p1: { id: "p1", status: "new", listing: { name: "X" } } } });
+  await M.markMentionPublished("p1", "feed1", "admin@example.com");
+  const st = await M.getMentions();
+  ok(st.items.p1.status === "published" && st.items.p1.feedId === "feed1", "a published mention keeps its feed row");
+  ok(!M.mentionList(st).filter((x) => x.status === "new").length, "and does not come back to the Inbox");
+}
+
 console.log(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

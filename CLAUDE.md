@@ -406,7 +406,7 @@ and its pattern in `MD_ROUTES`. `scripts/markdown-test.mjs [baseUrl]`.
 The matcher used to return three tools whatever was asked, so anything that was not "I
 need software" was answered with software. Now (2026-10-23) `/api/match` takes an intent in
 the person's own words and returns whatever answers it: tools, categories, newsletters,
-events still ahead, owner pages, blog posts, and the section pages (Recent updates, Growth
+events still ahead, owner pages, blog posts, and the section pages (What's moving, Growth
 picks). `lib/intentMatch.js` builds the list the model is shown (`directoryFor`, with
 invariant 35's rule for tools, no past events, owners with a page), checks the answer
 against it (`validate`: an invented key, a key outside the list, a sixth tool, a dash, all
@@ -521,6 +521,15 @@ failed search is never marked as searched (`checked` is per source and domain), 
 again. The System status strip has a Mentions line that goes red and names the source, and the
 Audience panel shows each source's last run with a Run now button. Measured from this machine
 on 2026-10-24, all five answered; production is read from that line, not assumed.
+
+**A mention can be published to What's moving** (2026-10-24), from its row in the Inbox, with
+the same editor as a monitor finding: a drafted line, edited, published on a second press. The
+draft (`lib/mentionDraft.js`) reads the post at that moment from the source's own API, hands it
+to the model and drops it, so the post's text is still never stored or sent to the browser. The
+line says who, where and what in one paraphrased sentence, quotes at most five words, and never
+judges. The feed row is `source: "mention"` with the author, source, date and the post's link,
+the mention leaves the Inbox as published, and unpublishing the row puts it back to read.
+There is still no /mentions page: the rate has not changed.
 
 **The policy, confirmed by the editor on 2026-10-24, and it goes on any public page:**
 - The directory links and never hosts. An item is the link, the source, the author's handle, the
@@ -933,7 +942,7 @@ also what it says about a tool with nothing new. `lib/coverage.js` derives one
 state per published tool and newsletter from the snapshot store: Monitored (and
 whether in part, or stale past three weeks), Blocked, Unreachable, or No source.
 Every run records what each page did (`pages`, `checkedAt` on the snapshot
-record) so "read through its changelog, homepage refused" is visible. Recent updates
+record) so "read through its changelog, homepage refused" is visible. What's moving
 says under the monitor's summary which listings it cannot see, and the System
 strip counts them.
 
@@ -1018,7 +1027,7 @@ a price that moves again is still news. Dismissals made before this are read fro
 two-way choice of about 360 characters, its services moved to subpages, and the monitor,
 which reads the homepage plus declared pages, saw them disappear and (correctly) recorded
 that as not observed rather than removed. Nothing was reported. When a listing changes and
-Recent updates said nothing, check what the homepage now carries and declare the page that
+What's moving said nothing, check what the homepage now carries and declare the page that
 describes the product as `changelogUrl`.
 
 **Non-findings are filtered in code, not just discouraged in the prompt.**
@@ -1805,7 +1814,7 @@ Inbox, because a new capability is usually both news and a description change.
 when there are none: "looked and did nothing" is what Dismiss is for, and the two
 must not be indistinguishable afterwards. Records written before this carry no
 `awaitsResolve` and count as handled. `isHandled` in `components/Admin.jsx` is the
-one copy of that rule, used by both the Recent updates count and the monitor panel.
+one copy of that rule, used by both the What's moving count and the monitor panel.
 
 **Edited by hand is a destination too** (2026-10-23). A finding often ends with an editor
 rewriting the description themselves, and Resolve used to refuse that: none of publish, apply
@@ -1846,13 +1855,22 @@ crawler comes back for and what a returning visitor has a reason to open. It is
 in the sitemap with its `lastModified` taken from the newest entry rather than
 the build date.
 
-**It is called Recent updates** in the nav, the page heading, the RSS channel
-title, the admin labels and the weekly email subject. The store keys, the route
-and the internal names are still `changes`, which is fine: those are not read by
-anybody the name is for.
+**It is called What's moving** (renamed from Recent updates on 2026-10-24) in the nav, the
+page title and heading, the RSS channel title, the admin labels, the monitor email's subject,
+llms.txt, the Markdown version and the site's prose. The route stays `/changes`, with its
+canonical: renaming it would break every link already shared and the sitemap, for nothing a
+reader sees. The store keys and the internal names are still `changes`, which is fine.
+
+**Every entry says where it came from**, in short neutral type beside the date, never a badge
+(`sourceOf` in `lib/feedSource.js`, on the page, in RSS and in the Markdown version):
+**Observed**, found by the weekly monitor on the vendor's site; **From the vendor**, told to the
+editor directly; **Mentioned by <handle> on <source>**, somebody else's words, linked and
+attributed, with "Their words, not the directory's." under the line. Invariant 58 applies to the
+third kind. A row about a newsletter, event or owner links its own page (`href`), and draws no
+category colour.
 
 **It appears in exactly two places, and both are the universal stream.** The
-standalone page at `/changes`, and the Recent updates view on the directory. Not
+standalone page at `/changes`, and the What's moving view on the directory. Not
 the detail modal, not `/tools/[id]`, not collapsed and not further down a
 listing. Those render what a tool *is*, and a dated list of events under the
 description gives a reader two answers to "is this current" on one screen, which
@@ -1860,7 +1878,7 @@ is the problem the feed was built to solve rather than to relocate. If you find
 yourself passing a `changes` prop into a listing component, that is this rule
 being broken.
 
-**Recent updates is a page, and its tab is a plain link to `/changes`.** It used to
+**What's moving is a page, and its tab is a plain link to `/changes`.** It used to
 render in place on the homepage, which left the view on screen with no address. Now
 the tab navigates like every other section tab, so the URL in the bar is always the
 thing to send, and the page keeps its own title, description and JSON-LD. The catalogue
@@ -2240,7 +2258,7 @@ The model is given figures from the published catalogue at that moment and may s
 others; `unsupportedNumbers` and `hypeIn` check the result in code and the panel shows any
 failure in the warning colour beside the text. Status is draft, ready, posted (with its date)
 or dropped. **Nothing here posts anywhere.** Not to be confused with `lib/announce.js`, which
-drafts a feed entry. Five seeds (tool and category pages, Recent updates, newsletters, events,
+drafts a feed entry. Five seeds (tool and category pages, What's moving, newsletters, events,
 the recommender) live in `SEEDS` with figures computed on read, merge into the queue until first
 touched, and are stored from then on.
 
@@ -2572,7 +2590,7 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   by `listsChanged()` on every write that can open or close the section
   (`lib/listsSection.js`).
 - **The sidebar, top to bottom:** the wordmark (a link home); the sections (Directory,
-  Newsletters, Events, Owners, Lists once it has content, Recent updates, Blog) with the current
+  Newsletters, Events, Owners, Lists once it has content, What's moving, Blog) with the current
   one marked and a count beside each; Growth picks, the recommender's block with the one
   green button (invariant 42); Your lists, signed in only; search; the matcher as one prompt; the categories as a vertical list ordered by
   count with All first; the filters, open, not behind a button; the active filters as
@@ -2585,7 +2603,7 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   number; newsletters, events still ahead with a real date (an inferred one is a guess and is
   not counted) and posts from the catalogue files (`frameData` in `lib/frameData.js`). Owners
   is the number the Owners page states: `allOwners` over the merged lists, read once per five
-  minutes (`ownerCount` in `lib/ownerCountStore.js`), with the files as the fallback. Recent updates
+  minutes (`ownerCount` in `lib/ownerCountStore.js`), with the files as the fallback. What's moving
   shows what is new to this browser and nothing at zero, the per-browser mark the header
   used to carry (`useFeedForCount`, stamped by opening `/changes`).
 - **Search is one box with one meaning, on every page** (2026-10-21). Enter goes to
@@ -2606,7 +2624,7 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   in place; on a tool or category page a category is a link to `/?cat=<id>`. The filter
   options (counts, confirmed integrations, a category's details) come from merged data
   only the page reads, so the directory publishes them to the sidebar through
-  `usePublishPanel`; Recent updates publishes its tool list the same way and gets tool and
+  `usePublishPanel`; What's moving publishes its tool list the same way and gets tool and
   category filters (`?tool=`, `?cat=`). A page publishes; the sidebar renders; neither is
   ever the state.
 - **The URL is the state** (`components/ListingParams.jsx`). The sidebar writes with
@@ -3192,7 +3210,7 @@ both is what lets a reader check the run for gaps.
 
 **Events are live**, opened on 2026-10-07: an index at `/events`, a page per entry
 at `/events/[id]`, sitemap entries, `llms.txt`, and a place in the top-level views
-(Directory, Newsletters, Events, Recent updates, Blog) in the site header. The catalogue stays the
+(Directory, Newsletters, Events, What's moving, Blog) in the site header. The catalogue stays the
 default view.
 
 - **Status is never stored.** Past, imminent (within 30 days) and upcoming are
@@ -3424,7 +3442,7 @@ importing the Resend transport into a route, stop — that is the pattern this r
 ## Privacy and consent
 
 **`/privacy` states what is stored, from the code, and changes in the same commit as the
-code.** Browser storage (theme, votes, the Recent updates mark, unsent drafts), the one
+code.** Browser storage (theme, votes, the What's moving mark, unsent drafts), the one
 session cookie, Vercel Analytics and Speed Insights (cookieless), email addresses only from
 people who gave them and for what, the hashed and expiring rate-limit keys, the processors
 (Vercel, Upstash, Resend), and the Google favicon request. A new localStorage key, cookie,
@@ -3460,7 +3478,7 @@ component without a navigation:
 - `tool:<id>` — a tool's detail view was opened
 - `matcher:uses` — the matcher was run
 - `section:<id>` — one view of a section per page load (`components/SectionView.jsx` on each
-  index page; the directory and its in-place Recent updates tab count through its own batch).
+  index page; the directory and its in-place What's moving tab count through its own batch).
   Ids are a fixed list, `STAT_SECTIONS` in `lib/beacon.js`
 - `recommend:reached:<screen>` — the first time a page load reaches each recommender screen.
   Completion is `recommend:runs`, counted by the run route, so the funnel's end does not
