@@ -6132,7 +6132,7 @@ function CoverageList({ rows = [] }) {
     try {
       const res = await fetch("/api/cron/monitor?only=feeds", { method: "POST" });
       const d = res.ok ? await res.json() : null;
-      setRun(d ? `${d.feeds.checked} checked: ${d.feeds.active} active, ${d.feeds.stale} stale, ${d.feeds.none} none. Blocked and now covered: ${d.feeds.blockedCovered.join(", ") || "none"}. Reload to see them.` : `Failed: HTTP ${res.status}`);
+      setRun(d ? `${d.feeds.checked} checked: ${d.feeds.active} active, ${d.feeds.stale} stale, ${d.feeds.undated} undated, ${d.feeds.none} none. Blocked and now covered: ${d.feeds.blockedCovered.join(", ") || "none"}. Reload to see them.` : `Failed: HTTP ${res.status}`);
     } catch { setRun("Could not reach the server."); }
   }
   const feedsLine = (
@@ -6159,7 +6159,7 @@ function CoverageList({ rows = [] }) {
           {r.lastRead ? `last read ${String(r.lastRead).slice(0, 10)}` : "never read"}
           {r.since ? ` \u00b7 blocked since ${String(r.since).slice(0, 10)}` : ""}
           {` \u00b7 watches ${r.declared.join(", ")}`}
-          {` \u00b7 ${r.feed ? (r.feed.state === "active" ? `${r.feed.type || "feed"} active, newest ${r.feed.newest}` : r.feed.state === "stale" ? `${r.feed.type || "feed"} stale, newest ${r.feed.newest || "undated"}` : "no feed found") : "feeds not checked yet"}`}
+          {` \u00b7 ${r.feed ? (r.feed.state === "active" ? `${r.feed.type || "feed"} active, newest ${r.feed.newest}` : r.feed.state === "stale" ? `${r.feed.type || "feed"} stale, newest ${r.feed.newest}` : r.feed.state === "undated" ? `${r.feed.type || "page"} found, undated` : "no feed found") : "feeds not checked yet"}`}
           {r.feed?.url ? <>{" \u00b7 "}<a href={r.feed.url} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{r.feed.how || "feed"}</a></> : null}
           {" \u00b7 "}<a href={listingHref(r)} style={{ color: C.muted }}>open the entry</a>
         </>}

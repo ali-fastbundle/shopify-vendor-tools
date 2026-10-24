@@ -84,13 +84,18 @@ ok(r.state === "none" && /nothing found/.test(r.status), "nothing anywhere is re
 r = await D.discoverEntry({ id: "e", url: "https://bad.test/" }, { fetchRaw: site({ "https://bad.test/": { body: "<html>x</html>" }, "https://bad.test/feed": { type: "application/rss+xml", body: "<rss><channel></channel></rss>" } }) });
 ok(r.state === "none", "a feed that does not parse into entries counts for nothing");
 
+r = await D.discoverEntry({ id: "u", url: "https://undated.test/" }, { fetchRaw: site({ "https://undated.test/": { body: "<html>x</html>" }, "https://undated.test/updates": { body: "<html><body><h2>Updates</h2><p>We shipped things.</p></body></html>" } }) });
+ok(r.state === "undated" && /no dates/.test(r.status), "a page with no dates is found but undated: neither active nor stale");
+r = await D.discoverEntry({ id: "li", url: "https://www.linkedin.com/newsletters/x-123" }, { fetchRaw: async () => { throw new Error("should not fetch"); } });
+ok(r.state === "none" && /shared platform/.test(r.status), "a listing on a shared platform is not searched: the platform's pages are not its own");
+
 console.log("\nthe run:");
 const entries = [{ id: "sami", url: "https://blocked.test/" }, { id: "x", url: "https://none.test/" }];
 const order = [];
 await D.runDiscovery(entries, { blind: ["x"], fetchRaw: async (u) => { order.push(u); return { url: u, ok: false, state: "unreachable", status: "404" }; } });
 ok(order[0] === "https://none.test/", "the entries the monitor cannot see go first");
 const cov = D.feedCoverage([{ id: "a" }, { id: "b" }, { id: "c" }], { a: { state: "active" }, b: { state: "stale" } }, ["a", "c"]);
-ok(cov.active === 1 && cov.stale === 1 && cov.none === 1 && cov.blockedCovered.join() === "a" && cov.blockedNot.join() === "c", "coverage: active, stale, none, and which blocked ones a feed covers");
+ok(cov.active === 1 && cov.stale === 1 && cov.undated === 0 && cov.none === 1 && cov.blockedCovered.join() === "a" && cov.blockedNot.join() === "c", "coverage: active, stale, none, and which blocked ones a feed covers");
 
 console.log("\nthe monitor prefers the feed:");
 ok(Mon.pagesFor({ url: "https://t.test" }, { state: "active", feedUrl: "https://t.test/feed" }).some((p) => p.url === "https://t.test/feed") && !Mon.pagesFor({ url: "https://t.test" }, { state: "stale", feedUrl: "https://t.test/feed" }).some((p) => p.label === "changelog"), "an active discovered feed is read, a stale one is not");

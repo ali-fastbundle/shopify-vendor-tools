@@ -998,7 +998,10 @@ in the nav or footer, then the common paths (/feed, /rss, /blog/feed, /changelog
 which is how a blocked domain can be covered again. What is found is kept in `svt:feeds` with
 how and when; a `changelogUrl` or `feedUrl` set by hand is verified and never overwritten. A
 feed counts as active only if it parses and has an entry in the last twelve months; older is
-recorded as stale and shown, because an abandoned changelog says something about the tool.
+recorded as stale and shown, because an abandoned changelog says something about the tool. A
+page with no dates at all is "undated", neither active nor stale, and a listing on a shared
+platform (a LinkedIn or Substack newsletter) is not searched, because the platform's pages are
+not its own.
 Where a listing has an active feed, the monitor reads it as a page (so its titles reach the
 snapshot), reports each new entry as a `shipped` finding at 0.9 ("stated in the vendor's own
 changelog", `feedFindings`), and drops the snapshot's inferred `new-capability` findings for

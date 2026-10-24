@@ -75,9 +75,9 @@ async function sweep(request, by) {
   const blind = entries.filter((e) => snaps[e.id]?.blocked || Number(snaps[e.id]?.failures) > 0).map((e) => e.id);
   const disc = await runDiscovery(entries, { blind, budgetMs: url.searchParams.get("only") === "feeds" ? 240_000 : 60_000, force: url.searchParams.get("force") === "1" });
   const cover = feedCoverage(entries, disc.feeds, blind);
-  console.log(`[feeds] ${disc.checked} of ${disc.due} checked. ${cover.active} active, ${cover.stale} stale, ${cover.none} none. Blocked now covered by a feed: ${cover.blockedCovered.join(", ") || "none"}; not: ${cover.blockedNot.join(", ") || "none"}.`);
+  console.log(`[feeds] ${disc.checked} of ${disc.due} checked. ${cover.active} active, ${cover.stale} stale, ${cover.undated} undated, ${cover.none} none. Blocked now covered by a feed: ${cover.blockedCovered.join(", ") || "none"}; not: ${cover.blockedNot.join(", ") || "none"}.`);
   if (url.searchParams.get("only") === "feeds") {
-    return Response.json({ ok: true, by, feeds: { checked: disc.checked, due: disc.due, active: cover.active, stale: cover.stale, none: cover.none, blockedCovered: cover.blockedCovered, blockedNot: cover.blockedNot } });
+    return Response.json({ ok: true, by, feeds: { checked: disc.checked, due: disc.due, active: cover.active, stale: cover.stale, undated: cover.undated, none: cover.none, blockedCovered: cover.blockedCovered, blockedNot: cover.blockedNot } });
   }
 
   const result = await runMonitor(entries, { limit, budgetMs: 200_000 });
