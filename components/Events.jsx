@@ -153,7 +153,7 @@ export default function Events({ plan, events, lastUpdated }) {
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
 
         <header style={{ marginTop: S["3xl"] }}>
-          <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
+          <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
             Events
           </h1>
           <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>

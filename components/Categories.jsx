@@ -80,7 +80,7 @@ function Member({ tool, primary }) {
           <img src={tool.logo} alt={logoAlt(tool)} width={34} height={34}
             style={{
               width: 34, height: 34, borderRadius: R.control, flexShrink: 0,
-              background: "#FFFFFF", objectFit: "contain", padding: 3,
+              background: C.logoTile, objectFit: "contain", padding: 3,
             }} />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -119,7 +119,7 @@ function Member({ tool, primary }) {
               under its name, so the subject is never lost: the out-of-context
               quote llms.txt avoids cannot happen here. */}
           {tool.watch && (
-            <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "70ch" }}>
+            <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>
               <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
             </p>
           )}
@@ -166,7 +166,7 @@ export function CategoryPage({ cat, members, related, lastUpdated }) {
             subject of the category, not one of the things in it. */}
         <div style={{ height: 4, background: cat.color, borderRadius: 2, width: 64 }} />
         <h1 style={{
-          fontSize: F.display, fontWeight: 800, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter,
+          fontSize: F.display, fontWeight: 600, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter,
         }}>{cat.label}</h1>
         <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
           {cat.blurb}
@@ -233,7 +233,7 @@ export function CategoryIndex({ counts, lastUpdated }) {
 
       <header style={{ marginTop: S.xl }}>
         <h1 style={{
-          fontSize: F.display, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter,
+          fontSize: F.display, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter,
         }}>Categories</h1>
         <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
           Every kind of tool built for the people who build Shopify apps. A tool leads with one
@@ -261,7 +261,7 @@ export function CategoryIndex({ counts, lastUpdated }) {
                     </span>
                   )}
                 </div>
-                <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0`, maxWidth: "68ch" }}>
+                <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>
                   {cat.blurb}
                 </p>
               </div>

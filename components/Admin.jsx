@@ -2688,13 +2688,16 @@ function Row({ title, tag, tagColor, badges, meta, body, actions, footer, dim, e
  * saying why.
  */
 function Btn({ onClick, busy, tone, disabled, children, title }) {
-  const color = tone === "go" ? "#00E08A" : tone === "stop" ? "#FF6B8A" : "";
+  /* go is the action colour, a CSS variable, so its tint and edge come from
+     their own tokens rather than from alpha digits appended to a hex. */
+  const t = tone === "go" ? { soft: C.accentSoft, ink: C.accentInk, edge: C.accentEdge }
+    : tone === "stop" ? { soft: "#FF6B8A1E", ink: ink("#FF6B8A"), edge: "#FF6B8A44" } : null;
   const off = busy || disabled;
   return (
     <button onClick={onClick} disabled={off} title={title} className="ctl" style={{
-      background: busy ? C.subtle : disabled ? "transparent" : color ? color + "1E" : C.panel,
-      color: off ? C.dim : color ? ink(color) : C.muted,
-      border: `1px solid ${disabled ? C.line : color ? color + "44" : C.edge}`, borderRadius: R.control,
+      background: busy ? C.subtle : disabled ? "transparent" : t ? t.soft : C.panel,
+      color: off ? C.dim : t ? t.ink : C.muted,
+      border: `1px solid ${disabled ? C.line : t ? t.edge : C.edge}`, borderRadius: R.control,
       padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
       cursor: off ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
       opacity: disabled ? 0.55 : 1,
@@ -2728,7 +2731,9 @@ function Btn({ onClick, busy, tone, disabled, children, title }) {
  * note to read, which take longer than four seconds and must not vanish
  * under someone reading them.
  */
-const TONE_FILL = { stop: "#FF6B8A", go: "#00E08A" };
+/* The armed second press: a solid fill, and type that reads on it. */
+const TONE_FILL = { stop: "#FF6B8A", go: C.accent };
+const TONE_ON = { stop: "#06110D", go: C.onAccent };
 function ConfirmBtn({ onConfirm, busy, children, confirm = "Sure?", tone = "stop", reason = "", choices = null, note = null, disabled = false, title, stay }) {
   const [armed, setArmed] = useState(false);
   const [text, setText] = useState("");
@@ -2746,7 +2751,7 @@ function ConfirmBtn({ onConfirm, busy, children, confirm = "Sure?", tone = "stop
   const fill = TONE_FILL[tone];
   const second = (label, value, off = false) => (
     <button key={label} disabled={off} onClick={() => { setArmed(false); const v = value ?? text.trim(); setText(""); onConfirm(v); }} style={{
-      background: off ? C.subtle : fill || C.text, color: off ? C.dim : fill ? C.onAccent : C.bg,
+      background: off ? C.subtle : fill || C.text, color: off ? C.dim : fill ? TONE_ON[tone] : C.bg,
       border: 0, borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 700,
       cursor: off ? "default" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
     }}>{label}</button>

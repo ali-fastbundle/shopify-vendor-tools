@@ -47,7 +47,7 @@ export default function ListsManager({ tools = [] }) {
   return (
     <main style={{ background: C.bg, color: C.text }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Your lists</h1>
+        <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Your lists</h1>
         <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
           Save tools to a list, put them in order and add a note to each. A list is private until you publish it. A
           published list shows the name you choose, never your email address.

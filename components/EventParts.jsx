@@ -16,7 +16,7 @@ import { CardVotes } from "@/components/Engagement";
  *
  * Colour. Past, imminent and upcoming are told apart by contrast, never by
  * hue: the category palette is reserved for tool categories (invariant A),
- * green is for actions (C) and the warn tone belongs to "winding down" (B).
+ * cobalt is for actions (C) and the warn tone belongs to "winding down" (B).
  * Upcoming is full text, past is dimmed, and imminent gets the neutral
  * inversion, the same device as a selected state, because "this is the one to
  * act on" is a state.
@@ -72,7 +72,7 @@ export function DateBlock({ e }) {
     }}>
       <span aria-hidden="true" style={{ fontSize: F.xs, color: small, lineHeight: 1.2, minHeight: "1.2em" }}>{top}</span>
       <span aria-hidden="true" style={{
-        fontSize: big.length > 4 ? F.lg : F.xl, fontWeight: 800, color: tone,
+        fontSize: big.length > 4 ? F.lg : F.xl, fontWeight: 700, color: tone,
         lineHeight: 1.2, letterSpacing: TRACK.tight,
       }}>{big}</span>
       <span aria-hidden="true" style={{ fontSize: F.xs, color: small, lineHeight: 1.2, minHeight: "1.2em" }}>{bottom}</span>
@@ -188,7 +188,7 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
     <div>
       <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
         <EventLogo e={e} size={40} status={at.status} />
-        <Heading id={headingId} style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.15 }}>
+        <Heading id={headingId} style={{ fontSize: F["2xl"], fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.15 }}>
           {e.name}
         </Heading>
         <Countdown e={e} today={today} />

@@ -51,7 +51,7 @@ export default async function Page({ params }) {
         mainEntity: { "@type": "ItemList", itemListElement: items.map((x, i) => ({ "@type": "ListItem", position: i + 1, name: x.tool.name, url: `${SITE}/tools/${x.tool.id}` })) },
       }} />
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>{list.name}</h1>
+        <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>{list.name}</h1>
         <p style={{ fontSize: F.md, color: C.muted, margin: `${S.sm}px 0 0` }}>
           A list by {list.byName}, updated {String(list.updatedAt).slice(0, 10)}. {items.length} {items.length === 1 ? "tool" : "tools"}.
         </p>

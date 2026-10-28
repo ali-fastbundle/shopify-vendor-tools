@@ -122,8 +122,8 @@ function Facts({ tool, owner }) {
  *
  * Dashed border and no fill, which is `OwnerPanel`'s own unclaimed treatment.
  * It is the same offer, so it looks like the same offer. No accent either:
- * green is the action colour and `Visit site` is the action on this page, so a
- * second green control would argue with the first.
+ * cobalt is the action colour and `Visit site` is the action on this page, so a
+ * second cobalt control would argue with the first.
  */
 function OwnerInvite({ tool, viewer = {}, watchLog = [] }) {
   const href = `/?tool=${encodeURIComponent(tool.id)}`;
@@ -257,12 +257,12 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
                 <img src={tool.logo} alt={logoAlt(tool)} width={46} height={46}
                   style={{
                     width: 46, height: 46, borderRadius: R.card, flexShrink: 0,
-                    background: "#FFFFFF", objectFit: "contain", padding: S.xs,
+                    background: C.logoTile, objectFit: "contain", padding: S.xs,
                   }} />
               )}
               <div style={{ minWidth: 0 }}>
                 <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                  <h1 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>
+                  <h1 style={{ fontSize: F["2xl"], fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter }}>
                     {tool.name}
                   </h1>
                   {tool.dying && <Pill tone="warn">winding down</Pill>}

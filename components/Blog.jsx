@@ -122,7 +122,7 @@ export function BlogIndex({ posts, lastUpdated }) {
     <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
-          <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Blog</h1>
+          <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Blog</h1>
           <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
             What a listing cannot hold: a whole category side by side, judged on stated criteria,
             by someone who sells none of the tools in it.
@@ -158,7 +158,7 @@ export function BlogPost({ post, lastUpdated, comments = [] }) {
         </nav>
         <article>
           <header style={{ marginTop: S["2xl"] }}>
-            <h1 style={{ fontSize: F.display, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.15, maxWidth: "26ch" }}>
+            <h1 style={{ fontSize: F.display, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.15, maxWidth: "26ch" }}>
               {post.title}
             </h1>
             <Byline post={post} />

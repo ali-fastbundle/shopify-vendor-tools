@@ -11,7 +11,7 @@
  * state, and the state itself is the URL (components/ListingParams.jsx).
  *
  * A filter that is on is a state, not an action, so it takes the neutral
- * inversion rather than the action green (colour invariant C).
+ * inversion rather than the action cobalt (colour invariant C).
  */
 import React from "react";
 import { X } from "@phosphor-icons/react";

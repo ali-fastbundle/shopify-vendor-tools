@@ -18,8 +18,8 @@ import { C, S, R, F } from "@/lib/tools";
  * copy of these lines is how it ends up saying "Copy link" in one place and
  * "Copy URL" in another.
  *
- * Discreet on purpose: no fill, no accent, 12px muted type. Green is the
- * action colour and this is not one of green's three jobs (invariant C), and
+ * Discreet on purpose: no fill, no accent, 12px muted type. Cobalt is the
+ * action colour and this is not one of its three jobs (invariant C), and
  * a copy control that competes with "Visit site" is a copy control in the
  * wrong place.
  *
@@ -97,7 +97,7 @@ export default function CopyLink({
       className="press inline-flex items-center"
       style={{
         gap: S.xs, background: "transparent", border: 0, padding: 0,
-        /* Confirmed reads in the text colour, not the accent. Green has three
+        /* Confirmed reads in the text colour, not the accent. Cobalt has three
            jobs on this site and "something just happened" is not one of them. */
         color: done ? C.text : C.muted,
         fontSize: size, fontWeight: 500, fontFamily: "inherit",

@@ -63,7 +63,7 @@ export function AlternativesPage({ tool, owner, alts }) {
     <main style={{ background: C.bg, color: C.text }}>
       <div className="mx-auto" style={{ maxWidth: 860, padding: "0 16px" }}>
         <Crumbs items={[["Directory", "/"], [tool.name, `/tools/${tool.id}`], ["Alternatives", ""]]} />
-        <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
+        <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
           Alternatives to {tool.name}
         </h1>
         <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "64ch" }}>
@@ -143,7 +143,7 @@ export function ComparePage({ a, b, ownerA, ownerB, why, diffsA, diffsB }) {
     <main style={{ background: C.bg, color: C.text }}>
       <div className="mx-auto" style={{ maxWidth: 960, padding: "0 16px" }}>
         <Crumbs items={[["Directory", "/"], [`${a.name} vs ${b.name}`, ""]]} />
-        <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
+        <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
           {a.name} vs {b.name}
         </h1>
         <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "64ch" }}>

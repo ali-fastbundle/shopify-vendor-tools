@@ -21,7 +21,7 @@ export function OwnerPage({ owner, entries, others = [] }) {
           <a href="/owners" style={{ color: C.muted }}>Owners</a>{" / "}
           <span>{owner.name}</span>
         </nav>
-        <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
+        <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
           {owner.name}
         </h1>
         <p style={{ fontSize: F.md, color: C.muted, margin: `${S.sm}px 0 0` }}>
@@ -81,7 +81,7 @@ export function OwnerIndex({ owners }) {
   return (
     <main style={{ background: C.bg, color: C.text }}>
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
+        <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
           Owners
         </h1>
         <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>

@@ -21,7 +21,7 @@ export default function NotFound() {
       <div className="mx-auto" style={{ maxWidth: 640, padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
           <p className="tnum" style={{ fontSize: F.sm, color: C.muted, margin: 0 }}>Error 404</p>
-          <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: `${S.xs}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
+          <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S.xs}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
             Nothing at this address.
           </h1>
           <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0` }}>

@@ -38,7 +38,7 @@ const prevOf = (step) => SCREENS[Math.max(indexOf(step) - 1, 0)];
 function Button({ children, onClick, tone = "plain", disabled, busy, type = "button", href }) {
   const go = tone === "go";
   const style = {
-    /* Green is the action colour (invariant C): the button that moves the
+    /* Cobalt is the action colour (invariant C): the button that moves the
        person forward is the one that does something. */
     background: disabled ? C.subtle : go ? C.accent : C.panel,
     color: disabled ? C.dim : go ? C.onAccent : C.text,
@@ -83,7 +83,7 @@ function Header({ step, onStartOver, saved }) {
       </div>
       <div role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
         style={{ height: 6, background: C.subtle, borderRadius: R.pill, marginTop: S.sm, overflow: "hidden" }}>
-        {/* Progress is a state, not an action, so it is not green. */}
+        {/* Progress is a state, not an action, so it is not cobalt. */}
         <div style={{ width: `${pct}%`, height: "100%", background: C.text, borderRadius: R.pill }} />
       </div>
     </div>
@@ -278,7 +278,7 @@ export default function Recommender() {
       <>
         <Header step={step} onStartOver={startOver} saved={false} />
         <section style={{ marginTop: S["4xl"], maxWidth: 640 }}>
-          <h2 tabIndex={-1} style={{ fontSize: F.display, fontWeight: 800, letterSpacing: TRACK.tighter, margin: 0, lineHeight: 1.15 }}>{p.title}</h2>
+          <h2 tabIndex={-1} style={{ fontSize: F.display, fontWeight: 600, letterSpacing: TRACK.tighter, margin: 0, lineHeight: 1.15 }}>{p.title}</h2>
           <dl style={{ margin: `${S.xl}px 0 0` }}>
             {p.points.map(([term, text]) => (
               <div key={term} style={{ marginTop: S.md }}>
@@ -594,7 +594,7 @@ function PickFeedback({ pick, fb }) {
     <div style={{ marginTop: S.lg, borderTop: `1px solid ${C.line}`, paddingTop: S.md }}>
       <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
         <span style={{ fontSize: F.sm, color: C.muted }}>Is this a good pick for you?</span>
-        {/* Selected is a state, so the neutral inversion (invariant C), not green. */}
+        {/* Selected is a state, so the neutral inversion (invariant C), not cobalt. */}
         <button type="button" className="ctl press" aria-pressed={mine.vote === 1} onClick={() => vote(1)} style={thumb(mine.vote === 1)}>
           <ThumbsUp size={14} weight={mine.vote === 1 ? "fill" : "regular"} /> Yes
         </button>

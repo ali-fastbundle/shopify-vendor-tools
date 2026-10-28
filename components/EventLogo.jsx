@@ -52,7 +52,7 @@ export function Lettermark({ e, size, status }) {
       background: now ? C.text : past ? "transparent" : C.subtle,
       color: now ? C.bg : past ? C.dim : C.text,
       border: `1px solid ${now ? C.text : past ? C.line : C.edge}`,
-      fontWeight: 800, fontSize: Math.round(size * (text.length === 1 ? 0.5 : 0.38)),
+      fontWeight: 700, fontSize: Math.round(size * (text.length === 1 ? 0.5 : 0.38)),
       letterSpacing: TRACK.tight, lineHeight: 1,
     }}>{text}</span>
   );
@@ -84,7 +84,7 @@ export default function EventLogo({ e, size = 28, status }) {
       onLoad={(ev) => check(ev.currentTarget)}
       style={{
         width: size, height: size, borderRadius: R.card, flexShrink: 0,
-        background: "#FFFFFF", objectFit: "contain", padding: size >= 40 ? S.xs : 2,
+        background: C.logoTile, objectFit: "contain", padding: size >= 40 ? S.xs : 2,
         /* Past recedes with the rest of the row. */
         opacity: status === "past" ? 0.55 : 1,
       }}

@@ -142,7 +142,7 @@ function Logo({ tool, size = 34 }) {
         width: size, height: size, borderRadius: R.card, flexShrink: 0,
         /* White under the mark in both themes: a vendor's logo is drawn for a
            light background and plenty of them are dark-on-transparent. */
-        background: "#FFFFFF", objectFit: "contain", padding: S.xs,
+        background: C.logoTile, objectFit: "contain", padding: S.xs,
       }}
     />
   );
@@ -823,7 +823,7 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
           */}
         <header className="content-head">
           <div style={{ minWidth: 0 }}>
-            <h1 style={{ fontSize: F["2xl"], fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.15, margin: 0 }}>
+            <h1 style={{ fontSize: F["2xl"], fontWeight: 600, letterSpacing: TRACK.tighter, lineHeight: 1.15, margin: 0 }}>
               {cat === "all" ? HEADLINE : catOf(cat).label}
             </h1>
             <p className="tnum" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0` }}>
@@ -1124,7 +1124,7 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
                           border: `1px solid ${isPicked ? C.accent : C.line}`,
                           color: isPicked ? C.onAccent : C.dim,
                           cursor: full ? "not-allowed" : "pointer", opacity: full ? 0.4 : 1,
-                          fontSize: F.xs, fontWeight: 800, lineHeight: 1, fontFamily: "inherit",
+                          fontSize: F.xs, fontWeight: 700, lineHeight: 1, fontFamily: "inherit",
                         }}>{isPicked ? <Check size={12} weight="bold" /> : <Plus size={12} weight="bold" />}</button>
                       {/* The spine, turned on its side. Same job as on a card. */}
                       <span aria-hidden="true" style={{ width: 3, height: 20, borderRadius: 2, background: col, flexShrink: 0 }} />
@@ -1381,7 +1381,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, u
 
 /*
  * Growth picks (/recommend) as a card in the grid. It looks like a card because
- * it sits among them, and it is told apart by the invite surface and the green
+ * it sits among them, and it is told apart by the invite surface and the cobalt
  * button, the action colour. No category spine: it is not a tool.
  */
 function PicksCard({ where = "" }) {
@@ -1453,7 +1453,7 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
         <div className="flex items-start" style={{ gap: S.lg }}>
           <Logo tool={tool} size={46} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h2 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>{tool.name}</h2>
+            <h2 style={{ fontSize: F["2xl"], fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter }}>{tool.name}</h2>
             {/*
               * The category, and the address of what you are looking at.
               *
@@ -1941,7 +1941,7 @@ function CompareModal({ tools, ids, onClose, avg, votes, reviews }) {
     <Shell onClose={onClose} width={1000}>
       <div style={{ padding: S.xl }}>
         <div className="flex items-center justify-between" style={{ gap: S.md }}>
-          <h2 style={{ fontSize: F.xl, fontWeight: 800, margin: 0, letterSpacing: TRACK.tight }}>
+          <h2 style={{ fontSize: F.xl, fontWeight: 600, margin: 0, letterSpacing: TRACK.tight }}>
             Comparing {list.length} tools
           </h2>
           <CloseButton onClose={onClose} />
@@ -2172,7 +2172,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
     <Shell onClose={onClose} width={880}>
       <div style={{ padding: S["2xl"] }}>
         <div className="flex items-center justify-between" style={{ gap: S.md }}>
-          <h2 style={{ fontSize: F.xl, fontWeight: 800, margin: 0, letterSpacing: TRACK.tight }}>
+          <h2 style={{ fontSize: F.xl, fontWeight: 600, margin: 0, letterSpacing: TRACK.tight }}>
             {kind === "tool" ? "Suggest a tool" : `Suggest something for ${kindOf(kind).label.toLowerCase()}`}
           </h2>
           <CloseButton onClose={onClose} />
@@ -2187,7 +2187,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
                   <button key={k.id} type="button" onClick={() => setKind(k.id)} aria-pressed={on}
                     style={{
                       background: on ? k.color : C.subtle,
-                      color: on ? C.onAccent : C.text,
+                      color: on ? C.onCategory : C.text,
                       border: `1px solid ${on ? k.color : C.line}`, borderRadius: R.pill,
                       padding: "4px 12px", fontSize: F.xs, fontWeight: on ? 700 : 500,
                       cursor: "pointer", fontFamily: "inherit",

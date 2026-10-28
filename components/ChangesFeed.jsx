@@ -47,7 +47,7 @@ function Logo({ entry, size = 34 }) {
       onError={() => setFailed(true)}
       style={{
         width: size, height: size, borderRadius: R.card, flexShrink: 0,
-        background: "#FFFFFF", objectFit: "contain", padding: S.xs,
+        background: C.logoTile, objectFit: "contain", padding: S.xs,
       }}
     />
   );
@@ -199,7 +199,7 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
       <div className="mx-auto" style={{ maxWidth: 860, padding: "0 20px" }}>
 
         <header style={{ paddingTop: S["3xl"] }}>
-          <h1 style={{ fontSize: F.hero, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
+          <h1 style={{ fontSize: F.hero, fontWeight: 600, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
             What's moving
           </h1>
           <p style={{ fontSize: F.lg, color: C.muted, maxWidth: "58ch", lineHeight: 1.5, margin: `${S.md}px 0 0` }}>

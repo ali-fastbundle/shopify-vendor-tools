@@ -111,8 +111,10 @@ export function Wordmark() {
           <span key={c.id} style={{ width: 3, height: 16, borderRadius: 1.5, background: c.color, display: "inline-block" }} />
         ))}
       </span>
-      <span style={{ fontSize: F.xl, fontWeight: 800, letterSpacing: TRACK.tighter, lineHeight: 1, whiteSpace: "nowrap", color: C.text }}>
-        Watch For <span style={{ color: C.accentInk }}>Tools</span>
+      <span style={{ fontSize: F.xl, fontWeight: 700, letterSpacing: TRACK.tighter, lineHeight: 1, whiteSpace: "nowrap", color: C.text }}>
+        {/* The brand green, as in the icon, the share card and the emails. It is
+            the mark, not the action colour, which is cobalt (globals.css). */}
+        Watch For <span style={{ color: "var(--ink-00e08a)" }}>Tools</span>
       </span>
     </span>
   );
@@ -289,7 +291,7 @@ function Sidebar({ counts, categories, current, path, onClose }) {
 }
 
 /*
- * Growth picks (/recommend), as a block of its own under the sections. Green
+ * Growth picks (/recommend), as a block of its own under the sections. Cobalt
  * is the action colour (colour invariant C), and this is the action the site
  * most wants a visitor to take. It says it needs an email, because it does,
  * and a surprise sign-in is how a form gets abandoned.

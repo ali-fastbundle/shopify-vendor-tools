@@ -19,7 +19,7 @@ import FollowBox from "@/components/FollowBox";
  * No category colour anywhere. The category palette is reserved for tool
  * categories (colour invariant A), and a newsletter is not a tool category, so
  * this page is neutral by construction: a plain rule rather than a coloured
- * spine, neutral Pills, no accent except the green that every action wears.
+ * spine, neutral Pills, no accent except the cobalt that every action wears.
  */
 
 const Fact = ({ children }) => (
@@ -99,12 +99,12 @@ export default function NewsletterPage({ newsletter: n, related, reviews = [], r
                 <img src={n.logo} alt={`${n.name} logo`} width={46} height={46}
                   style={{
                     width: 46, height: 46, borderRadius: R.card, flexShrink: 0,
-                    background: "#FFFFFF", objectFit: "contain", padding: S.xs,
+                    background: C.logoTile, objectFit: "contain", padding: S.xs,
                   }} />
               )}
               <div style={{ minWidth: 0 }}>
                 <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                  <h1 style={{ fontSize: F["2xl"], fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter }}>
+                  <h1 style={{ fontSize: F["2xl"], fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter }}>
                     {n.name}
                   </h1>
                   {/* Positive, neutral marker only. Absent renders nothing: a

@@ -54,7 +54,7 @@ export default function Page() {
       }} />
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
-          <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Privacy</h1>
+          <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Privacy</h1>
           <P>
             The short version: nothing on this site tracks you, nothing is sold, and there is no
             advertising. There is one cookie, and only if you sign in. Your email address is stored

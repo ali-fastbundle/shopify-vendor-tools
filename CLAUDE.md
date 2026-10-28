@@ -1663,7 +1663,7 @@ deployment copies its own URL and nothing has to know the canonical host. Two
 clipboard paths, because `navigator.clipboard` needs a secure context and is
 absent on plain http; the deprecated textarea and `execCommand` fallback is what
 makes it work there. Discreet by construction: no fill, no accent, 12px muted
-type. Confirmed reads in `C.text`, not the accent, because green has three jobs
+type. Confirmed reads in `C.text`, not the accent, because the accent has three jobs
 and "something just happened" is not one of them.
 
 **The vendor's way in is a link, not a form.** The page carries a `Claim and edit
@@ -2826,10 +2826,26 @@ and the server HTML.
 
 ## Design conventions
 
-The site is styled to sit comfortably beside the Shopify admin its readers spend the day
-in: a light grey canvas, white cards with a hairline and a soft shadow, raised controls,
-Inter, a 4px spacing grid and soft corners. **All of it is our own code and our own
-values.** None of Shopify's design system is used.
+The system is Hallmark's **Cobalt** theme, applied as a restyle on 2026-10-28: cool
+near-white paper, blue-grey ink and hairlines, cards cut on two opposite corners, controls
+drawn as keys with a solid bottom edge, and one cobalt for the action. It replaced a grey
+canvas with soft-shadowed white cards, which Ali judged to read as AI-generated. Inter,
+the category palette, the sidebar frame and both themes were kept by his decision, and the
+layout did not change. **All of it is our own code and our own values.** None of Shopify's
+design system is used.
+
+**Hallmark** (github.com/Nutlope/hallmark, MIT) is the design skill behind it, installed
+locally in `.claude/skills/hallmark` (gitignored). Its stamp heads `app/globals.css`: the
+theme and deal seed, what was kept, and every waived or answered gate with its reason. A
+design change is checked with its linter against a running server:
+`node .claude/skills/hallmark/scripts/sloplint.mjs app components --genre modern-minimal --render --url http://localhost:3000/<route>`
+(run it from outside the repository, so `.hallmark/` does not land in it, with
+`HALLMARK_PUPPETEER` pointing at a `puppeteer-core`). A new FAIL is fixed, or waived in the
+stamp with a reason. The Floor that binds here: every colour through a token, focus as a
+ring, field edges of 3:1, no eyebrow or tracked-capital label, no gradient, no invented
+figure, `overflow-x: clip`. Its landing-page gates (a hero filling the screen, about 80
+words a screen, six to nine sections, 120px gaps) do not apply to a directory: Hallmark
+reads it as an app screen, and the fold budget is invariant F.
 
 **Polaris is not an option, and the reason is its licence, read on 2026-10-10.** The
 LICENSE.md on `@shopify/polaris`, `-tokens` and `-icons` grants its rights only "to
@@ -2842,7 +2858,8 @@ Polaris to make it look like the admin is exactly the use that clause excludes. 
 React is deprecated besides, and the web components that replace it are for apps embedded
 in the admin. So: no Polaris package, token, component or icon, and no values copied out
 of them. The admin-like look is built in `globals.css` and `lib/tools.js` from our own
-numbers, and the category palette stays ours.
+numbers, and the category palette stays ours. Cobalt is a theme from an MIT-licensed
+skill and is not Shopify's.
 
 **Typeface: Inter**, and it stays. Frontend design advice reliably lists Inter as the
 default to avoid, and that advice is about landing pages competing on distinctiveness.
@@ -2864,7 +2881,7 @@ stylesheet.
 | `C` | Colour. Every value is a CSS variable declared per theme in `globals.css` |
 | `S` | Spacing on a 4px grid: `xs` 4, `sm` 8, `md` 12, `lg` 16, `xl` 20, `2xl` 24, `3xl` 32, `4xl` 48, `5xl` 64 |
 | `BAND` | The gap between major bands of the page. `desktop` 64, `mobile` 32, and nothing else does that job |
-| `R` | Radius: `control` 8, `card` 12, `modal` 16, `badge` 6, `pill` 999 |
+| `R` | Radius: `control` 6, `card` 8, `modal` 12, `badge` 4, `pill` 6 (Cobalt has no pills; a chip is a key) |
 | `F` | Type: `xs` 12, `sm` 13, `md` 14, `lg` 16, `xl` 20, `2xl` 24, `display` 28, `hero` 36 |
 | `TRACK` | Negative tracking, two steps. `tighter` from 24px up, `tight` below |
 
@@ -2889,18 +2906,26 @@ choice or the system preference, sets `data-theme`, and updates the `theme-color
 tag. The toggle has three states, Auto, Light and Dark, because a two-way switch can say
 "I want light" but cannot say "follow the machine", and once touched there would be no
 way back. It is one icon button at the foot of the sidebar that cycles through them, and nowhere else:
-its label and tooltip name the current state and the next one. With scripting off the page is light, the look the site leads with. Dark is a
-neutral grey to match, not the green-black it used to be. `scripts/contrast-test.mjs`
+its label and tooltip name the current state and the next one. With scripting off the page is light, the look the site leads with. Dark is
+Cobalt's graphite, every step re-derived from the light one with the hue held, and a card
+is a step lighter than the canvas rather than shadowed. `scripts/contrast-test.mjs`
 reads both palettes out of the stylesheet and fails on any text token under 4.5:1 on the
 page, a panel or a raised fill, which is invariant H as a number.
 
-**Controls carry `.ctl`**: a raised bottom edge, a hover tint and a pressed inset, from
-three tokens per theme. A control is a button, tab, chip or select that is a surface of
-its own; unselected ones are white (`C.panel`) on the grey canvas, selected ones keep the
-dark inversion, and actions keep green. Colour stays inline with the component, so the
-class adds depth and states and never decides what a control means. Bare text and icon
-links have `.press` without `.ctl`. Cards carry a resting `--c-card-shadow`, which is the
-edge of a surface drawn once, not atmosphere (invariant I).
+**Controls carry `.ctl`**: a key, with a 2px solid bottom edge (`--c-key-edge`) it sinks
+onto when pressed, a hover tint and a pressed inset. A control is a button, tab, chip or
+select that is a surface of its own; unselected ones are paper (`C.panel`) on the blue-grey
+canvas, selected ones keep the dark inversion, and actions are cobalt. Colour stays inline
+with the component, so the class adds depth and states and never decides what a control
+means. Bare text and icon links have `.press` without `.ctl`. Cards carry a resting
+`--c-card-shadow` of 2px under the hairline, and where the browser supports `corner-shape`
+they are cut on two opposite corners (`.card` in `globals.css`), the one place a card's
+inline radius is overridden.
+
+**Fields have an edge of 3:1.** Components draw an input's border inline from `C.line`, a
+hairline too faint to find a field by, so one rule in `globals.css` sets every text field,
+select and textarea to `--c-field-edge`, and focus is a 2px ring, never only a change of
+border colour. A paragraph with no explicit width stops at 62ch, about 75 characters.
 
 Components never read a raw colour. They read `C`, and `C` is exactly the set of names
 declared in `globals.css`, so a colour that works in one theme and not the other is a
@@ -2917,9 +2942,14 @@ The hues are picked against a near-black background and *none* of them clears
 the hue on dark and a darker twin of the same hue on light. Fills, borders and the bars
 in the wordmark keep the original hex. Adding a colour means adding its `--ink-` pair to
 both blocks in `globals.css`; `ink()` falls back to the hex, so forgetting degrades to
-today's behaviour rather than to nothing. The same split applies to the brand green and
-the warning hues: `C.accent` is the fill, `C.accentInk` is the type, and `C.onAccent` is
-the dark ink that sits on any accent or category fill in both themes.
+today's behaviour rather than to nothing. The same split applies to the action colour and
+the warning hues: `C.accent` is the cobalt fill, `C.accentInk` is the type, and
+`C.onAccent` is the type on the fill (paper on light, dark on dark). Type on a category
+fill is `C.onCategory`, dark in both themes, because the hues are bright in both.
+
+**The brand green is the mark, not the action.** The wordmark's "Tools", the icon, the
+share card and the emails keep `#00E08A`, which is also the App Store ASO category. Cobalt
+is the action colour.
 
 ### Colour invariants
 
@@ -2966,9 +2996,10 @@ rather than what it costs or who owns it, and both are absent from nearly every 
 neither can stack up into a row of grey capsules. Anything that is true of most entries
 belongs in `Facts`.
 
-**C. Green is the action colour and nothing else.** Buttons that do something, the
-selected-for-comparison state, an owned listing. It is not the free-plan colour: green
-meaning both "do this" and "costs nothing" is two ideas wearing one coat. A filter that
+**C. Cobalt is the action colour and nothing else** (green until 2026-10-28). Buttons that
+do something, the selected-for-comparison state, an owned listing. It is not the free-plan
+colour: one colour meaning both "do this" and "costs nothing" is two ideas wearing one
+coat. A filter that
 is *on* is a state rather than an action, so it takes the neutral inversion —
 `C.text` on `C.bg` — which is also what the "All" chip and the view toggle use.
 

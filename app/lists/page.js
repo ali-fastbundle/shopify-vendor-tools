@@ -52,7 +52,7 @@ export default async function Page() {
         }} />
       )}
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
-        <h1 style={{ fontSize: F["2xl"], fontWeight: 800, margin: `${S["2xl"]}px 0 0`, letterSpacing: TRACK.tighter }}>Lists</h1>
+        <h1 style={{ fontSize: F["2xl"], fontWeight: 600, margin: `${S["2xl"]}px 0 0`, letterSpacing: TRACK.tighter }}>Lists</h1>
         <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
           Tools chosen and put in order by people who use them, with their notes. Each list is theirs, not the
           directory's. Each tool keeps its own caveat.

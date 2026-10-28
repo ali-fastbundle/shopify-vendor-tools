@@ -83,7 +83,7 @@ export default async function Page() {
               style={{ width: 160, height: 160, objectFit: "cover", borderRadius: R.card, border: `1px solid ${C.line}` }} />
           )}
           <div>
-            <h1 style={{ fontSize: F.hero, fontWeight: 800, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
+            <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
               {about.name}
             </h1>
             <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.5, margin: `${S.sm}px 0 0` }}>{about.role}</p>
