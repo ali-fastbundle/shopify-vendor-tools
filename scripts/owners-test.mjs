@@ -46,7 +46,27 @@ ok(refs.every((e) => O.ownerById(e.ownership.id)), "every ownership id is in lib
   refs.filter((e) => !O.ownerById(e.ownership.id)).map((e) => e.id).join(", "));
 ok(refs.every((e) => typeof e.ownership.name === "string" && e.ownership.name), "and carries a display name");
 ok(new Set(O.OWNERS.map((o) => o.id)).size === O.OWNERS.length, "owner ids are unique");
-ok(O.OWNERS.every((o) => refs.some((e) => e.ownership.id === o.id)), "no owner is listed with nothing pointing at it");
+const statedBy = (o) => all.some((e) => [e.publisher, e.organizer].some((n) => n && O.findOwner(n)?.id === o.id));
+ok(O.OWNERS.every((o) => refs.some((e) => e.ownership.id === o.id) || statedBy(o)),
+  "no owner is listed with nothing pointing at it (a reference, or a publisher or organizer naming it)",
+  O.OWNERS.filter((o) => !refs.some((e) => e.ownership.id === o.id) && !statedBy(o)).map((o) => o.id).join(", "));
+
+console.log("app developers:");
+{
+  const devs = O.OWNERS.filter((o) => o.appStore);
+  ok(devs.length >= 10, "owners that publish apps carry their App Store developer page", String(devs.length));
+  ok(devs.every((o) => O.appStoreOf(o) === o.appStore), "every value is an apps.shopify.com/partners/<handle> address");
+  ok(O.appStoreOf({ appStore: "https://apps.shopify.com/search?q=x" }) === "" && O.appStoreOf({ appStore: "https://evil.example/partners/x" }) === "",
+    "anything else is not one");
+  const row = X.allOwners({}).find((o) => o.id === "the-wide-company");
+  ok(row?.appStore === "https://apps.shopify.com/partners/mathieuds", "the index row carries it");
+  ok(!X.allOwners({}).find((o) => o.id === "dark-ecommerce-labs")?.appStore, "an owner with no developer page found carries none");
+  const page = src("components/Owners.jsx");
+  ok(/<Pill>App developer<\/Pill>/.test(page) && (page.match(/App developer<\/Pill>/g) || []).length === 2, "the badge is on the index row and the owner page");
+  ok(/outbound\(href\)/.test(page), "the developer page link goes through outbound()");
+  const g = seo.ownerGraph({ ...O.ownerById("shopify"), entries: [] }, []);
+  ok(g["@graph"][0].sameAs?.includes("https://apps.shopify.com/partners/shopify"), "the owner's JSON-LD names the developer page in sameAs");
+}
 for (const o of O.OWNERS.filter((x) => x.notes)) {
   const v = voiceIssues(o.notes);
   ok(!v.emDash && !v.semicolons && !v.marketing.length, `${o.name}: notes pass the voice checks`);

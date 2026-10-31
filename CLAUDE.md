@@ -2472,6 +2472,16 @@ the one sentence the owner's page states about this relationship.
   or a name with no page yet. One naming the tool itself is suppressed before it is shown
   and refused on apply. Undo maps the same way. A legacy override still holding free-text
   `owner` reads as a reference, and the sweep clears vacuous values in both shapes.
+- **An owner that publishes apps is marked "App developer"** (2026-10-31): a neutral `Pill`
+  beside its name on `/owners` and its owner page, a link to its developer page on the Shopify
+  App Store, a line in the Markdown versions and the page in the owner's `sameAs`. It is the
+  `appStore` field on the `OWNERS` row (`appStoreOf` accepts only
+  `https://apps.shopify.com/partners/<handle>`), and it matters because an app developer selling
+  to app developers may compete with them. **The handle is read from the App Store, never
+  guessed**: from one of the owner's own app listings, with the developer page's name or apps
+  matching what the catalogue says. Not set where the developer account could not be tied to
+  the owner: Marmeto (Return Prime's developer is Appsdart Solutions), FireGroup (Ali Reviews is
+  FireApps), Dark Ecommerce Labs (none found).
 - **Catalogue parsing counts array elements only** (`objects` in `lib/publish.js`), because
   an entry now holds an object with an `id` of its own.
 

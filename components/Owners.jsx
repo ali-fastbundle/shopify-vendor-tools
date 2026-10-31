@@ -4,6 +4,14 @@ import { Pill } from "@/components/Pill";
 import { outbound } from "@/lib/outbound";
 import { relationOf } from "@/lib/seo";
 import EventLogo from "@/components/EventLogo";
+import { appStoreOf } from "@/lib/owners";
+
+/* The link to an owner's developer page on the Shopify App Store. */
+const AppStoreLink = ({ href }) => (
+  <a href={outbound(href)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>
+    Apps on the Shopify App Store
+  </a>
+);
 
 /*
  * /owners and /owners/[id], server-rendered with no client state, the same
@@ -21,14 +29,22 @@ export function OwnerPage({ owner, entries, others = [] }) {
           <a href="/owners" style={{ color: C.muted }}>Owners</a>{" / "}
           <span>{owner.name}</span>
         </nav>
-        <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
-          {owner.name}
-        </h1>
+        <div className="flex flex-wrap items-baseline" style={{ gap: S.md, marginTop: S.md }}>
+          <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
+            {owner.name}
+          </h1>
+          {appStoreOf(owner) && <Pill>App developer</Pill>}
+        </div>
         <p style={{ fontSize: F.md, color: C.muted, margin: `${S.sm}px 0 0` }}>
           {owner.type === "Person" ? "A person" : "A company"} behind {entries.length} listings here
           {owner.url && <>{". "}<a href={outbound(owner.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{owner.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}</a></>}
           .
         </p>
+        {appStoreOf(owner) && (
+          <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>
+            {owner.type === "Person" ? "Publishes" : "Also publishes"} apps on the Shopify App Store. <AppStoreLink href={appStoreOf(owner)} />
+          </p>
+        )}
         {owner.notes && <p style={{ fontSize: F.lg, lineHeight: 1.6, margin: `${S.lg}px 0 0`, maxWidth: "68ch" }}>{owner.notes}</p>}
 
         <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: `${S["2xl"]}px 0 0`, letterSpacing: TRACK.tight }}>What it controls</h2>
@@ -91,7 +107,8 @@ export function OwnerIndex({ owners }) {
         </p>
         <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
           An owner is listed only where the listing's own site, or the owner's, says who it is. A listing
-          that names nobody is not on this page.
+          that names nobody is not on this page. App developer marks an owner that also publishes apps
+          on the Shopify App Store, read from the App Store itself, with a link to its developer page there.
         </p>
         <ul style={{ listStyle: "none", padding: 0, margin: `${S.xl}px 0 0` }}>
           {owners.map((o) => {
@@ -105,6 +122,7 @@ export function OwnerIndex({ owners }) {
                       {o.page
                         ? <a href={o.page} style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none" }}>{o.name}</a>
                         : <span style={{ fontWeight: 700, fontSize: F.lg }}>{o.name}</span>}
+                      {o.appStore && <Pill>App developer</Pill>}
                       <span className="tnum" style={{ fontSize: F.xs, color: C.dim }}>
                         {[o.type === "Person" ? "A person" : o.type ? "A company" : "",
                           `${o.entries.length} listing${o.entries.length === 1 ? "" : "s"}`].filter(Boolean).join(", ")}
@@ -123,10 +141,11 @@ export function OwnerIndex({ owners }) {
                         </li>
                       ))}
                     </ul>
-                    {(site || o.page) && (
+                    {(site || o.page || o.appStore) && (
                       <p className="flex flex-wrap" style={{ gap: S.lg, fontSize: F.sm, margin: `${S.sm}px 0 0` }}>
                         {o.page && <a href={o.page} style={{ color: C.muted }}>Owner page</a>}
                         {site && <a href={outbound(o.url)} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>{site}</a>}
+                        {o.appStore && <AppStoreLink href={o.appStore} />}
                       </p>
                     )}
                   </div>
