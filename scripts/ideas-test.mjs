@@ -161,5 +161,24 @@ console.log("\nthe editor's ruling on a review:");
   ok(/Struck: Monetized influence/.test(h) && /Real objection: Name collision/.test(h), "and the hand-off prompt says the same");
 }
 
+console.log("\nan idea closed in git:");
+{
+  const store = await load("lib/store.js");
+  const S = await load("lib/ideaStore.js");
+  const seed = I.SEEDS.find((x) => x.id === "seed-vendor-changelog-rss");
+  ok(seed?.status === "shipped" && seed.closed?.shipped === "2026-10-24" && seed.commits?.includes("0c1c8e8"), "the vendor changelog idea is shipped on 2026-10-24, with its commits");
+  ok(seed.editorRecord.struck.some((x) => /terms of service/i.test(x.objection)), "the terms-of-service objection stays struck, as ruled");
+  ok(seed.closed.declined.some((x) => /per-vendor rss/i.test(x.item) && /changes\/rss/.test(x.why)), "per-vendor RSS output is declined, with the reason");
+  /* As production holds it: still "new", with its review of 24 October. */
+  const all = (await store.read(S.KEY, {})) || {};
+  all[seed.id] = { ...seed, editorRecord: undefined, closed: undefined, status: "new", commits: [], stateNote: "old",
+    reviews: [{ at: "2026-10-24", verdict: "against", objections: ["Terms of service"], requires: ["a", "b", "c", "d"] }], log: [] };
+  await store.write(S.KEY, all);
+  const row = (await S.getIdeas()).find((x) => x.id === seed.id);
+  ok(row.status === "shipped" && row.closed && row.commits.includes("d60f605") && row.reviews.length === 1, "it reaches the stored row: shipped, commits recorded, the review kept");
+  const adm = readFileSync(join(ROOT, "components/Admin.jsx"), "utf8");
+  ok(/closed \? "What was built" : "Would require"/.test(adm) && /closed \? ", superseded" : ""/.test(adm), "the review shows as superseded, and its requirements as what was built");
+}
+
 console.log(bad ? `\n${bad} failed` : "\nall passed");
 process.exit(bad ? 1 : 0);

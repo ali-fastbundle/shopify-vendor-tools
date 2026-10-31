@@ -2246,7 +2246,18 @@ function IdeaRow({ idea, post, busy }) {
               </ul>
             </div>
           )}
-          {r && <IdeaReview review={r} older={(idea.reviews || []).length - 1} />}
+          {/* Closed in git: what was declined, then the review it superseded. */}
+          {idea.closed && (
+            <div style={{ margin: `${S.sm}px 0 0` }}>
+              <p style={{ margin: 0 }}><b>Shipped {idea.closed.shipped}</b>, closed {idea.closed.at}.</p>
+              {idea.closed.declined?.length > 0 && (
+                <ul style={{ margin: `${S.xs}px 0 0`, paddingLeft: 18 }}>
+                  {idea.closed.declined.map((x) => <li key={x.item}><b>Declined:</b> {x.item}. {x.why}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+          {r && <IdeaReview review={r} older={(idea.reviews || []).length - 1} closed={idea.closed} />}
           {idea.log?.length > 0 && (
             <p style={{ margin: `${S.sm}px 0 0`, fontSize: F.xs, color: C.dim }}>
               {idea.log.slice(0, 6).map((l) => `${String(l.at).slice(0, 10)} ${l.from} to ${l.to}${l.reason ? ` (${l.reason})` : ""}`).join(" · ")}
@@ -2291,7 +2302,7 @@ function IdeaRow({ idea, post, busy }) {
   );
 }
 
-function IdeaReview({ review: r, older = 0 }) {
+function IdeaReview({ review: r, older = 0, closed = null }) {
   const List = ({ title, items }) => items?.length ? (
     <div style={{ marginTop: S.sm }}>
       <b style={{ color: C.text }}>{title}</b>
@@ -2301,13 +2312,16 @@ function IdeaReview({ review: r, older = 0 }) {
   return (
     <div style={{ marginTop: S.md, borderLeft: `2px solid ${C.edge}`, paddingLeft: S.md }}>
       <p style={{ margin: 0, color: C.text }}>
-        <b>Review, {String(r.at).slice(0, 10)}: {VERDICTS[r.verdict]}</b>{r.size ? `, ${r.size}` : ""}.
+        <b>Review, {String(r.at).slice(0, 10)}{closed ? ", superseded" : ""}: {VERDICTS[r.verdict]}</b>{r.size ? `, ${r.size}` : ""}.
         {" "}{r.summary}
       </p>
+      {closed?.superseded && <p style={{ margin: `${S.xs}px 0 0`, color: C.dim }}>{closed.superseded}</p>}
       {r.decidedBefore && <p style={{ margin: `${S.sm}px 0 0`, color: C.warnInk }}>Decided before: {r.decidedBefore}</p>}
       <List title="Objections" items={r.objections} />
       <List title="Already built" items={r.covered} />
-      <List title="Would require" items={r.requires} />
+      {/* Once the idea shipped, what the review said it would require is the
+          record of what was built, in the review's own words. */}
+      <List title={closed ? "What was built" : "Would require"} items={r.requires} />
       {r.invariants?.length > 0 && (
         <List title="Invariants" items={r.invariants.map((x) => `${x.ref}. ${x.name}: ${x.how}${x.conflict ? " Conflicts." : ""}`)} />
       )}
