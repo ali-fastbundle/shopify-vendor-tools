@@ -33,7 +33,7 @@ import { useSession, SignInPrompt, OwnerPanel } from "@/components/Account";
 import GrowText from "@/components/GrowText";
 import Vote from "@/components/Vote";
 
-const NOUN = { tool: "tool", newsletter: "newsletter", event: "event", post: "post" };
+const NOUN = { tool: "tool", newsletter: "newsletter", event: "event", podcast: "podcast", post: "post" };
 
 const field = {
   background: C.field, border: `1px solid ${C.line}`, borderRadius: R.control,

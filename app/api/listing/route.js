@@ -1,7 +1,7 @@
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { allow, ipOf } from "@/lib/ratelimit";
 import { listedEntity } from "@/lib/entries";
-import { ownsListing, sanitiseEdit, editableFor, saveEdit, mergedTools, mergedNewsletters, mergedEvents } from "@/lib/listings";
+import { ownsListing, sanitiseEdit, editableFor, saveEdit, mergedTools, mergedNewsletters, mergedEvents, mergedPodcasts } from "@/lib/listings";
 import { sendEvent } from "@/lib/mail";
 import { read, write, KEYS } from "@/lib/store";
 import { readChangelog } from "@/lib/monitor";
@@ -66,6 +66,7 @@ export async function POST(request) {
 
   const tools = tool.kind === "newsletter" ? await mergedNewsletters()
     : tool.kind === "event" ? await mergedEvents()
+    : tool.kind === "podcast" ? await mergedPodcasts()
     : await mergedTools();
   return Response.json({ tools });
 }

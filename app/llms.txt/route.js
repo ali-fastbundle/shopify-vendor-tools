@@ -6,6 +6,8 @@ import {
 import { ownershipLine } from "@/lib/owners";
 import { SITE, isForVendors } from "@/lib/seo";
 import { NEWSLETTERS } from "@/lib/newsletters";
+import { PODCASTS } from "@/lib/podcasts";
+import { podcastGroups, podcastIntro } from "@/lib/podcastCopy";
 import { EVENTS, agenda } from "@/lib/events";
 import { POSTS } from "@/lib/blog";
 import { countTools } from "@/lib/toolCount";
@@ -60,9 +62,9 @@ from the vendor, or mentioned by someone else, in their words and not the direct
 ## Markdown versions
 
 Append .md to the path of any content page for the same page as Markdown:
-${SITE}/tools/<id>.md, ${SITE}/categories/<id>.md, ${SITE}/newsletters/<id>.md,
+${SITE}/tools/<id>.md, ${SITE}/categories/<id>.md, ${SITE}/newsletters/<id>.md, ${SITE}/podcasts/<id>.md,
 ${SITE}/events/<id>.md, ${SITE}/owners/<id>.md, ${SITE}/blog/<slug>.md, and the
-indexes ${SITE}/index.md (the directory), ${SITE}/newsletters.md, ${SITE}/events.md, ${SITE}/owners.md,
+indexes ${SITE}/index.md (the directory), ${SITE}/newsletters.md, ${SITE}/podcasts.md, ${SITE}/events.md, ${SITE}/owners.md,
 ${SITE}/blog.md, ${SITE}/changes.md and ${SITE}/about.md. Each carries everything
 its page shows and nothing it does not, including the labelled "Watch for" caveat,
 which this file leaves out. Each page also links its version from its head.
@@ -136,6 +138,18 @@ ${NEWSLETTERS.filter((n) => !isForVendors(n)).map((n) => [
     `- [${n.name}](${SITE}/newsletters/${n.id}): ${n.one}`,
     `  ${[n.cadence, n.issueCount ? `${n.issueCount} issues` : "", n.free ? "free" : ""].filter(Boolean).join(" | ")}${n.author || n.publisher ? ` | by ${n.author || n.publisher}` : ""}`,
   ].join("\n")).join("\n")}
+
+## Podcasts
+
+${podcastIntro(PODCASTS).join(" ")} Each has a page at ${SITE}/podcasts/<id>
+carrying the full note, the "watch for" caveat and how a vendor gets on the show.
+
+${[["Made for app builders", podcastGroups(PODCASTS).builders], ["For merchants and DTC brands", podcastGroups(PODCASTS).merchants], ["Stopped publishing, kept as a record", podcastGroups(PODCASTS).stopped]]
+    .filter(([, list]) => list.length)
+    .map(([title, list]) => `### ${title}\n\n${list.map((p) => [
+      `- [${p.name}](${SITE}/podcasts/${p.id}): ${p.one}`,
+      `  ${[p.discontinued ? "stopped" : p.cadence, p.episodeCount ? `${p.episodeCount} episodes` : "", p.free ? "free" : ""].filter(Boolean).join(" | ")}${p.host ? ` | hosted by ${p.host}` : ""}`,
+    ].join("\n")).join("\n")}`).join("\n\n")}
 
 ${eventsBlock()}${POSTS.length ? `## Blog
 

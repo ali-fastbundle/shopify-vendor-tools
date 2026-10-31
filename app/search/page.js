@@ -1,5 +1,5 @@
 import { C, S, R, F, TRACK } from "@/lib/tools";
-import { mergedTools, mergedNewsletters, mergedEvents } from "@/lib/listings";
+import { mergedTools, mergedNewsletters, mergedEvents, mergedPodcasts } from "@/lib/listings";
 import { searchAll, summaryLine, cleanQuery, MIN_QUERY, MAX_QUERY } from "@/lib/universalSearch";
 
 /*
@@ -26,10 +26,10 @@ export async function generateMetadata({ searchParams }) {
 
 export default async function Page({ searchParams }) {
   const q = cleanQuery(searchParams?.q);
-  const [tools, newsletters, events] = q.length >= MIN_QUERY
-    ? await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()])
-    : [[], [], []];
-  const result = searchAll(q, { tools, newsletters, events });
+  const [tools, newsletters, events, podcasts] = q.length >= MIN_QUERY
+    ? await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents(), mergedPodcasts()])
+    : [[], [], [], []];
+  const result = searchAll(q, { tools, newsletters, events, podcasts });
 
   return (
     <main style={{ background: C.bg, color: C.text }}>
@@ -39,7 +39,7 @@ export default async function Page({ searchParams }) {
             Search
           </h1>
           <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0` }}>
-            Tools, categories, newsletters, events, blog posts and owners. Past events are included.
+            Tools, categories, newsletters, podcasts, events, blog posts and owners. Past events are included.
           </p>
         </header>
 

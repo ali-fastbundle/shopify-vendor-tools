@@ -25,6 +25,7 @@ for (const f of readdirSync(join(ROOT, "lib"))) {
 const load = (f) => import(pathToFileURL(join(dir, f)).href);
 const { ALL_TOOLS, TOOLS, ownerOf } = await load("lib/tools.js");
 const { ALL_NEWSLETTERS } = await load("lib/newsletters.js");
+const { ALL_PODCASTS } = await load("lib/podcasts.js");
 const { ALL_EVENTS } = await load("lib/events.js");
 const O = await load("lib/owners.js");
 const X = await load("lib/ownerIndex.js");
@@ -39,7 +40,7 @@ const ok = (c, l, d = "") => { console.log(`  ${c ? "ok  " : "FAIL"}  ${l}${d ? 
 const src = (f) => readFileSync(join(ROOT, f), "utf8");
 
 console.log("the reference:");
-const all = [...ALL_TOOLS, ...ALL_NEWSLETTERS, ...ALL_EVENTS];
+const all = [...ALL_TOOLS, ...ALL_NEWSLETTERS, ...ALL_PODCASTS, ...ALL_EVENTS];
 const refs = all.filter((e) => e.ownership);
 ok(refs.every((e) => O.ownerById(e.ownership.id)), "every ownership id is in lib/owners.js",
   refs.filter((e) => !O.ownerById(e.ownership.id)).map((e) => e.id).join(", "));
@@ -59,12 +60,14 @@ ok(group("mantle") === "mantle,sasi", "Mantle: Mantle, SASI (App Store Analytics
 ok(group("thesaashub") === "partnerdock,shopifyappfounders", "TheSaaSHub: PartnerDock, Shopify App Founders Edition");
 ok(group("shopexperts") === "appstoreresearch,shopexperts,shopops", "ShopExperts: App Store Research, ShopExperts, ShopOps Weekly");
 ok(X.entriesOf("idube").length === 0, "a draft's owner has no published entries, so no page");
+ok(group("dtc-media") === "dtc,dtc-dines-vancouver,dtcpodcast", "DTC Media: a newsletter, an event and a podcast, across three kinds", group("dtc-media"));
+ok(X.entriesOf("electric-eye").map((m) => m.id).join(",") === "honestecommerce" && !X.hasOwnerPage("electric-eye"), "Electric Eye: Honest Ecommerce, one listing, no page");
 
 console.log("\npages:");
 const pages = X.ownersWithPages();
 ok(pages.every((o) => o.entries.length >= 2), "only owners with two or more entries get a page", pages.map((o) => `${o.id}:${o.entries.length}`).join(" "));
 ok(!X.hasOwnerPage("craftshift"), "a one-listing owner has no page");
-ok(pages.every((o) => o.entries.every((m) => TOOLS.some((t) => t.id === m.id) || ALL_NEWSLETTERS.some((n) => n.id === m.id && !n.draft) || ALL_EVENTS.some((e) => e.id === m.id && !e.draft))),
+ok(pages.every((o) => o.entries.every((m) => TOOLS.some((t) => t.id === m.id) || ALL_NEWSLETTERS.some((n) => n.id === m.id && !n.draft) || ALL_PODCASTS.some((n) => n.id === m.id && !n.draft) || ALL_EVENTS.some((e) => e.id === m.id && !e.draft))),
   "every entry on a page is published");
 {
   const g = seo.ownerGraph(pages.find((o) => o.id === "mantle"), X.entriesOf("mantle"));

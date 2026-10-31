@@ -40,6 +40,7 @@ import {
 export const SITE_VIEWS = [
   { id: "directory", label: "Directory", href: "/", match: (p) => p === "/" || p.startsWith("/tools/") || p.startsWith("/categories") || p.startsWith("/alternatives") || p.startsWith("/compare") },
   { id: "newsletters", label: "Newsletters", href: "/newsletters", match: (p) => p.startsWith("/newsletters") },
+  { id: "podcasts", label: "Podcasts", href: "/podcasts", match: (p) => p.startsWith("/podcasts") },
   { id: "events", label: "Events", href: "/events", match: (p) => p.startsWith("/events") },
   /* Who is behind the listings, across every kind (2026-10-23). The count is
      the page's own: allOwners over the merged lists (lib/ownerCountStore.js). */
@@ -340,7 +341,7 @@ function SidebarSearch({ path }) {
   const [draft, setDraft] = useState(null);
   const value = draft === null ? (path === "/search" ? urlQ : "") : draft;
   return <SearchBox value={value} onChange={setDraft} label="Search everything"
-    placeholder="Search tools, events, newsletters"
+    placeholder="Search tools, events, newsletters, podcasts"
     onSubmit={() => { if (value.trim()) window.location.assign(`/search?q=${encodeURIComponent(value.trim())}`); }} />;
 }
 
@@ -481,7 +482,7 @@ function FeedRefine() {
  * the same thing to one that reads markup.
  */
 const MD_ROUTES = [
-  /^\/$/, /^\/tools\/[^/]+$/, /^\/categories\/[^/]+$/, /^\/newsletters(\/[^/]+)?$/,
+  /^\/$/, /^\/tools\/[^/]+$/, /^\/categories\/[^/]+$/, /^\/newsletters(\/[^/]+)?$/, /^\/podcasts(\/[^/]+)?$/,
   /^\/events(\/[^/]+)?$/, /^\/owners(\/[^/]+)?$/, /^\/blog(\/[^/]+)?$/, /^\/changes$/, /^\/about$/,
 ];
 export const markdownPathFor = (path) =>

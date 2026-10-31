@@ -59,6 +59,7 @@ export default function FollowBox({ id, kind, name, hasFeed = false }) {
 
   const heading = monthly ? "Every month, what is coming up"
     : kind === "event" ? "Get updates about this event"
+    : kind === "podcast" ? "Get new episodes by email"
     : hasFeed ? "Get new issues by email" : "Get told when this listing changes";
 
   return (

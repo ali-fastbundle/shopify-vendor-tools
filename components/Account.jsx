@@ -304,12 +304,15 @@ const OWNER_COPY = {
     keeps: "The category, the \"watch for\" note and community ratings stay with the editors." },
   newsletter: { noun: "newsletter", can: "the summary, description, subscribe link and social links",
     keeps: "The cadence, the run length, the \"watch for\" note and community ratings stay with the editors." },
+  podcast: { noun: "podcast", can: "the summary, description, show link and social links",
+    keeps: "The cadence, the episode count, how a vendor gets on the show, the \"watch for\" note and community ratings stay with the editors." },
   event: { noun: "event", can: "the summary, the event link and social links",
     keeps: "The dates, the place, who it is for, the \"watch for\" note and community ratings stay with the editors. If a date has moved, report it and an editor will change it." },
 };
 const FIELDS = {
   tool: ["one", "note", "price", "free", "url", "social"],
   newsletter: ["one", "note", "free", "url", "social"],
+  podcast: ["one", "note", "free", "url", "social"],
   event: ["one", "url", "social"],
 };
 
@@ -547,7 +550,7 @@ function EditForm({ tool, onDone, onClose, kind = "tool", finding = "" }) {
           </div>
         )}
         <div style={{ flex: 1, minWidth: 170 }}>
-          <label style={label}>{kind === "event" ? "Event page" : kind === "newsletter" ? "Subscribe link" : "Website"}</label>
+          <label style={label}>{kind === "event" ? "Event page" : kind === "newsletter" ? "Subscribe link" : kind === "podcast" ? "Show link" : "Website"}</label>
           <input style={field} value={form.url} onChange={set("url")} placeholder="https://" />
         </div>
       </div>
@@ -555,7 +558,7 @@ function EditForm({ tool, onDone, onClose, kind = "tool", finding = "" }) {
         <label className="flex items-center" style={{ gap: S.sm, fontSize: F.sm, cursor: "pointer" }}>
           <input type="checkbox" checked={form.free} style={{ accentColor: C.accent, width: 15, height: 15 }}
             onChange={(e) => setForm({ ...form, free: e.target.checked })} />
-          {kind === "newsletter" ? "Free to subscribe" : "Offers a free plan"}
+          {kind === "newsletter" || kind === "podcast" ? "Free to subscribe" : "Offers a free plan"}
         </label>
       )}
       <div className="flex flex-wrap" style={{ gap: S.md }}>

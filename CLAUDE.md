@@ -3233,8 +3233,8 @@ tool compare modal is untouched: the list is the pass where you work out which t
 ## Sections beyond tools
 
 `RESOURCE_KINDS` in `lib/tools.js` names every section: tools, newsletters, events,
-podcasts, YouTube, books, groups, accounts, influencers, awards. `tool`, `newsletter` and `event` have
-`live: true`; the rest are on the roadmap.
+podcasts, YouTube, books, groups, accounts, influencers, awards. `tool`, `newsletter`, `podcast` and
+`event` have `live: true`; the rest are on the roadmap.
 The roadmap is one line under the subscribe block at the foot of the directory: every kind
 that is not open, as a name that opens the suggest modal preselected to it (its blurb is
 the tooltip). It is a promise, not content, so it is not a section with a heading, and `/api/suggest` validates `kind` against that list, defaulting to
@@ -3370,6 +3370,31 @@ Newsletters are live: seven published entries in the file, the section opened on
 `/newsletters`, and ratings, reviews, reports and claiming work the same as tools
 (the write routes validate newsletter ids through `isListedId`/`listedEntity`, and
 `mergedNewsletters()` is the newsletter equivalent of `mergedTools()`).
+
+**Podcasts are live** (2026-10-31): `/podcasts` and `/podcasts/[id]`
+(`components/Podcasts.jsx`, `components/PodcastPage.jsx`, no client state), with the full
+engagement set (invariant 37), following, Markdown versions, `llms.txt`, the sitemap, search,
+the sidebar and owner linking. The shape is its own (`lib/podcasts.js`):
+
+- **Every count, date and length is read from the show's own feed** (`rss`), never from the
+  show's claims: episodes, first episode, the last episode of a show that stopped, the recent
+  cadence and the typical `length`. `rss` is what following reads; `changelogUrl` stays the
+  monitor's field. A feed URL comes from the show's Apple listing or its own site, never a guess.
+- **A show with no episode in a year is `discontinued`** with its `lastEpisode`, listed as a
+  record and never as a channel: no cadence, no `reach` shown, nothing to follow.
+- **The intro is counted, not typed** (`lib/podcastCopy.js`, shared by the page, the Markdown
+  and `llms.txt`): how many are made for app builders (`forAppBuilders`), how many stopped, and
+  how many take paid guest slots (`paidGuests`, set only where the show's own pages say a guest
+  pays or may pay, and always said in `watch` too). That last count is the reason the section is
+  worth reading, so it is never softened.
+- **`reach` is editorial**, like `watch`: not in `EDITABLE_BY_KIND.podcast`, and
+  `mergedPodcasts()` copies across only the prose and links a host may change.
+- **A claim verifies against the show's own domain**; a show hosted only on YouTube has none, so
+  the claim route refuses rather than accepting youtube.com.
+- **Following** reads podcast feeds in the daily run for followed, running shows only; a new
+  episode is a title and a link, keyed `podcast:<id>` in the feed state.
+- eCommerce Fastlane stays a draft until its sponsorship and audience figures are read on its own
+  site (it answers 403); its feed states neither.
 
 ## Public-facing text: Ali's voice
 

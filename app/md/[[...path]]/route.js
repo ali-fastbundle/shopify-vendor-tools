@@ -1,5 +1,5 @@
 import { read, KEYS } from "@/lib/store";
-import { mergedTools, mergedNewsletters, mergedEvents } from "@/lib/listings";
+import { mergedTools, mergedNewsletters, mergedEvents, mergedPodcasts } from "@/lib/listings";
 import { publicReviews } from "@/lib/reviews";
 import { feedEntries } from "@/lib/feed";
 import { getAbout } from "@/lib/aboutStore";
@@ -7,7 +7,7 @@ import { AUTHOR_URL } from "@/lib/tools";
 import { todayISO } from "@/lib/events";
 import { SITE } from "@/lib/seo";
 import {
-  toolMarkdown, indexMarkdown, categoryMarkdown, newsletterMarkdown, newslettersMarkdown,
+  toolMarkdown, indexMarkdown, categoryMarkdown, newsletterMarkdown, newslettersMarkdown, podcastMarkdown, podcastsMarkdown,
   eventMarkdown, eventsMarkdown, ownerMarkdown, ownersMarkdown, postMarkdown, blogMarkdown, changesMarkdown, aboutMarkdown,
 } from "@/lib/markdown";
 
@@ -38,6 +38,12 @@ async function build(parts) {
     const [tools, events] = await Promise.all([mergedTools(), mergedEvents()]);
     return { md: newsletterMarkdown(b, { newsletters, tools, events, reviews: r }), path: `/newsletters/${b}` };
   }
+  if (a === "podcasts") {
+    const podcasts = await mergedPodcasts();
+    if (!b) return { md: podcastsMarkdown({ podcasts }), path: "/podcasts" };
+    const [tools, newsletters, events, r] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents(), reviews()]);
+    return { md: podcastMarkdown(b, { podcasts, tools, newsletters, events, reviews: r }), path: `/podcasts/${b}` };
+  }
   if (a === "events") {
     const events = await mergedEvents();
     if (!b) return { md: eventsMarkdown({ events }, todayISO()), path: "/events" };
@@ -61,7 +67,7 @@ export async function GET(_request, { params }) {
   /* The index builder returns the text itself; give it the shape the rest use. */
   if (typeof out === "string") out = { md: out, path: "/" };
   if (!out?.md) {
-    return new Response("Not found. Append .md to a content page's path: a tool, a category, a newsletter, an event, an owner, a blog post, or /index.md, /events.md, /newsletters.md, /owners.md, /blog.md, /changes.md, /about.md.\n", {
+    return new Response("Not found. Append .md to a content page's path: a tool, a category, a newsletter, a podcast, an event, an owner, a blog post, or /index.md, /events.md, /newsletters.md, /podcasts.md, /owners.md, /blog.md, /changes.md, /about.md.\n", {
       status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }

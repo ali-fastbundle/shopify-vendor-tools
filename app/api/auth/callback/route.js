@@ -3,6 +3,7 @@ import { allow, ipOf } from "@/lib/ratelimit";
 import { recordSignIn } from "@/lib/accounts";
 import { sendEvent } from "@/lib/mail";
 import { NEWSLETTERS } from "@/lib/newsletters";
+import { PODCASTS } from "@/lib/podcasts";
 import { EVENTS } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ function returnPath(id) {
   if (id.startsWith("post:")) return `/blog/${encodeURIComponent(id.slice(5))}?signin=ok#comments`;
   const safe = encodeURIComponent(id);
   if (NEWSLETTERS.some((n) => n.id === id)) return `/newsletters/${safe}?signin=ok`;
+  if (PODCASTS.some((p) => p.id === id)) return `/podcasts/${safe}?signin=ok`;
   if (EVENTS.some((e) => e.id === id)) return `/events/${safe}?signin=ok`;
   return `/?signin=ok&tool=${safe}`;
 }
