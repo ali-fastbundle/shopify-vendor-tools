@@ -54,7 +54,7 @@ ok(O.OWNERS.every((o) => refs.some((e) => e.ownership.id === o.id) || statedBy(o
 console.log("app developers:");
 {
   const devs = O.OWNERS.filter((o) => o.appStore);
-  ok(devs.length >= 10, "owners that publish apps carry their App Store developer page", String(devs.length));
+  ok(devs.length >= 11, "owners that publish apps carry their App Store developer page", String(devs.length));
   ok(devs.every((o) => O.appStoreOf(o) === o.appStore), "every value is an apps.shopify.com/partners/<handle> address");
   ok(O.appStoreOf({ appStore: "https://apps.shopify.com/search?q=x" }) === "" && O.appStoreOf({ appStore: "https://evil.example/partners/x" }) === "",
     "anything else is not one");
@@ -64,8 +64,9 @@ console.log("app developers:");
   const page = src("components/Owners.jsx");
   ok(/<Pill>App developer<\/Pill>/.test(page) && (page.match(/App developer<\/Pill>/g) || []).length === 2, "the badge is on the index row and the owner page");
   ok(/outbound\(href\)/.test(page), "the developer page link goes through outbound()");
-  const g = seo.ownerGraph({ ...O.ownerById("shopify"), entries: [] }, []);
-  ok(g["@graph"][0].sameAs?.includes("https://apps.shopify.com/partners/shopify"), "the owner's JSON-LD names the developer page in sameAs");
+  const g = seo.ownerGraph({ ...O.ownerById("the-wide-company"), entries: [] }, []);
+  ok(g["@graph"][0].sameAs?.includes("https://apps.shopify.com/partners/mathieuds"), "the owner's JSON-LD names the developer page in sameAs");
+  ok(!O.appStoreOf(O.ownerById("shopify")), "Shopify is the platform, not an app developer here");
 }
 for (const o of O.OWNERS.filter((x) => x.notes)) {
   const v = voiceIssues(o.notes);

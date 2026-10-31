@@ -22,7 +22,7 @@ import SaveToList from "./SaveToList";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { launchLabel, launchKey, launchCell, launchedWithinYear } from "@/lib/launched";
 import { ownershipOf as resolveOwnership } from "@/lib/owners";
-import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy } from "@/lib/editorUse";
+import { editorUseBadge, editorUseRank, hasEditorUse, editorUsePolicy, editorUseTone } from "@/lib/editorUse";
 import { C, S, R, F, TRACK, BAND, ink, CATEGORIES, TOOLS, RESOURCE_KINDS, REPORT_KINDS, SOCIALS, reportKindOf, reportKindsFor, catOf, kindOf, formatDay, LAST_UPDATED, AUTHOR, AUTHOR_URL, HEADLINE, ownerOf, catsOf, priceLine, secondaryCats, isInCat, isPrimaryCat, recommendable } from "@/lib/tools";
 import { OwnerPanel, SignInPrompt, useSession } from "./Account";
 import Ask from "./Ask";
@@ -251,6 +251,12 @@ const ownershipOf = (t) => {
  */
 const NotShopifyOnly = ({ tool }) =>
   tool.shopifyExclusive === false ? <Pill>not Shopify-only</Pill> : null;
+
+/* On the card and the list row, only for a tool the editor uses now, in
+   green (Ali's call, 2026-10-31). "Used" and "tested" stay on the detail
+   view and the tool page, neutral. */
+const EditorUsesBadge = ({ tool }) =>
+  tool.editorUse?.value === "using" ? <Pill tone="good">Editor uses this</Pill> : null;
 
 
 /*
@@ -1141,6 +1147,7 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
                         }}>{t.name}</a>
                       {t.dying && <Pill tone="warn">winding down</Pill>}
                       <NotShopifyOnly tool={t} />
+                      <EditorUsesBadge tool={t} />
                     </div>
                   </td>
                   {/* Rows compare, so this cell carries every category rather
@@ -1311,6 +1318,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, u
                   warning about the product rather than a label on it. It is
                   also the only thing here that tells you not to bother. */}
               {tool.dying && <Pill tone="warn">winding down</Pill>}
+              <EditorUsesBadge tool={tool} />
             </div>
             {/* A real link to the category page. The card title is an anchor
                 for the same reason: a crawler follows hrefs, and a filter chip
@@ -1476,7 +1484,7 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
           <Facts tool={tool} owner={owner} />
           {tool.dying && <Pill tone="warn">winding down</Pill>}
           <NotShopifyOnly tool={tool} />
-          {editorUseBadge(tool.editorUse) && <Pill>{editorUseBadge(tool.editorUse)}</Pill>}
+          {editorUseBadge(tool.editorUse) && <Pill tone={editorUseTone(tool.editorUse)}>{editorUseBadge(tool.editorUse)}</Pill>}
         </div>
 
         <AlsoFrom ctx={owner} />

@@ -33,7 +33,7 @@ const lum = (hex) => {
 };
 const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-const TEXT = ["c-text", "c-muted", "c-dim", "c-accent-ink", "c-warn-ink", "c-bad-ink", "c-star"];
+const TEXT = ["c-text", "c-muted", "c-dim", "c-accent-ink", "c-warn-ink", "c-bad-ink", "c-good-ink", "c-star"];
 const SURFACES = ["c-bg", "c-panel", "c-raised"];
 let failed = 0;
 for (const [name, t] of Object.entries(themes)) {

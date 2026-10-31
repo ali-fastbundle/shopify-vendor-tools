@@ -105,6 +105,11 @@
   --c-bad-ink: #B81742;
   --c-bad-soft: rgba(184, 23, 66, 0.07);
   --c-bad-edge: rgba(184, 23, 66, 0.35);
+  /* Editor use, the one coloured attribute badge (Ali's call, 2026-10-31).
+     Green, because cobalt is the action and the warn hues are warnings. */
+  --c-good-ink: #0A6B42;
+  --c-good-soft: rgba(10, 140, 85, 0.1);
+  --c-good-edge: rgba(10, 140, 85, 0.4);
 
   --c-star: #946400;
   --c-star-off: rgba(31, 33, 36, 0.26);
@@ -176,6 +181,9 @@
   --c-bad-ink: #FF6B8A;
   --c-bad-soft: rgba(255, 107, 138, 0.08);
   --c-bad-edge: rgba(255, 107, 138, 0.45);
+  --c-good-ink: #4BDE9C;
+  --c-good-soft: rgba(75, 222, 156, 0.1);
+  --c-good-edge: rgba(75, 222, 156, 0.45);
 
   --c-star: #FFC93C;
   --c-star-off: rgba(255, 255, 255, 0.2);

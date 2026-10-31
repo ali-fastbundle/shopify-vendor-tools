@@ -16,7 +16,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { C, S, R, F, TRACK } from "@/lib/tools";
-import { editorUseBadge } from "@/lib/editorUse";
+import { editorUseBadge, editorUseTone } from "@/lib/editorUse";
 import { Pill } from "@/components/Pill";
 import GrowText from "@/components/GrowText";
 
@@ -136,7 +136,7 @@ export default function Ask({ tools = [], onOpenTool, onSuggest, initial = "" })
                       {it.meta && <span style={{ fontSize: F.xs, color: C.dim, marginLeft: S.sm }}>{it.meta}</span>}
                       {it.why && <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.5 }}>{it.why}</p>}
                       {/* Context only, attached here: the model never saw it. */}
-                      {badge && <p style={{ margin: `${S.xs}px 0 0` }}><Pill>{badge}</Pill></p>}
+                      {badge && <p style={{ margin: `${S.xs}px 0 0` }}><Pill tone={editorUseTone(tool.editorUse)}>{badge}</Pill></p>}
                     </li>
                   );
                 })}

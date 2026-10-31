@@ -68,9 +68,14 @@ ok(EU.editorUseLine(undefined) === "" && EU.editorUseLine({ value: "" }) === "",
 ok(EU.editorUseBadge({ value: "using" }) === "Editor uses this", "the badge: using");
 ok(EU.editorUseBadge({ value: "used", date: "2026-03-04" }) === "Editor used until Mar 2026", "the badge: used, short month", EU.editorUseBadge({ value: "used", date: "2026-03-04" }));
 ok(EU.editorUseBadge({}) === "", "the badge: nothing when unset");
-for (const f of ["components/ToolPage.jsx", "components/Directory.jsx"]) {
-  ok(/<Pill>\{editorUseBadge\(/.test(src(f)), `${f} shows it as a neutral Pill`);
+for (const f of ["components/ToolPage.jsx", "components/Directory.jsx", "components/Ask.jsx"]) {
+  ok(/<Pill tone=\{editorUseTone\(tool\.editorUse\)\}>/.test(src(f)), `${f} shows it as a Pill with the editor-use tone`);
 }
+ok(EU.editorUseTone({ value: "using" }) === "good" && EU.editorUseTone({ value: "used" }) === "neutral" && EU.editorUseTone({ value: "tested" }) === "neutral" && EU.editorUseTone({}) === "neutral",
+  "green for a tool the editor uses now, neutral for used and tested");
+ok(/const EditorUsesBadge = \(\{ tool \}\) =>\s*tool\.editorUse\?\.value === "using" \? <Pill tone="good">Editor uses this<\/Pill> : null/.test(src("components/Directory.jsx"))
+  && (src("components/Directory.jsx").match(/<EditorUsesBadge tool=/g) || []).length === 2,
+  "the card and the list row carry it, only for a tool the editor uses now");
 ok(EU.sanitiseEditorUse({ value: "loved" }).error, "an unknown value is refused");
 ok(EU.sanitiseEditorUse({ value: "using", note: "Good — mostly" }).error, "an em dash in the public note is refused");
 ok(EU.sanitiseEditorUse({ value: "using", note: "x".repeat(EU.NOTE_MAX + 1) }).error, "a note longer than one line is refused");

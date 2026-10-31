@@ -14,21 +14,26 @@ import { C, R, F } from "@/lib/tools";
  * `tone="warn"` is the single exception: "winding down" is a status warning
  * about the product, not a label on it, and it is allowed to be seen.
  *
+ * `tone="good"` is the second: "Editor uses this", the editor's own use of a
+ * tool, coloured on Ali's instruction (2026-10-31) so it can be found in a
+ * grid. Green, never cobalt (the action) and never the warn hues.
+ *
  * It lives in its own file because the rule is that this badge looks like this
  * everywhere. A second copy of these eight lines in another component is how a
  * neutral badge ends up neutral in one place and not in another.
  */
 export function Pill({ children, tone = "neutral" }) {
   const warn = tone === "warn";
+  const good = tone === "good";
   return (
     <span style={{
       fontSize: F.xs, lineHeight: 1.6, padding: "2px 8px", borderRadius: R.badge,
       /* A filled grey tag rather than an outline: neutral, and quieter than a
          border, which drew more attention than the word inside it. */
-      color: warn ? C.badInk : C.text,
-      background: warn ? C.badSoft : C.subtle,
-      border: `1px solid ${warn ? C.badEdge : "transparent"}`,
-      whiteSpace: "nowrap", fontWeight: warn ? 700 : 500,
+      color: warn ? C.badInk : good ? C.goodInk : C.text,
+      background: warn ? C.badSoft : good ? C.goodSoft : C.subtle,
+      border: `1px solid ${warn ? C.badEdge : good ? C.goodEdge : "transparent"}`,
+      whiteSpace: "nowrap", fontWeight: warn || good ? 700 : 500,
     }}>{children}</span>
   );
 }

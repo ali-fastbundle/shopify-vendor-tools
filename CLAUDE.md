@@ -2364,12 +2364,14 @@ listing modal (`components/EditorUseControl.jsx`, one control for all three).
 - **Redis, not the file** (`svt:editoruse`, `lib/editorUseStore.js`), so a change is
   reversible and needs no commit. Each record keeps the date the toggle changed, who
   changed it (private) and up to 20 earlier values. Clearing it keeps the record.
-- **Public as a neutral `Pill`**, on the editor's instruction (2026-10-16): in the facts
+- **Public as a `Pill`**, on the editor's instruction (2026-10-16): in the facts
   row of the modal, under the facts line on the tool page, and under a matcher pick.
   "Editor uses this", "Editor used until Oct 2026", "Editor tested this". It is the one
   attribute rule G lets stay a badge besides the two scope badges, because it was asked
-  for as one. The optional note renders under the watch note as "Editor's note." Not on
-  the card (rule J) unless asked. **Unset renders nothing**, because an absence that
+  for as one. The optional note renders under the watch note as "Editor's note."
+  **"Editor uses this" is green** (`tone="good"`, `editorUseTone`, the `--c-good-*` tokens)
+  and is also **on the card and the list row**, both on Ali's instruction (2026-10-31) so
+  the tools he uses can be found in the grid. Used and tested stay neutral and off the card. **Unset renders nothing**, because an absence that
   announces itself reads as a verdict (rule E).
 - **A filter and a sort on the directory**, both shown only once something is set. The
   policy is stated once, above the grid, when either is in use (`editorUsePolicy`).
@@ -2480,7 +2482,7 @@ the one sentence the owner's page states about this relationship.
   to app developers may compete with them. **The handle is read from the App Store, never
   guessed**: from one of the owner's own app listings, with the developer page's name or apps
   matching what the catalogue says. Not set where the developer account could not be tied to
-  the owner: Marmeto (Return Prime's developer is Appsdart Solutions), FireGroup (Ali Reviews is
+  the owner: Shopify (the platform, not an app developer, by Ali's call), Marmeto (Return Prime's developer is Appsdart Solutions), FireGroup (Ali Reviews is
   FireApps), Dark Ecommerce Labs (none found).
 - **Catalogue parsing counts array elements only** (`objects` in `lib/publish.js`), because
   an entry now holds an object with an `id` of its own.
@@ -3026,8 +3028,10 @@ another. Free plan, unverified, suite membership, same-owner, by-owner, claimed,
 unrelated colours beside a spine whose colour means something and drained the meaning
 out of all of them. `Pill` takes no colour any more; it only takes `tone`.
 
-The single exception is `tone="warn"` on "winding down". That is a status warning
-about the product, not a label on it, and it is allowed to be seen.
+The exceptions are `tone="warn"` on "winding down", a status warning about the product
+rather than a label on it, and `tone="good"` on "Editor uses this" (invariant 44), coloured
+on Ali's instruction (2026-10-31). Green, never cobalt, which is the action. Do not add a
+third.
 
 There was briefly a second, "maintained by the editor", and it was removed along
 with the false premise it was built on. See invariant 35: the reason it is not
@@ -3128,7 +3132,8 @@ card had grown a badge per feature until it carried fifteen unranked elements.
 
 On the card: the mark, the name, the category, the one-line summary, the price,
 the community rating and review count, the votes, and `Visit site`. Plus `winding down`, which is rule B's one allowed warn badge and the
-only thing on a card that tells you not to bother.
+only thing on a card that tells you not to bother, and the green "Editor uses this"
+(invariant 44), added on Ali's instruction on 2026-10-31.
 
 Plus one thing that renders conditionally: under a *secondary* category filter, a
 muted "also in {that category}" after the category label. It is absent under "All"

@@ -21,7 +21,7 @@ import WatchEditor from "@/components/WatchEditor";
 import SaveToList from "@/components/SaveToList";
 import EditorUseControl from "@/components/EditorUseControl";
 import DyingControl from "@/components/DyingControl";
-import { editorUseBadge } from "@/lib/editorUse";
+import { editorUseBadge, editorUseTone } from "@/lib/editorUse";
 import PostLinks from "@/components/PostLinks";
 import { postsForTool } from "@/lib/blog";
 import { RATING_POLICY, exclusionNote } from "@/lib/reviews";
@@ -301,7 +301,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             <AlsoFrom ctx={owner} />
             {/* Editor use as a neutral badge, and nothing when unset. */}
             {editorUseBadge(tool.editorUse) && (
-              <p style={{ margin: `${S.sm}px 0 0` }}><Pill>{editorUseBadge(tool.editorUse)}</Pill></p>
+              <p style={{ margin: `${S.sm}px 0 0` }}><Pill tone={editorUseTone(tool.editorUse)}>{editorUseBadge(tool.editorUse)}</Pill></p>
             )}
 
             <p style={{ fontSize: F.lg, lineHeight: 1.62, margin: `${S.xl}px 0 0` }}>{tool.note}</p>
