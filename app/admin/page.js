@@ -166,6 +166,7 @@ export default async function AdminPage({ searchParams }) {
       return m.coverageOf((await import("@/lib/events")).EVENTS, await m.getEventRefresh());
     }, empty: [] },
     { key: "verifiedChanges", load: () => read(KEYS.changesVerified, {}), empty: {} },
+    { key: "overrideClears", load: async () => (await import("@/lib/overrideClears")).readClears(200), empty: [] },
     { key: "feed", load: () => feedEntries({ limit: 60, withPrivate: true }), empty: [] },
     { key: "health", load: () => health(), empty: null },
     { key: "inventory", load: () => storeInventory(), empty: [] },
@@ -234,6 +235,18 @@ export default async function AdminPage({ searchParams }) {
    * anything below reads the findings, so the panels and their counts agree
    * (lib/handEdits.js). A failure here costs the detection, never the page.
    */
+  /* Overrides the catalogue files mark to clear (lib/overrideClears.js): the
+     pages already read the file's value; this removes the stored field and
+     logs it. A failure costs the clean-up, never the page. */
+  try {
+    const [{ settleClears }, { ALL_TOOLS }, { ALL_NEWSLETTERS }, { ALL_PODCASTS }, { ALL_EVENTS }] = await Promise.all([
+      import("@/lib/overrideClears"), import("@/lib/tools"), import("@/lib/newsletters"), import("@/lib/podcasts"), import("@/lib/events"),
+    ]);
+    await settleClears([...ALL_TOOLS, ...ALL_NEWSLETTERS, ...ALL_PODCASTS, ...ALL_EVENTS]);
+  } catch (e) {
+    console.error("[admin] override clearing failed:", e?.message || e);
+  }
+
   let autoResolved = [];
   try {
     autoResolved = await (await import("@/lib/handEdits")).settleHandEdits();

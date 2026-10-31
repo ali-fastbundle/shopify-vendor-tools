@@ -75,6 +75,21 @@ why `revokeClaim` takes an explicit `revertContent`, surfaced in the admin conso
 two separate buttons. Revoking for a change of ownership should keep the copy; revoking
 for abuse should not, and the person clicking is the one who knows which it is.
 
+**A reviewed commit can clear a stored override, and only by saying so** (2026-10-31). An
+override outranks the file, so a correction committed to `lib/tools.js` changed nothing while a
+wrong value sat in `svt:overrides`, and had to be retyped on /admin. An entry may now carry
+`clearOverride: { fields, at, reason }` (`lib/overrideClears.js`): any stored override of those
+fields set on or before `at` is discarded and the file's value shows. It applies on deploy, at
+read time in every merge, and the stored field is then removed and logged
+(`svt:overrides:cleared`, `[overrides]` in the log) on the next /admin load and the daily run,
+shown in System, Records, "Overrides cleared from the file". A value set after `at`, such as a
+vendor's later edit, is kept and listed as kept. A commit without a marker still changes nothing an
+override holds, so a vendor's edit is never overwritten by an unrelated commit. A marked price
+also beats a confirmed structure older than the marker, and sends it back to Details to confirm.
+A date-only `at` covers the whole day; write a full timestamp when that matters. No admin session
+or admin-scoped token is given to Claude Code for this: the commit is the authority.
+`scripts/override-clear-test.mjs`.
+
 **5. Tool cards must render server-side.**
 The grid renders from props passed by the server component in `app/page.js`, not after
 a client fetch. It was broken this way once: crawlers saw an empty page. Do not gate
@@ -3746,6 +3761,7 @@ node scripts/lists-test.mjs          # saved lists: owner only, private until pu
 node scripts/suggestion-published-test.mjs  # a published suggestion leaves the queue, either path, interest carried once
 node scripts/outreach-test.mjs       # outreach: addresses from their sites only and never in a bundle, copy default, Resend guarded
 node scripts/admin-panels-test.mjs    # admin lists past ten rows are collapsed; rows with editors start closed
+node scripts/override-clear-test.mjs # a file marker clears an older stored override, keeps a later one, logs both
 node scripts/watch-edit-test.mjs     # the admin caveat edit: exactly watch and updated, a reason, readiness; protection unchanged for everyone else
 node scripts/qa-test.mjs             # questions: signed in, vendor answers from the claims store, no address served, moderation
 node scripts/rivals-test.mjs         # alternatives and head-to-heads: genuine pairs only, one URL each, confirmed differences, noindex until then

@@ -38,6 +38,14 @@ async function run(request, by) {
   const origin = process.env.NODE_ENV === "production" ? SITE : new URL(request.url).origin;
   /* The editor's monthly events digest, on the 1st (lib/eventDigest.js). */
   const monthly = await sendAdminDigest({ origin }).catch((e) => ({ sent: false, why: e.message }));
+  /* Overrides the catalogue files mark to clear, removed and logged
+     (lib/overrideClears.js); the pages already read the file's value. */
+  await (async () => {
+    const [{ settleClears }, { ALL_TOOLS }, { ALL_NEWSLETTERS }, { ALL_PODCASTS }, { ALL_EVENTS }] = await Promise.all([
+      import("@/lib/overrideClears"), import("@/lib/tools"), import("@/lib/newsletters"), import("@/lib/podcasts"), import("@/lib/events"),
+    ]);
+    return settleClears([...ALL_TOOLS, ...ALL_NEWSLETTERS, ...ALL_PODCASTS, ...ALL_EVENTS]);
+  })().catch((e) => console.error("[notify] override clearing failed:", e.message));
   const found = await detect();
   const sent = await send({ origin, budgetMs: 200_000 });
   if (found.errors.length) console.warn(`[notify] feeds unread: ${found.errors.join("; ")}`);

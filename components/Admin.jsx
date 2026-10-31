@@ -103,6 +103,7 @@ export default function AdminPanel({
   media = { live: {}, pending: {} },
   outreach = { contacts: {}, state: {}, meta: {} },
   publishing = { canPublish: false, log: [] },
+  overrideClears = [],
   maillog = [],
   entries = {},
   editorUse = {},
@@ -407,7 +408,7 @@ export default function AdminPanel({
             monitorErrors={monitorErrors || []} verifiedChanges={verifiedChanges || {}}
             health={health} coverage={coverage} changelog={changelog || []}
             inventory={inventory || []}
-            publishing={publishing} discards={discards}
+            publishing={publishing} discards={discards} overrideClears={overrideClears || []}
             reviewed={[...reviewed].sort(byDemand)} outOfScope={outOfScopeRows} deleted={deletedRows}
             publishedSuggestions={publishedRows} allSuggestions={rows}
             onSuggestions={setRows} onEntries={setEntryRows}
@@ -918,7 +919,7 @@ const BURST_DAYS = 7;
  * look. A dumping ground with the diagnosis buried in it is a tab people stop
  * opening.
  */
-function System({ mentionSources = { lastRunAt: "", sources: {} }, stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, coverage = [], changelog = [], inventory = [], publishing = { canPublish: false, log: [] }, discards = [], reviewed = [], outOfScope = [], deleted = [], publishedSuggestions = [], allSuggestions = [], onSuggestions, onEntries, act, busy }) {
+function System({ overrideClears = [], mentionSources = { lastRunAt: "", sources: {} }, stats = { fields: {}, queries: [] }, maillog = [], dedupelog = [], rewriteLog = [], monitorErrors = [], verifiedChanges = {}, health, coverage = [], changelog = [], inventory = [], publishing = { canPublish: false, log: [] }, discards = [], reviewed = [], outOfScope = [], deleted = [], publishedSuggestions = [], allSuggestions = [], onSuggestions, onEntries, act, busy }) {
   return (
     <>
       <StatusStrip health={health} maillog={maillog} coverage={coverage} mentionSources={mentionSources} />
@@ -952,6 +953,20 @@ function System({ mentionSources = { lastRunAt: "", sources: {} }, stats = { fie
         <OutOfScope rows={outOfScope} />
         <Deleted rows={deleted} act={act} busy={busy} />
         <Drafts publishing={publishing} discards={discards} part="records" />
+        {/* Overrides a file marker cleared (lib/overrideClears.js), and the
+            ones it kept because they were set after the marker. */}
+        <Collapsible title="Overrides cleared from the file" count={overrideClears.length}
+          hint="A field an entry marks with clearOverride in its catalogue file: any stored value set on or before the marker's date is removed, so the file's value shows. A value set after it is kept and listed here as kept.">
+          {!overrideClears.length ? <Empty>No override has been cleared from the file.</Empty> : overrideClears.map((r) => (
+            <Row key={`${r.at}-${r.toolId}-${r.field}-${r.outcome}`} title={`${r.name || r.toolId}: ${r.field}`}
+              tag={r.outcome} tagColor={r.outcome === "cleared" ? undefined : C.warnInk}
+              body={<p style={{ margin: 0, lineHeight: 1.5 }}>
+                <span style={{ color: C.dim }}>{r.outcome === "cleared" ? "Removed" : "Still showing"}:</span> {typeof r.value === "string" ? r.value : JSON.stringify(r.value)}
+                <br /><span style={{ color: C.dim }}>Why:</span> {r.reason}
+              </p>}
+              meta={`${String(r.at).slice(0, 16).replace("T", " ")} · set ${String(r.setAt || "undated").slice(0, 10)}${r.setBy ? ` by ${r.setBy}` : ""} · marker ${r.markerAt}${r.build ? ` · build ${r.build.slice(0, 7)}` : ""}`} />
+          ))}
+        </Collapsible>
         <Tallies stats={stats} rows={allSuggestions} />
       </Reference>
 
