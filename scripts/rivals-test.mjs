@@ -21,11 +21,11 @@ mkdirSync(join(dir, "lib", "posts"));
 for (const f of readdirSync(join(ROOT, "lib"))) {
   if (!f.endsWith(".js")) continue;
   writeFileSync(join(dir, "lib", f),
-    readFileSync(join(ROOT, "lib", f), "utf8").replace(/(from\s+"\.\/[a-zA-Z/_-]+)"/g, '$1.js"')
+    readFileSync(join(ROOT, "lib", f), "utf8").replace(/(from\s+"\.\/[a-zA-Z0-9/_-]+)"/g, '$1.js"')
       .replace(/import\("\.\/([a-zA-Z]+)"\)/g, 'import("./$1.js")'));
 }
 for (const f of readdirSync(join(ROOT, "lib", "posts"))) {
-  writeFileSync(join(dir, "lib", "posts", f), readFileSync(join(ROOT, "lib", "posts", f), "utf8").replace(/(from\s+"\.\.?\/[a-zA-Z/_-]+)"/g, '$1.js"'));
+  writeFileSync(join(dir, "lib", "posts", f), readFileSync(join(ROOT, "lib", "posts", f), "utf8").replace(/(from\s+"\.\.?\/[a-zA-Z0-9/_-]+)"/g, '$1.js"'));
 }
 writeFileSync(join(dir, "sitemap.js"),
   readFileSync(join(ROOT, "app/sitemap.js"), "utf8").replace(/from\s+"@\/lib\/([a-zA-Z]+)"/g, 'from "./lib/$1.js"'));

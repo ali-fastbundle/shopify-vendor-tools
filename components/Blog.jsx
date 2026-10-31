@@ -53,6 +53,16 @@ function Block({ b }) {
       }}><Inline text={b.note} /></p>
     );
   }
+  if (b.img) {
+    /* A chart: its own description is the alt text, and it scales down to the
+       column without ever being wider than it was drawn. */
+    return (
+      <figure style={{ margin: `${S.xl}px 0 0`, maxWidth: b.img.width }}>
+        <img src={b.img.src} alt={b.img.alt} width={b.img.width} height={b.img.height} loading="lazy"
+          style={{ width: "100%", height: "auto", display: "block", borderRadius: R.card, border: `1px solid ${C.line}` }} />
+      </figure>
+    );
+  }
   if (b.ul) {
     return (
       <ul style={{ margin: `${S.md}px 0 0`, paddingLeft: S.xl, maxWidth: MEASURE, listStyle: "disc" }}>
