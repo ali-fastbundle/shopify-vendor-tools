@@ -230,6 +230,18 @@ export default async function AdminPage({ searchParams }) {
   ];
 
   /*
+   * Findings answered by an edit the store can see are resolved before
+   * anything below reads the findings, so the panels and their counts agree
+   * (lib/handEdits.js). A failure here costs the detection, never the page.
+   */
+  let autoResolved = [];
+  try {
+    autoResolved = await (await import("@/lib/handEdits")).settleHandEdits();
+  } catch (e) {
+    console.error("[admin] hand-edit detection failed:", e?.message || e);
+  }
+
+  /*
    * Settled rather than raced, so one store hiccup degrades a single panel
    * instead of turning the whole console into a 500, which is precisely the
    * failure that made this page useless once already.
@@ -247,6 +259,7 @@ export default async function AdminPage({ searchParams }) {
   return (
     <AdminPanel
       {...data}
+      autoResolved={autoResolved}
       email={session.email}
       lastVisit={data.adminSeen?.[session.email] || ""}
       initialTab={typeof searchParams?.tab === "string" ? searchParams.tab : "inbox"}

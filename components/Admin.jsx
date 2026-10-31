@@ -14,7 +14,7 @@ import { drafted, published, readiness } from "@/lib/drafts";
 import { timesAsked, findDiscarded, normaliseDomain } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
 import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
-import { effectiveConfidence, errorRates, CAP, VERIFICATION_LABEL } from "@/lib/findings";
+import { effectiveConfidence, errorRates, CAP, VERIFICATION_LABEL, editDone } from "@/lib/findings";
 import { COVERAGE_LABEL, coverageCounts, uncovered } from "@/lib/coverage";
 import { Pill } from "./Pill";
 import EditorUseControl from "./EditorUseControl";
@@ -123,6 +123,7 @@ export default function AdminPanel({
   publishedChanges = {},
   rewrittenChanges = {},
   editedChanges = {},
+  autoResolved = [],
   rewriteLog = [],
   monitorErrors = [],
   verifiedChanges = {},
@@ -359,6 +360,7 @@ export default function AdminPanel({
             changes={changelog || []} sinceVisit={sinceVisit} monitor={monitor} seen={seen} coverage={coverage}
             appliedChanges={appliedChanges || {}} publishedChanges={publishedChanges || {}}
             rewrittenChanges={rewrittenChanges || {}} editedChanges={editedChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen}
+            autoResolved={autoResolved || []}
             eventCoverage={eventCoverage} eventRefresh={eventRefresh} />
         )}
 
@@ -2726,6 +2728,10 @@ function Btn({ onClick, busy, tone, disabled, children, title }) {
  *          instead of one (discovery's three reasons that need no research).
  * note     what the second press will do, shown while armed. The click is the
  *          approval, so everything needed to judge it is beside the button.
+ * startArmed, onCancel
+ *          for a control reached from another one's choice (Dismiss, then
+ *          "The monitor got it wrong"): it opens on its field, and Cancel
+ *          hands back to the control it came from.
  *
  * It disarms itself after four seconds, unless it has a field, choices or a
  * note to read, which take longer than four seconds and must not vanish
@@ -2734,8 +2740,8 @@ function Btn({ onClick, busy, tone, disabled, children, title }) {
 /* The armed second press: a solid fill, and type that reads on it. */
 const TONE_FILL = { stop: "#FF6B8A", go: C.accent };
 const TONE_ON = { stop: "#06110D", go: C.onAccent };
-function ConfirmBtn({ onConfirm, busy, children, confirm = "Sure?", tone = "stop", reason = "", choices = null, note = null, disabled = false, title, stay }) {
-  const [armed, setArmed] = useState(false);
+function ConfirmBtn({ onConfirm, busy, children, confirm = "Sure?", tone = "stop", reason = "", choices = null, note = null, disabled = false, title, stay, startArmed = false, onCancel }) {
+  const [armed, setArmed] = useState(startArmed);
   const [text, setText] = useState("");
   const holds = stay ?? Boolean(reason || choices || note);
   useEffect(() => {
@@ -2767,7 +2773,7 @@ function ConfirmBtn({ onConfirm, busy, children, confirm = "Sure?", tone = "stop
       {choices
         ? choices.map(([label, value]) => second(label, value))
         : second(confirm, undefined, Boolean(reason) && !text.trim())}
-      <button onClick={() => { setArmed(false); setText(""); }} style={{
+      <button onClick={() => { setArmed(false); setText(""); onCancel?.(); }} style={{
         background: "transparent", border: `1px solid ${C.edge}`, color: C.dim,
         borderRadius: R.control, padding: "4px 10px", fontSize: F.xs, fontWeight: 600,
         cursor: "pointer", fontFamily: "inherit",
@@ -4648,7 +4654,7 @@ const isHandled = (id, seen = {}, published = {}, applied = {}) => Boolean(
   || (published[id] && !published[id].awaitsResolve)
   || (applied[id] && !applied[id].awaitsResolve));
 
-function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, onSeen }) {
+function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, autoResolved = [], onSeen }) {
   const [busy, setBusy] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState("");
@@ -4777,6 +4783,23 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
         )}
       </p>
 
+      {/*
+        * What this load resolved by itself, because the listing changed after
+        * the finding (lib/handEdits.js). Said once, here, with the reason, so
+        * a finding that left the list did not leave it silently. Each one is
+        * also marked on its own row, and Reopen puts it back.
+        */}
+      {autoResolved.length > 0 && (
+        <div style={{ fontSize: F.xs, color: C.muted, margin: "0 0 12px", lineHeight: 1.6 }}>
+          <p style={{ margin: 0, color: C.text, fontWeight: 600 }}>
+            Resolved {autoResolved.length} finding{autoResolved.length === 1 ? "" : "s"} automatically, because the listing changed after {autoResolved.length === 1 ? "it" : "them"}:
+          </p>
+          <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+            {autoResolved.map((f) => <li key={f.id}>{f.entryName}: {f.reason}</li>)}
+          </ul>
+        </div>
+      )}
+
       <CoverageLine rows={coverage} />
 
       {result && <p style={{ fontSize: F.xs, color: C.accentInk, margin: "0 0 12px", lineHeight: 1.55 }}>{result}</p>}
@@ -4837,6 +4860,10 @@ function ChangeMonitor({ rows = [], monitor = {}, seen = {}, coverage = [], appl
  * outgrows its layout: it is not that the rows are wrong, it is that they
  * crowd out the two things that needed a decision.
  */
+/* No edit in progress or done. A rejected detection is untouched again; an
+   edit in progress is not, so Dismiss all leaves it for the person editing. */
+const untouchedEdit = (e) => !e || e.via === "rejected";
+
 function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritten, edited = {}, dismissed, verified = {}, busy, onAct }) {
   const expanded = openTool === group.id;
   const [batch, setBatch] = useState("");
@@ -4846,7 +4873,7 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
   async function dismissAll() {
     setBatch("dismiss");
     for (const r of group.rows) {
-      if (!dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id] && !edited[r.id]) await onAct(r.id, "dismiss-change");
+      if (!dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id] && untouchedEdit(edited[r.id])) await onAct(r.id, "dismiss-change");
     }
     setBatch("");
   }
@@ -4855,8 +4882,8 @@ function ToolChanges({ group, openTool, setOpenTool, applied, published, rewritt
      and only wait for Resolve. Resolving each by hand was one click per
      finding for a decision already made. Untouched findings are left alone:
      those still need a look, and resolving refuses a finding with nowhere to go. */
-  const ready = group.rows.filter((r) => !dismissed[r.id] && (published[r.id] || applied[r.id] || rewritten[r.id] || edited[r.id]));
-  const untouched = group.rows.filter((r) => !dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id] && !edited[r.id]);
+  const ready = group.rows.filter((r) => !dismissed[r.id] && (published[r.id] || applied[r.id] || rewritten[r.id] || editDone(edited[r.id])));
+  const untouched = group.rows.filter((r) => !dismissed[r.id] && !applied[r.id] && !published[r.id] && !rewritten[r.id] && untouchedEdit(edited[r.id]));
   async function resolveReady() {
     setBatch("resolve");
     for (const r of ready) await onAct(r.id, "resolve-change");
@@ -4934,7 +4961,7 @@ function ConfidenceLine({ r, verified = {} }) {
  * is required and one line: it is what the next compare call reads as a
  * negative example, and what the error rate on System is made of.
  */
-function MarkWrong({ r, busy, onAct, hasDestinations }) {
+function MarkWrong({ r, busy, onAct, hasDestinations, startArmed = false, onCancel }) {
   const [err, setErr] = useState("");
   const submit = async (reason) => {
     setErr("");
@@ -4943,7 +4970,7 @@ function MarkWrong({ r, busy, onAct, hasDestinations }) {
   };
   return (
     <>
-      <ConfirmBtn tone="plain" busy={busy === r.id} confirm="Mark wrong" onConfirm={submit}
+      <ConfirmBtn tone="plain" busy={busy === r.id} confirm="Mark wrong" onConfirm={submit} startArmed={startArmed} onCancel={onCancel}
         reason="What it got wrong, in one line. e.g. annual prices are behind a toggle"
         note={hasDestinations
           ? "This resolves the finding but does not undo what was already done with it. Remove it from updates or undo the listing change with their own buttons."
@@ -5004,21 +5031,13 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, edit
   const editHref = r.entryKind === "newsletter"
     ? `${page}?edit=1&finding=${encodeURIComponent(r.id)}`
     : `/?tool=${encodeURIComponent(r.entryId)}&edit=1&finding=${encodeURIComponent(r.id)}`;
-  const linkStyle = {
-    background: "transparent", border: `1px solid ${C.edge}`, color: C.muted,
-    borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
-    textDecoration: "none", whiteSpace: "nowrap",
-  };
-  const openListing = (
-    <>
-      <a href={editHref} target="_blank" rel="noopener noreferrer" style={{ ...linkStyle, color: C.text }}>Edit the listing</a>
-      <a href={page} target="_blank" rel="noopener noreferrer" style={linkStyle}>Open the listing</a>
-    </>
-  );
+  const quiet = { fontSize: F.xs, color: C.muted, whiteSpace: "nowrap", textDecoration: "underline" };
+  const editState = editDone(edited) ? "done" : edited?.via === "editing" ? "editing" : "none";
+  const [choosingWrong, setChoosingWrong] = useState(false);
 
   const source = r.url && (
     <a href={outbound(r.url)} target="_blank" rel="noopener noreferrer"
-      style={{ fontSize: F.xs, color: C.muted }}>{r.url.replace(/^https?:\/\//, "")}</a>
+      style={quiet}>{r.url.replace(/^https?:\/\//, "")}</a>
   );
 
   const shown = (v) => (v === "" || v === null || v === undefined ? "absent" : String(v));
@@ -5186,13 +5205,26 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, edit
         <RewriteEditor r={r} busy={busy} onAct={onAct} onClose={() => setRewriting(false)} />
       )}
 
+      {/*
+        * Three groups, left to right, and nothing else on the row.
+        *
+        *  primary   the destinations: What's moving first, because most
+        *            findings belong there, then the listing change (Update
+        *            listing where it maps to one field, Rewrite with AI where
+        *            it does not). Neither excludes the other.
+        *  editing   one button that changes with the state: Edit the listing,
+        *            then "I have edited it" in the same place once clicked,
+        *            then what was recorded. "I have edited it" is also a quiet
+        *            link beside it for an edit made without clicking through.
+        *            Open the listing and the source are links, not buttons.
+        *  closing   at the end: Resolve once something was done, otherwise one
+        *            Dismiss that asks whether it was not worth acting on or the
+        *            monitor got it wrong.
+        *
+        * It was seven buttons in one row, and the one that marked an edit done
+        * sat two along from the one that started it.
+        */}
       <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-        {/*
-          * Three destinations, and the feed is first because it is where most
-          * findings belong. A new integration is news; it is not a change to
-          * what the tool is, and forcing it into the listing is how a
-          * description turns into an undated changelog.
-          */}
         {published ? (
           <>
             <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
@@ -5220,11 +5252,6 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, edit
           </Btn>
         ) : null}
 
-        {/*
-          * Rewrite with AI, for the findings that do not land on one field. A
-          * destination like the other two and not exclusive with either: a new
-          * capability is usually news and a description change.
-          */}
         {rewritten ? (
           <>
             <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
@@ -5237,52 +5264,78 @@ function ChangeAction({ r, done, seenRecord, applied, published, rewritten, edit
           <Btn onClick={() => setRewriting(true)}>Rewrite with AI</Btn>
         )}
 
-        {/* Edited by hand: through the link above (recorded on save), or
-            anywhere else and marked here. A destination like the others. */}
-        {edited ? (
+        <span aria-hidden="true" style={{ width: 1, alignSelf: "stretch", background: C.line, margin: "0 4px" }} />
+
+        {editState === "done" ? (
           <>
             <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
-              Listing edited {String(edited.at || "").slice(0, 10)}{edited.fields?.length ? ` (${edited.fields.join(", ")})` : " by hand"}
+              Listing edited {String(edited.at || "").slice(0, 10)}
+              {edited.via === "detected" ? <span style={{ fontWeight: 400, color: C.muted }}> (detected: {edited.reason})</span>
+                : edited.fields?.length ? ` (${edited.fields.join(", ")})` : ""}
             </span>
-            {edited.via === "hand" && <Btn onClick={() => onAct(r.id, "unmark-edited")} busy={busy === r.id}>Not edited</Btn>}
+            {(edited.via === "hand" || edited.via === "detected") && (
+              <Btn onClick={() => onAct(r.id, "unmark-edited")} busy={busy === r.id}>Not edited</Btn>
+            )}
           </>
+        ) : editState === "editing" ? (
+          <Btn tone="go" onClick={() => onAct(r.id, "mark-edited")} busy={busy === r.id}>I have edited it</Btn>
         ) : !done && (
-          <Btn onClick={() => onAct(r.id, "mark-edited")} busy={busy === r.id}>Edited by hand</Btn>
+          <a href={editHref} target="_blank" rel="noopener noreferrer" className="ctl press"
+            onClick={() => { onAct(r.id, "start-editing"); }}
+            style={{
+              background: C.panel, border: `1px solid ${C.edge}`, color: C.text,
+              borderRadius: R.control, padding: "4px 12px", fontSize: F.xs, fontWeight: 600,
+              textDecoration: "none", whiteSpace: "nowrap",
+            }}>Edit the listing</a>
         )}
 
-        {openListing}
+        {/* Quiet links: an edit made without clicking through, the form again
+            while editing, the public page, and what the monitor read. */}
+        {editState === "none" && !done && (
+          <button onClick={() => onAct(r.id, "mark-edited")} disabled={busy === r.id} style={{
+            ...quiet, background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit",
+          }}>I have edited it</button>
+        )}
+        {editState === "editing" && (
+          <a href={editHref} target="_blank" rel="noopener noreferrer" style={quiet}>Open the form again</a>
+        )}
+        <a href={page} target="_blank" rel="noopener noreferrer" style={quiet}>Open the listing</a>
         {source}
 
-        {/*
-          * Resolved once, after every destination it needed. Dismiss stays for
-          * the findings that needed none, and is not offered once one was used,
-          * because "looked and did nothing" and "did something" should not be
-          * indistinguishable afterwards.
-          */}
-        {wrong ? (
-          <>
-            <span style={{ fontSize: F.xs, color: C.warnInk, fontWeight: 700 }}>
-              Marked wrong: <span style={{ fontWeight: 400, color: C.muted }}>{seenRecord.reason}</span>
-            </span>
-            <Btn onClick={() => onAct(r.id, "unmark-wrong")} busy={busy === r.id}>Unmark</Btn>
-          </>
-        ) : (applied || published || rewritten || edited)
-          ? (done
-            ? (
-              <>
-                <span style={{ fontSize: F.xs, color: C.muted, fontWeight: 700 }}>Resolved</span>
-                <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
-              </>
-            )
-            : <Btn onClick={() => onAct(r.id, "resolve-change")} busy={busy === r.id} tone="go">Resolve</Btn>)
-          : (done
-            ? <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
-            : <ConfirmBtn onConfirm={() => onAct(r.id, "dismiss-change")} busy={busy === r.id}>Dismiss</ConfirmBtn>)}
-
-        {/* On every finding that is not already marked: being wrong is
-            independent of what was done with it. */}
-        {!wrong && <MarkWrong r={r} busy={busy} onAct={onAct} hasDestinations={Boolean(applied || published || rewritten || edited)} />}
+        <span className="inline-flex flex-wrap items-center" style={{ gap: S.sm, marginLeft: "auto" }}>
+          {wrong ? (
+            <>
+              <span style={{ fontSize: F.xs, color: C.warnInk, fontWeight: 700 }}>
+                Marked wrong: <span style={{ fontWeight: 400, color: C.muted }}>{seenRecord.reason}</span>
+              </span>
+              <Btn onClick={() => onAct(r.id, "unmark-wrong")} busy={busy === r.id}>Unmark</Btn>
+            </>
+          ) : done ? (
+            <>
+              <span style={{ fontSize: F.xs, color: C.muted, fontWeight: 700 }}>
+                {seenRecord?.auto
+                  ? <>Resolved automatically: <span style={{ fontWeight: 400 }}>{seenRecord.auto}</span></>
+                  : seenRecord?.via === "resolved" ? "Resolved" : "Dismissed"}
+              </span>
+              <Btn onClick={() => onAct(r.id, "reopen-change")} busy={busy === r.id}>Reopen</Btn>
+            </>
+          ) : (applied || published || rewritten || editDone(edited)) ? (
+            <>
+              <Btn onClick={() => onAct(r.id, "resolve-change")} busy={busy === r.id} tone="go">Resolve</Btn>
+              <MarkWrong r={r} busy={busy} onAct={onAct} hasDestinations />
+            </>
+          ) : choosingWrong ? (
+            <MarkWrong r={r} busy={busy} onAct={onAct} startArmed onCancel={() => setChoosingWrong(false)} />
+          ) : (
+            <ConfirmBtn tone="plain" busy={busy === r.id}
+              choices={[["Not worth acting on", "dismiss"], ["The monitor got it wrong", "wrong"]]}
+              onConfirm={(v) => (v === "wrong" ? setChoosingWrong(true) : onAct(r.id, "dismiss-change"))}>
+              Dismiss
+            </ConfirmBtn>
+          )}
+        </span>
       </div>
+      {err && !writing && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>}
     </div>
   );
 }
@@ -5960,7 +6013,7 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
  * seen on the vendor's own site, which is a check to make before pressing:
  * the form says so rather than trusting it to be remembered.
  */
-function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, onSeen, eventCoverage = [], eventRefresh = {} }) {
+function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, autoResolved = [], onSeen, eventCoverage = [], eventRefresh = {} }) {
   const tools = useMemo(() => published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name)), []);
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
@@ -6013,7 +6066,7 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
       )}
       <ChangeMonitor rows={changes} monitor={monitor} seen={seen} coverage={coverage}
         appliedChanges={appliedChanges} publishedChanges={publishedChanges}
-        rewrittenChanges={rewrittenChanges} editedChanges={editedChanges} verifiedChanges={verifiedChanges} onSeen={onSeen} />
+        rewrittenChanges={rewrittenChanges} editedChanges={editedChanges} verifiedChanges={verifiedChanges} autoResolved={autoResolved} onSeen={onSeen} />
       <Section title="Post a vendor announcement"
         hint="News a vendor told us about, by email or on a call, for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all. News the monitor found is published from its finding above.">
       <div style={{ padding: "12px 0" }}>

@@ -1877,10 +1877,31 @@ rewriting the description themselves, and Resolve used to refuse that: none of p
 or rewrite had happened. Every finding now has **Edit the listing**, which opens the listing
 with its form already open (`/?tool=<id>&edit=1&finding=<row id>`, or the newsletter's own
 page), and saving through it records `edited` in `svt:changes:edited` with the fields
-changed (admin only, and only for a finding about that listing). An edit made anywhere else,
-a commit to the file included, is recorded with **Edited by hand**. Resolve accepts either.
+changed (admin only, and only for a finding about that listing). Resolve accepts it.
 The tool page's Edit this listing opens the form directly too (`edit=1`), instead of a
 modal with a second Edit to press. `scripts/edit-link-test.mjs`.
+
+**The action that marks an edit done sits where the edit started** (2026-10-31). Clicking
+Edit the listing records the finding as `editing` (`start-editing`), and the same button
+becomes **I have edited it**, which records the edit by hand. Being edited is not a
+destination, so Resolve still refuses it. "I have edited it" is also a quiet link beside Edit
+the listing, for an edit made without clicking through (the file, another tab). `editDone` in
+`lib/findings.js` is the one rule for which records count.
+
+**An edit the store can see resolves its finding without asking** (`lib/handEdits.js`). On
+each `/admin` load, before anything reads the findings, an open finding with no destination
+is resolved when, after the day it was raised: the field it proposed now holds the proposed
+value; an admin edited the listing on the site; or the entry's `updated` date in its file
+moved past it. A vendor editing their own listing is not an answer to our finding, and an
+edit on the same day is left to be pressed. The panel lists what that load resolved and why,
+the row says "Resolved automatically" with the reason, Reopen puts it back, and Not edited
+leaves a `rejected` record so the same detection does not fire again.
+
+**The row is three groups** (2026-10-31): the destinations (Publish to What's moving, then
+Update listing or Rewrite with AI), the editing button with Open the listing and the source as
+plain links, and at the end Resolve, or one Dismiss that asks whether the finding was not worth
+acting on or the monitor got it wrong (then the one-line reason). It was seven buttons in a
+row.
 
 **The voice examples are lifted from the catalogue, not written for the prompt.**
 `houseVoice()` reads real `one` and `watch` lines out of `TOOLS`, so the examples

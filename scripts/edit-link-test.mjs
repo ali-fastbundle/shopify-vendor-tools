@@ -94,14 +94,72 @@ ok(r.status === 200 && !(await read(KEYS.changesEdited, {}))["no-such-finding"],
 console.log("\nedited elsewhere, marked by hand:");
 r = await post("admin@test.invalid", { action: "mark-edited", id: other.id });
 edited = await read(KEYS.changesEdited, {});
-ok(r.status === 200 && edited[other.id]?.via === "hand", "Edited by hand records it");
+ok(r.status === 200 && edited[other.id]?.via === "hand", "I have edited it records it");
 r = await post("admin@test.invalid", { action: "unmark-edited", id: other.id });
 ok(r.status === 200 && !(await read(KEYS.changesEdited, {}))[other.id], "Not edited takes it back");
 ok((await post("someone@test.invalid", { action: "mark-edited", id: other.id })).status === 404, "not an admin: 404");
 
+console.log("\nediting, then I have edited it:");
+const third = { ...row, id: "ranksy-edit-3" };
+await pushCapped(KEYS.changelog, [third], 500);
+r = await post("admin@test.invalid", { action: "start-editing", id: third.id });
+edited = await read(KEYS.changesEdited, {});
+ok(r.status === 200 && edited[third.id]?.via === "editing", "Edit the listing records the finding as being edited");
+r = await post("admin@test.invalid", { action: "resolve-change", id: third.id });
+ok(r.status === 400, "being edited is not a destination: Resolve is still refused");
+r = await post("admin@test.invalid", { action: "mark-edited", id: third.id });
+edited = await read(KEYS.changesEdited, {});
+ok(r.status === 200 && edited[third.id]?.via === "hand", "I have edited it replaces the editing state");
+await post("admin@test.invalid", { action: "start-editing", id: third.id });
+ok((await read(KEYS.changesEdited, {}))[third.id]?.via === "hand", "clicking Edit again does not undo a recorded edit");
+ok((await post("someone@test.invalid", { action: "start-editing", id: third.id })).status === 404, "not an admin: 404");
+
+console.log("\ndetected edits:");
+const { detectHandEdits } = await load("lib/handEdits.js");
+const { editDone } = await load("lib/findings.js");
+ok(!editDone({ via: "editing" }) && !editDone({ via: "rejected" }) && editDone({ via: "hand" }) && editDone({ via: "detected" }) && !editDone(undefined),
+  "editing and rejected are not done; hand, form and detected are");
+const f = (id, extra = {}) => ({ id, at: "2026-10-20T09:00:00Z", entryId: "t1", entryName: "T1", ...extra });
+const entries = { t1: { id: "t1", name: "T1", updated: "2026-10-13", price: "$79/mo" } };
+const admins = (e) => e === "admin@test.invalid";
+let d = detectHandEdits([f("a")], { entries, isAdminEmail: admins });
+ok(d.length === 0, "nothing changed after the finding: nothing resolved");
+d = detectHandEdits([f("a")], { entries: { t1: { ...entries.t1, updated: "2026-10-21" } }, isAdminEmail: admins });
+ok(d.length === 1 && /updated in the file on 2026-10-21/.test(d[0].reason), "the file's updated date moved past the finding: resolved, and says so");
+d = detectHandEdits([f("a")], { entries: { t1: { ...entries.t1, updated: "2026-10-20" } }, isAdminEmail: admins });
+ok(d.length === 0, "an update on the same day is not assumed to answer it");
+d = detectHandEdits([f("a", { edit: { state: "appliable", field: "price", from: "$49/mo", to: "$79/mo" } })], { entries, isAdminEmail: admins });
+ok(d.length === 1 && /price now reads "\$79\/mo"/.test(d[0].reason), "the field now holds the proposed value: resolved");
+d = detectHandEdits([f("a")], { entries, overrides: { t1: { one: "x", editedAt: "2026-10-22", editedBy: "admin@test.invalid" } }, isAdminEmail: admins });
+ok(d.length === 1 && /edited on the site on 2026-10-22/.test(d[0].reason), "an admin edit on the site after it: resolved");
+d = detectHandEdits([f("a")], { entries, overrides: { t1: { one: "x", editedAt: "2026-10-22", editedBy: "vendor@t1.com" } }, isAdminEmail: admins });
+ok(d.length === 0, "a vendor editing their own listing does not answer our finding");
+const moved = { t1: { ...entries.t1, updated: "2026-10-21" } };
+ok(detectHandEdits([f("a")], { entries: moved, seen: { a: {} }, isAdminEmail: admins }).length === 0
+  && detectHandEdits([f("a")], { entries: moved, published: { a: {} }, isAdminEmail: admins }).length === 0
+  && detectHandEdits([f("a")], { entries: moved, edited: { a: { via: "rejected" } }, isAdminEmail: admins }).length === 0
+  && detectHandEdits([f("a")], { entries: moved, edited: { a: { via: "editing" } }, isAdminEmail: admins }).length === 1,
+  "skipped when handled, given a destination, or rejected; an edit in progress is detected");
+
+console.log("\nNot edited on a detected edit:");
+const fourth = { ...row, id: "ranksy-edit-4" };
+await pushCapped(KEYS.changelog, [fourth], 500);
+const { write } = store;
+await write(KEYS.changesEdited, { ...(await read(KEYS.changesEdited, {})), [fourth.id]: { via: "detected", reason: "x", at: "2026-10-30" } });
+await write(KEYS.changesSeen, { ...(await read(KEYS.changesSeen, {})), [fourth.id]: { via: "resolved", auto: "x" } });
+r = await post("admin@test.invalid", { action: "unmark-edited", id: fourth.id });
+ok(r.status === 200 && (await read(KEYS.changesEdited, {}))[fourth.id]?.via === "rejected" && !(await read(KEYS.changesSeen, {}))[fourth.id],
+  "leaves a rejected record so it is not detected again, and reopens the finding");
+
 console.log("\nthe links:");
 const adm = src("components/Admin.jsx");
 ok(/edit=1&finding=\$\{encodeURIComponent\(r\.id\)\}/.test(adm) && />Edit the listing</.test(adm), "every finding has an Edit the listing link that opens the form and names the finding");
+ok(/onAct\(r\.id, "start-editing"\)/.test(adm) && /editState === "editing" \? \(\s*<Btn tone="go" onClick=\{\(\) => onAct\(r\.id, "mark-edited"\)\}[^>]*>I have edited it</.test(adm),
+  "clicking it records editing, and I have edited it takes its place");
+ok(!/>Edited by hand</.test(adm), "Edited by hand is renamed");
+ok(/choices=\{\[\["Not worth acting on", "dismiss"\], \["The monitor got it wrong", "wrong"\]\]\}/.test(adm), "Dismiss and Mark as wrong are one control that asks which");
+ok(/settleHandEdits/.test(src("app/admin/page.js")) && src("app/admin/page.js").indexOf("settleHandEdits") < src("app/admin/page.js").indexOf("Promise.allSettled(SOURCES"),
+  "detection runs on /admin load, before anything reads the findings");
 ok(/\/newsletters\/\$\{encodeURIComponent\(r\.entryId\)\}/.test(adm), "a newsletter finding links to the newsletter, not to /tools");
 ok(/\$\{href\}&edit=1/.test(src("components/ToolPage.jsx")), "the tool page's Edit this listing opens the form directly");
 ok(/params\.get\("edit"\) === "1"/.test(src("components/Directory.jsx")) && /params\.get\("edit"\) !== "1"/.test(src("components/Engagement.jsx")),

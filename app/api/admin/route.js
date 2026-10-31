@@ -11,6 +11,7 @@ import { dismissFinding, restoreFinding, getDiscovery, clearDiscovery, discovery
 import { storeInventory, resetTestData, deleteRow } from "@/lib/inventory";
 import { timesAsked, findListed, findDuplicate, normaliseDomain } from "@/lib/suggestions";
 import { readChangelog, declineFinding, undeclineFinding } from "@/lib/monitor";
+import { editDone } from "@/lib/findings";
 import { carryInterest, getInterest } from "@/lib/interest";
 import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry, getFeed } from "@/lib/feed";
 import { tally } from "@/lib/tallies";
@@ -1055,7 +1056,7 @@ export async function POST(request) {
     ]);
     const destinations = [
       published[id] && "published", applied[id] && "applied", rewritten[id] && "rewritten",
-      edited?.[id] && "edited",
+      editDone(edited?.[id]) && "edited",
     ].filter(Boolean);
     if (!destinations.length) return new Response("Nothing has been done with this finding yet. Dismiss it instead.", { status: 400 });
     const seen = await read(KEYS.changesSeen, {});
@@ -1130,17 +1131,35 @@ export async function POST(request) {
    * The listing was edited by hand because of this finding: through the edit
    * form somewhere other than the link on the finding, or in the file. A
    * destination like publishing, applying or rewriting, so Resolve accepts it.
+   *
+   * start-editing is the click on "Edit the listing": the finding shows
+   * "I have edited it" in that button's place until the save is recorded
+   * (app/api/listing) or the button is pressed. It is not a destination.
+   *
+   * unmark-edited on an edit the software detected (lib/handEdits.js) leaves
+   * a "rejected" record rather than nothing, or the next /admin load would
+   * detect the same edit and resolve the finding again; and it reopens the
+   * finding that detection resolved.
    */
-  if (action === "mark-edited" || action === "unmark-edited") {
+  if (action === "mark-edited" || action === "unmark-edited" || action === "start-editing") {
     const row = (await readChangelog(500)).find((r) => r.id === id);
     if (!row) return new Response("Unknown change", { status: 400 });
     const edited = (await read(KEYS.changesEdited, {})) || {};
+    const at = new Date().toISOString();
     if (action === "mark-edited") {
-      edited[id] = { at: new Date().toISOString(), by: session.email, via: "hand", toolId: row.entryId };
+      edited[id] = { at, by: session.email, via: "hand", toolId: row.entryId };
+    } else if (action === "start-editing") {
+      if (!editDone(edited[id])) edited[id] = { at, by: session.email, via: "editing", toolId: row.entryId };
+    } else if (edited[id]?.via === "detected") {
+      edited[id] = { at, by: session.email, via: "rejected", toolId: row.entryId, reason: edited[id].reason };
     } else {
       delete edited[id];
     }
     await write(KEYS.changesEdited, edited);
+    if (action === "unmark-edited") {
+      const seen = await read(KEYS.changesSeen, {});
+      if (seen[id]?.auto) { delete seen[id]; await write(KEYS.changesSeen, seen); return Response.json({ edited, dismissed: seen }); }
+    }
     return Response.json({ edited });
   }
 
