@@ -41,6 +41,49 @@ export async function POST(request) {
     if (r.error) return new Response(r.error, { status: 502 });
     return Response.json({ draft: r.draft, provider: r.provider, thin: r.thin, note: r.note });
   }
+  /*
+   * A vendor's message (lib/vendorNews.js): read into an extraction first,
+   * then the line is drafted from the extraction, never from the message. The
+   * reading is kept as a record so publishing, the listing rewrite and
+   * resolving can refer to it; the message itself is not. `newsId` alone
+   * drafts again from a stored reading, with any statuses the editor set.
+   */
+  if (body.vendor || body.newsId) {
+    const V = await import("@/lib/vendorNews");
+    const tools = await catalogueTools();
+    let rec;
+    if (body.newsId) {
+      rec = await V.findVendorNews(body.newsId);
+      if (!rec) return new Response("No vendor message with that id.", { status: 400 });
+      if (body.statuses && typeof body.statuses === "object") rec = await V.saveVendorNews(V.withStatuses(rec, body.statuses));
+    }
+    const tool = tools.find((t) => t.id === (rec ? rec.toolId : body.vendor?.toolId));
+    if (!tool) return new Response("No published tool with that id.", { status: 400 });
+    if (!rec) {
+      const v = body.vendor;
+      const email = String(v.email || "").trim();
+      if (email.length < 40) return new Response("Paste the vendor's message, at least a sentence or two.", { status: 400 });
+      if (email.length > V.EMAIL_MAX) return new Response("That is longer than 20,000 characters. Paste the part about the product.", { status: 400 });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(v.announcedOn || ""))) return new Response("Say when the vendor announced it, as a date.", { status: 400 });
+      const listed = (await import("@/lib/listings")).mergedTools;
+      const live = (await listed()).find((t) => t.id === tool.id) || tool;
+      const read = await V.readVendorEmail({ tool: live, email });
+      if (read.error) return new Response(read.error, { status: 502 });
+      rec = await V.saveVendorNews(V.newRecord({
+        tool, announcedOn: v.announcedOn, sourceUrl: v.sourceUrl || tool.url, sourceNote: v.sourceNote,
+        by: session.email, extraction: read.extraction, dropped: read.dropped, provider: read.provider,
+      }));
+      console.log(`[vendornews] read ${tool.id} ${rec.id} items=${read.extraction.items.length} dropped=${read.dropped.length}`);
+    }
+    const priorEntries = await feedEntries({ limit: 4, toolId: tool.id });
+    const d = await V.draftFromExtraction({ tool, extraction: rec.extraction, priorEntries });
+    if (d.error) return Response.json({ record: rec, draft: "", error: d.error, issues: [] });
+    rec = await V.saveVendorNews({ ...rec, draft: d.draft });
+    return Response.json({
+      record: rec, draft: d.draft, provider: d.provider, thin: d.thin, note: d.note,
+      issues: V.draftIssues(d.draft, rec.extraction),
+    });
+  }
   if (!body.id) return new Response("Missing id", { status: 400 });
 
   const [rows, tools] = await Promise.all([readChangelog(500), catalogueTools()]);

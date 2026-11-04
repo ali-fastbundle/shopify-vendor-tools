@@ -168,6 +168,8 @@ export default async function AdminPage({ searchParams }) {
     { key: "verifiedChanges", load: () => read(KEYS.changesVerified, {}), empty: {} },
     { key: "overrideClears", load: async () => (await import("@/lib/overrideClears")).readClears(200), empty: [] },
     { key: "feed", load: () => feedEntries({ limit: 60, withPrivate: true }), empty: [] },
+    { key: "feedDeleted", load: async () => (await import("@/lib/feed")).deletedEntries(40), empty: [] },
+    { key: "vendorNews", load: async () => (await import("@/lib/vendorNews")).getVendorNews(), empty: [] },
     { key: "health", load: () => health(), empty: null },
     { key: "inventory", load: () => storeInventory(), empty: [] },
     /* Server side because the domain marker reads reviewer addresses. */

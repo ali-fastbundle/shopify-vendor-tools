@@ -1829,6 +1829,32 @@ development or left out, and stays out of the listing until it exists. Where it
 came from goes in `sourceNote`, which is private with `publishedBy`: every public
 read goes through `publicRow` in `lib/feed.js`.
 
+**A vendor's message is read before it is written up, and gets a finding's outcomes** (2026-11-04,
+`lib/vendorNews.js`, rules in `lib/vendorNewsRules.js`). "News from a vendor" on Updates takes the
+pasted email and reads it first into an extraction: what shipped, each marked live, announced or
+not stated, with the sentence that says so; what it changes about the tool; and what it
+contradicts in the listing. The feed line is drafted from the extraction, in a second call that
+never sees the email. Every quote must be in the email: a "live" item without one is demoted, a
+change or contradiction without one is dropped, and the drops are listed beside the reading.
+**Announced is never published as shipped**: `draftIssues` refuses a line that names an item that
+is not live without saying it is in development, on the page as it is typed and again on the
+server. Justas's SAMI email is the case: Category Comparisons live, Keyword Explorer in
+development. The row is `source: "vendor"`. Each message is a record in `svt:vendornews` (the
+reading, never the email) with the same outcomes as a finding: Publish to What's moving, Update
+the listing (the AI rewrite fed the live items only, with the announced ones named as never to be
+written; or an edit by hand), or both, then Resolve once, or Drop. Open records count on Updates.
+Writing the line by hand without the model is still there. `scripts/vendor-news-test.mjs`.
+
+**A published entry can be edited and deleted, and a correction says so** (2026-11-04). Edit and
+Delete sit under each entry on `/changes` for an admin (`components/FeedEntryAdmin.jsx`, decided
+on the server from the session; `/api/admin` re-checks) and on On What's moving in /admin. Edit
+keeps the id, the date and the place in the feed, and the editor says which kind it is: a wording
+fix shows "Edited <date>"; a correction shows "Corrected <date>: <what changed>" on the entry, the
+way the ASO post carries its corrections, on the page, in RSS and in the Markdown version
+(`revisionsOf` in `lib/feedSource.js`). Never a silent rewrite. Every earlier text is kept in
+`edits`, private. Delete is soft with a required reason (private), works for any source, unlinks
+a finding or a mention as Unpublish does, and Deleted from What's moving has Restore.
+
 **Feed entries are written by a person, every time.** `Publish to feed` calls
 `/api/admin/announce` first, which drafts a line and writes nothing, then opens
 the editor on the draft. Nothing reaches the feed until somebody has read it and
@@ -2842,7 +2868,8 @@ and the server HTML.
 | `components/DyingControl.jsx` | The admin toggle for winding down, on the tool page and the listing modal |
 | `components/WatchEditor.jsx` | The admin-only caveat editor: before and after, a reason, two presses, a commit to lib/tools.js, the history |
 | `lib/interest.js` | How many people have asked for a tool that is already listed, and why |
-| `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is |
+| `lib/feed.js` | The changes feed: what happened, as opposed to what a tool is. Edit with a visible correction, soft delete with a reason, restore |
+| `lib/vendorNews.js` `lib/vendorNewsRules.js` `components/FeedEntryAdmin.jsx` | A vendor's message read into an extraction, drafted from it, and its outcomes (server); the checks, client-safe; editing and deleting a feed entry |
 | `app/changes` `components/ChangesFeed.jsx` | The public feed, filterable by tool and category |
 | `lib/tallies.js` | Running counts that outlive the rows they count |
 | `lib/inventory.js` | Every store key, what it holds, and the only two ways to delete from it |
@@ -3746,6 +3773,7 @@ npm run build      # must compile
 node scripts/feed-test.mjs           # the feed library and its field contract
 node scripts/announce-test.mjs       # the draft prompt, the em-dash scrub, the voice examples
 node scripts/feed-independence.mjs   # publishing does not apply, applying does not publish
+node scripts/vendor-news-test.mjs    # a vendor email read before drafting, announced never shipped; feed edits, corrections, soft delete
 node scripts/discovery-promote.mjs   # a lead becomes one suggestion, and never a public one
 node scripts/ownership-test.mjs      # vacuous owners: merge, render and sweep
 node scripts/updates-count.mjs       # "new since your last visit", including the first visit

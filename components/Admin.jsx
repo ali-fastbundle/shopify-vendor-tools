@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useContext, createContext } from "react";
-import { contextLine } from "@/lib/feedSource";
+import { contextLine, revisionsOf } from "@/lib/feedSource";
+import { draftIssues, destinationsOf } from "@/lib/vendorNewsRules";
+import FeedEntryAdmin from "./FeedEntryAdmin";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, ink, ALL_TOOLS, CATEGORIES, SOCIALS, catOf, kindOf, reportKindOf } from "@/lib/tools";
 import { ALL_NEWSLETTERS } from "@/lib/newsletters";
@@ -129,6 +131,8 @@ export default function AdminPanel({
   monitorErrors = [],
   verifiedChanges = {},
   feed = [],
+  feedDeleted = [],
+  vendorNews = [],
   health = null,
   inventory = [],
   reviewSignals = [],
@@ -167,6 +171,10 @@ export default function AdminPanel({
   const unreadLists = listRows.filter((l) => !l.reviewed && !l.hidden);
   const unreadQuestions = questionRows.filter((q) => !q.reviewed);
   const [seen, setSeen] = useState(changesSeen || {});
+  /* Vendor messages read and not yet resolved are work on Updates, like an
+     open finding (lib/vendorNews.js). */
+  const [newsRows, setNewsRows] = useState(vendorNews || []);
+  const openNews = newsRows.filter((r) => r.status === "open");
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
 
@@ -230,7 +238,7 @@ export default function AdminPanel({
   const inboxCount = Object.values(waiting).reduce((a, b) => a + b, 0);
   const counts = {
     inbox: inboxCount,
-    updates: openChanges.length,
+    updates: openChanges.length + openNews.length,
     listings: backlog.drafts + backlog.details,
     write: backlog.announcements,
     audience: 0,
@@ -357,7 +365,7 @@ export default function AdminPanel({
         )}
 
         {tab === "updates" && (
-          <RecentUpdates feed={feed}
+          <RecentUpdates feed={feed} feedDeleted={feedDeleted} news={newsRows} onNews={setNewsRows}
             changes={changelog || []} sinceVisit={sinceVisit} monitor={monitor} seen={seen} coverage={coverage}
             appliedChanges={appliedChanges || {}} publishedChanges={publishedChanges || {}}
             rewrittenChanges={rewrittenChanges || {}} editedChanges={editedChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen}
@@ -6029,29 +6037,38 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
 }
 
 /*
- * Posting a vendor's own announcement to What's moving.
+ * A vendor's own news, for What's moving and the listing (2026-11-04).
  *
  * The feed's only door used to be a monitor finding, which left nothing to
  * publish from for a tool the monitor cannot read: SAMI emailed to say a
- * feature had shipped and there was no row to press Publish on. This is that
- * door, with the feed's rules intact. A person writes the line, the source
- * link is the vendor's page that shows it, the date is when the vendor said
- * it, and the row goes out marked as the vendor's announcement.
+ * feature had shipped and there was no row to press Publish on. The first
+ * version of this door only published, and drafted nothing.
  *
- * Two presses, and the first shows exactly what will appear. "Shipped" means
- * seen on the vendor's own site, which is a check to make before pressing:
- * the form says so rather than trusting it to be remembered.
+ * Now the message is pasted and read first (lib/vendorNews.js): what shipped
+ * and whether it is live or announced, what it changes about the tool, and
+ * what it contradicts in the listing, each with its quote. The line is drafted
+ * from that reading, and the reading stays beside the draft. Then the same
+ * outcomes as a finding: publish to What's moving, update the listing, or
+ * both, and resolve once. Writing the line by hand without the model is still
+ * here.
  */
-function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, autoResolved = [], onSeen, eventCoverage = [], eventRefresh = {} }) {
+function RecentUpdates({ feed = [], feedDeleted = [], news = [], onNews, changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, autoResolved = [], onSeen, eventCoverage = [], eventRefresh = {} }) {
   const tools = useMemo(() => published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name)), []);
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
+  const blank = { toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "", email: "" };
+  const [form, setForm] = useState(blank);
+  const [byHand, setByHand] = useState(false);
   const [rows, setRows] = useState(feed);
+  const [gone, setGone] = useState(feedDeleted);
+  const [rewritten, setRewritten] = useState(rewrittenChanges);
+  const [fresh, setFresh] = useState({});
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const tool = tools.find((t) => t.id === form.toolId);
-  const ready = tool && form.headline.trim().length >= 12 && /^\d{4}-\d{2}-\d{2}$/.test(form.announcedOn);
+  const dated = /^\d{4}-\d{2}-\d{2}$/.test(form.announcedOn);
+  const ready = tool && form.headline.trim().length >= 12 && dated;
+  const canRead = tool && dated && form.email.trim().length >= 40;
 
   async function post(action, id, extra = {}) {
     setBusy(action + id); setErr("");
@@ -6066,25 +6083,39 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
     finally { setBusy(""); }
   }
 
-  async function publish() {
+  const putRecord = (rec) => onNews((xs) => (xs.some((x) => x.id === rec.id) ? xs.map((x) => (x.id === rec.id ? rec : x)) : [rec, ...xs]));
+
+  /* Read the message, then draft from the reading. One call, two model steps. */
+  async function readIt() {
+    setBusy("read"); setErr("");
+    try {
+      const res = await fetch("/api/admin/announce", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendor: { toolId: form.toolId, email: form.email, announcedOn: form.announcedOn, sourceUrl: form.sourceUrl || tool.url, sourceNote: form.sourceNote } }),
+      });
+      if (!res.ok) { setErr(await res.text()); return; }
+      const d = await res.json();
+      putRecord(d.record);
+      setFresh((f) => ({ ...f, [d.record.id]: d }));
+      setForm(blank);
+    } catch { setErr("Could not reach the server."); }
+    finally { setBusy(""); }
+  }
+
+  async function publishByHand() {
     const d = await post("post-vendor-announcement", form.toolId, {
       headline: form.headline, sourceUrl: form.sourceUrl || tool.url, kind: form.kind,
       announcedOn: form.announcedOn, sourceNote: form.sourceNote,
     });
     if (d?.feedEntry) {
       setRows((r) => [d.feedEntry, ...r]);
-      setForm({ toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "" });
+      setForm(blank);
     }
   }
 
-  /* A vendor row is removed by its own id. A monitor row goes back through the
-     finding it came from, so the finding stops saying it is on the feed. */
-  async function unpublish(r) {
-    const d = r.source === "vendor"
-      ? await post("unpublish-announcement", r.id)
-      : await post("unpublish-from-feed", r.changeId);
-    if (d) setRows((x) => x.filter((y) => y.id !== r.id));
-  }
+  const liveFeedIds = new Set(rows.map((r) => r.id));
+  const open = news.filter((r) => r.status === "open");
+  const closed = news.filter((r) => r.status !== "open");
 
   return (
     <>
@@ -6096,8 +6127,8 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
       <ChangeMonitor rows={changes} monitor={monitor} seen={seen} coverage={coverage}
         appliedChanges={appliedChanges} publishedChanges={publishedChanges}
         rewrittenChanges={rewrittenChanges} editedChanges={editedChanges} verifiedChanges={verifiedChanges} autoResolved={autoResolved} onSeen={onSeen} />
-      <Section title="Post a vendor announcement"
-        hint="News a vendor told us about, by email or on a call, for the listings the monitor cannot see. Published as the vendor's announcement, never as something we observed, and only what has shipped: something announced but not released is said to be in development or not said at all. News the monitor found is published from its finding above.">
+      <Section title="News from a vendor"
+        hint="A vendor told you something shipped, by email or on a call. Paste what they wrote. It is read first into what shipped and whether it is live or only announced, what it changes about the tool, and what it contradicts in the listing, each with its quote. The line for What's moving is drafted from that reading, never from the email, and the email is not kept. Then publish it, update the listing, or both, as with a finding.">
       <div style={{ padding: "12px 0" }}>
         <div className="flex flex-wrap" style={{ gap: S.md }}>
           <div style={{ flex: "1 1 220px" }}>
@@ -6111,78 +6142,146 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
               </select>
             </Field>
           </div>
-          <div style={{ flex: "1 1 160px" }}>
-            <Field label="Kind">
-              <select value={form.kind} onChange={(e) => set("kind", e.target.value)} style={FIELD}>
-                <option value="new-capability">New capability</option>
-                <option value="pricing">Pricing</option>
-                <option value="free-tier">Free tier</option>
-                <option value="wind-down">Winding down</option>
-                <option value="acquisition">Acquired</option>
-                <option value="scale">Scale</option>
-                <option value="ownership">Ownership</option>
-              </select>
-            </Field>
-          </div>
           <div style={{ flex: "0 1 160px" }}>
             <Field label="Announced on">
               <input type="date" value={form.announcedOn} onChange={(e) => set("announcedOn", e.target.value)} style={FIELD} />
             </Field>
           </div>
         </div>
-        <Field label="The update, as it will read on What's moving"
-          hint="House voice: what shipped and what it does, no adjectives. Only what is live. Something announced and not released is said to be in development, or left out. No em-dash.">
-          <Grow value={form.headline} onChange={(e) => set("headline", e.target.value)} rows={3} />
-        </Field>
         <Field label="Source link" hint="The vendor's page that shows it. Shown under the update.">
           <input value={form.sourceUrl} onChange={(e) => set("sourceUrl", e.target.value)} style={FIELD} placeholder="https://" />
         </Field>
         <Field label="Where it came from (private)" hint="For the record, e.g. an email from the founder. Never shown on the site.">
           <input value={form.sourceNote} onChange={(e) => set("sourceNote", e.target.value)} style={FIELD} />
         </Field>
-        <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
-          {/* The first press shows exactly what will appear; the second publishes it. */}
-          <ConfirmBtn tone="go" onConfirm={publish} busy={busy === "post-vendor-announcement" + form.toolId}
-            disabled={!ready} confirm="Publish to What's moving"
-            note={tool ? <span style={{ display: "block", borderTop: `1px solid ${C.line}`, paddingTop: S.sm }}>
-              <span style={{ display: "block", color: C.dim }}>Will appear on /changes today as {tool.name}, marked as a vendor announcement of {form.announcedOn}:</span>
-              <span style={{ display: "block", fontSize: F.md, color: C.text, margin: "6px 0 0", lineHeight: 1.6, maxWidth: "64ch" }}>{form.headline.trim()}</span>
-              <span style={{ display: "block", color: C.warnInk, marginTop: 6 }}>
-                Anything it calls shipped, check on {(form.sourceUrl || tool.url).replace(/^https?:\/\//, "")} first.
-              </span>
-            </span> : null}>
-            Review before publishing
-          </ConfirmBtn>
-          {!ready && <span style={{ fontSize: F.xs, color: C.dim }}>Needs a listing, a line of at least a sentence, and a date.</span>}
-        </div>
+        {!byHand ? (
+          <>
+            <Field label="What the vendor wrote" hint="Paste the email or your notes from the call. Read once and not stored.">
+              <Grow value={form.email} onChange={(e) => set("email", e.target.value)} rows={6} />
+            </Field>
+            <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+              <Btn tone="go" onClick={readIt} busy={busy === "read"} disabled={!canRead}>Read it and draft</Btn>
+              <button type="button" onClick={() => setByHand(true)} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: F.xs, color: C.muted, textDecoration: "underline" }}>
+                or write the line yourself
+              </button>
+              {!canRead && <span style={{ fontSize: F.xs, color: C.dim }}>Needs a listing, a date and the message.</span>}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap" style={{ gap: S.md }}>
+              <div style={{ flex: "0 1 200px" }}>
+                <Field label="Kind">
+                  <select value={form.kind} onChange={(e) => set("kind", e.target.value)} style={FIELD}>
+                    {Object.entries(VENDOR_KINDS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                  </select>
+                </Field>
+              </div>
+            </div>
+            <Field label="The update, as it will read on What's moving"
+              hint="House voice: what shipped and what it does, no adjectives. Only what is live. Something announced and not released is said to be in development, or left out. No em-dash.">
+              <Grow value={form.headline} onChange={(e) => set("headline", e.target.value)} rows={3} />
+            </Field>
+            <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+              <ConfirmBtn tone="go" onConfirm={publishByHand} busy={busy === "post-vendor-announcement" + form.toolId}
+                disabled={!ready} confirm="Publish to What's moving"
+                note={tool ? <PublishNote tool={tool} headline={form.headline} announcedOn={form.announcedOn} sourceUrl={form.sourceUrl} /> : null}>
+                Review before publishing
+              </ConfirmBtn>
+              <button type="button" onClick={() => setByHand(false)} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: F.xs, color: C.muted, textDecoration: "underline" }}>
+                paste the message instead
+              </button>
+              {!ready && <span style={{ fontSize: F.xs, color: C.dim }}>Needs a listing, a line of at least a sentence, and a date.</span>}
+            </div>
+          </>
+        )}
         {err && <p style={{ fontSize: F.xs, color: C.warnInk, margin: "8px 0 0" }}>{err}</p>}
       </div>
       </Section>
 
+      <WorkList rows={open.length} title="Vendor news to finish" count={open.length}
+        hint="Each message read and not yet resolved. Publish it to What's moving, update the listing, or both, then Resolve. Drop it if nothing in it is worth either.">
+        {open.length === 0
+          ? <Empty>Nothing waiting. Paste a vendor's message above to start one.</Empty>
+          : open.map((rec) => (
+            <VendorNewsRow key={rec.id} rec={rec} fresh={fresh[rec.id]} liveFeedIds={liveFeedIds}
+              rewritten={rewritten} onRewritten={setRewritten} onRecord={putRecord}
+              onFeedEntry={(e) => setRows((r) => [e, ...r])} />
+          ))}
+      </WorkList>
+
       <Reference>
       <Collapsible title="On What's moving" count={rows.length}
-        hint="Everything published to the feed, newest first, as visitors see it at /changes. Unpublishing is soft: the row is kept and marked removed.">
+        hint="Everything published to the feed, newest first, as visitors see it at /changes. Edit keeps the date; a correction says so on the entry. Delete is soft and needs a reason. The same controls are under each entry on /changes when you are signed in.">
         {rows.length === 0
           ? <Empty>Nothing published yet.</Empty>
           : rows.map((r) => {
             const vendor = r.source === "vendor" || r.source === "mention";
-            const canRemove = vendor || r.changeId;
-            const action = vendor ? "unpublish-announcement" + r.id : "unpublish-from-feed" + r.changeId;
             return (
               <Row key={r.id} title={r.toolName}
                 tag={r.source === "mention" ? `mentioned by ${r.mentionAuthor || "someone"} on ${MENTION_SOURCE[r.mentionSource] || r.mentionSource}` : vendor ? `vendor announcement ${r.announcedOn || ""}` : "from the monitor"}
-                body={r.headline}
+                body={<>
+                  {r.headline}
+                  {revisionsOf(r).map((v) => (
+                    <span key={`${v.kind}${v.on}`} style={{ display: "block", fontSize: F.xs, color: C.dim, marginTop: 4 }}>{v.text}</span>
+                  ))}
+                  {(r.edits || []).length > 0 && (
+                    <details style={{ marginTop: 4, fontSize: F.xs, color: C.dim }}>
+                      <summary style={{ cursor: "pointer" }}>{r.edits.length} earlier version{r.edits.length === 1 ? "" : "s"}</summary>
+                      {r.edits.slice().reverse().map((x, i) => (
+                        <span key={i} style={{ display: "block", marginTop: 4, lineHeight: 1.5 }}>
+                          {String(x.at).slice(0, 10)}{x.by ? ` by ${x.by}` : ""}{x.restored ? ", restored after deletion" : x.correction ? `, correction: ${x.correction}` : ", wording"}
+                          {x.before ? <><br />Before: {x.before}</> : null}
+                        </span>
+                      ))}
+                    </details>
+                  )}
+                </>}
                 meta={<>
                   published {String(r.date || "").slice(0, 10)}{r.publishedBy ? ` by ${r.publishedBy}` : ""}
-                  {r.sourceNote ? ` \u00b7 ${r.sourceNote}` : ""}
-                  {" \u00b7 "}<a href={`/changes#${r.id}`} style={{ color: C.muted }}>on the feed</a>
+                  {r.sourceNote ? ` · ${r.sourceNote}` : ""}
+                  {" · "}<a href={`/changes#${r.id}`} style={{ color: C.muted }}>on the feed</a>
                 </>}
-                actions={canRemove
-                  ? <ConfirmBtn onConfirm={() => unpublish(r)} busy={busy === action}>Unpublish</ConfirmBtn>
-                  : null}
+                footer={<FeedEntryAdmin entry={r} onChange={(next) => {
+                  if (next) setRows((x) => x.map((y) => (y.id === r.id ? next : y)));
+                  else { setRows((x) => x.filter((y) => y.id !== r.id)); setGone((g) => [{ ...r, deletedAt: new Date().toISOString() }, ...g]); }
+                }} />}
               />
             );
           })}
+      </Collapsible>
+      <Collapsible title="Deleted from What's moving" count={gone.length}
+        hint="Entries taken down, with why. Restore puts one back as it was, with its date.">
+        {gone.length === 0
+          ? <Empty>Nothing deleted.</Empty>
+          : gone.map((r) => (
+            <Row key={r.id} title={r.toolName} dim body={r.headline}
+              meta={<>
+                published {String(r.date || "").slice(0, 10)} {"·"} deleted {String(r.deletedAt || "").slice(0, 10)}{r.deletedBy ? ` by ${r.deletedBy}` : ""}
+                {r.deleteReason ? ` · ${r.deleteReason}` : ""}
+              </>}
+              actions={<Btn busy={busy === "restore-feed-entry" + r.id} onClick={async () => {
+                const d = await post("restore-feed-entry", r.id);
+                if (d?.entry) { setGone((g) => g.filter((x) => x.id !== r.id)); setRows((x) => [d.entry, ...x].sort((p, q) => String(q.at).localeCompare(String(p.at)))); }
+              }}>Restore</Btn>}
+            />
+          ))}
+      </Collapsible>
+      <Collapsible title="Vendor news decided" count={closed.length}
+        hint="Messages resolved or dropped, with the reading that was made of each. Reopen puts one back.">
+        {closed.length === 0
+          ? <Empty>None yet.</Empty>
+          : closed.map((rec) => (
+            <Row key={rec.id} title={rec.toolName} dim
+              tag={rec.status === "done" ? `resolved: ${(rec.destinations || []).join(", ")}` : "dropped"}
+              body={(rec.extraction?.items || []).map((i) => `${i.name} (${STATUS_LABEL[i.status]})`).join(", ") || rec.extraction?.summary}
+              meta={<>read {String(rec.at).slice(0, 10)}{rec.by ? ` by ${rec.by}` : ""} {"·"} announced {rec.announcedOn}</>}
+              actions={<Btn busy={busy === "reopen-vendor-news" + rec.id} onClick={async () => {
+                const d = await post("reopen-vendor-news", rec.id);
+                if (d?.record) putRecord(d.record);
+              }}>Reopen</Btn>}
+            />
+          ))}
       </Collapsible>
       <Collapsible title="Monitor coverage" anchor="coverage" count={uncovered(coverage).length ? `${uncovered(coverage).length} not covered` : coverage.length}
         hint="Every published tool and newsletter, and whether the weekly monitor can actually read it. A listing it cannot see produces no findings, which looks exactly like a listing with nothing new, so silence only means something for the ones marked Monitored.">
@@ -6191,6 +6290,208 @@ function RecentUpdates({ feed = [], changes = [], sinceVisit = [], monitor = {},
       <EventCoverage rows={eventCoverage} refresh={eventRefresh} />
       </Reference>
     </>
+  );
+}
+
+const VENDOR_KINDS = {
+  "new-capability": "New capability", pricing: "Pricing", "free-tier": "Free tier", "wind-down": "Winding down",
+  acquisition: "Acquired", scale: "Scale", ownership: "Ownership",
+};
+const STATUS_LABEL = { live: "live", announced: "announced, not released", unclear: "not stated" };
+
+/* What the second press of Publish shows: the line as it will appear, and the
+   check to make on the vendor's own site first. */
+function PublishNote({ tool, headline, announcedOn, sourceUrl }) {
+  return (
+    <span style={{ display: "block", borderTop: `1px solid ${C.line}`, paddingTop: S.sm }}>
+      <span style={{ display: "block", color: C.dim }}>Will appear on /changes today as {tool.name}, marked From the vendor, {announcedOn}:</span>
+      <span style={{ display: "block", fontSize: F.md, color: C.text, margin: "6px 0 0", lineHeight: 1.6, maxWidth: "64ch" }}>{headline.trim()}</span>
+      <span style={{ display: "block", color: C.warnInk, marginTop: 6 }}>
+        Anything it calls shipped, check on {(sourceUrl || tool.url).replace(/^https?:\/\//, "")} first.
+      </span>
+    </span>
+  );
+}
+
+/*
+ * One vendor message: the draft on the left, the reading it came from on the
+ * right, then the outcomes. The reading is beside the draft, not under it,
+ * because a generated sentence reads as finished whether or not it is true,
+ * and the editor has to see what was read before accepting what was written.
+ */
+function VendorNewsRow({ rec, fresh, liveFeedIds, rewritten, onRewritten, onRecord, onFeedEntry }) {
+  const tool = ALL_TOOLS.find((t) => t.id === rec.toolId) || { id: rec.toolId, name: rec.toolName, url: rec.sourceUrl };
+  const ex = rec.extraction || { items: [], listingChanges: [], contradictions: [] };
+  const [headline, setHeadline] = useState(rec.draft || "");
+  const [meta, setMeta] = useState(fresh || null);
+  const [statuses, setStatuses] = useState({});
+  const [rewriting, setRewriting] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState(fresh?.error ? `${fresh.error} Write it yourself.` : "");
+  const issues = draftIssues(headline, ex);
+  const onFeed = rec.feedId && liveFeedIds.has(rec.feedId);
+  const dests = destinationsOf(rec, { feedIds: liveFeedIds, rewritten });
+  const statusChanged = Object.keys(statuses).length > 0;
+
+  async function call(url, payload, key) {
+    setBusy(key); setErr("");
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!res.ok) { const t = await res.text(); setErr(t); return { error: t }; }
+      return await res.json();
+    } catch { setErr("Could not reach the server."); return { error: "Could not reach the server." }; }
+    finally { setBusy(""); }
+  }
+  const act = (action, extra = {}) => call("/api/admin", { action, id: rec.id, ...extra }, action);
+
+  async function redraft() {
+    const d = await call("/api/admin/announce", { newsId: rec.id, statuses }, "redraft");
+    if (d.error) return;
+    onRecord(d.record); setStatuses({}); setMeta(d);
+    setHeadline(d.draft || "");
+    if (d.error) setErr(`${d.error} Write it yourself.`);
+  }
+
+  async function publish() {
+    const d = await call("/api/admin", {
+      action: "post-vendor-announcement", id: rec.toolId, newsId: rec.id,
+      headline, sourceUrl: rec.sourceUrl || tool.url, kind: ex.kind || "new-capability",
+      announcedOn: rec.announcedOn, sourceNote: rec.sourceNote,
+    }, "publish");
+    if (d?.feedEntry) { onFeedEntry(d.feedEntry); onRecord(d.record); }
+  }
+
+  /* The RewriteEditor's own contract: (id, action, extra) and an error back. */
+  async function onAct(id, action, extra) {
+    const d = await act(action, extra);
+    if (d?.error) return d;
+    if (d?.rewritten) onRewritten(d.rewritten);
+    return d;
+  }
+
+  const items = (status) => ex.items.map((it, i) => ({ ...it, i, status: statuses[i] || it.status })).filter((it) => it.status === status);
+  const itemList = (title, status, tone) => {
+    const list = items(status);
+    if (!list.length) return null;
+    return (
+      <div style={{ marginTop: S.sm }}>
+        <p style={{ fontSize: F.xs, fontWeight: 700, color: tone || C.text, margin: 0 }}>{title}</p>
+        {list.map((it) => (
+          <div key={it.i} style={{ marginTop: 4, fontSize: F.xs, lineHeight: 1.5 }}>
+            <b style={{ color: C.text }}>{it.name}</b>{it.what ? <span style={{ color: C.muted }}>: {it.what}</span> : null}
+            {it.setBy === "editor" && <span style={{ color: C.dim }}> (set by you)</span>}
+            {it.quote && <span style={{ display: "block", color: C.dim }}>&ldquo;{it.quote}&rdquo;</span>}
+            <select value={it.status} aria-label={`Status of ${it.name}`}
+              onChange={(e) => setStatuses((s) => ({ ...s, [it.i]: e.target.value }))}
+              style={{ ...FIELD, width: "auto", fontSize: F.xs, padding: "2px 6px", marginTop: 2 }}>
+              <option value="live">live</option>
+              <option value="announced">announced, not released</option>
+              <option value="unclear">not stated</option>
+            </select>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <Row expandable defaultOpen={Boolean(fresh)}
+      title={rec.toolName}
+      tag={onFeed ? "on What's moving" : "not published"}
+      summary={ex.summary || `${ex.items.length} item${ex.items.length === 1 ? "" : "s"} read`}
+      meta={<>announced {rec.announcedOn} {"·"} read {String(rec.at).slice(0, 10)}{rec.provider ? ` by ${rec.provider}` : ""}{rec.sourceNote ? ` · ${rec.sourceNote}` : ""}</>}>
+      <div className="flex flex-wrap" style={{ gap: S.lg, marginTop: S.sm }}>
+        <div style={{ flex: "2 1 300px", minWidth: 0 }}>
+          <label style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, display: "block", marginBottom: 4 }}>
+            The line for What's moving{meta?.provider ? <span style={{ fontWeight: 400 }}> {"·"} drafted by {meta.provider} from the reading</span> : null}
+          </label>
+          {onFeed ? (
+            <p style={{ fontSize: F.sm, color: C.text, lineHeight: 1.6, margin: 0 }}>
+              Published. <a href={`/changes#${rec.feedId}`} style={{ color: C.muted }}>See it on the feed</a>; edit it there or under On What&apos;s moving.
+            </p>
+          ) : (
+            <>
+              <textarea value={headline} onChange={(e) => setHeadline(e.target.value)} rows={4}
+                placeholder="One to three sentences on what is live and what it does."
+                style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
+              {meta?.note && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0" }}>{meta.note}</p>}
+              {issues.map((x) => <p key={x} style={{ fontSize: F.xs, color: C.badInk, margin: "6px 0 0", lineHeight: 1.5 }}>{x}</p>)}
+            </>
+          )}
+        </div>
+        <div style={{ flex: "1 1 240px", minWidth: 0, background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control, padding: S.md }}>
+          <p style={{ fontSize: F.xs, fontWeight: 700, color: C.dim, margin: 0 }}>What it read</p>
+          {ex.items.length === 0 && <p style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0" }}>No feature or product named as new.</p>}
+          {itemList("Live, by the vendor's account", "live")}
+          {itemList("Announced, not released", "announced", C.warnInk)}
+          {itemList("Status not stated", "unclear", C.muted)}
+          {ex.listingChanges.length > 0 && (
+            <div style={{ marginTop: S.sm }}>
+              <p style={{ fontSize: F.xs, fontWeight: 700, margin: 0 }}>What it changes about the tool</p>
+              {ex.listingChanges.map((c, i) => (
+                <p key={i} style={{ fontSize: F.xs, margin: "4px 0 0", lineHeight: 1.5, color: C.muted }}>
+                  <b style={{ color: C.text }}>{c.field}</b>: {c.what}
+                  {c.quote && <span style={{ display: "block", color: C.dim }}>&ldquo;{c.quote}&rdquo;</span>}
+                </p>
+              ))}
+            </div>
+          )}
+          {ex.contradictions.length > 0 && (
+            <div style={{ marginTop: S.sm }}>
+              <p style={{ fontSize: F.xs, fontWeight: 700, color: C.warnInk, margin: 0 }}>Contradicts the listing</p>
+              {ex.contradictions.map((c, i) => (
+                <p key={i} style={{ fontSize: F.xs, margin: "4px 0 0", lineHeight: 1.5, color: C.muted }}>
+                  Listing: {c.listing || "(not quoted)"}<br />Message: {c.email}
+                  {c.quote && <span style={{ display: "block", color: C.dim }}>&ldquo;{c.quote}&rdquo;</span>}
+                </p>
+              ))}
+            </div>
+          )}
+          {(rec.dropped || []).length > 0 && (
+            <div style={{ marginTop: S.sm }}>
+              <p style={{ fontSize: F.xs, fontWeight: 700, color: C.dim, margin: 0 }}>Not used, no quote in the message</p>
+              {rec.dropped.map((d, i) => <p key={i} style={{ fontSize: F.xs, color: C.dim, margin: "4px 0 0", lineHeight: 1.5 }}>{d}</p>)}
+            </div>
+          )}
+          {statusChanged && !onFeed && (
+            <div style={{ marginTop: S.sm }}>
+              <Btn onClick={redraft} busy={busy === "redraft"}>Draft again from this reading</Btn>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {rewriting && <div style={{ marginTop: S.md }}><RewriteEditor r={{ id: rec.id }} busy={busy === "apply-rewrite" ? rec.id : ""} onAct={onAct} onClose={() => setRewriting(false)} /></div>}
+
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
+        {!onFeed && (
+          <ConfirmBtn tone="go" onConfirm={publish} busy={busy === "publish"}
+            disabled={headline.trim().length < 12 || issues.length > 0} confirm="Publish to What's moving"
+            note={<PublishNote tool={tool} headline={headline} announcedOn={rec.announcedOn} sourceUrl={rec.sourceUrl} />}>
+            Publish to What&apos;s moving
+          </ConfirmBtn>
+        )}
+        {rewritten[rec.id]
+          ? <Btn onClick={async () => { const d = await act("undo-rewrite"); if (d?.rewritten) onRewritten(d.rewritten); }} busy={busy === "undo-rewrite"}>Undo the listing rewrite</Btn>
+          : !rewriting && <Btn onClick={() => setRewriting(true)} disabled={!ex.items.some((i) => i.status === "live") && !ex.listingChanges.length}>Update the listing with AI</Btn>}
+        <a href={`/?tool=${encodeURIComponent(rec.toolId)}&edit=1`} target="_blank" rel="noopener noreferrer" style={{ fontSize: F.xs, color: C.muted }}>Edit the listing by hand</a>
+        {!rec.editedByHand && (
+          <button type="button" onClick={async () => { const d = await act("vendor-news-edited"); if (d?.record) onRecord(d.record); }}
+            style={{ background: "none", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: F.xs, color: C.muted, textDecoration: "underline" }}>
+            I have edited it
+          </button>
+        )}
+        <span style={{ marginLeft: "auto" }} className="inline-flex flex-wrap items-center">
+          <span style={{ fontSize: F.xs, color: C.dim, marginRight: S.sm }}>
+            {dests.length ? `Done: ${dests.join(", ")}` : "Nothing done yet"}
+          </span>
+          <Btn tone="go" disabled={!dests.length} busy={busy === "resolve-vendor-news"}
+            onClick={async () => { const d = await act("resolve-vendor-news"); if (d?.record) onRecord(d.record); }}>Resolve</Btn>
+          <ConfirmBtn onConfirm={async () => { const d = await act("drop-vendor-news"); if (d?.record) onRecord(d.record); }} busy={busy === "drop-vendor-news"}>Drop</ConfirmBtn>
+        </span>
+      </div>
+      {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>}
+    </Row>
   );
 }
 

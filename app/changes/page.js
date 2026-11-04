@@ -1,5 +1,8 @@
+import { cookies, headers } from "next/headers";
 import { withShareImage } from "@/lib/ogCard";
+import { sessionFrom, isAdmin } from "@/lib/auth";
 import { feedEntries } from "@/lib/feed";
+import { revisionsOf } from "@/lib/feedSource";
 import { mergedTools } from "@/lib/listings";
 import { SITE, IDS } from "@/lib/seo";
 import ChangesFeed from "@/components/ChangesFeed";
@@ -33,6 +36,10 @@ export async function generateMetadata() {
 
 export default async function Page() {
   const [entries, tools] = await Promise.all([feedEntries({ limit: 300 }), mergedTools()]);
+  /* Edit and Delete under each entry for an admin. An affordance, never the
+     permission: /api/admin re-checks on every press (invariant 7). */
+  const session = sessionFrom({ cookies: cookies(), headers: headers() });
+  const admin = Boolean(session && isAdmin(session.email));
 
   /*
    * A CollectionPage of dated items. This is the page that moves weekly, which
@@ -57,6 +64,7 @@ export default async function Page() {
           "@type": "Article",
           headline: e.headline.slice(0, 110),
           datePublished: e.date,
+          ...(revisionsOf(e).length ? { dateModified: revisionsOf(e).at(-1).on } : {}),
           // Written by a person for the site, every time (invariant 31), so
           // the site is the author. A node every page already defines.
           author: { "@id": IDS.organization },
@@ -73,7 +81,7 @@ export default async function Page() {
     <>
       <SectionView id="updates" />
       <JsonLd data={graph} />
-      <ChangesFeed entries={entries} tools={tools} />
+      <ChangesFeed entries={entries} tools={tools} admin={admin} />
     </>
   );
 }

@@ -13,7 +13,7 @@ import { timesAsked, findListed, findDuplicate, normaliseDomain } from "@/lib/su
 import { readChangelog, declineFinding, undeclineFinding } from "@/lib/monitor";
 import { editDone } from "@/lib/findings";
 import { carryInterest, getInterest } from "@/lib/interest";
-import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry, getFeed } from "@/lib/feed";
+import { sanitiseEntry as sanitiseFeedEntry, addEntry as addFeedEntry, removeEntry as removeFeedEntry, getFeed, editEntry as editFeedEntry, restoreEntry as restoreFeedEntry } from "@/lib/feed";
 import { tally } from "@/lib/tallies";
 import { setExclusion, confirmReview } from "@/lib/reviews";
 import { reviewSignals } from "@/lib/reviewSignals";
@@ -875,9 +875,100 @@ export async function POST(request) {
       sourceNote: body.sourceNote,
     });
     if (error) return new Response(error, { status: 400 });
+    /* Read from a message (lib/vendorNews.js): the line is checked against
+       what the message said is live, here as well as on the page. Something
+       announced cannot go out as shipped. */
+    let news = null;
+    if (body.newsId) {
+      const V = await import("@/lib/vendorNews");
+      news = await V.findVendorNews(body.newsId);
+      if (!news || news.toolId !== tool.id) return new Response("No vendor message with that id for this tool.", { status: 400 });
+      if (news.feedId && (await getFeed()).some((r) => r.id === news.feedId && !r.deletedAt)) {
+        return new Response("This message is already on What's moving. Edit that entry instead.", { status: 409 });
+      }
+      const issues = V.draftIssues(entry.headline, news.extraction);
+      if (issues.length) return new Response(issues.join(" "), { status: 400 });
+    }
     const saved = await addFeedEntry(entry, { tool, publishedBy: session.email });
-    console.log(`[feed] vendor announcement ${tool.id} ${saved.id}`);
-    return Response.json({ feedEntry: saved });
+    if (news) {
+      const V = await import("@/lib/vendorNews");
+      news = await V.saveVendorNews({ ...news, feedId: saved.id, publishedAt: saved.at });
+    }
+    console.log(`[feed] vendor announcement ${tool.id} ${saved.id}${news ? ` from ${news.id}` : ""}`);
+    return Response.json({ feedEntry: saved, record: news });
+  }
+
+  /*
+   * A vendor message's other outcomes (lib/vendorNews.js). Publishing is
+   * above and the rewrite is apply-rewrite with the message's id; these record
+   * an edit made by hand, resolve once after any of the three, or drop it.
+   */
+  if (action === "vendor-news-edited" || action === "resolve-vendor-news" || action === "drop-vendor-news" || action === "reopen-vendor-news") {
+    const V = await import("@/lib/vendorNews");
+    const rec = await V.findVendorNews(id);
+    if (!rec) return new Response("No vendor message with that id.", { status: 400 });
+    const at = new Date().toISOString();
+    let next;
+    if (action === "vendor-news-edited") next = { ...rec, editedByHand: { at, by: session.email } };
+    else if (action === "reopen-vendor-news") next = { ...rec, status: "open", resolvedAt: "", resolvedBy: "" };
+    else if (action === "drop-vendor-news") next = { ...rec, status: "dropped", resolvedAt: at, resolvedBy: session.email };
+    else {
+      const [feed, rewritten] = await Promise.all([getFeed(), read(KEYS.changesRewritten, {})]);
+      const destinations = V.destinationsOf(rec, { feedIds: new Set(feed.filter((r) => !r.deletedAt).map((r) => r.id)), rewritten });
+      if (!destinations.length) return new Response("Nothing has been done with it yet. Publish it, update the listing, or drop it.", { status: 400 });
+      next = { ...rec, status: "done", destinations, resolvedAt: at, resolvedBy: session.email };
+    }
+    return Response.json({ record: await V.saveVendorNews(next) });
+  }
+
+  /*
+   * Edit a published entry in place (lib/feed.js editEntry): the date and the
+   * position stay, the old text is kept, and a correction says so on the
+   * entry. Any row, whatever its source.
+   */
+  if (action === "edit-feed-entry") {
+    const r = await editFeedEntry(id, { headline: body.headline, kind: body.kind, note: body.note }, { by: session.email });
+    if (r.error) return new Response(r.error, { status: 400 });
+    console.log(`[feed] edited ${id}${r.entry.corrections?.length && body.kind === "correction" ? " (correction)" : ""}`);
+    return Response.json({ entry: r.entry });
+  }
+
+  /*
+   * Delete any entry, softly and with a reason. A row published from a
+   * finding stops being that finding's destination, and a mention goes back
+   * to read, as the older unpublish actions do.
+   */
+  if (action === "delete-feed-entry") {
+    const reason = String(body.reason || "").replace(/\s+/g, " ").trim();
+    if (reason.length < 4) return new Response("Say why it comes down, in a few words.", { status: 400 });
+    const row = (await getFeed()).find((r) => r.id === id && !r.deletedAt);
+    if (!row) return new Response("No published entry with that id.", { status: 400 });
+    await removeFeedEntry(id, { by: session.email, reason });
+    if (row.changeId) {
+      const published = await read(KEYS.changesPublished, {});
+      if (published[row.changeId]?.feedId === id) { delete published[row.changeId]; await write(KEYS.changesPublished, published); }
+    }
+    if (row.source === "mention" && row.mentionId) {
+      const M = await import("@/lib/mentions");
+      await M.decideMention(row.mentionId, { action: "seen" }, session.email);
+    }
+    console.log(`[feed] deleted ${id}`);
+    return Response.json({ removed: id });
+  }
+
+  /* Put a deleted entry back as it was. A row from a finding becomes that
+     finding's destination again, so the finding says it is on the feed. */
+  if (action === "restore-feed-entry") {
+    const r = await restoreFeedEntry(id, { by: session.email });
+    if (r.error) return new Response(r.error, { status: 400 });
+    if (r.entry.changeId) {
+      const published = await read(KEYS.changesPublished, {});
+      if (!published[r.entry.changeId]) {
+        published[r.entry.changeId] = { feedId: r.entry.id, at: r.entry.at, by: r.entry.publishedBy || session.email, headline: r.entry.headline, awaitsResolve: true };
+        await write(KEYS.changesPublished, published);
+      }
+    }
+    return Response.json({ entry: r.entry });
   }
 
   /* Soft, like every other removal. Only a vendor announcement goes this way;
@@ -973,7 +1064,15 @@ export async function POST(request) {
    */
   if (action === "apply-rewrite") {
     const [rows, tools] = await Promise.all([readChangelog(500), mergedTools()]);
-    const change = rows.find((r) => r.id === id);
+    /* A vendor message rewrites the listing through the same save, log and
+       Undo as a finding, keyed by its own id (lib/vendorNews.js). */
+    const change = String(id).startsWith("vn-")
+      ? await (async () => {
+        const V = await import("@/lib/vendorNews");
+        const rec = await V.findVendorNews(id);
+        return rec ? V.changeFromNews(rec) : null;
+      })()
+      : rows.find((r) => r.id === id);
     if (!change) return new Response("Unknown change", { status: 400 });
     const tool = tools.find((t) => t.id === change.entryId);
     if (!tool) return new Response("That change is about a tool that is no longer listed.", { status: 400 });

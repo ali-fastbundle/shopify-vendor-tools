@@ -60,7 +60,7 @@ ok(/\/admin\?tab=write#about-page/.test(read("app/about/page.js")), "the About p
 console.log("\nwork first, then one Reference group:");
 const LAYERS = {
   Inbox: { work: ["Suggestions to review", "OpenReports", "ReviewsToDecide", "Claims to check"], ref: [] },
-  RecentUpdates: { work: ["ChangeMonitor", "Post a vendor announcement"], ref: ["On What's moving", "Monitor coverage"] },
+  RecentUpdates: { work: ["ChangeMonitor", "News from a vendor", "Vendor news to finish"], ref: ["On What's moving", "Deleted from What's moving", "Vendor news decided", "Monitor coverage"] },
   Listings: { work: ['part="work"', "StructuredData"], ref: ['part="held"', "NeedsVerifying", "EditorUse", "PublishedEntries", "Vendor media", "Discovered"] },
   Write: { work: ["Announcements", "Compose", "AboutPage"], ref: ["Ideas", "Outreach"] },
   Audience: { work: ["QuestionsAsked", "RecommenderRuns", "Stats", "Interest"], ref: ["Accounts", "Subscribers", "Verified claims", "ReviewsRecord", "Blog comments read"] },
@@ -135,11 +135,11 @@ for (const t of ["Reviewed suggestions", "Interest in listed tools", "Accounts",
 }
 ok(!/title="Monitor coverage"[^>]*\n\s*openWhen=/.test(src), "Monitor coverage does not open itself");
 for (const t of ["Suggestions to review", "Claims to check", "Comments to read", "Questions to read", "Lists published", "Media to approve",
-  "Reports and corrections", "Reviews to decide", "Drafts", "Ideas", "Announcements", "Details to confirm"]) {
+  "Reports and corrections", "Reviews to decide", "Drafts", "Ideas", "Announcements", "Details to confirm", "Vendor news to finish"]) {
   ok(new RegExp(`<WorkList rows=\\{[^}]+\\} title="${t}"`).test(src), `${t} is a work list: open while ten or fewer, shut with its count past ten`);
 }
 ok(/function WorkList\(\{ rows = 0, \.\.\.props \}\) \{\s*return <Collapsible \{\.\.\.props\} openWhen=\{rows <= ROW_LIMIT\} \/>/.test(src) && /const ROW_LIMIT = 10;/.test(src), "WorkList opens only at ten rows or fewer");
-const SHORT = ["Post a vendor announcement", "Growth recommender", "Recommender feedback", "Listing changes"];
+const SHORT = ["News from a vendor", "Growth recommender", "Recommender feedback", "Listing changes"];
 for (const m of src.matchAll(/<Section\s+title="([^"]+)"[\s\S]*?<\/Section>/g)) {
   if (SHORT.includes(m[1])) continue;
   ok(!/\.map\(/.test(m[0]), `${m[1]} draws no open list`);

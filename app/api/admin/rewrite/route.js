@@ -34,7 +34,16 @@ export async function POST(request) {
   if (!body.id) return new Response("Missing id", { status: 400 });
 
   const [rows, tools] = await Promise.all([readChangelog(500), mergedTools()]);
-  const change = rows.find((r) => r.id === body.id);
+  /* A vendor's message reads like a finding here, built from what it says is
+     live (lib/vendorNews.js). Anything announced is named as never to be
+     written into the listing. */
+  const change = String(body.id).startsWith("vn-")
+    ? await (async () => {
+      const V = await import("@/lib/vendorNews");
+      const rec = await V.findVendorNews(body.id);
+      return rec ? V.changeFromNews(rec) : null;
+    })()
+    : rows.find((r) => r.id === body.id);
   if (!change) return new Response("Unknown change", { status: 400 });
   const tool = tools.find((t) => t.id === change.entryId);
   if (!tool) return new Response("That change is about a tool that is no longer listed.", { status: 400 });

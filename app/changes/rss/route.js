@@ -1,4 +1,4 @@
-import { sourceOf } from "@/lib/feedSource";
+import { sourceOf, revisionsOf } from "@/lib/feedSource";
 import { feedEntries } from "@/lib/feed";
 import { SITE } from "@/lib/seo";
 import { catOf } from "@/lib/tools";
@@ -46,7 +46,7 @@ export async function GET() {
       <guid isPermaLink="true">${esc(`${SITE}/changes#${e.id}`)}</guid>
       <pubDate>${rfc822(e.at)}</pubDate>
       ${e.cat ? `<category>${esc(catOf(e.cat).label)}</category>` : ""}
-      <description>${esc(e.headline)}${esc(` ${sourceOf(e).label}${e.source === "vendor" && e.announcedOn ? `, ${e.announcedOn}` : ""}.${sourceOf(e).note ? ` ${sourceOf(e).note}` : ""}`)}${e.sourceUrl ? esc(` Source: ${e.sourceUrl}`) : ""}</description>
+      <description>${esc(e.headline)}${esc(` ${sourceOf(e).label}${e.source === "vendor" && e.announcedOn ? `, ${e.announcedOn}` : ""}.${sourceOf(e).note ? ` ${sourceOf(e).note}` : ""}`)}${revisionsOf(e).map((v) => esc(` ${v.text}`)).join("")}${e.sourceUrl ? esc(` Source: ${e.sourceUrl}`) : ""}</description>
     </item>`).join("\n");
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

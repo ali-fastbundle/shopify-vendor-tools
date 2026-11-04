@@ -4,7 +4,8 @@ import React, { Suspense, useState, useMemo } from "react";
 import { useParam, usePublishPanel } from "@/components/ListingParams";
 import CopyLink from "./CopyLink";
 import { outbound } from "@/lib/outbound";
-import { sourceOf, entryHref } from "@/lib/feedSource";
+import dynamic from "next/dynamic";
+import { sourceOf, entryHref, revisionsOf } from "@/lib/feedSource";
 import { C, S, R, F, TRACK, ink, CATEGORIES, catOf, formatDay } from "@/lib/tools";
 
 /*
@@ -26,6 +27,9 @@ const KIND_LABEL = {
   acquisition: "Acquired", "new-capability": "New capability", shipped: "Shipped",
   "dead-page": "Availability", scale: "Scale", ownership: "Ownership",
 };
+
+/* Loaded only when an admin is looking, so a visitor's bundle does not carry it. */
+const FeedEntryAdmin = dynamic(() => import("./FeedEntryAdmin"), { ssr: false });
 
 function Logo({ entry, size = 34 }) {
   const [failed, setFailed] = useState(false);
@@ -70,7 +74,10 @@ function FromUrl(props) {
   return <Rows {...props} tool={useParam("tool") || "all"} cat={useParam("cat") || "all"} />;
 }
 
-function Rows({ entries = [], tools = [], tool, cat }) {
+function Rows({ entries: initial = [], tools = [], tool, cat, admin = false }) {
+  /* Local so an admin's edit or delete shows at once, without a reload. */
+  const [entries, setEntries] = useState(initial);
+  const replace = (id, next) => setEntries((xs) => (next ? xs.map((x) => (x.id === id ? { ...x, ...next } : x)) : xs.filter((x) => x.id !== id)));
 
   const named = useMemo(() => {
     const byId = Object.fromEntries(tools.map((t) => [t.id, t]));
@@ -166,6 +173,16 @@ function Rows({ entries = [], tools = [], tool, cat }) {
                   <p style={{ fontSize: F.md, lineHeight: 1.6, color: C.text, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
                     {e.headline}
                   </p>
+                  {/* Later changes to the entry, said on the entry: a
+                      correction with what it changed, or one quiet line for a
+                      wording fix (lib/feedSource.js). Never a silent rewrite. */}
+                  {revisionsOf(e).map((v) => (
+                    <p key={`${v.kind}${v.on}${v.text.length}`} style={v.kind === "correction"
+                      ? { fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "64ch", borderLeft: `2px solid ${C.edge}`, paddingLeft: S.md }
+                      : { fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>
+                      {v.text}
+                    </p>
+                  ))}
                   {sourceOf(e).note && (
                     <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>{sourceOf(e).note}</p>
                   )}
@@ -176,6 +193,11 @@ function Rows({ entries = [], tools = [], tool, cat }) {
                         {e.sourceUrl.replace(/^https?:\/\//, "").slice(0, 70)}
                       </a>
                     </p>
+                  )}
+                  {admin && (
+                    <div style={{ marginTop: S.sm }}>
+                      <FeedEntryAdmin entry={e} onChange={(next) => replace(e.id, next)} />
+                    </div>
                   )}
                 </div>
               </div>
@@ -193,7 +215,7 @@ function Rows({ entries = [], tools = [], tool, cat }) {
  * of the site that moves weekly, which makes it what a crawler comes back for.
  * The tab on the directory renders the same rows without this chrome.
  */
-export default function ChangesFeed({ entries = [], tools = [] }) {
+export default function ChangesFeed({ entries = [], tools = [], admin = false }) {
   return (
     <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ maxWidth: 860, padding: "0 20px" }}>
@@ -210,7 +232,7 @@ export default function ChangesFeed({ entries = [], tools = [] }) {
         </header>
 
         <div style={{ paddingBottom: S["4xl"] }}>
-          <FeedRows entries={entries} tools={tools} />
+          <FeedRows entries={entries} tools={tools} admin={admin} />
         </div>
       </div>
     </main>
