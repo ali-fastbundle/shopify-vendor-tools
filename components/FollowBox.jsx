@@ -23,7 +23,7 @@ import { REGIONS } from "@/lib/eventRegions";
  * with a region picked first, so the id followed is "events-monthly:<region>"
  * (lib/eventDigest.js).
  */
-export default function FollowBox({ id, kind, name, hasFeed = false }) {
+export default function FollowBox({ id, kind, name, hasFeed = false, feedKind = "issues", feedItem = "issue" }) {
   const [email, setEmail] = useState("");
   const [region, setRegion] = useState("all");
   const monthly = kind === "events-month";
@@ -60,7 +60,8 @@ export default function FollowBox({ id, kind, name, hasFeed = false }) {
   const heading = monthly ? "Every month, what is coming up"
     : kind === "event" ? "Get updates about this event"
     : kind === "podcast" ? "Get new episodes by email"
-    : hasFeed ? "Get new issues by email" : "Get told when this listing changes";
+    : hasFeed && feedKind === "articles" ? "Get a daily count of its articles by email"
+    : hasFeed ? `Get new ${feedItem}s by email` : "Get told when this listing changes";
 
   return (
     <section aria-label={heading} style={{
@@ -70,7 +71,7 @@ export default function FollowBox({ id, kind, name, hasFeed = false }) {
         <Bell size={16} weight="regular" /> {heading}
       </p>
       <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.55, maxWidth: "62ch" }}>
-        {whatYouGet(kind, hasFeed)} Everything you follow comes in one email a day at most.
+        {whatYouGet(kind, hasFeed, { feedKind, feedItem })} Everything you follow comes in one email a day at most.
       </p>
 
       {state.status === "done" && (

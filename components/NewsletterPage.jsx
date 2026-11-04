@@ -175,7 +175,7 @@ export default function NewsletterPage({ newsletter: n, related, reviews = [], r
             {/* Rate, review, report and claim, the same as a tool. Isolated
                 client island so this file stays server-only and whole in the
                 first response. */}
-            <FollowBox id={n.id} kind="newsletter" name={n.name} hasFeed={Boolean(n.rss)} />
+            <FollowBox id={n.id} kind="newsletter" name={n.name} hasFeed={Boolean(n.rss)} feedKind={n.feedKind} feedItem={n.feedItem} />
             <Engagement kind="newsletter" initialReviews={reviews}
               entity={{ ...n, domain: n.domain || domainOf(n.url) }} />
           </div>

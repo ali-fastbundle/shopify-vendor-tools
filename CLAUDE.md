@@ -2227,6 +2227,24 @@ not, because beehiiv exposes a feed only when the publisher switches it on, and 
 (Kit), DTC (Webflow) and ECDB have none. `rss` is restated in `mergedNewsletters()`, so a
 publisher's edit cannot point the daily fetch somewhere else.
 
+**A feed is an issue feed or an article feed, and it says which** (2026-11-04). Retail Insider's
+site feed carried every article, and one digest announced six of them as six new issues. Every
+newsletter with `rss` now carries `feedKind`, decided from how the feed behaves, never from the
+platform: more than about three entries a week is a news site's article feed (`classifyFeed` in
+`lib/feeds.js`, the measured rate in a comment beside each entry). Look for a feed of the
+newsletter itself first: Retail Insider's Daily Synopsis is at `/daily-news/feed/`, one entry per
+weekday, so it is an issue feed and is what followers read now. Where none exists (The Retail
+Bulletin, about 23 a week), an article feed is never announced entry by entry: one line per
+publication per day, "published 6 articles today", linking `articlesUrl`, and `foldArticles` in
+`lib/notify.js` keeps it to one line per publication in a digest however many days it covers. A
+feed declared as issues that carries more than one entry a day is sent as a count and logged.
+`feedItem` names an entry that is not literally an issue ("article", "post"), in the email and on
+the follow box. The follow box says what an article feed's follower gets before they subscribe
+(`whatYouGet` in `lib/followCopy.js`), the same honesty as for a newsletter with no feed. As
+measured on 2026-11-04: issues, CPGD (2.8 a week), Retail Insider's Daily Synopsis (about 5),
+Marketplace Pulse (0.6, articles), Shopifreaks (1.0), Shopify's newsletter (1.4), The Ecommerce
+Revolution (0.3, posts); articles, The Retail Bulletin (23.4). The other six have no feed.
+
 **Every digest can be stopped from inside it.** A stop link per item and one for
 everything in the footer, HMACs over the address and the item in their own namespace
 (`follow-stop:`), so one cannot be edited into another or replayed as a site-wide
@@ -3612,7 +3630,7 @@ Who hears about what, all of it declared in `lib/mail.js`:
 | `media_decided` | no | the vendor who sent it: live, or not and why |
 | `contact` | to `CONTACT_EMAIL`, `reply_to` the sender | nothing, ever (invariant 38) |
 | `follow_confirm` | no | the confirm link; nothing is stored until it is clicked |
-| `follow_digest` | no | today's news about what they follow, one email, a stop link per item; on the 1st it can carry the monthly events digest for their region |
+| `follow_digest` | no | today's news about what they follow, one email, a stop link per item; an article feed is one counted line per publication, never one per article; on the 1st it can carry the monthly events digest for their region |
 | `events_month` | yes, on the 1st, only when something starts that month | nothing |
 | `event_refresh` | yes, only when the monthly refresh found something | nothing |
 

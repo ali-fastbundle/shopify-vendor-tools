@@ -130,7 +130,9 @@ console.log("\nthe entries that were blocked:");
   const ranksy = TOOLS.find((t) => t.id === "ranksy");
   ok(ranksy?.changelogUrl === "https://ranksyapp.com/changelog", "Ranksy is watched through its changelog");
   const ri = NEWSLETTERS.find((n) => n.id === "retailinsider");
-  ok(ri?.changelogUrl === ri?.rss, "Retail Insider is watched through its feed");
+  /* The monitor reads the site-wide feed (every article's title); followers
+     read the Daily Synopsis feed (2026-11-04). Different jobs, different feeds. */
+  ok(ri?.changelogUrl === "https://retail-insider.com/feed", "Retail Insider is watched through its site feed");
   ok(m.pagesFor(ranksy).some((p) => p.label === "changelog"), "and the monitor fetches it");
   const sami = TOOLS.find((t) => t.id === "tracksami");
   ok(!sami.changelogUrl, "SAMI has no changelogUrl: there is none to declare");

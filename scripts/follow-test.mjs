@@ -202,6 +202,56 @@ res = await remove.GET(new Request(stopAll, { headers: { "x-forwarded-for": "10.
 ok(!(await getFollows())["reader@example.org"], "the footer link stops everything");
 ok(stopToken("a@b.co", "") !== stopToken("a@b.co", "cpgd"), "all and one are different tokens");
 
+/* ---------------- article feeds (2026-11-04) ---------------- */
+quiet("\narticle feeds:");
+{
+  const { classifyFeed } = await L("lib/feeds.js");
+  const { foldArticles } = await L("lib/notify.js");
+  const { whatYouGet } = await L("lib/followCopy.js");
+  const { NEWSLETTERS } = await L("lib/newsletters.js");
+  const withFeed = NEWSLETTERS.filter((n) => n.rss);
+  ok(withFeed.every((n) => n.feedKind === "issues" || n.feedKind === "articles"), "every newsletter with a feed says what its feed carries");
+  ok(withFeed.filter((n) => n.feedKind === "articles").every((n) => /^https:\/\//.test(n.articlesUrl || "")), "and an article feed says where its line links");
+  const ri = NEWSLETTERS.find((n) => n.id === "retailinsider");
+  ok(ri.rss === "https://retail-insider.com/daily-news/feed/" && ri.feedKind === "issues", "Retail Insider follows its Daily Synopsis feed, not every article");
+  ok(NEWSLETTERS.find((n) => n.id === "retailbulletin").feedKind === "articles", "The Retail Bulletin is an article feed");
+
+  const day = (n, h) => ({ date: new Date(Date.UTC(2026, 10, n, h)).toISOString() });
+  ok(classifyFeed(Array.from({ length: 20 }, (_, i) => day(1 + Math.floor(i / 3), i % 3))).kind === "articles", "three a day measures as articles");
+  ok(classifyFeed(Array.from({ length: 6 }, (_, i) => day(1 + i * 7, 8))).kind === "issues", "one a week measures as issues");
+
+  ok(/every article/.test(whatYouGet("newsletter", true, { feedKind: "articles" })) && !/new issue/.test(whatYouGet("newsletter", true, { feedKind: "articles" })),
+    "the follow box tells an article feed's follower what they will get, before they follow");
+  ok(/new article/.test(whatYouGet("newsletter", true, { feedKind: "issues", feedItem: "article" })), "and names an entry by what it is");
+
+  const folded = foldArticles([
+    { id: "retailbulletin", kind: "articles", key: "articles:retailbulletin:2026-11-03", count: 4, since: "2026-11-03" },
+    { id: "cpgd", kind: "issue", key: "issue:cpgd:1" },
+    { id: "retailbulletin", kind: "articles", key: "articles:retailbulletin:2026-11-04", count: 2, since: "2026-11-04" },
+    { id: "cpgd", kind: "issue", key: "issue:cpgd:1" },
+  ]);
+  ok(folded.filter((i) => i.id === "retailbulletin").length === 1 && folded[0].count === 6 && folded[0].since === "2026-11-03",
+    "never more than one line per publication: days fold into one count from the earliest");
+  ok(folded.filter((i) => i.key === "issue:cpgd:1").length === 1, "and an item is never queued twice");
+
+  /* The run itself: six new articles are one line, not six issues. */
+  await addFollow("news@example.org", "retailbulletin");
+  const art = (n) => Array.from({ length: n }, (_, i) => ({ t: `Store news ${n}-${i}`, l: `https://www.theretailbulletin.com/fashion/${n}-${i}`, d: new Date(Date.UTC(2026, 10, 1, 8 + i, n)).toUTCString() }));
+  let bulletin = rss(art(10));
+  feeds["https://www.theretailbulletin.com/rss/"] = () => bulletin;
+  await detect({ fetchFeed, today: "2026-11-01", now: "2026-11-01T09:00:00Z" });
+  bulletin = rss([...art(6).map((a) => ({ ...a, d: new Date(Date.parse(a.d) + 2 * 86400e3).toUTCString() })), ...art(10)]);
+  await detect({ fetchFeed, today: "2026-11-03", now: "2026-11-03T09:00:00Z" });
+  const queued = (await read(KEYS.followQueue, {}))["news@example.org"]?.items || [];
+  ok(queued.length === 1 && queued[0].kind === "articles" && queued[0].count === 6, "six new articles queue as one counted line", JSON.stringify(queued.map((q) => [q.kind, q.count])));
+  sent.length = 0;
+  await send({ origin: "https://watchfor.tools" });
+  const mail = sent.find((m) => [].concat(m.to).includes("news@example.org")) || { text: "" };
+  ok(/The Retail Bulletin published 6 articles/.test(mail.text), "the email says what it is: articles, with the count", (mail.text.match(/The Retail Bulletin[^\n]*/) || [""])[0]);
+  ok(!/new issue/.test(mail.text) && !/Store news/.test(mail.text), "never called an issue, and the articles are not listed one by one");
+  ok(/theretailbulletin\.com\/\?utm_source=watchfor\.tools/.test(mail.text), "the line links the publication's news, tagged");
+}
+
 console.log = quiet;
 quiet(failed ? `\n${failed} FAILED` : "\nall passed");
 process.exit(failed ? 1 : 0);

@@ -53,7 +53,7 @@ export async function POST(request) {
   const origin = new URL(request.url).origin;
   const result = await sendEvent("follow_confirm", {
     email, name: item.name,
-    what: whatYouGet(item.kind, item.hasFeed),
+    what: whatYouGet(item.kind, item.hasFeed, item),
     confirmUrl: `${origin}/api/follow/confirm?token=${encodeURIComponent(mintFollowToken(email, item.id))}`,
   });
   if (!result.ok || !result.sends.length) {
