@@ -15,7 +15,10 @@ export const maxDuration = 120;
  *
  *   schedule-post   { slug, date }   a drafted post's target date ("" clears)
  *   schedule-idea   { id, week }     a blog idea's target week ("" clears)
- *   add-idea        { text, week? }  a blog idea in the Ideas queue
+ *   add-idea        { text, week? }  a blog idea (the Ideas store, shown only here)
+ *   review-idea     { id }           the post review: covered, listings, what to read
+ *   drop-idea       { id, reason }   dropped, with why, kept
+ *   link-post       { id, slug }     the draft it became; publishing ships it
  *   publish-post    { slug, title, build }  readiness, then the commit
  *   pull-search                     fetch Search Console now
  *   propose                         post ideas from the queries, if not thin
@@ -52,6 +55,33 @@ export async function POST(request) {
 
   if (action === "add-idea") {
     const r = await addIdea({ text: body.text, type: "blog", targetWeek: body.week || "" }, session.email);
+    return r.error ? fail(r.error) : fresh();
+  }
+
+  /* A blog idea's own review: as a post, not as a feature (lib/postIdeaReview.js). */
+  if (action === "review-idea") {
+    const { isBlogIdea } = await import("@/lib/ideas");
+    const blog = (await getIdeas()).filter(isBlogIdea);
+    const idea = blog.find((i) => i.id === String(body.id || ""));
+    if (!idea) return fail("No blog idea with that id.");
+    const { reviewPostIdea } = await import("@/lib/postIdeaReview");
+    const r = await reviewPostIdea(idea, blog);
+    if (r.error) return fail(r.error, 502);
+    const { addReview } = await import("@/lib/ideaStore");
+    const saved = await addReview(idea.id, r.review, session.email);
+    return saved.error ? fail(saved.error) : fresh();
+  }
+
+  if (action === "drop-idea") {
+    const r = await updateIdea(String(body.id || ""), { status: "dropped", reason: String(body.reason || "") }, session.email);
+    return r.error ? fail(r.error) : fresh();
+  }
+
+  /* The drafted post an idea became, so publishing it marks the idea shipped. */
+  if (action === "link-post") {
+    const slug = String(body.slug || "");
+    if (slug && !ALL_POSTS.some((p) => p.slug === slug)) return fail("No post with that slug in this build.");
+    const r = await updateIdea(String(body.id || ""), { type: "blog", postSlug: slug, ...(slug ? { status: "in progress" } : {}) }, session.email);
     return r.error ? fail(r.error) : fresh();
   }
 

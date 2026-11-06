@@ -94,6 +94,23 @@ ok(moved.row?.targetWeek === "2026-11-30", "an idea moves to a week", moved.erro
 const feature = await store.addIdea({ text: "A feature idea in the test" }, "t");
 ok(Boolean((await store.updateIdea(feature.row.id, { targetWeek: "2026-12-03" }, "t")).error), "a feature idea cannot take a week");
 
+console.log("\nblog ideas live on Blog, and get a post's review:");
+ok(I.isBlogIdea({ type: "blog" }) && I.isBlogIdea({ surface: "Blog" }) && !I.isBlogIdea({ surface: "Directory" }), "a blog idea is typed blog, or an old one filed under Blog");
+const adminSrc = src("components/Admin.jsx");
+ok(/<Ideas initial=\{ideas\.filter\(\(i\) => !isBlogIdea\(i\)\)\} \/>/.test(adminSrc) && /!isBlogIdea\(r\) && \(r\.status === "new"/.test(adminSrc)
+  && /\.filter\(\(i\) => !isBlogIdea\(i\)\)\)\)/.test(adminSrc), "the general Ideas panel and its count leave blog ideas out");
+ok(/Blog ideas are reviewed as posts/.test(src("app/api/admin/ideas/route.js")), "the feature review refuses a blog idea");
+const PR = await L("lib/postIdeaReview.js");
+const pv = PR.validatePostReview({ verdict: "write", summary: "x", coveredBy: [{ slug: "after-mantle", how: "y" }, { slug: "nope", how: "z" }],
+  repeats: [{ id: "ghost" }], listings: ["rankbase", "not-a-tool"], readFirst: ["Ranksy pricing page"] },
+  { slugs: POSTS.map((p) => p.slug), ideaIds: [], toolIds: (await L("lib/tools.js")).TOOLS.map((t) => t.id) });
+ok(pv.kind === "post" && pv.coveredBy.length === 1 && pv.listings.join() === "rankbase" && pv.repeats.length === 0 && pv.dropped.length === 3,
+  "the post review keeps what checks out and says what it dropped", pv.dropped.join(" | "));
+const prompt = PR.buildPostPrompt({ text: "Free rank trackers compared" }, []);
+ok(!/invariant|an afternoon|a few days|a project/i.test(prompt.replace(/do not discuss code, invariants or build effort/i, "")) && /PUBLISHED POSTS/.test(prompt) && /THE CATALOGUE/.test(prompt),
+  "a post is not a feature: no invariants and no build size in its review");
+ok(!/\bsize\b/.test(JSON.stringify(pv)) && !/invariants/.test(JSON.stringify(pv)), "and none in what is stored");
+
 console.log("\nsearch console:");
 const O = await L("lib/searchOpportunities.js");
 const few = [{ query: "shopify app rank tracker", page: "/a", clicks: 0, impressions: 3, position: 12 }];

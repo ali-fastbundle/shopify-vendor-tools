@@ -39,6 +39,8 @@ export async function POST(request) {
     const all = await getIdeas();
     const idea = all.find((i) => i.id === id);
     if (!idea) return new Response("No such idea.", { status: 400 });
+    /* A blog idea is reviewed as a post, on the Blog section. */
+    if (idea && (idea.type === "blog" || idea.surface === "Blog")) return new Response("Blog ideas are reviewed as posts, on the Blog section.", { status: 400 });
     const { reviewIdea } = await import("@/lib/ideaReview");
     const r = await reviewIdea(idea, all);
     if (r.error) return new Response(r.error, { status: 502 });

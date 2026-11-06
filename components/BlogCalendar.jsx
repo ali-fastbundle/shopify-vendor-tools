@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
 import { mondayOf } from "@/lib/ideas";
 
@@ -54,7 +54,7 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
   const drafts = cal.posts.filter((p) => p.draft);
   const live = cal.posts.filter((p) => !p.draft);
   const openIdeas = cal.ideas.filter((i) => !["shipped", "dropped"].includes(i.status));
-  const undated = openIdeas.filter((i) => !i.targetWeek);
+  const closedIdeas = cal.ideas.filter((i) => ["shipped", "dropped"].includes(i.status));
 
   const byDay = useMemo(() => {
     const m = {};
@@ -147,27 +147,31 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
         ))}
       </div>
 
-      {/* Ideas with no date */}
-      <div style={{ ...box, marginTop: S.md }}>
-        <strong style={{ fontSize: F.md }}>Blog ideas with no date yet</strong>
-        <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>The same queue as Ideas on the Write tab, type blog. Give one a target week to put it on the calendar.</p>
-        {!undated.length && <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>Every open blog idea has a week.</p>}
-        {undated.map((i) => (
-          <div key={i.id} {...drag(`i:${i.id}`)} style={{ borderTop: `1px solid ${C.line}`, marginTop: S.sm, paddingTop: S.sm }}>
-            <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
-              <span style={{ fontSize: F.sm, fontWeight: 600 }}>{i.title}</span>
-              {i.source === "search-console" && <span style={{ fontSize: F.xs, color: C.muted }}>from Search Console</span>}
-              <label style={{ fontSize: F.xs, color: C.muted }}>Week of <input type="date" style={field} onChange={(e) => e.target.value && act("schedule-idea", { id: i.id, week: e.target.value })} /></label>
-            </div>
-            {i.evidence && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>"{i.evidence.query}": {i.evidence.impressions} impressions, {i.evidence.clicks} clicks, position {i.evidence.position}{i.evidence.range ? `, ${i.evidence.range}` : ""}.</p>}
-          </div>
-        ))}
+      {/* Blog ideas: the post review, a week, the draft it became */}
+      <div style={{ ...box, marginTop: S.md }} id="blog-ideas">
+        <strong style={{ fontSize: F.md }}>Blog ideas</strong>
+        <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>
+          Posts to write. Each is reviewed as a post: is it already written, which listings it rests on, what only this directory can say, and what to read first. Not as a feature, so no invariants and no build size. A week puts it on the calendar; linking its draft marks it shipped when the draft is published.
+        </p>
+        {!openIdeas.length && <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>No open blog idea.</p>}
+        {openIdeas.map((i) => <IdeaRow key={i.id} i={i} drafts={drafts} busy={busy} act={act} drag={drag(`i:${i.id}`)} />)}
         <form onSubmit={async (e) => { e.preventDefault(); if (await act("add-idea", { text, week })) { setText(""); setWeek(""); } }}
           className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
           <input style={{ ...field, flex: 1, minWidth: 260 }} placeholder="A post to write: the title and one line on the angle" value={text} onChange={(e) => setText(e.target.value)} />
           <label style={{ fontSize: F.xs, color: C.muted }}>Week of <input type="date" style={field} value={week} onChange={(e) => setWeek(e.target.value)} /></label>
           <button type="submit" style={btn} disabled={busy === "add-idea" || text.trim().length < 10}>Add idea</button>
         </form>
+        {closedIdeas.length > 0 && (
+          <details style={{ marginTop: S.md }}>
+            <summary style={{ fontSize: F.sm, cursor: "pointer", color: C.muted }}>Written and dropped ({closedIdeas.length})</summary>
+            {closedIdeas.map((i) => (
+              <p key={i.id} style={{ fontSize: F.xs, color: C.muted, margin: `${S.xs}px 0 0` }}>
+                <strong style={{ color: C.text }}>{i.title}</strong>{" "}
+                {i.status === "shipped" && i.postSlug ? <>written as <a href={`/blog/${i.postSlug}`} style={{ color: C.text }}>/blog/{i.postSlug}</a></> : i.status === "dropped" ? `dropped${i.dropped?.reason ? `: ${i.dropped.reason}` : ""}` : i.status}
+              </p>
+            ))}
+          </details>
+        )}
       </div>
 
       {/* Search Console */}
@@ -215,5 +219,57 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
         </div>
       </div>
     </section>
+  );
+}
+
+const VERDICT_LABEL = { write: "Worth writing", doubtful: "Doubtful", skip: "Do not write" };
+
+/* One blog idea: its week, its evidence, its post review, and what to do with it. */
+function IdeaRow({ i, drafts, busy, act, drag }) {
+  const [dropping, setDropping] = useState(false);
+  const [reason, setReason] = useState("");
+  const r = i.review;
+  return (
+    <div {...drag} style={{ borderTop: `1px solid ${C.line}`, marginTop: S.sm, paddingTop: S.sm }}>
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        <span style={{ fontSize: F.sm, fontWeight: 600 }}>{i.title}</span>
+        {i.source === "search-console" && <span style={{ fontSize: F.xs, color: C.muted }}>from Search Console</span>}
+        {i.cameFromIdeas && <span style={{ fontSize: F.xs, color: C.muted }}>moved from Ideas</span>}
+        <label style={{ fontSize: F.xs, color: C.muted }}>Week of <input type="date" style={field} value={i.targetWeek} onChange={(e) => act("schedule-idea", { id: i.id, week: e.target.value })} /></label>
+      </div>
+      {i.evidence && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>"{i.evidence.query}": {i.evidence.impressions} impressions, {i.evidence.clicks} clicks, position {i.evidence.position}{i.evidence.range ? `, ${i.evidence.range}` : ""}.</p>}
+      {r && (
+        <div style={{ fontSize: F.xs, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.55 }}>
+          <span style={{ color: C.text, fontWeight: 700 }}>{VERDICT_LABEL[r.verdict] || r.verdict}. </span>{r.summary}
+          {r.coveredBy?.length > 0 && <div>Already covered by {r.coveredBy.map((c) => <a key={c.slug} href={`/blog/${c.slug}`} style={{ color: C.text }}>/blog/{c.slug}</a>)}: {r.coveredBy.map((c) => c.how).join(" ")}</div>}
+          {r.repeats?.length > 0 && <div>Repeats {r.repeats.map((x) => x.id).join(", ")}: {r.repeats.map((x) => x.how).join(" ")}</div>}
+          {r.listings?.length > 0 && <div>Rests on {r.listings.length} listings: {r.listings.map((id, k) => <React.Fragment key={id}>{k ? ", " : ""}<a href={`/tools/${id}`} style={{ color: C.text }}>{id}</a></React.Fragment>)}</div>}
+          {r.onlyHere && <div>Only here: {r.onlyHere}</div>}
+          {r.readFirst?.length > 0 && <div>Read first: {r.readFirst.join("; ")}</div>}
+          {r.reader && <div>Who searches: {r.reader}</div>}
+          {r.objections?.length > 0 && <div>Objections: {r.objections.join("; ")}</div>}
+          {r.dropped?.length > 0 && <div style={{ color: C.dim }}>Dropped from the answer: {r.dropped.join("; ")}</div>}
+          <div style={{ color: C.dim }}>Reviewed {String(r.at || "").slice(0, 10)}{r.provider ? ` by ${r.provider}` : ""}. Advisory.</div>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.xs }}>
+        <button type="button" style={btn} disabled={busy === "review-idea"} onClick={() => act("review-idea", { id: i.id })}>{r ? "Review again" : "Review as a post"}</button>
+        {drafts.length > 0 && (
+          <label style={{ fontSize: F.xs, color: C.muted }}>Draft it became{" "}
+            <select style={field} value={i.postSlug} onChange={(e) => act("link-post", { id: i.id, slug: e.target.value })}>
+              <option value="">none yet</option>
+              {drafts.map((d) => <option key={d.slug} value={d.slug}>{d.title}</option>)}
+            </select>
+          </label>
+        )}
+        {dropping
+          ? <>
+              <input style={{ ...field, minWidth: 220 }} placeholder="Why it is dropped" value={reason} onChange={(e) => setReason(e.target.value)} />
+              <button type="button" style={btn} disabled={reason.trim().length < 5} onClick={async () => { if (await act("drop-idea", { id: i.id, reason })) setDropping(false); }}>Drop it</button>
+              <button type="button" style={btn} onClick={() => setDropping(false)}>Cancel</button>
+            </>
+          : <button type="button" style={btn} onClick={() => setDropping(true)}>Drop</button>}
+      </div>
+    </div>
   );
 }

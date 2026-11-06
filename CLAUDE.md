@@ -2352,9 +2352,16 @@ there is no editor, no media library and no second publishing path.
   day, parsed and proved before anything is sent. The publish log and `[drafts]` record it, the
   target date is cleared, and the blog idea whose `postSlug` is that post is marked shipped by the
   commit. Adding a post means adding its import, its place in `ALL_POSTS` and its `POST_FILES` row.
-- **Blog ideas are the Ideas queue**, not a second one: `type: "blog"`, an optional `targetWeek`
-  (kept as its Monday), and `postSlug` once written. The two blog seeds were already written and are
-  closed as shipped with their posts.
+- **Blog ideas live on the Blog section, not in the general Ideas panel** (2026-11-06). They are
+  stored with the other ideas (`svt:ideas`), but `isBlogIdea` (typed `blog`, or an older idea filed
+  under the Blog surface) keeps them out of Write's Ideas panel and its count and shows them only
+  on Blog: an optional `targetWeek` (kept as its Monday), and `postSlug` for the draft it became,
+  which ships it when that draft is published. **A post is not a feature**, so it gets its own review
+  (`lib/postIdeaReview.js`): already covered by a published post or another idea, the listings it
+  rests on (checked against the catalogue), what only this directory can say, what to read before
+  writing, who searches for it, the objections, and write, doubtful or skip. No invariant checks and
+  no build size; the feature review refuses a blog idea. The two blog seeds were already written
+  and are closed as shipped with their posts.
 - **Search Console, weekly, built to expect nothing for weeks.** `lib/searchConsole.js` pulls the 28
   days ending three days ago (query, page, clicks, impressions, position) into `svt:searchqueries`,
   Tuesdays (`/api/cron/search`, with an admin Pull now), using a service account: `GSC_CLIENT_EMAIL`,

@@ -28,7 +28,7 @@ import { DEFAULT_SUBJECT, DEFAULT_BODY, PLACEHOLDERS, valuesFor, fill, unfilled 
 import { voiceIssues } from "@/lib/voice";
 import { ownershipLine } from "@/lib/owners";
 import { DEFAULT as ABOUT_DEFAULT, bodyOf, paragraphsOf, aboutIssues, inlineTokens, isAllowedHref, LINKS_MAX } from "@/lib/aboutText";
-import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash } from "@/lib/ideas";
+import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash, isBlogIdea } from "@/lib/ideas";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
 import { SCREENS, PRIMING, questionOf } from "@/lib/recommendOptions";
@@ -237,7 +237,7 @@ export default function AdminPanel({
     ].reduce((n, [kind, list]) => n + drafted(list).filter((e) => !holdMap[`${kind}:${e.id}`]).length, 0),
     details: published(ALL_TOOLS).filter((t) => !structured?.[t.id]?.confirmedAt || priceOverrides?.[t.id]?.priceAt > structured[t.id].confirmedAt).length,
     announcements: (announcements || []).filter((r) => r.status === "draft" || r.status === "ready").length,
-    ideas: (ideas || []).filter((r) => r.status === "new" || r.status === "reviewed").length,
+    ideas: (ideas || []).filter((r) => !isBlogIdea(r) && (r.status === "new" || r.status === "reviewed")).length,
   };
   const inboxCount = Object.values(waiting).reduce((a, b) => a + b, 0);
   /* Blog: comments to read and drafts whose target date has come. */
@@ -683,7 +683,8 @@ function Write({ announcements = [], subscribers = [], feed = [], about = null, 
       <AboutPage initial={about} photo={aboutPhoto} />
 
       <Reference>
-        <Ideas initial={ideas} />
+        {/* Blog ideas live on the Blog section (isBlogIdea). */}
+        <Ideas initial={ideas.filter((i) => !isBlogIdea(i))} />
         <Outreach initial={outreach} claims={claims} />
       </Reference>
     </>
@@ -2226,7 +2227,7 @@ function Ideas({ initial = [] }) {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
       if (!res.ok) { setErr(await res.text()); return false; }
-      setRows(sortIdeas((await res.json()).ideas || []));
+      setRows(sortIdeas(((await res.json()).ideas || []).filter((i) => !isBlogIdea(i))));
       return true;
     } catch { setErr("Could not reach the server."); return false; } finally { setBusy(""); }
   }
