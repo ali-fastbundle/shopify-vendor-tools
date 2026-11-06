@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { LEGACY_TABS, resolveAdminTab } from "@/lib/adminTabs";
 import { sessionFrom, isAdmin } from "@/lib/auth";
 import { read, readStats, readMailLog, readCapped, KEYS } from "@/lib/store";
-import { getClaims } from "@/lib/listings";
+import { getClaims, mergedTools } from "@/lib/listings";
 import { getSubscribers } from "@/lib/subscribers";
 import { C, S, F } from "@/lib/tools";
 import AdminPanel from "@/components/Admin";
@@ -119,6 +119,10 @@ export default async function AdminPage({ searchParams }) {
     }, empty: {} },
     { key: "structured", load: async () => (await import("@/lib/structuredStore")).getStructured(), empty: {} },
     { key: "ideas", load: async () => (await import("@/lib/ideaStore")).getIdeas(), empty: [] },
+    { key: "blogCalendar", load: async () => {
+      const [{ calendarData }, tools, discovery] = await Promise.all([import("@/lib/blogCalendar"), mergedTools(), getDiscovery()]);
+      return calendarData({ tools, discovery });
+    }, empty: null },
     { key: "editorUse", load: async () => (await import("@/lib/editorUseStore")).getEditorUse(), empty: {} },
     { key: "adminSeen", load: () => read(KEYS.adminSeen, {}), empty: {} },
     { key: "appliedChanges", load: () => read(KEYS.changesApplied, {}), empty: {} },

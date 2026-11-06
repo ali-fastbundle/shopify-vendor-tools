@@ -1,5 +1,6 @@
 "use client";
 
+import BlogCalendar from "@/components/BlogCalendar";
 import React, { useState, useEffect, useMemo, useContext, createContext } from "react";
 import { contextLine, revisionsOf } from "@/lib/feedSource";
 import { draftIssues, destinationsOf } from "@/lib/vendorNewsRules";
@@ -110,6 +111,7 @@ export default function AdminPanel({
   entries = {},
   editorUse = {},
   ideas = [],
+  blogCalendar = null,
   structured = {},
   priceOverrides = {},
   about = null,
@@ -401,6 +403,8 @@ export default function AdminPanel({
             ideas={ideas}
             outreach={outreach}
             claims={claims || {}}
+            blogCalendar={blogCalendar}
+            publishing={publishing}
           />
         )}
 
@@ -609,9 +613,10 @@ function Listings({ publishing = { canPublish: false, log: [] }, holds = {}, onH
  * list, the About page. Reference: the ideas backlog, and outreach while the
  * round runs (temporary, invariant 52).
  */
-function Write({ announcements = [], subscribers = [], feed = [], about = null, aboutPhoto = "", ideas = [], outreach = { contacts: {}, state: {}, meta: {} }, claims = {} }) {
+function Write({ announcements = [], subscribers = [], feed = [], about = null, aboutPhoto = "", ideas = [], outreach = { contacts: {}, state: {}, meta: {} }, claims = {}, blogCalendar = null, publishing = { canPublish: false, build: "" } }) {
   return (
     <>
+      {blogCalendar && <BlogCalendar initial={blogCalendar} build={publishing.build} canPublish={publishing.canPublish} />}
       <Announcements initial={announcements} />
       <Compose count={subscribers.length} feed={feed} />
       <AboutPage initial={about} photo={aboutPhoto} />

@@ -49,11 +49,12 @@ export async function POST(request) {
     return new Response("Too many admin actions this hour.", { status: 429 });
   }
   if (body.action === "add") {
-    return done(await addIdea({ text: body.text, surface: body.surface, size: body.size }, session.email));
+    return done(await addIdea({ text: body.text, surface: body.surface, size: body.size, type: body.type, targetWeek: body.targetWeek }, session.email));
   }
   if (body.action === "update") {
     return done(await updateIdea(id, {
       text: body.text, surface: body.surface, size: body.size, status: body.status, reason: body.reason,
+      type: body.type, targetWeek: body.targetWeek, postSlug: body.postSlug,
     }, session.email));
   }
   if (body.action === "commit") {

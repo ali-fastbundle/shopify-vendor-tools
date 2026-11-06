@@ -2312,6 +2312,42 @@ series is told apart by its step, a direct label and the "Show the numbers" tabl
 chart states only figures the post states or that the catalogue or git history holds, and says
 where they came from. No image file of a chart: a static SVG does not follow the theme.
 
+**The blog calendar** (2026-11-06, on the Write tab of /admin, `components/BlogCalendar.jsx`,
+`lib/blogCalendar.js`, `app/api/admin/blog`). Not a CMS: posts stay data files in `lib/posts`, and
+there is no editor, no media library and no second publishing path.
+
+- **A month view**: published posts on their dates, drafted posts on their target dates, blog ideas
+  on the Monday of their target week, and the ideas with no date beside it. Drag a draft or an idea
+  to another day; every item also takes a date in a field, for anyone who cannot drag.
+- **A target date is a plan, never a trigger.** It lives in `svt:blog:schedule` (admin state, like a
+  hold) and nothing reads it to publish. A post stays `draft: true` in its file until the editor
+  presses Publish twice on the day: `postReadiness` in `lib/blog.js` (title, a 50 to 200 character
+  description, three blocks or more, no em dash, every link resolving) and then
+  `commitPostPublish` in `lib/publish.js`, the same GitHub path as a catalogue draft, editing the
+  post's own file (`POST_FILES` maps each slug to it): `draft: true` removed and `date` set to the
+  day, parsed and proved before anything is sent. The publish log and `[drafts]` record it, the
+  target date is cleared, and the blog idea whose `postSlug` is that post is marked shipped by the
+  commit. Adding a post means adding its import, its place in `ALL_POSTS` and its `POST_FILES` row.
+- **Blog ideas are the Ideas queue**, not a second one: `type: "blog"`, an optional `targetWeek`
+  (kept as its Monday), and `postSlug` once written. The two blog seeds were already written and are
+  closed as shipped with their posts.
+- **Search Console, weekly, built to expect nothing for weeks.** `lib/searchConsole.js` pulls the 28
+  days ending three days ago (query, page, clicks, impressions, position) into `svt:searchqueries`,
+  Tuesdays (`/api/cron/search`, with an admin Pull now), using a service account: `GSC_CLIENT_EMAIL`,
+  `GSC_PRIVATE_KEY`, `GSC_SITE`, with the account added as a user on the property. Unset, the page
+  says so. `lib/searchOpportunities.js` folds the rows per query and finds three groups: shown and
+  never clicked, average position 5 to 20, and shown with no page here about it (the site's own
+  search, every word). **Thin is a state, said in numbers**: under 1,000 impressions or 10 queries
+  of 20 or more, the page says so and the AI step refuses. The page always opens with how little
+  there is: the launch date, the first pull, and how many pages are noindexed until their
+  structured data is confirmed, computed by the same rule the compare and alternatives pages use.
+- **The AI step proposes, the editor decides.** `lib/searchIdeas.js` hands the model the groups
+  with `VOICE_RULES`; a query it names that is not in them is dropped, and the numbers on each idea
+  are attached in code from the data. Each proposal lands in the Ideas queue as a blog idea with
+  `source: "search-console"` and its `evidence`, never as a post. A query is not proposed twice.
+
+`scripts/blog-calendar-test.mjs`.
+
 **Posts take likes and comments through `components/Engagement.jsx`** (`kind="post"`), keyed
 `post:<slug>`. `isVotableId` admits that key for `/api/vote`; `isListedId` does not, so a post
 can never be reviewed, reported or claimed. Comments (`lib/comments.js`, `svt:comments`) need an
@@ -2883,6 +2919,8 @@ and the server HTML.
 | `lib/notice.js` | The one-screen page answered to a link clicked in an email |
 | `lib/blog.js` `lib/posts/` | Posts as data, the inline link and unverified marks, and the page, RSS and text renderings |
 | `components/JsonLd.jsx` | The one way a page emits structured data: adds the site, organization and author nodes (`withSiteNodes` in `lib/seo.js`, ids from `IDS`) so no page refers to a node it does not define, and escapes `<`. validate-jsonld checks every page type |
+| `lib/blogCalendar.js` `lib/blogSchedule.js` `components/BlogCalendar.jsx` `app/api/admin/blog` | The blog calendar on /admin: posts, drafts with target dates, blog ideas by week, and publishing a post through the GitHub path |
+| `lib/searchConsole.js` `lib/searchOpportunities.js` `lib/searchIdeas.js` `app/api/cron/search` | The weekly Search Console pull, the three groups and the thin-data rule (pure), and post ideas proposed from them |
 | `components/Blog.jsx` `app/blog` | The blog index, a post, and `/blog/rss`. Server-rendered, no client state |
 | `lib/recommend.js` `lib/recommendOptions.js` `lib/recommendDraft.js` | The growth recommender: candidates, prompt, validation, fallback, cost, runs; the questions, choices and answer shape (client-safe); and saved progress per account |
 | `lib/recommendFeedback.js` | Thumbs and lines per pick, did-this-help per run, each with its run; the misfit signal |
@@ -3939,6 +3977,7 @@ node scripts/events-digest-test.mjs  # the monthly events digest and the event r
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/slop-scan.mjs --summary # AI patterns in every public string; read any new hit before committing
 node scripts/updates-link-test.mjs   # a listing links its What's moving entries in one line and never contains them
+node scripts/blog-calendar-test.mjs  # posts publish through the GitHub path on a press, never by date; ideas take weeks; thin search data is refused
 node scripts/privacy-test.mjs        # /privacy names every browser key; one cookie; no IP stored; stat lists fixed
 node scripts/shipping-test.mjs       # recommender feedback, blog comments, the announcement queue
 node scripts/recommend-test.mjs      # the flow's questions, drafts, drivers, cost, nothing-fits, no address kept
