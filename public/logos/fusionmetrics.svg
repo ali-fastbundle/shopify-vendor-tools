@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512px" height="512px" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Artboard</title>
+    <g id="Artboard" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <circle id="Oval" fill="#036C41" cx="256" cy="256" r="256"></circle>
+        <ellipse id="Oval" fill="#FFC96B" cx="256.5" cy="203" rx="107.5" ry="108"></ellipse>
+        <ellipse id="Oval" fill="#93E6B4" cx="256.5" cy="310" rx="107.5" ry="108"></ellipse>
+        <path d="M256.5,202 C296.290175,202 331.031155,223.718724 349.618412,255.999996 C331.03044,288.281722 296.289766,310 256.5,310 C216.709825,310 181.968845,288.281276 163.381588,256.000004 C181.96956,223.718278 216.710234,202 256.5,202 Z" id="Combined-Shape" fill="#FFFFFF" style="mix-blend-mode: lighten;"></path>
+    </g>
+</svg>

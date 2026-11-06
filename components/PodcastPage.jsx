@@ -77,6 +77,10 @@ export default function PodcastPage({ podcast: p, related, reviews = [], owner =
         }}>
           <div style={{ height: 3, background: C.edge }} />
           <div style={{ padding: S["2xl"] }}>
+            <div className="flex" style={{ gap: S.lg, alignItems: "flex-start" }}>
+            {p.artwork && <img src={p.artwork} alt={`${p.name} cover art`} width={140} height={140} decoding="async"
+              style={{ width: 140, height: 140, borderRadius: R.card, flexShrink: 0, objectFit: "cover", border: `1px solid ${C.line}` }} />}
+            <div style={{ minWidth: 0, flex: 1 }}>
             <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
               <h1 style={{ fontSize: F["2xl"], fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter }}>
                 {p.name}
@@ -88,6 +92,8 @@ export default function PodcastPage({ podcast: p, related, reviews = [], owner =
                 : p.forAppBuilders ? "Made for app builders"
                 : "For merchants and DTC brands, heard sideways"}
             </p>
+            </div>
+            </div>
 
             <p style={{ fontSize: F.lg, lineHeight: 1.55, margin: `${S.lg}px 0 0`, color: C.text }}>
               {p.one}

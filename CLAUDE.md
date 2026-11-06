@@ -3608,6 +3608,27 @@ Take the file from the vendor's own site, the same standard as `social` — a lo
 from somewhere else is a guess about what their mark is. Name it after the tool `id`
 and keep the extension the vendor's file actually is.
 
+**Collecting marks, and the other pictures on a listing** (2026-11-06, Ali asked for more graphic
+material on listings). `node scripts/collect-logos.mjs` reads each tool's own homepage and keeps the
+best icon it declares (apple-touch-icon, a sized icon link, the manifest, its own JSON-LD logo),
+only square and at least 64px, as `public/logos/<id>.png`; `--kind newsletter` and `--kind
+community` do the same into `public/logos/newsletters/` and `communities/`, skipping LinkedIn and
+Facebook pages, whose icon is the platform's. It skips a domain shared by two listings (the mark
+would be the parent's), and every result is looked at on a contact sheet before `logo:` is added:
+a declared "logo" can be a screenshot or the parent company's mark (TechLeads, ShoperSpy and
+ShopifyRaise were dropped for that), and a wide wordmark is unreadable in a 34px tile.
+
+- **Homepage screenshots** (`scripts/capture-screens.mjs`, `lib/toolScreens.js`,
+  `components/ToolScreen.jsx`): the top 1280x800 of each tool's own page, WebP in
+  `public/screens/`, shown on the tool page and in the listing modal (never the card, rule J) as
+  "<host> on <date>, captured by the directory. The site may have changed since." Cookie banners
+  and pop-ups are hidden with CSS, never clicked; a page behind a challenge or a banner the script
+  cannot hide gets no screenshot. They are ours, dated, and not vendor media (invariant 51). Rerun
+  the script to refresh.
+- **Podcast cover art** is the show's own `itunes:image`, resized into `public/podcasts/<id>.jpg`
+  and set as `artwork`, on the podcast cards and pages.
+- Everything is committed to the repository and served from this site, never hotlinked.
+
 ## Social profiles
 
 **The networks are declared once**, as `SOCIALS` in `lib/tools.js`: key, label and

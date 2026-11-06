@@ -76,9 +76,13 @@ export default function CommunityPage({ community: c, related, reviews = [], own
         }}>
           <div style={{ height: 3, background: C.edge }} />
           <div style={{ padding: S["2xl"] }}>
-            <h1 style={{ fontSize: F["2xl"], fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter }}>
-              {c.name}
-            </h1>
+            <div className="flex items-center" style={{ gap: S.md }}>
+              {c.logo && <img src={c.logo} alt={`${c.name} logo`} width={46} height={46} decoding="async"
+                style={{ width: 46, height: 46, borderRadius: R.card, flexShrink: 0, background: C.logoTile, objectFit: "contain", padding: S.xs, border: `1px solid ${C.line}` }} />}
+              <h1 style={{ fontSize: F["2xl"], fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter }}>
+                {c.name}
+              </h1>
+            </div>
             <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>
               {c.forBuilders ? "For people who build on Shopify" : "For merchants, read sideways"}
             </p>

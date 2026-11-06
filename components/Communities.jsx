@@ -32,10 +32,14 @@ function Card({ c }) {
         background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
         padding: S.lg, marginTop: S.md,
       }}>
-      <a href={`/communities/${c.id}`} className="card-link"
-        style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none", letterSpacing: TRACK.tight }}>
-        {c.name}
-      </a>
+      <div className="flex items-center" style={{ gap: S.sm }}>
+        {c.logo && <img src={c.logo} alt="" width={32} height={32} loading="lazy" decoding="async"
+          style={{ width: 32, height: 32, borderRadius: R.card, flexShrink: 0, background: C.logoTile, objectFit: "contain", padding: 4, border: `1px solid ${C.line}` }} />}
+        <a href={`/communities/${c.id}`} className="card-link"
+          style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none", letterSpacing: TRACK.tight }}>
+          {c.name}
+        </a>
+      </div>
       <Signal c={c} />
       {c.organisers && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>run by {c.organisers}</p>}
       <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>

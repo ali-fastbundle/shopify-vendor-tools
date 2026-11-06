@@ -18,6 +18,7 @@ import StructuredDetails from "./StructuredDetails";
 import { toQuery, passes } from "@/lib/directoryFilters";
 import QA from "./QA";
 import VendorMedia from "./VendorMedia";
+import ToolScreen from "./ToolScreen";
 import SaveToList from "./SaveToList";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { launchLabel, launchKey, launchCell, launchedWithinYear } from "@/lib/launched";
@@ -1508,6 +1509,7 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
         )}
 
         <StructuredDetails tool={tool} />
+        <ToolScreen tool={tool} />
         <VendorMedia tool={tool} />
 
         {tool.ratings?.length > 0 && (

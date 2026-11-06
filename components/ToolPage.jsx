@@ -18,6 +18,7 @@ import { OwnerFact, AlsoFrom } from "@/components/OwnerLine";
 import StructuredDetails from "@/components/StructuredDetails";
 import QA from "@/components/QA";
 import VendorMedia from "@/components/VendorMedia";
+import ToolScreen from "@/components/ToolScreen";
 import WatchEditor from "@/components/WatchEditor";
 import SaveToList from "@/components/SaveToList";
 import EditorUseControl from "@/components/EditorUseControl";
@@ -322,6 +323,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
               </p>
             )}
 
+            <ToolScreen tool={tool} />
             <StructuredDetails tool={tool} />
             <VendorMedia tool={tool} />
 
@@ -442,6 +444,8 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             <ul style={{ listStyle: "none", padding: 0, margin: `${S.md}px 0 0` }}>
               {related.map(({ tool: t, why }) => (
                 <li key={t.id} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.md}px 0` }}>
+                  {t.logo && <img src={t.logo} alt="" width={20} height={20} loading="lazy" decoding="async"
+                    style={{ width: 20, height: 20, borderRadius: 4, background: C.logoTile, objectFit: "contain", verticalAlign: "-4px", marginRight: S.sm }} />}
                   <a href={`/tools/${t.id}`} style={{ color: C.text, fontWeight: 700, fontSize: F.md, textDecoration: "none" }}>
                     {t.name}
                   </a>

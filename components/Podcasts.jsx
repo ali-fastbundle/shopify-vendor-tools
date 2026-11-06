@@ -54,6 +54,11 @@ function Card({ p }) {
         background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card,
         padding: S.lg, marginTop: S.md,
       }}>
+      <div className="flex" style={{ gap: S.md }}>
+      {/* The show's own cover art, from its feed (lib/podcasts.js). */}
+      {p.artwork && <img src={p.artwork} alt="" width={64} height={64} loading="lazy" decoding="async"
+        style={{ width: 64, height: 64, borderRadius: R.control, flexShrink: 0, objectFit: "cover", border: `1px solid ${C.line}` }} />}
+      <div style={{ minWidth: 0, flex: 1 }}>
       <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
         <a href={`/podcasts/${p.id}`} className="card-link"
           style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none", letterSpacing: TRACK.tight }}>
@@ -69,6 +74,8 @@ function Card({ p }) {
       <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, margin: `${S.xs}px 0 0`  }}>
         <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{p.watch}
       </p>
+      </div>
+      </div>
       <div className="flex flex-wrap items-center justify-between"
         style={{ gap: S.sm, borderTop: `1px solid ${C.line}`, marginTop: S.md, paddingTop: S.md }}>
         <CardVotes id={p.id} noun="podcast" />
