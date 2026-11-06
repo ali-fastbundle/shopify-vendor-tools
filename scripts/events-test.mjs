@@ -101,7 +101,7 @@ ok(plan.strip.length === 12 && plan.strip[0].month === "2026-10", "twelve months
 ok(plan.strip.every((m) => typeof m.unconfirmed === "number"), "unconfirmed counted apart");
 const sep = plan.strip.find((m) => m.month === "2027-09");
 ok(plan.strip[0].count === 6, "Oct 2026 counts DTC Dines, the Nexfal meetup, Shopify Meetup Dublin, Flight Club, the Shopify Partner Meetup and E-commerce Warsaw Expo");
-ok(sep.count === 3 && sep.unconfirmed === 2, "Sep 2027: three dated, two not confirmed", JSON.stringify(sep));
+ok(sep.count === 4 && sep.unconfirmed === 1, "Sep 2027: four dated, one not confirmed (Merchant Inspiration Talks confirmed 2026-11-06)", JSON.stringify(sep));
 
 console.log(bad ? `\n${bad} failed` : "\nall passed");
 process.exit(bad ? 1 : 0);

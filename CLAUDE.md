@@ -610,6 +610,22 @@ There is still no /mentions page: the rate has not changed.
 
 `scripts/mentions-test.mjs`.
 
+**59. A fact a field holds is rendered from the field, never restated in a sentence (2026-11-06).**
+`LAST_UPDATED` and the price line already work this way. An event's date line, "Not
+confirmed" and "Date not confirmed. Last held ..., so placed around ..." come from
+`placeEvent` at render. A newsletter's or podcast's cadence, count and first issue are its
+facts line. So prose does not repeat them: "44 issues since November 2025, weekly" and "541
+episodes since April 2021" were cut from the notes (DTC's note had already drifted, "over
+1,150 issues" against 1,170). What has to stay prose (a caveat, a summary, a measured share
+such as "89 of the 292 episodes") stays, and `lib/staleText.js` flags it on Listings, "Text
+that no longer matches its field", with the sentence highlighted, when it disagrees with the
+field it restates: an event caveat about an unconfirmed date once the date is exact, a run
+count or a cadence that is not the field's, "no feed" with a feed, a named tier at a price the
+confirmed tier is not. **It flags and never edits**: the caveat stays protected (invariant 1),
+and the fix is a hand edit or, for an event finding, the rewrite with a reason. An event
+finding shows the same flags for the event as Apply would leave it. The flags count towards
+Listings. `scripts/stale-text-test.mjs`.
+
 **15. Every tool carries an `updated` date, and the site date is derived from it.**
 Adding a tool or editing one means setting its `updated` to that day's date, in
 `YYYY-MM-DD`. `LAST_UPDATED` is the newest `updated` across the catalogue, computed in
@@ -4044,6 +4060,7 @@ node scripts/follow-test.mjs         # double opt-in, detection, one digest per 
 node scripts/event-schema-test.mjs   # Event schema: organizer only with a URL, performers and offers only from recorded facts, a card per event
 node scripts/feed-discovery-test.mjs # feeds: found three ways, active within a year or stale, hand values kept, a feed beats the diff
 node scripts/mentions-test.mjs       # mentions: domain only, never a name, never a post body, vendor and repeat accounts marked, removal reasons
+node scripts/stale-text-test.mjs     # derived date lines; prose that restates a field is flagged, never edited
 node scripts/event-actions-test.mjs  # event findings: apply as a commit, rewrite, publish, resolve once, mark wrong, undo
 node scripts/events-digest-test.mjs  # the monthly events digest and the event refresh: regions, chase, once a month, blocked not dead, verification
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first

@@ -14,6 +14,8 @@ import { ALL_YOUTUBE } from "@/lib/youtube";
 import { ALL_AWARDS } from "@/lib/awards";
 import { ALL_EVENTS } from "@/lib/events";
 import { eventEdit, expectOf } from "@/lib/eventEdits";
+import { eventFlags, around } from "@/lib/staleText";
+import { placed as placeEvents } from "@/lib/events";
 import { eventAccuracy } from "@/lib/eventAccuracy";
 import { drafted, published, readiness } from "@/lib/drafts";
 import { timesAsked, findDiscarded, normaliseDomain } from "@/lib/suggestions";
@@ -100,6 +102,7 @@ export default function AdminPanel({
   recommend = { runs: [], summary: null },
   askLog = [],
   eventFindings = [],
+  staleText = [],
   mentions = [],
   mentionSources = { lastRunAt: "", sources: {} },
   eventCoverage = [],
@@ -248,7 +251,7 @@ export default function AdminPanel({
   const counts = {
     inbox: inboxCount,
     updates: openChanges.length + openNews.length,
-    listings: backlog.drafts + backlog.details,
+    listings: backlog.drafts + backlog.details + staleText.length,
     blog: unreadComments.length + draftsDue,
     write: backlog.announcements,
     audience: 0,
@@ -406,6 +409,7 @@ export default function AdminPanel({
 
         {tab === "listings" && (
           <Listings
+            staleText={staleText}
             publishing={publishing}
             holds={holdMap}
             onHolds={setHoldMap}
@@ -607,11 +611,12 @@ function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims 
  * held, live but unverified, editor use, entries published from the queue,
  * vendor media, and the competitors vendors name that are not listed.
  */
-function Listings({ publishing = { canPublish: false, log: [] }, holds = {}, onHolds, structured = {}, priceOverrides = {}, entries = {}, onEntries, onSuggestions, editorUse = {}, mediaLive = {}, discovery = { findings: [] }, act, busy }) {
+function Listings({ staleText = [], publishing = { canPublish: false, log: [] }, holds = {}, onHolds, structured = {}, priceOverrides = {}, entries = {}, onEntries, onSuggestions, editorUse = {}, mediaLive = {}, discovery = { findings: [] }, act, busy }) {
   return (
     <>
       <Drafts publishing={publishing} holds={holds} onHolds={onHolds} part="work" />
       <StructuredData initial={structured} priceOverrides={priceOverrides} />
+      <StaleText rows={staleText} />
 
       <Reference>
         <Drafts publishing={publishing} holds={holds} onHolds={onHolds} part="held" />
@@ -632,6 +637,35 @@ function Listings({ publishing = { canPublish: false, log: [] }, holds = {}, onH
         <Discovered discovery={discovery} onSuggestions={onSuggestions} onEntries={onEntries} />
       </Reference>
     </>
+  );
+}
+
+/*
+ * Sentences that restate a field and no longer agree with it
+ * (lib/staleText.js). Flagged, never edited: a caveat or a summary is
+ * editorial, so the fix is a hand edit, and the flag clears itself once the
+ * sentence and the field agree again.
+ */
+const KIND_PAGE = { tool: "tools", event: "events", newsletter: "newsletters", podcast: "podcasts" };
+function StaleSentence({ text, sentence }) {
+  const [a, b, c] = around(text, sentence);
+  return (
+    <span style={{ display: "block", color: C.muted, lineHeight: 1.6 }}>
+      {a}<mark style={{ background: C.subtle, color: C.text, borderRadius: 3, padding: "0 2px", boxShadow: `inset 0 -2px 0 ${C.warnInk}` }}>{b}</mark>{c}
+    </span>
+  );
+}
+
+function StaleText({ rows = [] }) {
+  return (
+    <WorkList rows={rows.length} title="Text that no longer matches its field" count={rows.length} anchor="stale-text"
+      hint="A sentence in a listing that restates a field (an event's date, a run's count or cadence, a confirmed tier's price) and now disagrees with it. Nothing here edits anything: the caveat and the summary are editorial. Edit the sentence in its catalogue file and the flag goes on its own.">
+      {rows.length === 0 ? <Empty>Every sentence that restates a field agrees with it.</Empty> : rows.map((f, i) => (
+        <Row key={`${f.kind}:${f.id}:${f.field}:${i}`} title={f.name} tag={`${f.kind} · ${f.field}`} tagColor={C.warnInk}
+          body={<><b style={{ fontSize: F.xs, color: C.warnInk }}>{f.why}</b><StaleSentence text={f.text} sentence={f.sentence} /></>}
+          meta={<>restates {f.restates} · <a href={`/${KIND_PAGE[f.kind]}/${f.id}`} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>the listing</a></>} />
+      ))}
+    </WorkList>
   );
 }
 
@@ -1665,6 +1699,8 @@ function EventFindingRow({ f, act, busy }) {
   const shown = (v) => (v === "" || v === null || v === undefined ? "absent" : String(v));
   const quiet = { fontSize: F.xs, color: C.muted, whiteSpace: "nowrap", textDecoration: "underline" };
   const acted = f.applied || f.rewritten || f.published;
+  /* The event as it will be once the edit is in (or is, once applied). */
+  const after = event ? eventFlags(placeEvents([{ ...event, ...(ed.state === "appliable" && !f.applied ? Object.fromEntries(Object.entries(ed.set).map(([k, v]) => [k, v === null ? undefined : v])) : {}), ...(f.rewritten?.saved || {}) }])[0]) : [];
 
   async function startDraft() {
     setWriting(true); setErr(""); setDrafting(true); setMeta(null);
@@ -1696,9 +1732,20 @@ function EventFindingRow({ f, act, busy }) {
                 </span>
               ))}
             </p>
-            {ed.notes.map((n) => <p key={n} style={{ fontSize: F.xs, color: C.warnInk, margin: "6px 0 0", lineHeight: 1.5 }}>{n}</p>)}
+            {ed.notes.filter((n) => !/caveat still talks/.test(n)).map((n) => <p key={n} style={{ fontSize: F.xs, color: C.warnInk, margin: "6px 0 0", lineHeight: 1.5 }}>{n}</p>)}
           </div>
         )}
+        {/* What the date would leave behind: sentences that state the old
+            state, highlighted. A flag for a hand edit or the rewrite, never
+            an automatic change. */}
+        {after.map((x, i) => (
+          <div key={i} style={{ ...box, borderColor: C.warnInk }}>
+            <p style={{ fontSize: F.xs, color: C.warnInk, margin: "0 0 4px", fontWeight: 700 }}>
+              {f.applied ? "Still says the old date state" : "Will still say the old date state"} in {x.field}. Edit it by hand, or Rewrite with AI with a reason.
+            </p>
+            <StaleSentence text={x.text} sentence={x.sentence} />
+          </div>
+        ))}
         {!f.applied && ed.state !== "appliable" && (
           <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.sm}px 0 0`, lineHeight: 1.55 }}>
             Not one field: {ed.why} It may still be worth publishing or a rewrite.

@@ -165,6 +165,15 @@ export default async function AdminPage({ searchParams }) {
       const r = await (await import("@/lib/eventRefresh")).getEventRefresh();
       return { lastRunAt: r.lastRunAt || "", lastChecked: r.lastChecked || 0, total: r.total || 0 };
     }, empty: {} },
+    /* Stored sentences that restate a field and no longer agree with it
+       (lib/staleText.js): flagged on Listings, never edited. */
+    { key: "staleText", load: async () => {
+      const L = await import("@/lib/listings");
+      const [{ staleFlags }, { placed }, tools, newsletters, podcasts, events] = await Promise.all([
+        import("@/lib/staleText"), import("@/lib/events"), L.mergedTools(), L.mergedNewsletters(), L.mergedPodcasts(), L.mergedEvents(),
+      ]);
+      return staleFlags({ tools, newsletters, podcasts, events: placed(events) });
+    }, empty: [] },
     { key: "eventCoverage", load: async () => {
       const m = await import("@/lib/eventRefresh");
       return m.coverageOf((await import("@/lib/events")).EVENTS, await m.getEventRefresh());
