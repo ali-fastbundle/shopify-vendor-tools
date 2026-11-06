@@ -33,7 +33,8 @@ import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
 import { SCREENS, PRIMING, questionOf } from "@/lib/recommendOptions";
 import { STAT_SECTIONS } from "@/lib/beacon";
-import { ADMIN_TABS, resolveAdminTab } from "@/lib/adminTabs";
+import { ADMIN_TABS, ADMIN_NAV, TAB_PURPOSE, resolveAdminTab } from "@/lib/adminTabs";
+import { Tray, ArrowsClockwise, ListBullets, Article, PencilSimpleLine, UsersThree, GearSix, ArrowLeft } from "@phosphor-icons/react";
 
 /*
  * Admin console.
@@ -72,6 +73,8 @@ import { ADMIN_TABS, resolveAdminTab } from "@/lib/adminTabs";
 /* The tabs, and the map from the ten this replaced, live in lib/adminTabs.js:
    the server page reads them too, to redirect an old ?tab= to its panel. */
 const TABS = ADMIN_TABS;
+const TAB_LABEL = Object.fromEntries(ADMIN_TABS);
+const TAB_ICON = { inbox: Tray, updates: ArrowsClockwise, listings: ListBullets, blog: Article, write: PencilSimpleLine, audience: UsersThree, system: GearSix };
 
 /*
  * Every collection defaults to empty right here, in the signature.
@@ -220,7 +223,6 @@ export default function AdminPanel({
     suggestions: pending.length,
     reports: openReports.length,
     claims: pendingClaims.length,
-    comments: unreadComments.length,
     questions: unreadQuestions.length,
     lists: unreadLists.length,
     media: pendingMedia.length,
@@ -238,10 +240,14 @@ export default function AdminPanel({
     ideas: (ideas || []).filter((r) => r.status === "new" || r.status === "reviewed").length,
   };
   const inboxCount = Object.values(waiting).reduce((a, b) => a + b, 0);
+  /* Blog: comments to read and drafts whose target date has come. */
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const draftsDue = (blogCalendar?.posts || []).filter((p) => p.draft && p.target && p.target <= todayIso).length;
   const counts = {
     inbox: inboxCount,
     updates: openChanges.length + openNews.length,
     listings: backlog.drafts + backlog.details,
+    blog: unreadComments.length + draftsDue,
     write: backlog.announcements,
     audience: 0,
     system: 0,
@@ -301,46 +307,65 @@ export default function AdminPanel({
   return (
     <StandingDiscards.Provider value={discards.filter((d) => d.standing)}>
     <main style={{ background: C.bg, color: C.text, minHeight: "100vh" }}>
-      <div className="mx-auto px-5" style={{ maxWidth: 1140 }}>
-        <header className="pt-8" style={{ paddingBottom: S.lg }}>
-          <div className="flex flex-wrap items-baseline justify-between" style={{ gap: S.md }}>
-            <h1 style={{ fontSize: F.display, fontWeight: 800, letterSpacing: TRACK.tighter, margin: 0 }}>Admin</h1>
-            <div className="flex flex-wrap items-center" style={{ gap: S.md }}>
-              <span style={{ fontSize: F.sm, color: C.dim }}>
-                {email} · <a href="/" style={{ color: C.muted }}>back to the directory</a>
-              </span>
+      <div className="admin-shell">
+        {/* The sidebar: the sections in their groups, each with what needs
+            you there, and the account and the way back at its foot. */}
+        <aside className="admin-side" aria-label="Admin sections">
+          <div style={{ padding: `${S.lg}px ${S.lg}px ${S.md}px` }}>
+            <a href="/admin" style={{ color: C.text, textDecoration: "none", fontWeight: 800, fontSize: F.lg, letterSpacing: TRACK.tight }}>watchfor.tools</a>
+            <div style={{ fontSize: F.xs, color: C.dim, marginTop: 2 }}>Admin console</div>
+          </div>
+          <nav style={{ padding: `0 ${S.sm}px` }}>
+            {ADMIN_NAV.map(({ group, items }) => (
+              <div key={group} style={{ marginTop: S.md }}>
+                <div style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, padding: `0 ${S.sm}px ${S.xs}px` }}>{group}</div>
+                {items.map((id) => {
+                  const label = TAB_LABEL[id];
+                  const Icon = TAB_ICON[id];
+                  const on = tab === id;
+                  const n = counts[id];
+                  return (
+                    <button key={id} onClick={() => go(id)} aria-current={on ? "page" : undefined} className="admin-nav-item"
+                      style={{
+                        display: "flex", alignItems: "center", gap: S.sm, width: "100%", textAlign: "left",
+                        background: on ? C.subtle : "transparent", border: 0, borderRadius: R.control,
+                        padding: "7px 8px", cursor: "pointer", fontFamily: "inherit", fontSize: F.sm,
+                        fontWeight: on ? 700 : 400, color: on ? C.text : C.muted,
+                        boxShadow: on ? `inset 2px 0 0 ${C.accent}` : "none",
+                      }}>
+                      <Icon size={16} weight={on ? "fill" : "regular"} aria-hidden="true" />
+                      <span style={{ flex: 1 }}>{label}</span>
+                      {n > 0 && (
+                        <span className="tnum" style={{
+                          fontSize: F.xs, fontWeight: 700, minWidth: 20, textAlign: "center", borderRadius: 999, padding: "0 6px",
+                          background: (id === "inbox" || id === "updates") ? C.accent : C.subtle,
+                          color: (id === "inbox" || id === "updates") ? C.onAccent : C.muted,
+                        }}>{n}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </nav>
+          <div className="admin-side-foot" style={{ padding: S.lg, borderTop: `1px solid ${C.line}`, marginTop: S.xl }}>
+            <div style={{ fontSize: F.xs, color: C.dim }}>Signed in as</div>
+            <div style={{ fontSize: F.sm, color: C.text, overflowWrap: "anywhere" }}>{email}</div>
+            <div className="flex items-center justify-between" style={{ marginTop: S.sm, gap: S.sm }}>
+              <a href="/" className="inline-flex items-center" style={{ fontSize: F.sm, color: C.muted, gap: 4 }}><ArrowLeft size={14} aria-hidden="true" />The directory</a>
               <ThemeToggle />
             </div>
           </div>
+        </aside>
+
+        <div className="admin-main">
+        <header style={{ paddingBottom: S.lg, marginBottom: S.xl, borderBottom: `1px solid ${C.line}` }}>
+          <h1 style={{ fontSize: F["2xl"], fontWeight: 700, letterSpacing: TRACK.tighter, margin: 0 }}>{TAB_LABEL[tab]}</h1>
+          <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>{TAB_PURPOSE[tab]}</p>
           {err && (
-            <p className="mt-3" style={{ fontSize: F.sm, color: C.badInk, margin: "12px 0 0" }}>{err}</p>
+            <p style={{ fontSize: F.sm, color: C.badInk, margin: "12px 0 0" }}>{err}</p>
           )}
         </header>
-
-        <nav className="flex flex-wrap" style={{
-          gap: S.xs, borderBottom: `1px solid ${C.line}`, marginBottom: S["2xl"],
-        }}>
-          {TABS.map(([id, label]) => {
-            const on = tab === id;
-            const n = counts[id];
-            return (
-              <button key={id} onClick={() => go(id)} aria-current={on ? "page" : undefined}
-                style={{
-                  background: "none", border: 0, borderBottom: `2px solid ${on ? C.accent : "transparent"}`,
-                  padding: "8px 14px", marginBottom: -1, cursor: "pointer", fontFamily: "inherit",
-                  fontSize: F.md, fontWeight: on ? 700 : 500, color: on ? C.text : C.muted,
-                }}>
-                {label}
-                {n > 0 && (
-                  <span className="tnum" style={{
-                    marginLeft: S.sm, fontSize: F.xs, fontWeight: 700,
-                    color: (id === "inbox" || id === "updates") && n > 0 ? C.accentInk : C.dim,
-                  }}>{n}</span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
 
         {tab === "inbox" && (
           <Inbox
@@ -393,6 +418,10 @@ export default function AdminPanel({
           />
         )}
 
+        {tab === "blog" && (
+          <Blog calendar={blogCalendar} publishing={publishing} comments={commentRows} act={act} busy={busy} />
+        )}
+
         {tab === "write" && (
           <Write
             announcements={announcements}
@@ -428,6 +457,7 @@ export default function AdminPanel({
         )}
 
         <div style={{ height: 60 }} />
+        </div>
       </div>
     </main>
     </StandingDiscards.Provider>
@@ -450,7 +480,6 @@ const WAITING_LABEL = {
   suggestions: ["suggestion", "suggestions", "q-suggestions"],
   reports: ["report", "reports", "q-reports"],
   claims: ["claim to check", "claims to check", "q-claims"],
-  comments: ["comment", "comments", "q-comments"],
   questions: ["question", "questions", "q-questions"],
   lists: ["list published", "lists published", "q-lists"],
   media: ["media set", "media sets", "q-media"],
@@ -459,7 +488,7 @@ const WAITING_LABEL = {
   mentions: ["mention to read", "mentions to read", "q-mentions"],
 };
 
-function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
+function Summary({ waiting = {}, backlog = {}, findings = 0, blogComments = 0, onTab }) {
   const parts = Object.entries(waiting).filter(([, n]) => n > 0);
   const link = { color: C.text, fontWeight: 700, textDecoration: "underline", textUnderlineOffset: 3 };
   const tabLink = (label, id) => (
@@ -476,7 +505,7 @@ function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
   return (
     <section data-summary="" style={{ paddingBottom: S["2xl"] }}>
       <p style={{ fontSize: F.lg, margin: 0, lineHeight: 1.7 }}>
-        {parts.length || findings
+        {parts.length || findings || blogComments
           ? <>
               <span style={{ fontWeight: 700 }}>Waiting on you: </span>
               {parts.map(([key, count], i) => {
@@ -484,6 +513,7 @@ function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
                 return <React.Fragment key={key}>{i ? ", " : ""}<a href={`#${anchor}`} style={link}>{count} {count === 1 ? one : many}</a></React.Fragment>;
               })}
               {findings > 0 && <>{parts.length ? ", " : ""}{tabLink(`${findings} monitor finding${findings === 1 ? "" : "s"}`, "updates")}</>}
+              {blogComments > 0 && <>{parts.length || findings ? ", " : ""}{tabLink(`${blogComments} comment${blogComments === 1 ? "" : "s"} on posts`, "blog")}</>}
               .
             </>
           : <span style={{ color: C.muted }}>Nothing is waiting on you.</span>}
@@ -507,7 +537,7 @@ function Summary({ waiting = {}, backlog = {}, findings = 0, onTab }) {
 function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims = [], openChanges = [], onTab, comments = [], questions = [], lists = [], media = [], reviews = [], events = [], mentions = [], canCommit = false, act, busy, onSuggestions, onEntries }) {
   return (
     <>
-      <Summary waiting={waiting} backlog={backlog} findings={openChanges.length} onTab={onTab} />
+      <Summary waiting={waiting} backlog={backlog} findings={openChanges.length} blogComments={comments.length} onTab={onTab} />
 
       <WorkList rows={pending.length} title="Suggestions to review" anchor="q-suggestions"
         count={pending.length}
@@ -533,13 +563,6 @@ function Inbox({ waiting = {}, backlog = {}, pending = [], reports = [], claims 
       {events.length > 0 && <EventFindings rows={events} act={act} busy={busy} />}
 
       {mentions.length > 0 && <MentionsToRead rows={mentions} act={act} busy={busy} />}
-
-      {comments.length > 0 && (
-        <WorkList rows={comments.length} title="Comments to read" count={comments.length} anchor="q-comments"
-          hint="Blog comments are live the moment they are posted. Read each one: Looks fine takes it out of here, Hide takes it off the post with a reason and keeps it, Delete removes it for good.">
-          {comments.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
-        </WorkList>
-      )}
 
       {media.length > 0 && (
         <WorkList rows={media.length} title="Media to approve" count={media.length} anchor="q-media"
@@ -609,6 +632,45 @@ function Listings({ publishing = { canPublish: false, log: [] }, holds = {}, onH
 }
 
 /*
+ * The blog, on its own (2026-11-06). Work: the calendar (drafts with target
+ * dates, publishing through the GitHub path, blog ideas, Search Console) and
+ * the comments to read. Reference: every published post, and comments already
+ * read. Posts are files: there is no editor here, by design.
+ */
+function Blog({ calendar = null, publishing = { canPublish: false, build: "" }, comments = [], act, busy }) {
+  const unread = comments.filter((c) => !c.reviewed);
+  const read = comments.filter((c) => c.reviewed);
+  const live = (calendar?.posts || []).filter((p) => !p.draft).sort((a, b) => b.date.localeCompare(a.date));
+  const bySlug = comments.reduce((m, c) => ({ ...m, [c.slug]: (m[c.slug] || 0) + 1 }), {});
+  return (
+    <>
+      {calendar ? <BlogCalendar initial={calendar} build={publishing.build} canPublish={publishing.canPublish} />
+        : <Empty>The calendar could not be read. Reload; if it persists, the System tab says why.</Empty>}
+
+      <WorkList rows={unread.length} title="Comments to read" count={unread.length} anchor="q-comments"
+        hint="Blog comments are live the moment they are posted. Read each one: Looks fine takes it out of here, Hide takes it off the post with a reason and keeps it, Delete removes it for good.">
+        {unread.length === 0 ? <Empty>No comment is waiting.</Empty> : unread.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
+      </WorkList>
+
+      <Reference>
+        <Collapsible title="Published posts" count={live.length}
+          hint="Every post on /blog, newest first. To change one, edit its file in lib/posts; a correction is a note in the post, dated.">
+          {live.length === 0 ? <Empty>No post is published.</Empty> : live.map((p) => (
+            <Row key={p.slug} title={<a href={`/blog/${p.slug}`} style={{ color: C.text }}>{p.title}</a>}
+              meta={`${p.date}${p.updated && p.updated !== p.date ? `, updated ${p.updated}` : ""} · ${p.file} · ${bySlug[p.slug] || 0} comment${bySlug[p.slug] === 1 ? "" : "s"}`} />
+          ))}
+        </Collapsible>
+        <Collapsible title="Blog comments read" count={read.length}
+          hint="Comments already read, including hidden ones. Unread comments are above.">
+          {read.length === 0 ? <Empty>No comments read yet.</Empty>
+            : read.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
+        </Collapsible>
+      </Reference>
+    </>
+  );
+}
+
+/*
  * What you write. Work: LinkedIn posts in draft or ready, the email to the
  * list, the About page. Reference: the ideas backlog, and outreach while the
  * round runs (temporary, invariant 52).
@@ -616,7 +678,6 @@ function Listings({ publishing = { canPublish: false, log: [] }, holds = {}, onH
 function Write({ announcements = [], subscribers = [], feed = [], about = null, aboutPhoto = "", ideas = [], outreach = { contacts: {}, state: {}, meta: {} }, claims = {}, blogCalendar = null, publishing = { canPublish: false, build: "" } }) {
   return (
     <>
-      {blogCalendar && <BlogCalendar initial={blogCalendar} build={publishing.build} canPublish={publishing.canPublish} />}
       <Announcements initial={announcements} />
       <Compose count={subscribers.length} feed={feed} />
       <AboutPage initial={about} photo={aboutPhoto} />
@@ -1354,11 +1415,6 @@ function Audience({ stats = { fields: {}, queries: [] }, interest = {}, entries 
             : verified.map(([toolId, c]) => <ClaimRow key={toolId} toolId={toolId} c={c} act={act} busy={busy} verified />)}
         </Collapsible>
         <ReviewsRecord groups={reviews} act={act} busy={busy} />
-        <Collapsible title="Blog comments read" count={read.length}
-          hint="Comments already read, including hidden ones. Unread comments are in the Inbox.">
-          {read.length === 0 ? <Empty>No comments read yet.</Empty>
-            : read.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
-        </Collapsible>
       </Reference>
     </>
   );

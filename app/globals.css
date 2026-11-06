@@ -701,3 +701,27 @@ a:focus-visible,
   display: none !important;
 }
 
+
+/* The admin console (2026-11-06): a sidebar of sections beside the work,
+   like an operations console. The sidebar is the window's height and scrolls
+   on its own; below 900px it is a strip across the top. */
+.admin-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; }
+.admin-side {
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  background: var(--c-panel); border-right: 1px solid var(--c-line);
+  display: flex; flex-direction: column;
+}
+.admin-side-foot { margin-top: auto !important; }
+.admin-main { padding: 28px 40px 0; min-width: 0; max-width: 1240px; }
+.admin-nav-item:hover { background: var(--c-control-hover); color: var(--c-text); }
+.admin-nav-item:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 1px; }
+@media (max-width: 899px) {
+  .admin-shell { grid-template-columns: 1fr; }
+  .admin-side { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--c-line); }
+  .admin-side nav { display: flex; overflow-x: auto; gap: 4px; padding-bottom: 8px !important; }
+  .admin-side nav > div { display: flex; gap: 2px; margin-top: 0 !important; }
+  .admin-side nav > div > div:first-child { display: none; }
+  .admin-nav-item { white-space: nowrap; width: auto !important; }
+  .admin-side-foot { display: none; }
+  .admin-main { padding: 20px 16px 0; }
+}

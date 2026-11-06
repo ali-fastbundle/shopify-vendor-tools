@@ -150,7 +150,7 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
       {/* Ideas with no date */}
       <div style={{ ...box, marginTop: S.md }}>
         <strong style={{ fontSize: F.md }}>Blog ideas with no date yet</strong>
-        <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>The same queue as Ideas below, type blog. Give one a target week to put it on the calendar.</p>
+        <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>The same queue as Ideas on the Write tab, type blog. Give one a target week to put it on the calendar.</p>
         {!undated.length && <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>Every open blog idea has a week.</p>}
         {undated.map((i) => (
           <div key={i.id} {...drag(`i:${i.id}`)} style={{ borderTop: `1px solid ${C.line}`, marginTop: S.sm, paddingTop: S.sm }}>
@@ -179,7 +179,19 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
         {!s.configured && <p style={{ fontSize: F.sm, color: C.warnInk, margin: `${S.sm}px 0 0` }}>Not configured. Set GSC_CLIENT_EMAIL, GSC_PRIVATE_KEY and GSC_SITE in Vercel, and add the service account as a user on the Search Console property.</p>}
         {s.error && <p style={{ fontSize: F.sm, color: C.warnInk, margin: `${S.sm}px 0 0` }}>The last pull failed on {formatDay(String(s.error.at).slice(0, 10))}: {s.error.message}</p>}
         {s.totals && <p className="tnum" style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0` }}>{s.range}: {s.totals.queries} queries, {s.totals.impressions.toLocaleString("en-US")} impressions, {s.totals.clicks} clicks. Pulled {formatDay(s.fetchedAt.slice(0, 10))}, weekly on Tuesdays.</p>}
-        {s.thin?.thin && <p style={{ fontSize: F.sm, color: C.text, margin: `${S.sm}px 0 0`, fontWeight: 600 }}>Too thin to propose posts from. {s.thin.why}</p>}
+        {s.thin?.thin && (
+          /* What is actually blocking it, and where the fix is. */
+          <div style={{ marginTop: S.sm, padding: S.md, borderRadius: R.control, background: C.subtle }}>
+            <p style={{ fontSize: F.sm, color: C.text, margin: 0, fontWeight: 600 }}>
+              No posts are proposed yet. Google sees too little of the site to rank it for much: {cal.context.noindexed.total} pages are noindexed until their details are confirmed, and {cal.context.toConfirm} {cal.context.toConfirm === 1 ? "tool still needs" : "tools still need"} confirming.
+            </p>
+            <p style={{ fontSize: F.sm, margin: `${S.xs}px 0 0` }}>
+              <a href={cal.context.confirmHref} style={{ color: C.text, fontWeight: 700 }}>Confirm tool details</a>
+              <span style={{ color: C.muted }}> on the Listings tab. Each tool confirmed with a rival lets its head-to-head and alternatives pages be indexed.</span>
+            </p>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>{s.thin.why}</p>
+          </div>
+        )}
 
         {s.groups && [["No clicks yet", "Shown and never clicked: a post could win something Google already shows.", s.groups.noClicks],
           ["Ranking 5 to 20", "Close enough that a better page could move it onto the first screen.", s.groups.nearTop],

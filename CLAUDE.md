@@ -1273,8 +1273,17 @@ hand-written entry and a published one both get it.
   of the link they asked for. `scripts/interest-test.mjs` runs against a live
   server and checks exactly this, including the fourth submission in an hour.
 
-**25. `/admin` is six tabs, each work first and reference second (2026-10-23).**
-Inbox, Updates, Listings, Write, Audience, System. It had grown to ten tabs added in
+**25. `/admin` is seven sections in a left sidebar, each work first and reference second (2026-10-23; sidebar and Blog 2026-11-06).**
+Inbox, Updates, Listings, Blog, Write, Audience, System, grouped in the sidebar as Operate
+(Inbox, Updates, Listings), Content (Blog, Write), Insight (Audience) and Settings (System), the
+way an operations console groups them (`ADMIN_NAV` and `TAB_PURPOSE` in `lib/adminTabs.js`). The
+sidebar is sticky and the window's height, with each section's count and the account, the way
+back to the directory and the theme at its foot; each section opens with its name and one line
+on what it is for. Below 900px the sidebar is a strip across the top. **Blog is everything about
+the blog**: the calendar (drafts, publishing, blog ideas, Search Console), comments to read, and
+as reference the published posts and comments already read. Its count is comments to read plus
+drafts whose target date has come; the Inbox summary links to it rather than counting the
+comments twice. It had grown to ten tabs added in
 the order they were built, with Catalogue holding six unrelated jobs and every panel at
 the same weight, so finding the two things that needed a decision meant reading past
 everything that did not. The tab list and the map from the old names live in

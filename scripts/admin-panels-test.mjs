@@ -37,7 +37,13 @@ const fn = (name) => {
 
 console.log("the tabs:");
 const { ADMIN_TABS, LEGACY_TABS, resolveAdminTab } = await import(new URL("../lib/adminTabs.js", import.meta.url));
-ok(ADMIN_TABS.map(([id]) => id).join(",") === "inbox,updates,listings,write,audience,system", "six tabs: Inbox, Updates, Listings, Write, Audience, System");
+ok(ADMIN_TABS.map(([id]) => id).join(",") === "inbox,updates,listings,blog,write,audience,system", "seven sections: Inbox, Updates, Listings, Blog, Write, Audience, System");
+{
+  const { ADMIN_NAV, TAB_PURPOSE } = await import(new URL("../lib/adminTabs.js", import.meta.url));
+  const placed = ADMIN_NAV.flatMap((g) => g.items);
+  ok(placed.length === ADMIN_TABS.length && ADMIN_TABS.every(([id]) => placed.filter((x) => x === id).length === 1 && TAB_PURPOSE[id]),
+    "the sidebar puts every section in exactly one group, each with what it is for");
+}
 for (const [old, [tab, anchor]] of Object.entries({
   catalogue: ["listings", ""], data: ["listings", "details-to-confirm"], announcements: ["write", "announcements"],
   ideas: ["write", "ideas"], outreach: ["write", "outreach"], people: ["audience", ""],
@@ -63,7 +69,8 @@ const LAYERS = {
   RecentUpdates: { work: ["ChangeMonitor", "News from a vendor", "Vendor news to finish"], ref: ["On What's moving", "Deleted from What's moving", "Vendor news decided", "Monitor coverage"] },
   Listings: { work: ['part="work"', "StructuredData"], ref: ['part="held"', "NeedsVerifying", "EditorUse", "PublishedEntries", "Vendor media", "Discovered"] },
   Write: { work: ["Announcements", "Compose", "AboutPage"], ref: ["Ideas", "Outreach"] },
-  Audience: { work: ["QuestionsAsked", "RecommenderRuns", "Stats", "Interest"], ref: ["Accounts", "Subscribers", "Verified claims", "ReviewsRecord", "Blog comments read"] },
+  Audience: { work: ["QuestionsAsked", "RecommenderRuns", "Stats", "Interest"], ref: ["Accounts", "Subscribers", "Verified claims", "ReviewsRecord"] },
+  Blog: { work: ["<BlogCalendar", "Comments to read"], ref: ["Published posts", "Blog comments read"] },
 };
 for (const [tab, { work, ref }] of Object.entries(LAYERS)) {
   const body = fn(tab);
@@ -109,6 +116,10 @@ ok(/inbox: inboxCount/.test(countsBlock) && /const inboxCount = Object\.values\(
 ok(/updates: openChanges\.length/.test(countsBlock), "Updates counts the open monitor findings");
 ok(/listings: backlog\.drafts \+ backlog\.details/.test(countsBlock), "Listings counts drafts waiting and details to confirm");
 ok(/write: backlog\.announcements/.test(countsBlock), "Write counts announcements in draft or ready");
+ok(/blog: unreadComments\.length \+ draftsDue/.test(countsBlock), "Blog counts comments to read and drafts whose target date has come");
+ok(!/comments:/.test(panel.slice(panel.indexOf("const waiting = {"), panel.indexOf("const inboxCount"))) && /blogComments=\{comments\.length\}/.test(fn("Inbox")),
+  "blog comments are counted on Blog, and the Inbox summary links there rather than counting them twice");
+ok(/<aside className="admin-side"/.test(panel) && /ADMIN_NAV\.map/.test(panel), "the sections are a sidebar, in their groups");
 ok(/audience: 0/.test(countsBlock) && /system: 0/.test(countsBlock), "Audience and System carry no count");
 ok(/reviews: reviewsToDecide/.test(panel) && /reviewsToDecide = \(reviewRows \|\| \[\]\)\.reduce\(\(n, g\) => n \+ \(g\.needs/.test(panel),
   "reviews count what is still to decide, not reviews");
@@ -120,7 +131,7 @@ for (const ref of ["discovery", "coverage", "verifiedClaims", "accounts", "subsc
 ok(/<Summary waiting=\{waiting\} backlog=\{backlog\}/.test(fn("Inbox")) && /waiting=\{waiting\}\s+backlog=\{backlog\}/.test(panel),
   "the Inbox's summary line reads the same figures the tab labels read");
 ok(/Waiting on you/.test(fn("Summary")) && /Your backlog/.test(fn("Summary")), "it says what is waiting, then your own backlog, quieter");
-for (const [key, anchor] of Object.entries({ suggestions: "q-suggestions", reports: "q-reports", claims: "q-claims", comments: "q-comments",
+for (const [key, anchor] of Object.entries({ suggestions: "q-suggestions", reports: "q-reports", claims: "q-claims",
   questions: "q-questions", lists: "q-lists", media: "q-media", reviews: "q-reviews" })) {
   ok(new RegExp(`${key}: \\[[^\\]]*"${anchor}"\\]`).test(src) && new RegExp(`anchor="${anchor}"`).test(src), `the summary's ${key} links to its list`);
 }
@@ -130,7 +141,7 @@ for (const t of ["Reviewed suggestions", "Interest in listed tools", "Accounts",
   "Monitor coverage", "Needs verifying", "Editor use", "Vendor media", "Published suggestions", "Mail log", "Store contents", "Subscribers",
   "Verified claims", "Published from the queue", "Discovered competitors", "Directory stats", "Growth recommender", "Recommender feedback",
   "On hold", "Discarded", "Committed from here", "Counts", "Excluded reviews", "Confirmed reviews", "Other reviews", "Blog comments read", "Outreach",
-  "Send to the list", "Changelog archive", "AI rewrites", "Monitor accuracy", "Dedup decisions"]) {
+  "Send to the list", "Changelog archive", "AI rewrites", "Monitor accuracy", "Dedup decisions", "Published posts"]) {
   ok(new RegExp(`<Collapsible\\s+title="${t}"`).test(src) || (t === "Needs verifying" && /title="Needs verifying"/.test(src)), `${t} is collapsed`);
 }
 ok(!/title="Monitor coverage"[^>]*\n\s*openWhen=/.test(src), "Monitor coverage does not open itself");
