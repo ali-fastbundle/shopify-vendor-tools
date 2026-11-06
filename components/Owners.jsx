@@ -1,4 +1,5 @@
 import React from "react";
+import UpdatesLink from "@/components/UpdatesLink";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { Pill } from "@/components/Pill";
 import { outbound } from "@/lib/outbound";
@@ -20,7 +21,7 @@ const AppStoreLink = ({ href }) => (
  * its relationship in one plain sentence and a link to its own page. It never
  * copies a listing's caveat: the caveat is on the listing.
  */
-export function OwnerPage({ owner, entries, others = [] }) {
+export function OwnerPage({ owner, entries, others = [], updates = null }) {
   return (
     <main style={{ background: C.bg, color: C.text }}>
       <div className="mx-auto" style={{ padding: "0 16px" }}>
@@ -46,6 +47,7 @@ export function OwnerPage({ owner, entries, others = [] }) {
           </p>
         )}
         {owner.notes && <p style={{ fontSize: F.lg, lineHeight: 1.6, margin: `${S.lg}px 0 0`  }}>{owner.notes}</p>}
+        <UpdatesLink link={updates} />
 
         <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: `${S["2xl"]}px 0 0`, letterSpacing: TRACK.tight }}>What it controls</h2>
         <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>

@@ -19,6 +19,7 @@ import StructuredDetails from "@/components/StructuredDetails";
 import QA from "@/components/QA";
 import VendorMedia from "@/components/VendorMedia";
 import ToolScreen from "@/components/ToolScreen";
+import UpdatesLink from "@/components/UpdatesLink";
 import WatchEditor from "@/components/WatchEditor";
 import SaveToList from "@/components/SaveToList";
 import EditorUseControl from "@/components/EditorUseControl";
@@ -226,7 +227,7 @@ function OwnerInvite({ tool, viewer = {}, watchLog = [] }) {
   );
 }
 
-export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null, rivals = [], questions = [], watchLog = [] }) {
+export default function ToolPage({ tool, related, reviews = [], rating, viewer = {}, lastUpdated, owner = null, rivals = [], questions = [], watchLog = [], updates = null }) {
   const col = catOf(tool.cat).color;
   const socials = SOCIALS
     .map(({ key }) => [key, tool.social?.[key]])
@@ -368,6 +369,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
                 Rate it, review it or report a problem on the directory
               </a>.
             </p>
+            <UpdatesLink link={updates} />
 
             {/* Two different readers, so two separate controls. The line above
                 is for a visitor, this is for whoever owns the thing. They were

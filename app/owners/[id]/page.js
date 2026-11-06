@@ -3,6 +3,8 @@ import { withShareImage } from "@/lib/ogCard";
 import { mergedTools, mergedNewsletters, mergedEvents } from "@/lib/listings";
 import { ownersWithPages } from "@/lib/ownerIndex";
 import { ownerGraph, ownerDescription } from "@/lib/seo";
+import { feedEntries } from "@/lib/feed";
+import { updatesLink } from "@/lib/feedSource";
 import { OwnerPage } from "@/components/Owners";
 import JsonLd from "@/components/JsonLd";
 
@@ -40,7 +42,8 @@ export default async function Page({ params }) {
   return (
     <>
       <JsonLd data={ownerGraph(owner, owner.entries)} />
-      <OwnerPage owner={owner} entries={owner.entries} others={others} />
+      <OwnerPage owner={owner} entries={owner.entries} others={others}
+        updates={updatesLink(await feedEntries({ limit: 1000 }), `/owners/${owner.id}`)} />
     </>
   );
 }

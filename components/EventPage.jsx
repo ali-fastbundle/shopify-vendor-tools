@@ -1,4 +1,5 @@
 import React from "react";
+import UpdatesLink from "@/components/UpdatesLink";
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { EventBody, placeOf } from "@/components/EventParts";
 import Engagement from "@/components/Engagement";
@@ -33,7 +34,7 @@ function relatedEvents(e, all, limit = 4) {
   return out;
 }
 
-export default function EventPage({ e, all, today, reviews = [], lastUpdated }) {
+export default function EventPage({ e, all, today, reviews = [], lastUpdated, updates = null }) {
   const related = relatedEvents(e, all);
 
   return (
@@ -54,6 +55,7 @@ export default function EventPage({ e, all, today, reviews = [], lastUpdated }) 
           <div style={{ height: 3, background: C.edge }} />
           <div style={{ padding: S["2xl"] }}>
             <EventBody e={e} today={today} />
+            <UpdatesLink link={updates} />
             {/* Like, rate, review, report and claim: the set every section
                 gets. A client island, so this file keeps no state. */}
             {e.at.status !== "past" && <FollowBox id={e.id} kind="event" name={e.name} />}

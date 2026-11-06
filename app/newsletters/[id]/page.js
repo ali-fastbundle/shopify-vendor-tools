@@ -1,4 +1,6 @@
 import { withShareImage } from "@/lib/ogCard";
+import { feedEntries } from "@/lib/feed";
+import { updatesLink } from "@/lib/feedSource";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { sessionFrom, isAdmin } from "@/lib/auth";
@@ -64,6 +66,7 @@ export default async function Page({ params }) {
       <JsonLd data={newsletterGraph(n, reviews)} />
       <NewsletterPage
         newsletter={n}
+        updates={updatesLink(await feedEntries({ limit: 1000 }), `/newsletters/${n.id}`)}
         owner={ownerContext(n, "newsletter")}
         related={related}
         reviews={nReviews}

@@ -7,6 +7,8 @@ import { read, KEYS } from "@/lib/store";
 import { publicReviews } from "@/lib/reviews";
 import { LAST_UPDATED } from "@/lib/tools";
 import { eventUrl, eventDescription, eventGraph, SITE } from "@/lib/seo";
+import { feedEntries } from "@/lib/feed";
+import { updatesLink } from "@/lib/feedSource";
 import EventPage from "@/components/EventPage";
 import JsonLd from "@/components/JsonLd";
 
@@ -48,7 +50,8 @@ export default async function Page({ params }) {
   return (
     <>
       <JsonLd data={eventGraph(e, { image: `${SITE}${eventSharePath(e)}` })} />
-      <EventPage e={e} all={all} today={today} reviews={reviews} lastUpdated={LAST_UPDATED} />
+      <EventPage e={e} all={all} today={today} reviews={reviews} lastUpdated={LAST_UPDATED}
+        updates={updatesLink(await feedEntries({ limit: 1000 }), `/events/${e.id}`)} />
     </>
   );
 }

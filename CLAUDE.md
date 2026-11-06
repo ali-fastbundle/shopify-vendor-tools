@@ -1995,8 +1995,22 @@ the detail modal, not `/tools/[id]`, not collapsed and not further down a
 listing. Those render what a tool *is*, and a dated list of events under the
 description gives a reader two answers to "is this current" on one screen, which
 is the problem the feed was built to solve rather than to relocate. If you find
-yourself passing a `changes` prop into a listing component, that is this rule
-being broken.
+yourself passing feed entries into a listing component, that is this rule being
+broken.
+
+**Settled, so it stops being relitigated (2026-11-06): listings describe what a thing is; What's
+moving records what changed; a listing may link to its changes but never contain them.** The
+one form that link takes is one line, "4 updates since September" ("1 update in October"; the
+year added only when it is not this one), linking to `/changes?on=<listing path>`, which shows
+only that listing's entries. It is on the tool page, the listing modal, the newsletter, event
+and owner pages, below the caveat and the links and above the reviews, and it renders nothing
+when the listing has no published entry. `updatesLink` in `lib/feedSource.js` is the one rule:
+it counts published rows whose `entryHref` is the listing's own path, so an owner and a tool
+with the same id (Mantle) are counted apart. A listing component receives that computed
+`{ count, label, href }` (`updates`) and renders `components/UpdatesLink.jsx`; it never receives
+feed entries and never shows a headline, a date list or a "latest" teaser. A request to show
+entry text on a listing is this rule being broken, however it is phrased.
+`scripts/updates-link-test.mjs`.
 
 **What's moving is a page, and its tab is a plain link to `/changes`.** It used to
 render in place on the homepage, which left the view on screen with no address. Now
@@ -3924,6 +3938,7 @@ node scripts/mentions-test.mjs       # mentions: domain only, never a name, neve
 node scripts/events-digest-test.mjs  # the monthly events digest and the event refresh: regions, chase, once a month, blocked not dead, verification
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/slop-scan.mjs --summary # AI patterns in every public string; read any new hit before committing
+node scripts/updates-link-test.mjs   # a listing links its What's moving entries in one line and never contains them
 node scripts/privacy-test.mjs        # /privacy names every browser key; one cookie; no IP stored; stat lists fixed
 node scripts/shipping-test.mjs       # recommender feedback, blog comments, the announcement queue
 node scripts/recommend-test.mjs      # the flow's questions, drafts, drivers, cost, nothing-fits, no address kept

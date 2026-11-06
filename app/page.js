@@ -6,6 +6,7 @@ import { read, KEYS } from "@/lib/store";
 import { publicReviews } from "@/lib/reviews";
 import { homeGraph } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
+import { updatesLink } from "@/lib/feedSource";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { HEADLINE } from "@/lib/tools";
 import { ogFacts, ogVersion } from "@/lib/ogCard";
@@ -38,9 +39,14 @@ export async function generateMetadata(_, parent) {
 export default async function Page({ searchParams = {} }) {
   // Rendered on the server so the catalogue, including vendor edits, is in the
   // HTML for crawlers rather than arriving after hydration.
-  const [tools, stored, feed, votes] = await Promise.all([
-    mergedTools(), read(KEYS.reviews, {}), feedEntries({ limit: 150 }), read(KEYS.votes, {}),
+  const [tools, stored, allFeed, votes] = await Promise.all([
+    mergedTools(), read(KEYS.reviews, {}), feedEntries({ limit: 1000 }), read(KEYS.votes, {}),
   ]);
+  const feed = allFeed.slice(0, 150);
+  /* Each tool's one-line pointer to its What's moving entries, for the
+     listing modal: a count and a link per tool, never the entries
+     (invariant 31). Only tools that have one are in the map. */
+  const updates = Object.fromEntries(tools.map((t) => [t.id, updatesLink(allFeed, `/tools/${t.id}`)]).filter(([, l]) => l));
 
   /*
    * Reviews are read here only to decide which tools have a real rating.
@@ -62,7 +68,7 @@ export default async function Page({ searchParams = {} }) {
       {/* The heading states countTools of the list it renders, the same
           function the sidebar, the share card and llms.txt count with. */}
       <Directory tools={tools} toolTotal={countTools(tools).total} feed={feed} newsletterCount={NEWSLETTERS.length}
-        initialVotes={votes} initialReviews={reviews} owners={ownerContexts(tools)}
+        initialVotes={votes} initialReviews={reviews} owners={ownerContexts(tools)} updates={updates}
         initialFilters={parseFilters(searchParams, { sorts: SORT_KEYS })} />
     </>
   );

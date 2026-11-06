@@ -65,16 +65,19 @@ function Logo({ entry, size = 34 }) {
  * <main> with its own heading; the tab drops it straight under the tab row.
  */
 export function FeedRows(props) {
-  return <Suspense fallback={<Rows {...props} tool="all" cat="all" />}><FromUrl {...props} /></Suspense>;
+  return <Suspense fallback={<Rows {...props} tool="all" cat="all" on="" />}><FromUrl {...props} /></Suspense>;
 }
 
 /* The filters are ?tool= and ?cat=, written by the sidebar
-   (components/SiteFrame.jsx), so a filtered feed is a link. */
+   (components/SiteFrame.jsx), so a filtered feed is a link. ?on= is the
+   listing's own path ("owners/mantle"), which a listing's "N updates" line
+   links to: it matches entryHref exactly, so an owner and a tool sharing an
+   id are not mixed. */
 function FromUrl(props) {
-  return <Rows {...props} tool={useParam("tool") || "all"} cat={useParam("cat") || "all"} />;
+  return <Rows {...props} tool={useParam("tool") || "all"} cat={useParam("cat") || "all"} on={useParam("on") || ""} />;
 }
 
-function Rows({ entries: initial = [], tools = [], tool, cat, admin = false }) {
+function Rows({ entries: initial = [], tools = [], tool, cat, on = "", admin = false }) {
   /* Local so an admin's edit or delete shows at once, without a reload. */
   const [entries, setEntries] = useState(initial);
   const replace = (id, next) => setEntries((xs) => (next ? xs.map((x) => (x.id === id ? { ...x, ...next } : x)) : xs.filter((x) => x.id !== id)));
@@ -85,7 +88,8 @@ function Rows({ entries: initial = [], tools = [], tool, cat, admin = false }) {
   }, [entries, tools]);
 
   const rows = useMemo(() => named.filter((e) =>
-    (tool === "all" || e.toolId === tool) && (cat === "all" || e.cat === cat)), [named, tool, cat]);
+    (tool === "all" || e.toolId === tool) && (cat === "all" || e.cat === cat)
+    && (!on || entryHref(e) === `/${on.replace(/^\//, "")}`)), [named, tool, cat, on]);
 
   /* Only tools that actually appear, so the filter never offers an empty result. */
   const present = useMemo(() => {
@@ -104,6 +108,7 @@ function Rows({ entries: initial = [], tools = [], tool, cat, admin = false }) {
           <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.xl }}>
             <span className="tnum" style={{ fontSize: F.sm, color: C.dim }}>
               {rows.length} {rows.length === 1 ? "entry" : "entries"}
+              {on && rows[0] && <> about <a href={`/${on.replace(/^\//, "")}`} style={{ color: C.text }}>{rows[0].toolName}</a>. <a href="/changes" style={{ color: C.muted }}>Show all</a></>}
             </span>
             <a href="/changes/rss" style={{ fontSize: F.sm, color: C.muted, marginLeft: "auto" }}>RSS</a>
           </div>

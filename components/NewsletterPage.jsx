@@ -1,4 +1,5 @@
 import React from "react";
+import UpdatesLink from "@/components/UpdatesLink";
 import { AlsoFrom } from "@/components/OwnerLine";
 import { outbound } from "@/lib/outbound";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
@@ -70,7 +71,7 @@ function Facts({ n, owner }) {
 const domainOf = (url) =>
   String(url || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0].toLowerCase();
 
-export default function NewsletterPage({ newsletter: n, related, reviews = [], rating, forVendors, session = null, lastUpdated, owner = null }) {
+export default function NewsletterPage({ newsletter: n, related, reviews = [], rating, forVendors, session = null, lastUpdated, owner = null, updates = null }) {
   const domain = String(n.url || "").replace(/^https?:\/\//, "").replace(/^www\./, "").split(/[/?#]/)[0];
   const socials = Object.entries(n.social || {}).filter(([, href]) => href);
 
@@ -171,6 +172,7 @@ export default function NewsletterPage({ newsletter: n, related, reviews = [], r
                 Entry last checked {formatDay(n.updated)}.
               </p>
             )}
+            <UpdatesLink link={updates} />
 
             {/* Rate, review, report and claim, the same as a tool. Isolated
                 client island so this file stays server-only and whole in the

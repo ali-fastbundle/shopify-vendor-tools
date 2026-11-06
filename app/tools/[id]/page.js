@@ -10,6 +10,8 @@ import { outbound } from "@/lib/outbound";
 import {
   SITE, toolUrl, toolDescription, toolGraph, relatedTools, logoAlt, ratingOf,
 } from "@/lib/seo";
+import { feedEntries } from "@/lib/feed";
+import { updatesLink } from "@/lib/feedSource";
 import ToolPage from "@/components/ToolPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import { rivalPairs, alternativesOf, pairSlug } from "@/lib/rivals";
@@ -125,6 +127,8 @@ export default async function Page({ params }) {
         questions={found.questions}
         watchLog={viewer.admin ? (await readWatchLog(500)).filter((l) => l.id === tool.id) : []}
         rivals={alternativesOf(tool, tools, rivalPairs(tools, discovery)).map((x) => ({ name: x.tool.name, slug: pairSlug(tool.id, x.tool.id) }))}
+        /* A count and a link, never entries (invariant 31). */
+        updates={updatesLink(await feedEntries({ limit: 1000 }), `/tools/${tool.id}`)}
       />
     </>
   );

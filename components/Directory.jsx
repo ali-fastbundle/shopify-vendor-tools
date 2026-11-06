@@ -19,6 +19,7 @@ import { toQuery, passes } from "@/lib/directoryFilters";
 import QA from "./QA";
 import VendorMedia from "./VendorMedia";
 import ToolScreen from "./ToolScreen";
+import UpdatesLink from "./UpdatesLink";
 import SaveToList from "./SaveToList";
 import { INTEGRATIONS, attributesFor, attributeValue, formatValue, integrationLabel } from "@/lib/categories";
 import { launchLabel, launchKey, launchCell, launchedWithinYear } from "@/lib/launched";
@@ -415,7 +416,7 @@ const SELECT_SORTS = ["rating", "votes", "name", "cat", "launched"];
 /* ================================================================== */
 /*  App                                                                */
 /* ================================================================== */
-export default function Directory({ tools: initialTools, toolTotal = 0, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {}, owners = {}, initialFilters = {} }) {
+export default function Directory({ tools: initialTools, toolTotal = 0, feed = [], newsletterCount = 0, initialVotes = {}, initialReviews = {}, owners = {}, initialFilters = {}, updates = {} }) {
   const [tools, setTools] = useState(initialTools || TOOLS);
   const [session, refreshSession] = useSession();
   /* From the server, so the first render is already sorted the way it will
@@ -995,6 +996,7 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
           key={detail}
           tool={tools.find((t) => t.id === detail)}
           owner={owners[detail] || null}
+          updates={updates[detail] || null}
           initialRating={detailRating}
           onClose={closeTool}
           reviews={reviews[detail] || []}
@@ -1448,7 +1450,7 @@ function Shell({ children, onClose, width = 860 }) {
   );
 }
 
-function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0, startEditing = false, finding = "" }) {
+function DetailModal({ tool, owner = null, updates = null, onClose, reviews, onReview, onHelpful, avg, votes, myVote, onVote, session, refreshSession, onTools, initialRating = 0, startEditing = false, finding = "" }) {
   const col = catOf(tool.cat).color;
   /*
    * Most helpful first, most recent to break a tie. The comparator lives in
@@ -1534,6 +1536,8 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
             <Vote dir={-1} active={myVote === -1} n={votes.down} onClick={() => onVote(-1)} label={`Dislike ${tool.name}`} />
           </div>
         </div>
+
+        <UpdatesLink link={updates} />
 
         <OwnerPanel tool={tool} session={session} refresh={refreshSession} onTools={onTools}
           startEditing={startEditing} finding={finding} />
