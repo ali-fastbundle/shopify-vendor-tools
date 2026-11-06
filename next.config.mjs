@@ -41,9 +41,15 @@ const nextConfig = {
    * Not permanent: a search link is not a page that moved.
    */
   async redirects() {
-    return ["/", "/newsletters", "/events"].map((source) => ({
-      source, has: [{ type: "query", key: "q" }], destination: "/search", permanent: false,
-    }));
+    return [
+      ...["/", "/newsletters", "/events"].map((source) => ({
+        source, has: [{ type: "query", key: "q" }], destination: "/search", permanent: false,
+      })),
+      /* A post renamed for search the day it was published (2026-11-06). A
+         post's slug is its address once shared, so a rename keeps the old one. */
+      { source: "/blog/free-tiers", destination: "/blog/free-tools-for-shopify-app-developers", permanent: true },
+      { source: "/blog/free-tiers.md", destination: "/blog/free-tools-for-shopify-app-developers.md", permanent: true },
+    ];
   },
   async headers() {
     return [{
