@@ -10,7 +10,7 @@ import SectionView from "@/components/SectionView";
    page; a version frozen at build time is the drift lib/ogCard.js exists to stop. */
 export const dynamic = "force-dynamic";
 
-const title = "Blog | watchfor.tools";
+const title = "Shopify App Developer Tools Compared: the Blog | watchfor.tools";
 const description =
   "Whole categories of Shopify app vendor tools side by side, judged on stated criteria by someone who sells none of them.";
 

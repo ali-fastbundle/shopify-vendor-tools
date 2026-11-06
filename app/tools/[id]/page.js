@@ -5,7 +5,7 @@ import { sessionFrom, isAdmin } from "@/lib/auth";
 import { read, KEYS } from "@/lib/store";
 import { mergedTools, getClaims } from "@/lib/listings";
 import { publicReviews } from "@/lib/reviews";
-import { catOf, C, S, R, F, TRACK, ink, LAST_UPDATED, formatDay } from "@/lib/tools";
+import { catOf, categorySearchTitle, C, S, R, F, TRACK, ink, LAST_UPDATED, formatDay } from "@/lib/tools";
 import { outbound } from "@/lib/outbound";
 import {
   SITE, toolUrl, toolDescription, toolGraph, relatedTools, logoAlt, ratingOf,
@@ -81,7 +81,7 @@ async function baseMetadata({ params }) {
   if (!found) return { title: "Not found | watchfor.tools" };
   const { tool } = found;
 
-  const title = `${tool.name}: ${catOf(tool.cat).label} | watchfor.tools`;
+  const title = `${tool.name}: ${categorySearchTitle(catOf(tool.cat))} | watchfor.tools`;
   /* Its own sentence, never the site description: sixty pages sharing one
      description is sixty pages treated as one. */
   const description = toolDescription(tool);

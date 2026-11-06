@@ -11,7 +11,7 @@ import SectionView from "@/components/SectionView";
 
 export const dynamic = "force-dynamic";
 
-const title = "What's moving | watchfor.tools";
+const title = "What's Moving: Updates to Shopify App Developer Tools | watchfor.tools";
 const description =
   "What is moving across the directory, dated and in order: pricing moves, new features and wind-downs seen on vendors' sites, news vendors told us, and what other people said, linked and attributed.";
 

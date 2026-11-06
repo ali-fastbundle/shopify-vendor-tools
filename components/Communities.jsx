@@ -35,10 +35,11 @@ function Card({ c }) {
       <div className="flex items-center" style={{ gap: S.sm }}>
         {c.logo && <img src={c.logo} alt="" width={32} height={32} loading="lazy" decoding="async"
           style={{ width: 32, height: 32, borderRadius: R.card, flexShrink: 0, background: C.logoTile, objectFit: "contain", padding: 4, border: `1px solid ${C.line}` }} />}
+        <h3 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}>{/* a heading under its group */}
         <a href={`/communities/${c.id}`} className="card-link"
           style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none", letterSpacing: TRACK.tight }}>
           {c.name}
-        </a>
+        </a></h3>
       </div>
       <Signal c={c} />
       {c.organisers && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>run by {c.organisers}</p>}

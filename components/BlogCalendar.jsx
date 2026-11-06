@@ -151,7 +151,7 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
       <div style={{ ...box, marginTop: S.md }} id="blog-ideas">
         <strong style={{ fontSize: F.md }}>Blog ideas</strong>
         <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>
-          Posts to write. Each is reviewed as a post: is it already written, which listings it rests on, what only this directory can say, and what to read first. Not as a feature, so no invariants and no build size. A week puts it on the calendar; linking its draft marks it shipped when the draft is published.
+          Posts to write. Each is reviewed as a post: is it already written, which listings it rests on, what only this directory can say, and what to read first. Not as a feature, so no invariants and no build size. A week puts it on the calendar. Linking its draft marks it shipped when the draft is published.
         </p>
         {!openIdeas.length && <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>No open blog idea.</p>}
         {openIdeas.map((i) => <IdeaRow key={i.id} i={i} drafts={drafts} busy={busy} act={act} drag={drag(`i:${i.id}`)} />)}

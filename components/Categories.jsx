@@ -86,10 +86,11 @@ function Member({ tool, primary }) {
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+            <h2 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}>{/* each tool is a heading under the category (2026-11-06) */}
             <a href={`/tools/${tool.id}`} style={{
               fontSize: F.lg, fontWeight: 700, color: C.text, textDecoration: "none",
               letterSpacing: TRACK.tight,
-            }}>{tool.name}</a>
+            }}>{tool.name}</a></h2>
             {tool.dying && <Pill tone="warn">winding down</Pill>}
           </div>
 
@@ -251,10 +252,10 @@ export function CategoryIndex({ counts, lastUpdated, graph = null }) {
               }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                  <a href={`/categories/${cat.id}`} style={{
+                  <h2 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}><a href={`/categories/${cat.id}`} style={{
                     fontSize: F.lg, fontWeight: 700, color: ink(cat.color), textDecoration: "none",
                     letterSpacing: TRACK.tight,
-                  }}>{cat.label}</a>
+                  }}>{cat.label}</a></h2>
                   {total > 0 && (
                     <span className="tnum" style={{ fontSize: F.xs, color: C.dim }}>
                       {total} tool{total === 1 ? "" : "s"}

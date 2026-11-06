@@ -42,7 +42,7 @@ ok(/\{i === 0 && <PicksCard where="picks-narrow" \/>\}/.test(dir) && /\{i === Ma
 ok(/Sign in with your email/.test(frameSrc) && /Sign in with your email/.test(dir), "both say it needs an email before anyone clicks");
 ok(!/<details/.test(form), "examples are not behind a disclosure");
 ok(/\[0, 2, 4, 6\]\.map/.test(askSrc) && !/setInterval|setTimeout/.test(askSrc), "four examples, each a chip, chosen by the day and never on a timer");
-ok(/`\$\{toolTotal\} tools for Shopify app builders in \$\{CATEGORIES\.length\} categories, updated \$\{LAST_UPDATED\}\.`/.test(dir), "the stats are one short sentence");
+ok(/`\$\{toolTotal\} tools for Shopify app developers in \$\{CATEGORIES\.length\} categories, updated \$\{LAST_UPDATED\}\.`/.test(dir), "the stats are one short sentence");
 
 console.log("\nthe card and the bar:");
 const card = fn("Card");

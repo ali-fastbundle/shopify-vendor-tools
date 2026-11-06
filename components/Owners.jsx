@@ -55,7 +55,7 @@ export function OwnerPage({ owner, entries, others = [], updates = null }) {
           {entries.map((m) => (
             <li key={`${m.kind}:${m.id}`} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
               <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                <a href={m.href} style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none" }}>{m.name}</a>
+                <h3 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}><a href={m.href} style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none" }}>{m.name}</a></h3>
                 <span style={{ fontSize: F.xs, color: C.dim }}>{m.kindLabel}</span>
                 {m.dying && <Pill tone="warn">winding down</Pill>}
               </div>
@@ -149,9 +149,9 @@ export function OwnerIndex({ owners: all, onlyApps = false }) {
                   <EventLogo e={{ name: o.name, logo: o.logo, domain: o.domain }} size={40} status="upcoming" />
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                      {o.page
+                      <h2 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}>{o.page
                         ? <a href={o.page} style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none" }}>{o.name}</a>
-                        : <span style={{ fontWeight: 700, fontSize: F.lg }}>{o.name}</span>}
+                        : <span style={{ fontWeight: 700, fontSize: F.lg }}>{o.name}</span>}</h2>
                       {o.appStore && <Pill>App developer</Pill>}
                       <span className="tnum" style={{ fontSize: F.xs, color: C.dim }}>
                         {[o.type === "Person" ? "A person" : o.type ? "A company" : "",

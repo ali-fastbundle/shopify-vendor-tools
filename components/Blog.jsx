@@ -146,9 +146,9 @@ export function BlogIndex({ posts, lastUpdated }) {
         <ul style={{ listStyle: "none", padding: 0, margin: `${S["2xl"]}px 0 0` }}>
           {posts.map((p) => (
             <li key={p.slug} style={{ borderTop: `1px solid ${C.line}`, padding: `${S.lg}px 0` }}>
-              <a href={`/blog/${p.slug}`} style={{ color: C.text, fontWeight: 700, fontSize: F.xl, textDecoration: "none", letterSpacing: TRACK.tight, lineHeight: 1.3 }}>
+              <h2 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}><a href={`/blog/${p.slug}`} style={{ color: C.text, fontWeight: 700, fontSize: F.xl, textDecoration: "none", letterSpacing: TRACK.tight, lineHeight: 1.3 }}>
                 {p.title}
-              </a>
+              </a></h2>
               <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: MEASURE }}>{p.description}</p>
               <p className="tnum" style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>
                 <time dateTime={p.date}>{formatDay(p.date)}</time>. {minutesToRead(p)} minute read.

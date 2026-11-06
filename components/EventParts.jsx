@@ -122,11 +122,11 @@ export function EventRow({ e, today }) {
           {/* A real link to the event's page. A plain left click opens the
               modal instead (EventDialog); everything else, and every crawler,
               gets the page. */}
-          <a href={`/events/${e.id}`} data-event={e.id} className="card-link"
+          <h4 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}><a href={`/events/${e.id}`} data-event={e.id} className="card-link"
             style={{
               color: past ? C.muted : C.text, fontWeight: 700, fontSize: F.md,
               textDecoration: "none", letterSpacing: TRACK.tight,
-            }}>{e.name}</a>
+            }}>{e.name}</a></h4>
           <Countdown e={e} today={today} />
           {e.at.discontinued && <Pill>discontinued</Pill>}
         </div>

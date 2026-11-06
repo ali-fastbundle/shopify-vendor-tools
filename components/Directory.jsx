@@ -836,7 +836,7 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
             </h1>
             <p className="tnum" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0` }}>
               {cat === "all"
-                ? `${toolTotal} tools for Shopify app builders in ${CATEGORIES.length} categories, updated ${LAST_UPDATED}.`
+                ? `${toolTotal} tools for Shopify app developers in ${CATEGORIES.length} categories, updated ${LAST_UPDATED}.`
                 : `${rows.length} of ${toolTotal} tools. ${catOf(cat).blurb}`}
             </p>
           </div>
@@ -1308,6 +1308,9 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, u
                 */}
               {/* `.card-link`: its overlay makes the whole card open this
                   (globals.css), the same on every card in every section. */}
+              {/* An h2 per tool, so the grid has a structure a crawler and a
+                  screen reader can move through (2026-11-06). */}
+              <h2 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit" }}>
               <a href={`/tools/${tool.id}`} className="card-link"
                 onClick={(e) => {
                   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -1318,6 +1321,7 @@ function Card({ tool, avg, reviewCount, votes, myVote, onVote, onOpen, picked, u
                   fontSize: F.lg, fontWeight: 700, color: C.text, letterSpacing: TRACK.tight,
                   textDecoration: "none",
                 }}>{tool.name}</a>
+              </h2>
               {/* The one badge left, and the one invariant B allows: a status
                   warning about the product rather than a label on it. It is
                   also the only thing here that tells you not to bother. */}
@@ -2094,9 +2098,9 @@ function Subscribe() {
       background: C.hero,
       border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl,
     }}>
-      <h3 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
+      <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
         Know when a section opens
-      </h3>
+      </h2>
       <p style={{ fontSize: F.md, color: C.muted, margin: "8px 0 0" , lineHeight: 1.55 }}>
         One email when new tools go into the directory or a section opens. That is the whole
         thing. It is not a newsletter, there is nothing to read weekly, and there is no pitch

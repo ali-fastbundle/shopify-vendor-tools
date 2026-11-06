@@ -13,9 +13,9 @@ export default function PostLinks({ posts = [], context }) {
     <aside aria-label="Compared side by side" style={{
       marginTop: S.xl, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.lg, background: C.panel,
     }}>
-      <p style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, margin: 0 }}>
+      <h2 style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, margin: 0 }}>
         {context === "tool" ? "Compared side by side with its alternatives" : "Compared side by side"}
-      </p>
+      </h2>
       {posts.map((p) => (
         <div key={p.slug} style={{ marginTop: S.sm }}>
           <a href={`/blog/${p.slug}`} style={{

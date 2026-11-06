@@ -3334,6 +3334,22 @@ monitor is not evidence.
 does not need a mood, and two full-width radial gradients repainting behind a scrolling
 grid is a cost paid on every frame for nothing.
 
+**K. A title names what a person would search; the H1 keeps the house name (2026-11-06).**
+The homepage `<title>` is "Tools for Shopify App Developers" while its H1 stays "The Shopify app
+vendor's toolkit": the title does the search work, and "vendor" is the community's own word. Each
+category has a `searchTitle` in `CATEGORIES` ("Shopify App Store ASO Tools", "Shopify Store
+Databases"), read through `categorySearchTitle` by the category page and every tool page's title;
+the section indexes name their audience ("Newsletters for Shopify App Developers"). A new section
+or category gets a title in those terms, with "Shopify" in it.
+
+**L. One h1 per page, no skipped levels, and the things a page lists are headings.** Every tool
+card's name is an h2, a category page's tools are h2, a section index's entries are h3 under their
+group's h2, events are h4 under their month's h3, owners and blog posts are h2, What's moving
+entries are h2. A heading wraps the existing link with `fontSize` and `fontWeight` inherited, so
+nothing changes visually; a styled label that heads a block (Is this your tool?, Compared side by
+side) is a heading, not a paragraph. Check a new page with the heading list of its server HTML
+before shipping it.
+
 ## Interaction
 
 **Motion answers a pointer, it never asks for one.** Nothing on this page moves on load,

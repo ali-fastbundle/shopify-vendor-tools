@@ -8,7 +8,7 @@ import SectionView from "@/components/SectionView";
 
 export const dynamic = "force-dynamic";
 
-const title = "Newsletters for Shopify app vendors | watchfor.tools";
+const title = "Newsletters for Shopify App Developers | watchfor.tools";
 const description =
   "Newsletters worth an app vendor's time: a couple about the Shopify platform itself, the rest merchant-side media read sideways for demand signal. Each with the honest caveat.";
 

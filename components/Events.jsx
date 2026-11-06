@@ -200,8 +200,8 @@ export default function Events({ plan, events, lastUpdated }) {
               {unscheduled.map((e) => (
                 <li key={e.id} id={e.id} className="card"
                   style={{ padding: `${S.md}px ${S.sm}px`, margin: `${S.xs}px -${S.sm}px`, border: "1px solid transparent", borderRadius: R.card }}>
-                  <a href={`/events/${e.id}`} data-event={e.id} className="card-link"
-                    style={{ color: C.text, fontWeight: 700, fontSize: F.md, textDecoration: "none" }}>{e.name}</a>
+                  <h3 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}><a href={`/events/${e.id}`} data-event={e.id} className="card-link"
+                    style={{ color: C.text, fontWeight: 700, fontSize: F.md, textDecoration: "none" }}>{e.name}</a></h3>
                   <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>
                     {[placeOf(e), e.at.label].filter(Boolean).join(" · ")}
                   </p>

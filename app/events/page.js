@@ -12,7 +12,7 @@ import SectionView from "@/components/SectionView";
    read, never on the day it was built. */
 export const dynamic = "force-dynamic";
 
-const title = "Events for Shopify app vendors | watchfor.tools";
+const title = "Events for Shopify App Developers | watchfor.tools";
 const description =
   "Conferences and meetups worth an app vendor's time, with who is in the room. Dates checked against each organizer's site, and nothing unconfirmed shown as scheduled.";
 

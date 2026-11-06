@@ -194,9 +194,9 @@ function OwnerInvite({ tool, viewer = {}, watchLog = [] }) {
     <div style={{
       marginTop: S.xl, border: `1px dashed ${C.line}`, borderRadius: R.card, padding: S.lg,
     }}>
-      <p style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>
+      <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>
         {tool.claimed ? `${tool.name} maintains this listing` : "Is this your tool?"}
-      </p>
+      </h2>
       <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
         {tool.claimed ? (
           <>

@@ -151,9 +151,9 @@ function Rows({ entries: initial = [], tools = [], tool, cat, on = "", admin = f
                 <Logo entry={e} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
-                    <a href={entryHref(e)} style={{ fontSize: F.lg, fontWeight: 700, color: C.text, textDecoration: "none", letterSpacing: TRACK.tight }}>
+                    <h2 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}><a href={entryHref(e)} style={{ fontSize: F.lg, fontWeight: 700, color: C.text, textDecoration: "none", letterSpacing: TRACK.tight }}>
                       {e.toolName}
-                    </a>
+                    </a></h2>
                     {e.cat && <span style={{ fontSize: F.xs, color: ink(catOf(e.cat).color) }}>{catOf(e.cat).label}</span>}
                     {e.kind && <span style={{ fontSize: F.xs, color: C.dim }}>{KIND_LABEL[e.kind] || e.kind}</span>}
                     {/* Where it came from: observed, from the vendor, or

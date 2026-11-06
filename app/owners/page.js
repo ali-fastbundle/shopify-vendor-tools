@@ -7,7 +7,7 @@ import JsonLd from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
-const title = "Owners | watchfor.tools";
+const title = "Who Owns the Tools for Shopify App Developers | watchfor.tools";
 const description = "The companies and people behind the tools, newsletters and events on watchfor.tools, with their sites and every listing each is behind.";
 
 const baseMetadata = {

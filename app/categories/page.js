@@ -9,13 +9,13 @@ import SectionView from "@/components/SectionView";
 export const dynamic = "force-dynamic";
 
 const baseMetadata = {
-  title: "Categories | watchfor.tools",
+  title: "Categories of Tools for Shopify App Developers | watchfor.tools",
   description:
     "Every category of tool built for Shopify app vendors: ASO, App Store data, billing analytics, "
     + "partner programmes, store databases, detectors, suites, merchant research, talent and support.",
   alternates: { canonical: "/categories" },
   openGraph: {
-    title: "Categories | watchfor.tools",
+    title: "Categories of Tools for Shopify App Developers | watchfor.tools",
     description: "Every category of tool built for Shopify app vendors.",
     url: CATEGORIES_URL,
     siteName: "watchfor.tools",

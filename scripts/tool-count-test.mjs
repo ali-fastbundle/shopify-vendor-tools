@@ -93,7 +93,7 @@ if (base) {
   };
   const home = (await get("/")).t;
   const sidebar = Number((home.match(/Directory<\/span><span class="side-count">(\d+)/) || [])[1]);
-  const heading = Number((home.match(/(\d+) tools for Shopify app builders/) || [])[1]);
+  const heading = Number((home.match(/(\d+) tools for Shopify app developers/) || [])[1]);
   const llms = (await get("/llms.txt")).t;
   const llmsTotal = Number((llms.match(/(\d+) tools listed/) || [])[1]);
   const og = await fetch(`${base}/og`, { signal: AbortSignal.timeout(30_000) });

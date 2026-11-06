@@ -60,10 +60,11 @@ function Card({ p }) {
         style={{ width: 64, height: 64, borderRadius: R.control, flexShrink: 0, objectFit: "cover", border: `1px solid ${C.line}` }} />}
       <div style={{ minWidth: 0, flex: 1 }}>
       <div className="flex flex-wrap items-baseline" style={{ gap: S.sm }}>
+        <h3 style={{ margin: 0, fontSize: "inherit", fontWeight: "inherit", display: "inline" }}>{/* a heading under its group */}
         <a href={`/podcasts/${p.id}`} className="card-link"
           style={{ color: C.text, fontWeight: 700, fontSize: F.lg, textDecoration: "none", letterSpacing: TRACK.tight }}>
           {p.name}
-        </a>
+        </a></h3>
         {p.shopifySpecific && <Pill>Shopify-specific</Pill>}
       </div>
       <Signal p={p} />

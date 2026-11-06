@@ -27,7 +27,9 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
-const title = "The app vendor's toolkit | watchfor.tools";
+/* The title does the search work; the H1 keeps the community's word, "vendor"
+   (HEADLINE). Raised as High item 3 in the October SEO audit. */
+const title = "Tools for Shopify App Developers | watchfor.tools";
 const description =
   "Every tool built for the people who build Shopify apps, and the few general ones worth leaving for. Rankings, store data, revenue analytics, partner programs. Open directory, community rated.";
 
