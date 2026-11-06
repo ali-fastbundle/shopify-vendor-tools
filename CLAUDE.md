@@ -3524,6 +3524,20 @@ without it:
 - American spelling. Listing copy is neutral with no first person; site copy is second
   person.
 
+**The anti-slop pass applies to every public page, not only the blog** (2026-11-06, Ali's
+instruction). The `stop-slop` skill (`.claude/skills/stop-slop`, local, with `ali-voice` winning
+where they disagree) is the last pass over anything a visitor reads: listing copy, section and
+page intros, interface text, emails, posts. Cut throat-clearing ("here's what", "it's worth
+noting"), "not X, it's Y" contrasts (say Y), emphasis words ("really", "actually", "truly",
+"simply"), dramatic one-word fragments, lines written to be quoted, signposts ("the rest of this
+post") and objects doing a person's verb. `VOICE_RULES` tells every model prompt the same, and
+`voiceIssues` flags them as `slop` and `fragments`. `node scripts/slop-scan.mjs` reports every
+hit across the catalogues, blurbs, copy files, posts and the visible text in pages and components,
+skipping Admin.jsx, server log lines and /about (Ali's own text, which it does not edit). It
+flags and never rewrites; what it still lists after a pass has been read and kept on purpose,
+such as a plain negation ("The message is not stored on this site. It is sent as one email.").
+Run it after any change to public copy.
+
 Every prompt that drafts public text (`lib/announce.js`, `lib/announcements.js`,
 `lib/rewrite.js`, `lib/research.js`) includes `VOICE_RULES` from `lib/voice.js`, the one
 copy of what a model is told. `voiceIssues` is the code half: it flags an em dash,
@@ -3886,6 +3900,7 @@ node scripts/feed-discovery-test.mjs # feeds: found three ways, active within a 
 node scripts/mentions-test.mjs       # mentions: domain only, never a name, never a post body, vendor and repeat accounts marked, removal reasons
 node scripts/events-digest-test.mjs  # the monthly events digest and the event refresh: regions, chase, once a month, blocked not dead, verification
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
+node scripts/slop-scan.mjs --summary # AI patterns in every public string; read any new hit before committing
 node scripts/privacy-test.mjs        # /privacy names every browser key; one cookie; no IP stored; stat lists fixed
 node scripts/shipping-test.mjs       # recommender feedback, blog comments, the announcement queue
 node scripts/recommend-test.mjs      # the flow's questions, drafts, drivers, cost, nothing-fits, no address kept

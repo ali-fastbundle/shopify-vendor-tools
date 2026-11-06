@@ -105,7 +105,7 @@ export default function ContactForm({ token }) {
       </div>
       <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.lg}px 0 0`, lineHeight: 1.55, maxWidth: "58ch" }}>
         Your address is used to reply to you and for nothing else. The message is not stored on
-        this site; it is sent as one email.
+        this site. It is sent as one email.
       </p>
     </form>
   );

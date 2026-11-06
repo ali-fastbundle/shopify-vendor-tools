@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const title = "Groups and communities for Shopify app vendors | watchfor.tools";
 const description =
-  "Forums and groups an app vendor can join. Who is actually in each one, what it costs, how you get in, and what its rules let a vendor do.";
+  "Forums and groups an app vendor can join. Who is in each one, what it costs, how you get in, and what its rules let a vendor do.";
 
 const baseMetadata = {
   title,

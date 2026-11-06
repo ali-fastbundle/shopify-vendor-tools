@@ -157,7 +157,7 @@ export default function Events({ plan, events, lastUpdated }) {
             Events
           </h1>
           <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
-            Conferences and meetups an app vendor might travel for, with who is actually in the room.
+            Conferences and meetups an app vendor might travel for, with who is in the room.
             Only a few are about the Shopify app ecosystem itself. Most are merchant and retail events,
             worth it when your buyers are there.
           </p>

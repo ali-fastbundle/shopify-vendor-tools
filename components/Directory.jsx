@@ -1868,7 +1868,7 @@ function ReviewForm({ toolId, name, onSubmit, initialRating = 0, session = {}, e
           style={{ ...field, width: 150, flexShrink: 0 }} />
         <GrowText ref={textRef} value={text} onChange={(e) => setText(e.target.value)}
           onSubmit={submit}
-          placeholder="What did you actually find using it?"
+          placeholder="What did you find using it?"
           style={{ ...field, flex: 1, minWidth: 200 }} />
         <button onClick={submit} disabled={!rating || busy} className="ctl press" style={{
           background: rating && !busy ? C.accent : C.subtle, color: rating && !busy ? C.onAccent : C.dim,
@@ -2121,7 +2121,7 @@ function Subscribe() {
 
       {state === "done" && (
         <p className="mt-2" style={{ fontSize: F.sm, color: C.accentInk }}>
-          Done. You will hear from me when something actually changes.
+          Done. You will hear from me when something changes.
         </p>
       )}
       {state === "error" && (
@@ -2249,8 +2249,8 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
             {suggestions.length === 0 ? (
               <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, maxWidth: "44ch" }}>
                 Nothing yet. Known gaps: the email and lifecycle layer Mantle also covered, anything
-                aimed at agencies rather than app vendors, and general tools an app vendor really
-                does reach for, which get listed and badged rather than left out.
+                aimed at agencies rather than app vendors, and general tools an app vendor does
+                reach for, which get listed and badged rather than left out.
               </p>
             ) : (
               <div className="mt-3 flex flex-col">
