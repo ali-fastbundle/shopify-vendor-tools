@@ -241,10 +241,10 @@ export default async function AdminPage({ searchParams }) {
      pages already read the file's value; this removes the stored field and
      logs it. A failure costs the clean-up, never the page. */
   try {
-    const [{ settleClears }, { ALL_TOOLS }, { ALL_NEWSLETTERS }, { ALL_PODCASTS }, { ALL_EVENTS }] = await Promise.all([
-      import("@/lib/overrideClears"), import("@/lib/tools"), import("@/lib/newsletters"), import("@/lib/podcasts"), import("@/lib/events"),
+    const [{ settleClears }, { ALL_TOOLS }, { ALL_NEWSLETTERS }, { ALL_PODCASTS }, { ALL_EVENTS }, { ALL_COMMUNITIES }] = await Promise.all([
+      import("@/lib/overrideClears"), import("@/lib/tools"), import("@/lib/newsletters"), import("@/lib/podcasts"), import("@/lib/events"), import("@/lib/communities"),
     ]);
-    await settleClears([...ALL_TOOLS, ...ALL_NEWSLETTERS, ...ALL_PODCASTS, ...ALL_EVENTS]);
+    await settleClears([...ALL_TOOLS, ...ALL_NEWSLETTERS, ...ALL_PODCASTS, ...ALL_EVENTS, ...ALL_COMMUNITIES]);
   } catch (e) {
     console.error("[admin] override clearing failed:", e?.message || e);
   }

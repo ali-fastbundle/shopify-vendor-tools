@@ -1,4 +1,4 @@
-import { mergedTools, mergedNewsletters, mergedPodcasts } from "@/lib/listings";
+import { mergedTools, mergedNewsletters, mergedPodcasts, mergedCommunities } from "@/lib/listings";
 import { LAST_UPDATED_ISO, CATEGORIES, isInCat } from "@/lib/tools";
 import { SITE } from "@/lib/seo";
 import { feedEntries } from "@/lib/feed";
@@ -25,8 +25,8 @@ export const dynamic = "force-dynamic";
  * published list.
  */
 export default async function sitemap() {
-  const [tools, newsletters, changes, discovery, lists, podcasts] = await Promise.all([
-    mergedTools(), mergedNewsletters(), feedEntries({ limit: 1 }), read("svt:discovery", {}), read("svt:lists", {}), mergedPodcasts(),
+  const [tools, newsletters, changes, discovery, lists, podcasts, communities] = await Promise.all([
+    mergedTools(), mergedNewsletters(), feedEntries({ limit: 1 }), read("svt:discovery", {}), read("svt:lists", {}), mergedPodcasts(), mergedCommunities(),
   ]);
 
   return [
@@ -103,6 +103,20 @@ export default async function sitemap() {
       priority: 0.6,
     })),
     {
+      url: `${SITE}/communities`,
+      lastModified: new Date(
+        communities.reduce((max, c) => (c.updated && c.updated > max ? c.updated : max), "")
+        || LAST_UPDATED_ISO || Date.now()),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    ...communities.map((c) => ({
+      url: `${SITE}/communities/${c.id}`,
+      lastModified: new Date(c.updated || LAST_UPDATED_ISO || Date.now()),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    })),
+    {
       url: `${SITE}/events`,
       lastModified: new Date(
         EVENTS.reduce((max, e) => (e.updated && e.updated > max ? e.updated : max), "")
@@ -163,8 +177,8 @@ export default async function sitemap() {
     /* Owners with two or more listings (lib/owners.js), each dated by the
        newest of its entries, and the index dated by the newest of them. */
     ...(() => {
-      const owners = ownersWithPages({ tools, newsletters, podcasts, events: EVENTS });
-      const byId = (m) => [...tools, ...newsletters, ...podcasts, ...EVENTS].find((x) => x.id === m.id)?.updated || "";
+      const owners = ownersWithPages({ tools, newsletters, podcasts, communities, events: EVENTS });
+      const byId = (m) => [...tools, ...newsletters, ...podcasts, ...communities, ...EVENTS].find((x) => x.id === m.id)?.updated || "";
       const newest = (o) => o.entries.map(byId).filter(Boolean).sort().at(-1) || LAST_UPDATED_ISO;
       if (!owners.length) return [];
       return [

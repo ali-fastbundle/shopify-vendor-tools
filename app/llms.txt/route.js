@@ -8,6 +8,8 @@ import { SITE, isForVendors } from "@/lib/seo";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { PODCASTS } from "@/lib/podcasts";
 import { podcastGroups, podcastIntro } from "@/lib/podcastCopy";
+import { COMMUNITIES } from "@/lib/communities";
+import { COMMUNITY_GROUPS, communityGroups, communityIntro } from "@/lib/communityCopy";
 import { EVENTS, agenda } from "@/lib/events";
 import { POSTS } from "@/lib/blog";
 import { countTools } from "@/lib/toolCount";
@@ -62,9 +64,9 @@ from the vendor, or mentioned by someone else, in their words and not the direct
 ## Markdown versions
 
 Append .md to the path of any content page for the same page as Markdown:
-${SITE}/tools/<id>.md, ${SITE}/categories/<id>.md, ${SITE}/newsletters/<id>.md, ${SITE}/podcasts/<id>.md,
+${SITE}/tools/<id>.md, ${SITE}/categories/<id>.md, ${SITE}/newsletters/<id>.md, ${SITE}/podcasts/<id>.md, ${SITE}/communities/<id>.md,
 ${SITE}/events/<id>.md, ${SITE}/owners/<id>.md, ${SITE}/blog/<slug>.md, and the
-indexes ${SITE}/index.md (the directory), ${SITE}/newsletters.md, ${SITE}/podcasts.md, ${SITE}/events.md, ${SITE}/owners.md,
+indexes ${SITE}/index.md (the directory), ${SITE}/newsletters.md, ${SITE}/podcasts.md, ${SITE}/communities.md, ${SITE}/events.md, ${SITE}/owners.md,
 ${SITE}/blog.md, ${SITE}/changes.md and ${SITE}/about.md. Each carries everything
 its page shows and nothing it does not, including the labelled "Watch for" caveat,
 which this file leaves out. Each page also links its version from its head.
@@ -149,6 +151,18 @@ ${[["Made for app builders", podcastGroups(PODCASTS).builders], ["For merchants 
     .map(([title, list]) => `### ${title}\n\n${list.map((p) => [
       `- [${p.name}](${SITE}/podcasts/${p.id}): ${p.one}`,
       `  ${[p.discontinued ? "stopped" : p.cadence, p.episodeCount ? `${p.episodeCount} episodes` : "", p.free ? "free" : ""].filter(Boolean).join(" | ")}${p.host ? ` | hosted by ${p.host}` : ""}`,
+    ].join("\n")).join("\n")}`).join("\n\n")}
+
+## Groups and communities
+
+${communityIntro(COMMUNITIES).join(" ")} Each has a page at ${SITE}/communities/<id>
+carrying the full note, who is in it and the "watch for" caveat.
+
+${COMMUNITY_GROUPS.map((g) => [g, communityGroups(COMMUNITIES)[g.key]])
+    .filter(([, list]) => list.length)
+    .map(([g, list]) => `### ${g.title}\n\n${list.map((c) => [
+      `- [${c.name}](${SITE}/communities/${c.id}): ${c.one}`,
+      `  ${[c.platform, c.price, c.entry].filter(Boolean).join(" | ")}`,
     ].join("\n")).join("\n")}`).join("\n\n")}
 
 ${eventsBlock()}${POSTS.length ? `## Blog

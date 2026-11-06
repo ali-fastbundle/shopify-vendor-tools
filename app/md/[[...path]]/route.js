@@ -1,5 +1,5 @@
 import { read, KEYS } from "@/lib/store";
-import { mergedTools, mergedNewsletters, mergedEvents, mergedPodcasts } from "@/lib/listings";
+import { mergedTools, mergedNewsletters, mergedEvents, mergedPodcasts, mergedCommunities } from "@/lib/listings";
 import { publicReviews } from "@/lib/reviews";
 import { feedEntries } from "@/lib/feed";
 import { getAbout } from "@/lib/aboutStore";
@@ -7,7 +7,7 @@ import { AUTHOR_URL } from "@/lib/tools";
 import { todayISO } from "@/lib/events";
 import { SITE } from "@/lib/seo";
 import {
-  toolMarkdown, indexMarkdown, categoryMarkdown, newsletterMarkdown, newslettersMarkdown, podcastMarkdown, podcastsMarkdown,
+  toolMarkdown, indexMarkdown, categoryMarkdown, newsletterMarkdown, newslettersMarkdown, podcastMarkdown, podcastsMarkdown, communityMarkdown, communitiesMarkdown,
   eventMarkdown, eventsMarkdown, ownerMarkdown, ownersMarkdown, postMarkdown, blogMarkdown, changesMarkdown, aboutMarkdown,
 } from "@/lib/markdown";
 
@@ -43,6 +43,12 @@ async function build(parts) {
     if (!b) return { md: podcastsMarkdown({ podcasts }), path: "/podcasts" };
     const [tools, newsletters, events, r] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents(), reviews()]);
     return { md: podcastMarkdown(b, { podcasts, tools, newsletters, events, reviews: r }), path: `/podcasts/${b}` };
+  }
+  if (a === "communities") {
+    const communities = await mergedCommunities();
+    if (!b) return { md: communitiesMarkdown({ communities }), path: "/communities" };
+    const [tools, newsletters, podcasts, events, r] = await Promise.all([mergedTools(), mergedNewsletters(), mergedPodcasts(), mergedEvents(), reviews()]);
+    return { md: communityMarkdown(b, { communities, tools, newsletters, podcasts, events, reviews: r }), path: `/communities/${b}` };
   }
   if (a === "events") {
     const events = await mergedEvents();
