@@ -113,6 +113,12 @@
 
   --c-star: #946400;
   --c-star-off: rgba(31, 33, 36, 0.26);
+  /* Charts in blog posts (2026-11-06). Neutral ink at three steps, never a hue:
+     cobalt is the action and the category hues mean a category (invariants A, C).
+     Series are told apart by step, direct labels and a table, not by colour. */
+  --c-chart-1: #2B3442;
+  --c-chart-2: #5D6877;
+  --c-chart-3: #8C96A3;
 
   /* Category colours as text: each hue taken down until it reads on white. */
   --ink-00e08a: #04794E;
@@ -187,6 +193,9 @@
 
   --c-star: #FFC93C;
   --c-star-off: rgba(255, 255, 255, 0.2);
+  --c-chart-1: #E3E9EF;
+  --c-chart-2: #A3ADB9;
+  --c-chart-3: #6B7684;
 
   /* On dark the category hue is already readable as text. */
   --ink-00e08a: #00E08A;

@@ -2286,6 +2286,19 @@ nobody here checked.
 - **Outbound links in a post carry `utm_source` on the page and in the RSS body**, through
   `outbound()` at render time, never in `lib/posts/`. `postText` (llms.txt) is not tagged.
 
+**A post's text runs the full width of the content column** (2026-11-06, Ali's call), not the
+62ch measure the rest of the site uses: `MEASURE` in `components/Blog.jsx` is `"none"`, set
+explicitly because `globals.css` stops an unclassed paragraph at 62ch.
+
+**Charts are drawn on the page from numbers in the post** (`{ chart }` blocks, 2026-11-06,
+`components/BlogChart.jsx`): bars, grouped bars and a step line, in HTML so the labels are real
+text at any width, and in the theme through `C.chart1..3`. Those are neutral ink at three steps,
+never a hue: cobalt is the action and the category hues mean a category (invariants A and C), so a
+series is told apart by its step, a direct label and the "Show the numbers" table. `chartTable` in
+`lib/blog.js` is the one text form, used by that table, RSS, llms.txt and the Markdown version. A
+chart states only figures the post states or that the catalogue or git history holds, and says
+where they came from. No image file of a chart: a static SVG does not follow the theme.
+
 **Posts take likes and comments through `components/Engagement.jsx`** (`kind="post"`), keyed
 `post:<slug>`. `isVotableId` admits that key for `/api/vote`; `isListedId` does not, so a post
 can never be reviewed, reported or claimed. Comments (`lib/comments.js`, `svt:comments`) need an

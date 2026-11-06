@@ -4,6 +4,7 @@ import { inline, resolveRef, minutesToRead, UNVERIFIED_LEGEND } from "@/lib/blog
 import { outbound } from "@/lib/outbound";
 import Engagement from "@/components/Engagement";
 import { postKey } from "@/lib/comments";
+import BlogChart from "@/components/BlogChart";
 
 /*
  * The blog index and a post. Server-rendered with no client state, the same
@@ -17,7 +18,11 @@ import { postKey } from "@/lib/comments";
  * goes through outbound() at the point the href is written (invariant 11).
  */
 
-const MEASURE = "68ch";
+/* Full column width, on Ali's call (2026-11-06): a post's lines run the width
+   of the content column rather than stopping at a reading measure. "none" and
+   not absent, because globals.css stops an unclassed paragraph at 62ch. */
+const MEASURE = "none";
+const COLUMN = 1040;
 
 function Inline({ text }) {
   return inline(text).map((tk, i) => {
@@ -53,6 +58,7 @@ function Block({ b }) {
       }}><Inline text={b.note} /></p>
     );
   }
+  if (b.chart) return <BlogChart c={b.chart} />;
   if (b.img) {
     /* A chart: its own description is the alt text, and it scales down to the
        column without ever being wider than it was drawn. */
@@ -122,7 +128,7 @@ const Byline = ({ post }) => (
 );
 
 const Footer = ({ lastUpdated }) => (
-<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
+<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: MEASURE, margin: `${S["3xl"]}px 0 0` }}>
   <a href="/blog/rss" style={{ color: C.muted }}>RSS</a> for every post, in full.
 </p>
 );
@@ -130,10 +136,10 @@ const Footer = ({ lastUpdated }) => (
 export function BlogIndex({ posts, lastUpdated }) {
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ maxWidth: COLUMN, padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Blog</h1>
-          <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
+          <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: MEASURE }}>
             What a listing cannot hold: a whole category side by side, judged on stated criteria,
             by someone who sells none of the tools in it.
           </p>
@@ -160,7 +166,7 @@ export function BlogIndex({ posts, lastUpdated }) {
 export function BlogPost({ post, lastUpdated, comments = [] }) {
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ maxWidth: COLUMN, padding: "0 16px" }}>
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
           <span style={{ color: C.dim }}> / </span>
@@ -168,13 +174,13 @@ export function BlogPost({ post, lastUpdated, comments = [] }) {
         </nav>
         <article>
           <header style={{ marginTop: S["2xl"] }}>
-            <h1 style={{ fontSize: F.display, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.15, maxWidth: "26ch" }}>
+            <h1 style={{ fontSize: F.display, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.15, maxWidth: "none" }}>
               {post.title}
             </h1>
             <Byline post={post} />
           </header>
           {post.body.map((b, i) => <Block key={i} b={b} />)}
-          <p style={{ fontSize: F.xs, color: C.dim, margin: `${S["2xl"]}px 0 0` }}>{UNVERIFIED_LEGEND}</p>
+          <p style={{ fontSize: F.xs, color: C.dim, margin: `${S["2xl"]}px 0 0`, maxWidth: MEASURE }}>{UNVERIFIED_LEGEND}</p>
         </article>
         {/* The shared engagement module, as a client island: likes and
             comments. The comments are read on the server and passed in, so
