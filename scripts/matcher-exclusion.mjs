@@ -184,7 +184,7 @@ console.log("\nit is still an ordinary listing:");
   ok(edit.status === 200, "a vendor edit succeeds", `HTTP ${edit.status}`);
   const merged = await listings.mergedTools();
   const t = merged.find((x) => x.id === subject.id);
-  ok(t.one === "A vendor edit.", "the editable field went through");
+  ok(t.one === "A vendor edit.", "the editable field went through", JSON.stringify(t.one));
   ok(t.watch === subject.watch, "watch did not");
   ok(!recommendable(t), "and the exclusion survived the edit");
   await store.write("svt:overrides", {});
