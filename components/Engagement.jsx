@@ -274,7 +274,7 @@ function ReviewForm({ id, name, noun, session, mine, onPosted }) {
             aria-label="Your name" style={{ ...field, marginTop: S.md }} maxLength={40} />
           <GrowText value={text} onChange={(e) => setText(e.target.value)} onSubmit={submit}
             rows={3} maxRows={12} maxLength={600} aria-label="Your review"
-            placeholder={`What should another app vendor know about ${name}?`}
+            placeholder={`What should another app developer know about ${name}?`}
             style={{ ...field, marginTop: S.sm }} />
           {losesVotes && (
             <p style={{ fontSize: F.xs, color: C.warnInk, margin: `${S.xs}px 0 0` }}>

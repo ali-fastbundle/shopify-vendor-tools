@@ -55,7 +55,7 @@ export async function GET() {
     <title>watchfor.tools: What&apos;s moving</title>
     <link>${SITE}/changes</link>
     <atom:link href="${SITE}/changes/rss" rel="self" type="application/rss+xml" />
-    <description>Pricing moves, new features, rebrands and wind-downs across tools built for Shopify app vendors.</description>
+    <description>Pricing moves, new features, rebrands and wind-downs across tools built for Shopify app developers.</description>
     <language>en</language>
     <lastBuildDate>${rfc822(updated)}</lastBuildDate>
 ${items}

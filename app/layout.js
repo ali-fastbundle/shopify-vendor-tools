@@ -27,8 +27,9 @@ const inter = Inter({
   variable: "--font-sans",
 });
 
-/* The title does the search work; the H1 keeps the community's word, "vendor"
-   (HEADLINE). Raised as High item 3 in the October SEO audit. */
+/* The title does the search work, and the H1 (HEADLINE) says the same thing in
+   sentence case. "App vendor" was dropped on 2026-11-06: it is neither the
+   community's word nor a searched one. Raised as High item 3 in the October SEO audit. */
 const title = "Tools for Shopify App Developers | watchfor.tools";
 const description =
   "Every tool built for the people who build Shopify apps, and the few general ones worth leaving for. Rankings, store data, revenue analytics, partner programs. Open directory, community rated.";

@@ -31,7 +31,7 @@ export function GET() {
     <title>watchfor.tools: blog</title>
     <link>${SITE}/blog</link>
     <atom:link href="${SITE}/blog/rss" rel="self" type="application/rss+xml" />
-    <description>Whole categories of Shopify app vendor tools side by side, by someone who sells none of them.</description>
+    <description>Whole categories of tools for Shopify app developers side by side, by someone who sells none of them.</description>
     <language>en</language>
     <lastBuildDate>${rfc822((POSTS[0] && (POSTS[0].updated || POSTS[0].date)) || new Date().toISOString().slice(0, 10))}</lastBuildDate>
 ${items}

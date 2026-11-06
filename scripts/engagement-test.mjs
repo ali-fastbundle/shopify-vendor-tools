@@ -33,8 +33,11 @@ const sign = (p) => {
   return `${b}.${createHmac("sha256", SECRET).update(b).digest("base64url")}`;
 };
 const session = (email) => `svt_session=${sign({ t: "session", email, exp: Date.now() + 3600e3 })}`;
+/* A report is limited to five an hour per IP, and this file sends one per
+   section, so each report comes from its own address. */
+let ipN = 0;
 const post = (path, body, cookie) => fetch(`${BASE}${path}`, {
-  method: "POST", headers: { "Content-Type": "application/json", ...(cookie ? { cookie } : {}) },
+  method: "POST", headers: { "Content-Type": "application/json", ...(cookie ? { cookie } : {}), ...(path === "/api/report" ? { "x-forwarded-for": `10.88.${Date.now() % 250}.${++ipN}` } : {}) },
   body: JSON.stringify(body),
 });
 

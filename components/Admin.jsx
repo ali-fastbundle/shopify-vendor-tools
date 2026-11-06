@@ -13,6 +13,8 @@ import { ALL_PODCASTS } from "@/lib/podcasts";
 import { ALL_YOUTUBE } from "@/lib/youtube";
 import { ALL_AWARDS } from "@/lib/awards";
 import { ALL_EVENTS } from "@/lib/events";
+import { eventEdit, expectOf } from "@/lib/eventEdits";
+import { eventAccuracy } from "@/lib/eventAccuracy";
 import { drafted, published, readiness } from "@/lib/drafts";
 import { timesAsked, findDiscarded, normaliseDomain } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
@@ -284,7 +286,7 @@ export default function AdminPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, id, ...extra }),
       });
-      if (!res.ok) { setErr(await res.text()); return; }
+      if (!res.ok) { const t = await res.text(); setErr(t); return { error: t }; }
       const d = await res.json();
       if (d.suggestions) setRows(d.suggestions);
       if (d.claims) setClaimRows(d.claims);
@@ -297,8 +299,10 @@ export default function AdminPanel({
       if (d.questions) setQuestionRows(d.questions);
       if (d.lists) setListRows(d.lists);
       if (d.media) setMediaState(d.media);
+      return d;
     } catch {
       setErr("Could not reach the server.");
+      return { error: "Could not reach the server." };
     } finally {
       setBusy("");
     }
@@ -397,7 +401,7 @@ export default function AdminPanel({
             appliedChanges={appliedChanges || {}} publishedChanges={publishedChanges || {}}
             rewrittenChanges={rewrittenChanges || {}} editedChanges={editedChanges || {}} verifiedChanges={verifiedChanges || {}} onSeen={setSeen}
             autoResolved={autoResolved || []}
-            eventCoverage={eventCoverage} eventRefresh={eventRefresh} />
+            eventCoverage={eventCoverage} eventRefresh={eventRefresh} eventFindings={eventRows} act={act} busy={busy} />
         )}
 
         {tab === "listings" && (
@@ -1570,7 +1574,7 @@ function FilteredMentions({ rows = [], act, busy }) {
   for (const m of rows) by[m.listing?.name] = (by[m.listing?.name] || 0) + 1;
   return (
     <Collapsible title="Filtered as not Shopify-relevant" count={rows.length}
-      hint={`Mentions of general brands posted outside the Shopify forums, judged by the model to have nothing to do with Shopify app vendors. Kept, with the reason, so the filter can be checked.${rows.length ? ` By listing: ${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n} (${c})`).join(", ")}.` : ""}`}>
+      hint={`Mentions of general brands posted outside the Shopify forums, judged by the model to have nothing to do with Shopify app developers. Kept, with the reason, so the filter can be checked.${rows.length ? ` By listing: ${Object.entries(by).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n} (${c})`).join(", ")}.` : ""}`}>
       {rows.length === 0 ? <Empty>Nothing filtered.</Empty> : rows.slice(0, 200).map((m) => (
         <Row key={m.id} title={m.listing?.name} tag={m.relevance?.by === "pending" ? "not judged yet" : "filtered"} dim
           body={m.relevance?.reason || "No reason recorded."}
@@ -1624,35 +1628,217 @@ function AllMentions({ rows = [], sources = { lastRunAt: "", sources: {} }, act,
 }
 
 /*
- * What the monthly event refresh found (lib/eventRefresh.js). Nothing here
- * edits lib/events.js: Done means the editor made the change by hand, and
- * Dismiss is remembered by what the finding said, so the same reading is not
- * raised again. A cancelled or ended event is flagged for discard, never
- * removed.
+ * What the monthly event refresh found (lib/eventRefresh.js), with the same
+ * outcomes a tool finding has (2026-11-06):
+ *
+ *   Publish to What's moving  a line in the editor's words, linking the event.
+ *   Update the listing        where the finding maps to fields (lib/eventEdits.js):
+ *                             field, from, to on screen, then a commit to
+ *                             lib/events.js on main. Undo is a second commit.
+ *   Rewrite with AI           the prose the finding made wrong, the caveat
+ *                             included with a required reason, as a diff.
+ *   Resolve                   once, after any of those. Or Edited by hand,
+ *                             or Dismiss: not worth acting on, or the refresh
+ *                             got it wrong (a reason, never raised again).
  */
 function EventFindings({ rows = [], act, busy }) {
   return (
     <WorkList rows={rows.length} title="Event changes" count={rows.length} anchor="q-events"
-      hint="Read from each event's own page by the monthly refresh. Check the source, make the edit to lib/events.js by hand, then press Done. Confidence: 0.6 read once with its quote found on the page, 0.9 read the same on two runs, 0.75 a page unreachable on two runs.">
-      {rows.map((f) => (
-        <Row key={f.id} title={f.eventName}
-          tag={f.label} tagColor={f.kind === "ended" || f.kind === "page-gone" ? C.warnInk : undefined}
-          body={<>
-            {f.old || f.new ? <>{f.old || "absent"} {"\u2192"} {f.new || "absent"}</> : null}
-            {f.quote ? <span style={{ display: "block", color: C.muted, marginTop: S.xs }}>"{f.quote}"</span> : null}
-          </>}
-          meta={<>
-            {Math.round(f.confidence * 100)}% · {f.why} · {String(f.at).slice(0, 10)}
-            {" \u00b7 "}<a href={f.source} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>source</a>
-            {" \u00b7 "}<a href={`/events/${f.eventId}`} style={{ color: C.muted }}>listing</a>
-          </>}
-          actions={<>
-            <Btn onClick={() => act("event-finding", f.id, { decision: "done" })} busy={busy === "event-finding" + f.id} tone="go">Done, edited by hand</Btn>
-            <ConfirmBtn onConfirm={() => act("event-finding", f.id, { decision: "dismissed" })} busy={busy === "event-finding" + f.id}>Dismiss</ConfirmBtn>
-          </>}
-        />
-      ))}
+      hint="Read from each event's own page by the monthly refresh. Update the listing commits the dates or place to lib/events.js, Publish puts a line on What's moving, and people following the event hear about either. Confidence: 0.6 read once with its quote found on the page, 0.9 read the same on two runs, 0.75 a page unreachable on two runs.">
+      {rows.map((f) => <EventFindingRow key={f.id} f={f} act={act} busy={busy} />)}
     </WorkList>
+  );
+}
+
+function EventFindingRow({ f, act, busy }) {
+  const event = ALL_EVENTS.find((e) => e.id === f.eventId) || null;
+  const ed = eventEdit(f, event);
+  const [writing, setWriting] = useState(false);
+  const [headline, setHeadline] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [meta, setMeta] = useState(null);
+  const [rewriting, setRewriting] = useState(false);
+  const [choosingWrong, setChoosingWrong] = useState(false);
+  const [err, setErr] = useState("");
+  const b = (a) => busy === a + f.id;
+  const run = async (action, extra = {}) => { setErr(""); const r = await act(action, f.id, extra); if (r?.error) setErr(r.error); return r; };
+  const shown = (v) => (v === "" || v === null || v === undefined ? "absent" : String(v));
+  const quiet = { fontSize: F.xs, color: C.muted, whiteSpace: "nowrap", textDecoration: "underline" };
+  const acted = f.applied || f.rewritten || f.published;
+
+  async function startDraft() {
+    setWriting(true); setErr(""); setDrafting(true); setMeta(null);
+    try {
+      const res = await fetch("/api/admin/announce", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventFindingId: f.id }) });
+      if (!res.ok) { setErr(`${await res.text()} Write it yourself below.`); setHeadline(""); return; }
+      const d = await res.json();
+      setHeadline(d.draft || ""); setMeta(d);
+    } catch { setErr("Could not reach the server. Write it yourself below."); }
+    finally { setDrafting(false); }
+  }
+
+  const box = { background: C.subtle, border: `1px solid ${C.edge}`, borderRadius: R.control, padding: "8px 12px", marginTop: S.sm };
+  return (
+    <Row title={f.eventName}
+      tag={f.label} tagColor={f.kind === "ended" || f.kind === "page-gone" ? C.warnInk : undefined}
+      body={<>
+        {f.old || f.new ? <>{f.old || "absent"} {"\u2192"} {f.new || "absent"}</> : null}
+        {f.quote ? <span style={{ display: "block", color: C.muted, marginTop: S.xs }}>"{f.quote}"</span> : null}
+
+        {/* What Update the listing writes, before it is pressed. */}
+        {!f.applied && ed.state === "appliable" && (
+          <div style={box}>
+            <p className="tnum" style={{ fontSize: F.xs, color: C.muted, margin: 0, lineHeight: 1.7 }}>
+              {ed.rows.map((x) => (
+                <span key={x.field} style={{ display: "block" }}>
+                  <b style={{ color: C.text }}>{x.field}</b>{"  "}<span style={{ color: C.dim }}>from</span> {shown(x.from)}
+                  {"  "}<span style={{ color: C.dim }}>to</span> <b style={{ color: C.text }}>{shown(x.to)}</b>
+                </span>
+              ))}
+            </p>
+            {ed.notes.map((n) => <p key={n} style={{ fontSize: F.xs, color: C.warnInk, margin: "6px 0 0", lineHeight: 1.5 }}>{n}</p>)}
+          </div>
+        )}
+        {!f.applied && ed.state !== "appliable" && (
+          <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.sm}px 0 0`, lineHeight: 1.55 }}>
+            Not one field: {ed.why} It may still be worth publishing or a rewrite.
+          </p>
+        )}
+
+        {writing && (
+          <div style={{ ...box, background: C.raised, borderColor: C.accentEdge, padding: S.md }}>
+            <label style={{ fontSize: F.xs, color: C.dim, fontWeight: 600, display: "block", marginBottom: 4 }}>
+              The line for What's moving{meta?.provider && <span style={{ fontWeight: 400 }}> · drafted by {meta.provider}</span>}
+            </label>
+            {drafting ? <p style={{ fontSize: F.sm, color: C.muted, margin: 0 }}>Writing a draft from the finding…</p> : (
+              <textarea value={headline} onChange={(e) => setHeadline(e.target.value)} rows={3}
+                placeholder="One or two sentences. What the organizer announced, with the date and place."
+                style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
+            )}
+            {meta?.note && <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0" }}>It could not stand up: {meta.note}</p>}
+            <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5 }}>
+              Goes on /changes and the RSS feed, linking the event&apos;s page, and to everyone following the event in their next daily email.
+            </p>
+            <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
+              <Btn tone="go" busy={b("event-publish") || drafting}
+                onClick={async () => { const r = await run("event-publish", { headline }); if (!r?.error) setWriting(false); }}>Publish to What's moving</Btn>
+              <Btn onClick={startDraft} busy={drafting}>Draft again</Btn>
+              <Btn onClick={() => setWriting(false)}>Cancel</Btn>
+            </div>
+          </div>
+        )}
+
+        {rewriting && !f.rewritten && (
+          <div style={{ marginTop: S.sm }}>
+            <RewriteEditor r={f} busy={busy === "event-apply-rewrite" + f.id ? f.id : ""} onAct={act} onClose={() => setRewriting(false)}
+              proposeBody={{ eventFindingId: f.id }} fieldList={["one", "focus", "watch"]} reasonFor={["watch"]}
+              onSave={async (p) => { const r = await run("event-apply-rewrite", p); return r?.error ? { error: r.error } : r; }}
+              flagHint="Check it on the event page."
+              footer={<>Saves as a commit to lib/events.js on main, so it is in git and Undo is a second commit. A caveat change needs a reason and goes in the caveat history.</>} />
+          </div>
+        )}
+        {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: `${S.sm}px 0 0`, lineHeight: 1.5 }}>{err}</p>}
+      </>}
+      meta={<>
+        {Math.round(f.confidence * 100)}% · {f.why} · {String(f.at).slice(0, 10)}
+        {" \u00b7 "}<a href={f.source} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>source</a>
+        {" \u00b7 "}<a href={`/events/${f.eventId}`} target="_blank" rel="noopener noreferrer" style={{ color: C.muted }}>listing</a>
+      </>}
+      actions={<div className="flex flex-wrap items-center" style={{ gap: S.sm, width: "100%" }}>
+        {f.published ? (
+          <>
+            <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>On What's moving {String(f.published.at).slice(0, 10)}</span>
+            <ConfirmBtn onConfirm={() => run("event-unpublish")} busy={b("event-unpublish")} confirm="Remove">Remove from updates</ConfirmBtn>
+          </>
+        ) : !writing && <Btn tone="go" onClick={startDraft} busy={drafting}>Publish to What's moving</Btn>}
+
+        {f.applied ? (
+          <>
+            <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
+              Listing updated {String(f.applied.at).slice(0, 10)}{" "}
+              <a href={f.applied.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 400, color: C.muted }}>{String(f.applied.sha).slice(0, 7)}</a>
+            </span>
+            <ConfirmBtn onConfirm={() => run("event-undo-apply")} busy={b("event-undo-apply")} confirm="Commit the old values back">Undo</ConfirmBtn>
+          </>
+        ) : ed.state === "appliable" && (
+          <ConfirmBtn tone="go" busy={b("event-apply")} confirm="Commit to lib/events.js"
+            note={`Commits ${ed.rows.map((x) => `${x.field} ${shown(x.to)}`).join(", ")} to lib/events.js on main, with updated set to today. Live after Vercel deploys it, about a minute.`}
+            onConfirm={() => run("event-apply", { expect: expectOf(ed.set, event) })}>
+            Update listing: {ed.rows.map((x) => x.field).join(", ").slice(0, 40)}
+          </ConfirmBtn>
+        )}
+
+        {f.rewritten ? (
+          <>
+            <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 700 }}>
+              Rewritten {String(f.rewritten.at).slice(0, 10)} ({(f.rewritten.fields || []).join(", ")}){" "}
+              <a href={f.rewritten.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 400, color: C.muted }}>{String(f.rewritten.sha).slice(0, 7)}</a>
+            </span>
+            <ConfirmBtn onConfirm={() => run("event-undo-rewrite")} busy={b("event-undo-rewrite")} confirm="Commit the old text back">Undo rewrite</ConfirmBtn>
+          </>
+        ) : !rewriting && <Btn onClick={() => setRewriting(true)}>Rewrite with AI</Btn>}
+
+        <a href={`/events/${f.eventId}`} target="_blank" rel="noopener noreferrer" style={quiet}>Open the listing</a>
+
+        <span className="inline-flex flex-wrap items-center" style={{ gap: S.sm, marginLeft: "auto" }}>
+          {acted ? (
+            <>
+              <Btn tone="go" onClick={() => run("event-finding", { decision: "resolved" })} busy={b("event-finding")}>Resolve</Btn>
+              <EventMarkWrong f={f} run={run} busy={b("event-finding")} note />
+            </>
+          ) : choosingWrong ? (
+            <EventMarkWrong f={f} run={run} busy={b("event-finding")} startArmed onCancel={() => setChoosingWrong(false)} />
+          ) : (
+            <>
+              <Btn onClick={() => run("event-finding", { decision: "done" })} busy={b("event-finding")}>Edited by hand</Btn>
+              <ConfirmBtn tone="plain" busy={b("event-finding")}
+                choices={[["Not worth acting on", "dismiss"], ["The refresh got it wrong", "wrong"]]}
+                onConfirm={(v) => (v === "wrong" ? setChoosingWrong(true) : run("event-finding", { decision: "dismissed" }))}>Dismiss</ConfirmBtn>
+            </>
+          )}
+        </span>
+      </div>}
+    />
+  );
+}
+
+/* The refresh misread the page. A one-line reason, kept, and fed back. */
+function EventMarkWrong({ f, run, busy, note = false, startArmed = false, onCancel }) {
+  return (
+    <ConfirmBtn tone="plain" busy={busy} confirm="Mark wrong" startArmed={startArmed} onCancel={onCancel}
+      reason="What it got wrong, in one line. e.g. that date is the 2026 edition's"
+      note={note ? "This closes the finding but does not undo a commit or a feed line already made. Use their own Undo and Remove." : null}
+      onConfirm={(reason) => run("event-finding", { decision: "wrong", reason })}>Mark as wrong</ConfirmBtn>
+  );
+}
+
+/*
+ * Event findings already decided: Reopen or Unmark, and how often the refresh
+ * was wrong per kind, the way System shows the tool monitor's error rate.
+ */
+function EventFindingsDecided({ rows = [], act, busy }) {
+  const decided = rows.filter((f) => f.status !== "open");
+  const acc = eventAccuracy(rows);
+  const label = { resolved: "Resolved", done: "Edited by hand", dismissed: "Dismissed", wrong: "Marked wrong" };
+  return (
+    <Collapsible title="Event findings decided" count={decided.length} anchor="event-decided">
+      {acc.length > 0 && (
+        <table className="tnum" style={{ fontSize: F.xs, borderCollapse: "collapse", marginBottom: S.md }}>
+          <thead><tr style={{ color: C.dim, textAlign: "left" }}><th style={{ padding: "2px 12px 2px 0" }}>Kind</th><th style={{ padding: "2px 12px" }}>Found</th><th style={{ padding: "2px 12px" }}>Acted on</th><th style={{ padding: "2px 12px" }}>Read twice</th><th style={{ padding: "2px 12px" }}>Wrong</th></tr></thead>
+          <tbody>{acc.map((k) => (
+            <tr key={k.kind}><td style={{ padding: "2px 12px 2px 0" }}>{k.label}</td><td style={{ padding: "2px 12px" }}>{k.total}</td><td style={{ padding: "2px 12px" }}>{k.acted}</td><td style={{ padding: "2px 12px" }}>{k.twice}</td>
+              <td style={{ padding: "2px 12px", color: k.wrong ? C.warnInk : undefined }}>{k.wrong}{k.total ? ` (${Math.round((k.wrong / k.total) * 100)}%)` : ""}</td></tr>
+          ))}</tbody>
+        </table>
+      )}
+      {decided.length === 0 ? <p style={{ fontSize: F.sm, color: C.muted, margin: 0 }}>Nothing decided yet.</p>
+        : decided.slice(0, 100).map((f) => (
+          <Row key={f.id} title={f.eventName} tag={f.label}
+            body={<>{f.old || "absent"} {"\u2192"} {f.new || "absent"}{f.wrong ? <span style={{ display: "block", color: C.warnInk }}>Wrong: {f.wrong.reason}</span> : null}</>}
+            meta={<>{label[f.status] || f.status} {String(f.decidedAt || "").slice(0, 10)}{["applied", "rewritten", "published"].filter((d) => f[d]).length ? ` · ${["applied", "rewritten", "published"].filter((d) => f[d]).join(", ")}` : ""}</>}
+            actions={<Btn onClick={() => act("event-finding", f.id, { decision: "open" })} busy={busy === "event-finding" + f.id}>{f.status === "wrong" ? "Unmark" : "Reopen"}</Btn>} />
+        ))}
+    </Collapsible>
   );
 }
 
@@ -5479,8 +5665,9 @@ function Sentences({ parts, side }) {
   );
 }
 
-function RewriteEditor({ r, busy, onAct, onClose }) {
+function RewriteEditor({ r, busy, onAct, onClose, proposeBody = null, fieldList = REWRITE_FIELDS, onSave = null, reasonFor = [], flagHint = null, footer = null }) {
   const [steer, setSteer] = useState("");
+  const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [drafts, setDrafts] = useState({});
@@ -5492,7 +5679,7 @@ function RewriteEditor({ r, busy, onAct, onClose }) {
     try {
       const res = await fetch("/api/admin/rewrite", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: r.id, steer: withSteer }),
+        body: JSON.stringify({ ...(proposeBody || { id: r.id }), steer: withSteer }),
       });
       if (!res.ok) { setErr(await res.text()); return; }
       const d = await res.json();
@@ -5506,13 +5693,16 @@ function RewriteEditor({ r, busy, onAct, onClose }) {
 
   useEffect(() => { propose(""); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fields = REWRITE_FIELDS.filter((f) => drafts[f] !== undefined);
+  const fields = fieldList.filter((f) => drafts[f] !== undefined);
   const chosen = Object.fromEntries(fields.filter((f) => include[f] && String(drafts[f] || "").trim()).map((f) => [f, drafts[f]]));
   const hasDash = Object.values(chosen).some((v) => /[—–]/.test(v));
 
+  const needsReason = Object.keys(chosen).some((f) => reasonFor.includes(f));
   async function save() {
     setErr("");
-    const res = await onAct(r.id, "apply-rewrite", {
+    if (needsReason && reason.trim().length < 5) { setErr("The caveat is changing: say in one line why."); return; }
+    const res = await (onSave || ((p) => onAct(r.id, "apply-rewrite", p)))({
+      reason: reason.trim(),
       fields: chosen,
       proposal: result?.fields || {},
       dropped: result?.dropped || [],
@@ -5610,7 +5800,7 @@ function RewriteEditor({ r, busy, onAct, onClose }) {
           {result.flag && (
             <p style={{ fontSize: F.xs, color: C.warnInk, margin: `${S.sm}px 0 0`, lineHeight: 1.55, maxWidth: "74ch" }}>
               <b>The model flagged the caveat or ownership:</b>{" "}
-              <span style={{ color: C.muted }}>{result.flag} If it is right, that is a hand edit to <code>lib/tools.js</code>.</span>
+              <span style={{ color: C.muted }}>{result.flag} {flagHint || <>If it is right, that is a hand edit to <code>lib/tools.js</code>.</>}</span>
             </p>
           )}
           {hasDash && (
@@ -5630,6 +5820,16 @@ function RewriteEditor({ r, busy, onAct, onClose }) {
           style={{ ...FIELD, resize: "vertical", lineHeight: 1.55 }} />
       </div>
 
+      {needsReason && (
+        <div style={{ marginTop: S.md }}>
+          <label style={{ fontSize: F.xs, color: C.warnInk, fontWeight: 600, display: "block", marginBottom: 4 }}>
+            The caveat is changing. Why, in one line (goes in the commit and the caveat history)
+          </label>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. the organizer confirmed 9 September 2027"
+            style={{ ...FIELD }} />
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>
         <Btn onClick={save} busy={busy === r.id} tone="go" disabled={loading || !Object.keys(chosen).length}>
           Accept and save
@@ -5638,8 +5838,8 @@ function RewriteEditor({ r, busy, onAct, onClose }) {
         <Btn onClick={onClose}>Cancel</Btn>
       </div>
       <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5, maxWidth: "74ch" }}>
-        Saves as an override, like a vendor edit, so the file is untouched and Undo restores exactly what was
-        there. Every save is logged with this finding in System, AI rewrites.
+        {footer || <>Saves as an override, like a vendor edit, so the file is untouched and Undo restores exactly what was
+        there. Every save is logged with this finding in System, AI rewrites.</>}
       </p>
       {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0", lineHeight: 1.5 }}>{err}</p>}
     </div>
@@ -5821,7 +6021,7 @@ function Deleted({ rows = [], act, busy }) {
  * keeps the list short enough to stay worth reading.
  */
 const DISMISS_REASONS = [
-  ["Out of scope", "Not a tool for Shopify app vendors"],
+  ["Out of scope", "Not a tool for Shopify app developers"],
   ["Already listed", "Already in the directory under another name"],
   ["Defunct", "No longer trading"],
 ];
@@ -6114,7 +6314,7 @@ function Discovered({ discovery = { findings: [] }, onSuggestions, onEntries }) 
  * both, and resolve once. Writing the line by hand without the model is still
  * here.
  */
-function RecentUpdates({ feed = [], feedDeleted = [], news = [], onNews, changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, autoResolved = [], onSeen, eventCoverage = [], eventRefresh = {} }) {
+function RecentUpdates({ feed = [], feedDeleted = [], news = [], onNews, changes = [], sinceVisit = [], monitor = {}, seen = {}, coverage = [], appliedChanges = {}, publishedChanges = {}, rewrittenChanges = {}, editedChanges = {}, verifiedChanges = {}, autoResolved = [], onSeen, eventCoverage = [], eventRefresh = {}, eventFindings = [], act: actEvent, busy: busyEvent }) {
   const tools = useMemo(() => published(ALL_TOOLS).slice().sort((a, b) => a.name.localeCompare(b.name)), []);
   const today = new Date().toISOString().slice(0, 10);
   const blank = { toolId: "", headline: "", sourceUrl: "", kind: "new-capability", announcedOn: today, sourceNote: "", email: "" };
@@ -6350,6 +6550,7 @@ function RecentUpdates({ feed = [], feedDeleted = [], news = [], onNews, changes
         <CoverageList rows={coverage} />
       </Collapsible>
       <EventCoverage rows={eventCoverage} refresh={eventRefresh} />
+      <EventFindingsDecided rows={eventFindings} act={actEvent} busy={busyEvent} />
       </Reference>
     </>
   );

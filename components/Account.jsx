@@ -305,7 +305,7 @@ const OWNER_COPY = {
   newsletter: { noun: "newsletter", can: "the summary, description, subscribe link and social links",
     keeps: "The cadence, the run length, the \"watch for\" note and community ratings stay with the editors." },
   podcast: { noun: "podcast", can: "the summary, description, show link and social links",
-    keeps: "The cadence, the episode count, how a vendor gets on the show, the \"watch for\" note and community ratings stay with the editors." },
+    keeps: "The cadence, the episode count, how an app developer gets on the show, the \"watch for\" note and community ratings stay with the editors." },
   group: { noun: "community", can: "the summary, description, joining link and social links",
     keeps: "The price, how you get in, who it is for, the member figure, the \"watch for\" note and community ratings stay with the editors." },
   event: { noun: "event", can: "the summary, the event link and social links",

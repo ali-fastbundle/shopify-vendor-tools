@@ -46,6 +46,12 @@ the caveat on main is not the one the page showed. The readiness rules still app
 caveat, no "none", no em dash. Every attempt, committed or refused, is in `svt:watchlog`
 with who, when, before, after and why, and the tool page shows that history to an admin.
 
+**An event's caveat can also change through its refresh finding** (2026-11-06, on the
+editor's request): Rewrite with AI on an event finding may propose a new `watch`, because a
+confirmed date usually leaves "no date yet" behind in it. It is the same admin path: a diff a
+person reads, a required one-line reason, a commit to `lib/events.js`, and a row in
+`svt:watchlog` (`kind: "event"`, `via: "rewrite"`). Tool rewrites still never propose `watch`.
+
 **This is an admin path only, and nothing about the protection changed.** `watch` is still in
 `PROTECTED`. A vendor edit drops it, an override carrying it is ignored by `mergedTools()`,
 the monitor cannot apply it, and every AI rewrite drops it as protected. The reason is the
@@ -496,8 +502,21 @@ Three parts (2026-10-23).
   venue that contains the other), and a dismissed reading is remembered by what it said
   (`printOf`). The model must quote the sentence each value rests on, and a quote not on
   the page drops the value. Confidence is verification: 0.6 read once, 0.9 read the same on
-  the next run, 0.75 a dead page on two runs. Findings wait in the Inbox ("Event changes":
-  Done, edited by hand, or Dismiss); the edit is a hand edit to `lib/events.js`. Coverage
+  the next run, 0.75 a dead page on two runs. Findings wait in the Inbox ("Event changes")
+  with a tool finding's outcomes (2026-11-06): **Update the listing** where the finding maps
+  to fields (`eventEdit` in `lib/eventEdits.js`: a date to startDate, endDate, datePrecision
+  "exact", dateRaw and, for a next edition, lastHeld; a place, venue or format to its field;
+  never ended, a dead page or off-calendar), shown as field, from, to, then **a commit to
+  `lib/events.js` on main** (`editEntryInSource`, `commitEventEdit` in `lib/publish.js`), not
+  a Redis override, because half the site reads the file directly; a value changed on main
+  since the page loaded is refused, and Undo is a second commit writing back what was there.
+  **Rewrite with AI** proposes `one`, `focus` and `watch` as a diff, committed the same way
+  (the caveat with a reason, see invariant 1). **Publish to What's moving** is a feed row
+  linking `/events/<id>`, and a feed line about an event reaches its followers in the daily
+  digest (a confirmed date that moves does too). Resolve once after any of them; **Edited by
+  hand** and Dismiss as before; **Mark as wrong** takes a reason, is never raised again, and
+  the event's own mistakes go into its next reading as examples. Decided findings, with the
+  wrong rate per kind, are under Updates. `scripts/event-actions-test.mjs`. Coverage
   per event is on Updates ("Event refresh coverage"), with a Run now button. No model means
   availability and calendar only, and coverage says the dates were not read.
 
@@ -3334,9 +3353,12 @@ monitor is not evidence.
 does not need a mood, and two full-width radial gradients repainting behind a scrolling
 grid is a cost paid on every frame for nothing.
 
-**K. A title names what a person would search; the H1 keeps the house name (2026-11-06).**
-The homepage `<title>` is "Tools for Shopify App Developers" while its H1 stays "The Shopify app
-vendor's toolkit": the title does the search work, and "vendor" is the community's own word. Each
+**K. A title names what a person would search, and so does the H1 (2026-11-06).**
+The homepage `<title>` is "Tools for Shopify App Developers" and its H1 says the same in sentence
+case. **"App vendor" was dropped from public copy on 2026-11-06**: it is neither the community's word
+nor a searched one, and it came from a first draft rather than evidence. The person building the app
+is an "app developer" or "the people who build Shopify apps". "Vendor" stays where it means the
+company selling a listed tool ("From the vendor", vendor announcements, the claim flow). Each
 category has a `searchTitle` in `CATEGORIES` ("Shopify App Store ASO Tools", "Shopify Store
 Databases"), read through `categorySearchTitle` by the category page and every tool page's title;
 the section indexes name their audience ("Newsletters for Shopify App Developers"). A new section
@@ -4022,6 +4044,7 @@ node scripts/follow-test.mjs         # double opt-in, detection, one digest per 
 node scripts/event-schema-test.mjs   # Event schema: organizer only with a URL, performers and offers only from recorded facts, a card per event
 node scripts/feed-discovery-test.mjs # feeds: found three ways, active within a year or stale, hand values kept, a feed beats the diff
 node scripts/mentions-test.mjs       # mentions: domain only, never a name, never a post body, vendor and repeat accounts marked, removal reasons
+node scripts/event-actions-test.mjs  # event findings: apply as a commit, rewrite, publish, resolve once, mark wrong, undo
 node scripts/events-digest-test.mjs  # the monthly events digest and the event refresh: regions, chase, once a month, blocked not dead, verification
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/slop-scan.mjs --summary # AI patterns in every public string; read any new hit before committing

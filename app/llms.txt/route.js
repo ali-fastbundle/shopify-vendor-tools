@@ -48,7 +48,7 @@ export async function GET() {
 
   const body = `# watchfor.tools
 
-> An independent directory of tools built for Shopify app vendors: the people who
+> An independent directory of tools built for Shopify app developers: the people who
 > build and sell apps on the Shopify App Store. Not for merchants running a shop,
 > and not affiliated with Shopify.
 
@@ -94,7 +94,7 @@ merchant support teams.
 
 Not listed: Shopify apps built for merchants to run their shop. Those belong in
 the Shopify App Store. A handful of general, non-Shopify-specific tools are listed
-where app vendors genuinely reach for them, and are marked "not Shopify-only".
+where app developers genuinely reach for them, and are marked "not Shopify-only".
 
 ## Categories
 
@@ -122,7 +122,7 @@ ${items.map((t) => [
 
 ## Newsletters
 
-Newsletters worth an app vendor's time. Two are about the Shopify platform
+Newsletters worth an app developer's time. Two are about the Shopify platform
 itself; the rest are merchant-side media read sideways for demand signal. Each
 has a page at ${SITE}/newsletters/<id> carrying the full note and the "watch for"
 caveat, omitted here for the same reason the tool caveats are.
@@ -144,7 +144,7 @@ ${NEWSLETTERS.filter((n) => !isForVendors(n)).map((n) => [
 ## Podcasts
 
 ${podcastIntro(PODCASTS).join(" ")} Each has a page at ${SITE}/podcasts/<id>
-carrying the full note, the "watch for" caveat and how a vendor gets on the show.
+carrying the full note, the "watch for" caveat and how an app developer gets on the show.
 
 ${[["Made for app builders", podcastGroups(PODCASTS).builders], ["For merchants and DTC brands", podcastGroups(PODCASTS).merchants], ["Stopped publishing, kept as a record", podcastGroups(PODCASTS).stopped]]
     .filter(([, list]) => list.length)
@@ -211,7 +211,7 @@ function eventsBlock() {
   const past = dated.filter((e) => e.at.status === "past").reverse();
   return `## Events
 
-Conferences and meetups an app vendor might travel for. Dates are checked
+Conferences and meetups an app developer might travel for. Dates are checked
 against each organizer's own site. Each has a page at ${SITE}/events/<id>.
 
 ### Coming up

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const title = "Podcasts for Shopify App Developers | watchfor.tools";
 const description =
-  "Podcasts an app vendor can learn from or appear on. One is made for app builders, the rest for merchants. Which ones stopped, and which take paid guest slots.";
+  "Podcasts an app developer can learn from or appear on. One is made for app builders, the rest for merchants. Which ones stopped, and which take paid guest slots.";
 
 const baseMetadata = {
   title,

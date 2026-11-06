@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 const title = "Events for Shopify App Developers | watchfor.tools";
 const description =
-  "Conferences and meetups worth an app vendor's time, with who is in the room. Dates checked against each organizer's site, and nothing unconfirmed shown as scheduled.";
+  "Conferences and meetups worth an app developer's time, with who is in the room. Dates checked against each organizer's site, and nothing unconfirmed shown as scheduled.";
 
 const baseMetadata = {
   title,

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const title = "Shopify App Developer Communities and Groups | watchfor.tools";
 const description =
-  "Forums and groups an app vendor can join. Who is in each one, what it costs, how you get in, and what its rules let a vendor do.";
+  "Forums and groups an app developer can join. Who is in each one, what it costs, how you get in, and what its rules let you post.";
 
 const baseMetadata = {
   title,

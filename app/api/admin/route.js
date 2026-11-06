@@ -1344,9 +1344,128 @@ export async function POST(request) {
 
   if (action === "event-finding") {
     const { decideEventFinding, getEventFindings } = await import("@/lib/eventRefresh");
-    const r = await decideEventFinding(String(id || ""), String(body.decision || ""), session.email);
+    const r = await decideEventFinding(String(id || ""), String(body.decision || ""), session.email, { reason: body.reason });
     if (r.error) return new Response(r.error, { status: 400 });
     return Response.json({ eventFindings: await getEventFindings() });
+  }
+
+  /*
+   * An event finding's destinations (2026-11-06), the same set a tool finding
+   * has. Apply and the rewrite commit to lib/events.js on main through the
+   * GitHub path (lib/publish.js), because an event's dates and prose live in
+   * the file and half the site reads it directly. Undo is a second commit
+   * writing back what main held. Publishing is a feed row linking the event's
+   * page. None of them resolves the finding: Resolve does, once.
+   */
+  if (action.startsWith("event-") && action !== "event-finding") {
+    const ER = await import("@/lib/eventRefresh");
+    const P = await import("@/lib/publish");
+    const f = await ER.findEventFinding(String(id || ""));
+    if (!f) return new Response("No finding with that id.", { status: 400 });
+    const { EVENTS: CATALOGUE } = await import("@/lib/events");
+    const e = CATALOGUE.find((x) => x.id === f.eventId);
+    if (!e) return new Response("That event is no longer published.", { status: 400 });
+    const done = async (dest, value) => {
+      const r = await ER.setEventDestination(f.id, dest, value, session.email);
+      if (r.error) return new Response(r.error, { status: 400 });
+      return Response.json({ eventFindings: await ER.getEventFindings() });
+    };
+    const commit = async (what, args) => {
+      if (!P.canPublish()) return { error: "GITHUB_TOKEN is not set, so there is nothing to commit with." };
+      const r = await P.commitEventEdit({ id: e.id, ...args });
+      await P.logPublish({ at: new Date().toISOString(), by: session.email, kind: "event", id: e.id, name: e.name,
+        outcome: r.error ? "failed" : "committed", action: what, sha: r.sha || "", error: r.error ? String(r.error).slice(0, 300) : "" }).catch(() => {});
+      console.log(`[events] ${what} event:${e.id} ${r.error ? `failed ${String(r.error).slice(0, 120)}` : r.sha}`);
+      return r;
+    };
+    /* What main held, turned back into an edit. */
+    const inverse = (before = {}, after = {}) => ({
+      set: Object.fromEntries(Object.entries(before).filter(([, b]) => b.present).map(([k, b]) => [k, b.value])),
+      remove: Object.entries(before).filter(([, b]) => !b.present).map(([k]) => k),
+      expect: after,
+    });
+
+    if (action === "event-apply") {
+      if (f.applied) return new Response("Already applied. Undo it first.", { status: 400 });
+      const { eventEdit, expectOf } = await import("@/lib/eventEdits");
+      const ed = eventEdit(f, e);
+      if (ed.state !== "appliable") return new Response(ed.why, { status: 400 });
+      const set = Object.fromEntries(Object.entries(ed.set).filter(([, v]) => v !== null));
+      const remove = Object.entries(ed.set).filter(([, v]) => v === null).map(([k]) => k);
+      const r = await commit("event-apply", {
+        set, remove, expect: body.expect && typeof body.expect === "object" ? body.expect : expectOf(ed.set, e),
+        message: `${e.name}: ${ed.rows.map((x) => `${x.field} ${x.from || "absent"} to ${x.to || "absent"}`).join(", ")}\n\nFrom the monthly event refresh (${f.label}), applied from /admin.\nSource: ${f.source}\nQuote: "${f.quote}"\nRevert this commit to undo.`,
+      });
+      if (r.error) return new Response(r.error, { status: 502 });
+      return done("applied", { sha: r.sha, url: r.url, rows: ed.rows, set: ed.set, before: r.before });
+    }
+    if (action === "event-undo-apply") {
+      if (!f.applied?.before) return new Response("Nothing applied to undo.", { status: 400 });
+      const inv = inverse(f.applied.before, f.applied.set);
+      const r = await commit("event-undo-apply", { ...inv, message: `${e.name}: undo the event refresh edit ${String(f.applied.sha).slice(0, 7)}\n\nWrites back what the entry held before, from /admin.` });
+      if (r.error) return new Response(r.error, { status: 502 });
+      return done("applied", null);
+    }
+
+    if (action === "event-apply-rewrite") {
+      if (f.rewritten) return new Response("Already rewritten. Undo it first.", { status: 400 });
+      const { EVENT_REWRITABLE } = await import("@/lib/eventEdits");
+      const { scrub } = await import("@/lib/rewrite");
+      const fields = {};
+      for (const [k, v] of Object.entries(body.fields || {})) {
+        if (!EVENT_REWRITABLE.includes(k) || typeof v !== "string") continue;
+        const t = scrub(v).slice(0, k === "watch" ? 600 : 300);
+        if (t && t !== (e[k] || "")) fields[k] = t;
+      }
+      if (!Object.keys(fields).length) return new Response("Nothing to save: no field differs from the listing.", { status: 400 });
+      const reason = String(body.reason || "").replace(/\s+/g, " ").trim().slice(0, 200);
+      if ("watch" in fields) {
+        const { readiness } = await import("@/lib/drafts");
+        const problems = readiness({ ...e, watch: fields.watch }, "event").filter((x) => /watch|caveat/i.test(x));
+        if (problems.length) return new Response(problems.join(" "), { status: 400 });
+        if (reason.length < 5) return new Response("The caveat is changing: say in one line why.", { status: 400 });
+      }
+      const expect = Object.fromEntries(Object.keys(fields).map((k) => [k, e[k] ?? null]));
+      const r = await commit("event-rewrite", {
+        set: fields, expect,
+        message: `${e.name}: rewrite ${Object.keys(fields).join(", ")} after the event refresh${reason ? `: ${reason}` : ""}\n\nProposed by a model from the finding (${f.label}), read as a diff and saved from /admin.\nSource: ${f.source}\nRevert this commit to undo.`,
+      });
+      if (r.error) return new Response(r.error, { status: 502 });
+      const at = new Date().toISOString();
+      if ("watch" in fields) await P.logWatchEdit({ at, by: session.email, kind: "event", id: e.id, name: e.name, before: e.watch || "", after: fields.watch, reason, ok: true, sha: r.sha, url: r.url, via: "rewrite" });
+      await pushCapped(KEYS.rewriteLog, [{
+        id: `rw-${Date.now().toString(36)}-ev`, type: "rewrite", at, by: session.email, changeId: f.id,
+        toolId: e.id, toolName: e.name, kind: "event",
+        finding: { kind: f.kind, what: f.label, old: f.old, new: f.new, url: f.source, confidence: f.confidence, at: f.at },
+        before: Object.fromEntries(Object.keys(fields).map((k) => [k, e[k] || ""])), saved: fields,
+        proposal: body.proposal && typeof body.proposal === "object" ? body.proposal : {},
+        steer: String(body.steer || "").slice(0, 400), provider: String(body.provider || "").slice(0, 20),
+        summary: String(body.summary || "").slice(0, 240), reason, sha: r.sha,
+      }], 300);
+      return done("rewritten", { sha: r.sha, url: r.url, fields: Object.keys(fields), saved: fields, before: r.before, reason });
+    }
+    if (action === "event-undo-rewrite") {
+      if (!f.rewritten?.before) return new Response("Nothing rewritten to undo.", { status: 400 });
+      const inv = inverse(f.rewritten.before, f.rewritten.saved);
+      const r = await commit("event-undo-rewrite", { ...inv, message: `${e.name}: undo the rewrite ${String(f.rewritten.sha).slice(0, 7)}\n\nWrites back the text the entry held before, from /admin.` });
+      if (r.error) return new Response(r.error, { status: 502 });
+      if (f.rewritten.fields?.includes("watch")) await P.logWatchEdit({ at: new Date().toISOString(), by: session.email, kind: "event", id: e.id, name: e.name, before: f.rewritten.saved.watch, after: f.rewritten.before.watch?.value || "", reason: "Undo of a rewrite", ok: true, sha: r.sha, url: r.url, via: "undo" });
+      return done("rewritten", null);
+    }
+
+    if (action === "event-publish") {
+      if (f.published) return new Response("Already on What's moving.", { status: 400 });
+      const { entry, error } = sanitiseFeedEntry({ headline: body.headline, sourceUrl: f.source || e.url, kind: `event-${f.kind}`, href: `/events/${e.id}` });
+      if (error) return new Response(error, { status: 400 });
+      const saved = await addFeedEntry(entry, { tool: { id: e.id, name: e.name, cat: "" }, changeId: f.id, publishedBy: session.email });
+      return done("published", { feedId: saved.id, headline: saved.headline });
+    }
+    if (action === "event-unpublish") {
+      if (!f.published) return new Response("Not on What's moving.", { status: 400 });
+      await removeFeedEntry(f.published.feedId, { by: session.email, reason: "Unpublished from its event finding" });
+      return done("published", null);
+    }
+    return new Response("Unknown action", { status: 400 });
   }
 
   if (action === "revoke-claim") {

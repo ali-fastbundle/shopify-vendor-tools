@@ -27,10 +27,10 @@ async function load() {
 
 export async function generateMetadata() {
   const lists = await load();
-  const title = "Lists of Shopify app vendor tools | watchfor.tools";
+  const title = "Lists of Tools for Shopify App Developers | watchfor.tools";
   const description = lists.length
-    ? `${lists.length} ${lists.length === 1 ? "list" : "lists"} of tools for Shopify app vendors, made by people who use them, each tool with its caveat.`
-    : "Lists of tools for Shopify app vendors, made by people who use them.";
+    ? `${lists.length} ${lists.length === 1 ? "list" : "lists"} of tools for Shopify app developers, made by people who use them, each tool with its caveat.`
+    : "Lists of tools for Shopify app developers, made by people who use them.";
   return withShareImage({
     title, description,
     alternates: { canonical: "/lists" },

@@ -224,7 +224,7 @@ export function EventBody({ e, today, Heading = "h1", headingId }) {
       )}
       {e.relevance && RELEVANCE_LABEL[e.relevance] && (
         <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.xs}px 0 0` }}>
-          <span style={{ color: C.muted }}>For an app vendor. </span>{RELEVANCE_LABEL[e.relevance]}.
+          <span style={{ color: C.muted }}>For an app developer. </span>{RELEVANCE_LABEL[e.relevance]}.
         </p>
       )}
 

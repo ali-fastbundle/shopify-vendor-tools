@@ -112,7 +112,7 @@ export default function PodcastPage({ podcast: p, related, reviews = [], owner =
                 like the caveat: a host cannot write their own rate card here. */}
             {p.reach && !p.discontinued && (
               <section style={{ marginTop: S.xl }}>
-                <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>How a vendor gets on it</h2>
+                <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>How an app developer gets on it</h2>
                 <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.xs}px 0 0`, color: C.muted  }}>
                   {p.reach} <span style={{ color: C.dim }}>As of {formatDay(p.updated)}.</span>
                 </p>

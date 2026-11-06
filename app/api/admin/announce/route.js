@@ -84,6 +84,24 @@ export async function POST(request) {
       issues: V.draftIssues(d.draft, rec.extraction),
     });
   }
+  /* An event refresh finding (lib/eventRefresh.js): drafted from the finding
+     and the event as the file has it. Same editor, same second press. */
+  if (body.eventFindingId) {
+    const ER = await import("@/lib/eventRefresh");
+    const f = await ER.findEventFinding(String(body.eventFindingId));
+    if (!f) return new Response("No finding with that id.", { status: 400 });
+    const { EVENTS: CATALOGUE, placed } = await import("@/lib/events");
+    const e = placed(CATALOGUE).find((x) => x.id === f.eventId);
+    if (!e) return new Response("That event is no longer published.", { status: 400 });
+    const { entryHref } = await import("@/lib/feedSource");
+    const all = await feedEntries({ limit: 200 });
+    const priorEntries = all.filter((r) => entryHref(r) === `/events/${e.id}`).slice(0, 4);
+    const change = { kind: f.label, what: `${f.label}. The page says: "${f.quote}"`, old: f.old, new: f.new, url: f.source, confidence: f.confidence };
+    const subject = { kind: "event", id: e.id, name: e.name, organizer: e.organizer, one: e.one, when: e.at?.label, place: [e.venue, e.city, e.country].filter(Boolean).join(", ") };
+    const result = await draftAnnouncement({ change, tool: subject, priorEntries, elsewhere: [] });
+    if (result.error) return new Response(result.error, { status: 502 });
+    return Response.json({ draft: result.draft, provider: result.provider, thin: result.thin, note: result.note });
+  }
   if (!body.id) return new Response("Missing id", { status: 400 });
 
   const [rows, tools] = await Promise.all([readChangelog(500), catalogueTools()]);

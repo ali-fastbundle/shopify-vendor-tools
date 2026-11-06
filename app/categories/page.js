@@ -11,12 +11,12 @@ export const dynamic = "force-dynamic";
 const baseMetadata = {
   title: "Categories of Tools for Shopify App Developers | watchfor.tools",
   description:
-    "Every category of tool built for Shopify app vendors: ASO, App Store data, billing analytics, "
+    "Every category of tool built for Shopify app developers: ASO, App Store data, billing analytics, "
     + "partner programmes, store databases, detectors, suites, merchant research, talent and support.",
   alternates: { canonical: "/categories" },
   openGraph: {
     title: "Categories of Tools for Shopify App Developers | watchfor.tools",
-    description: "Every category of tool built for Shopify app vendors.",
+    description: "Every category of tool built for Shopify app developers.",
     url: CATEGORIES_URL,
     siteName: "watchfor.tools",
     type: "website",

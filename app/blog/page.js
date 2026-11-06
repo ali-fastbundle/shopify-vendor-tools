@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 const title = "Shopify App Developer Tools Compared: the Blog | watchfor.tools";
 const description =
-  "Whole categories of Shopify app vendor tools side by side, judged on stated criteria by someone who sells none of them.";
+  "Whole categories of tools for Shopify app developers side by side, judged on stated criteria by someone who sells none of them.";
 
 const baseMetadata = {
   title,

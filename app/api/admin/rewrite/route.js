@@ -31,6 +31,21 @@ export async function POST(request) {
 
   let body;
   try { body = await request.json(); } catch { body = {}; }
+  /* An event refresh finding: its prose, against the file (2026-11-06). */
+  if (body.eventFindingId) {
+    const ER = await import("@/lib/eventRefresh");
+    const f = await ER.findEventFinding(String(body.eventFindingId));
+    if (!f) return new Response("No finding with that id.", { status: 400 });
+    const { EVENTS: CATALOGUE } = await import("@/lib/events");
+    const event = CATALOGUE.find((x) => x.id === f.eventId);
+    if (!event) return new Response("That event is no longer published.", { status: 400 });
+    const { eventEdit } = await import("@/lib/eventEdits");
+    const ed = eventEdit(f, event);
+    const { proposeEventRewrite } = await import("@/lib/rewrite");
+    const result = await proposeEventRewrite({ finding: f, event, edit: ed.state === "appliable" ? ed : f.applied || null, steer: body.steer });
+    if (result.error) return new Response(result.error, { status: 502 });
+    return Response.json(result);
+  }
   if (!body.id) return new Response("Missing id", { status: 400 });
 
   const [rows, tools] = await Promise.all([readChangelog(500), mergedTools()]);

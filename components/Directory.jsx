@@ -2234,7 +2234,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
                 style={field}
                 placeholder={kind === "tool"
                   ? "What does it do, and what problem does it solve better than the alternatives?"
-                  : "What is it, and why is it worth an app vendor's time?"} />
+                  : "What is it, and why is it worth an app developer's time?"} />
               <div className="flex flex-wrap" style={{ gap: S.sm }}>
                 <input style={{ ...field, width: 170 }} value={by} onChange={(e) => setBy(e.target.value)} placeholder="Your name" />
                 <input style={{ ...field, width: 220 }} value={byEmail} onChange={(e) => setByEmail(e.target.value)}
@@ -2260,7 +2260,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
             {suggestions.length === 0 ? (
               <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55  }}>
                 Nothing yet. Known gaps: the email and lifecycle layer Mantle also covered, anything
-                aimed at agencies rather than app vendors, and general tools an app vendor does
+                aimed at agencies rather than app developers, and general tools an app developer does
                 reach for, which get listed and badged rather than left out.
               </p>
             ) : (
