@@ -3690,8 +3690,21 @@ people who gave them and for what, the hashed and expiring rate-limit keys, the 
 (Vercel, Upstash, Resend), and the Google favicon request. A new localStorage key, cookie,
 stored field or processor is a line on that page, or the page is wrong.
 
-**No cookie banner, because nothing needs consent.** The only cookie is the sign-in session,
-which is strictly necessary for what the person asked for, and nothing tracks anybody.
+**Google Analytics 4 loads only after consent** (2026-11-06). It is the one third-party script, and
+it lives in one place: `components/Consent.jsx` mounts `GoogleAnalytics` from `@next/third-parties`
+only when the stored choice is "granted", and never in the layout. The choice is `svt:consent` in
+localStorage (`lib/consent.js`), wrapped like every other key. The banner has Accept and Reject as
+the same control side by side, a link to /privacy, and closing it or pressing Escape rejects.
+"Cookie settings" at the foot of the menu (`ConsentSettings`, also on /privacy) shows it again;
+rejecting after an accept stops GA, deletes the `_ga` cookies on this site (`withdrawGa`, the only
+`document.cookie` write outside the auth routes, and it only deletes) and reloads. **All of it is
+off without `NEXT_PUBLIC_GA_ID`**: no banner, no script, and /privacy says there is no third-party
+tracking. /privacy reads the same switch (`gaConfigured`) and, with it on, says what GA4 collects,
+that it goes to Google, its cookies, and how to withdraw. `scripts/privacy-test.mjs` holds all of
+this.
+
+**No other banner, because nothing else needs consent.** Our own only cookie is the sign-in
+session, which is strictly necessary for what the person asked for.
 
 **A consent banner is a precondition for any third-party script, not an afterthought.**
 Analytics beyond Vercel's cookieless counts, an ad or retargeting pixel, a chat widget, an

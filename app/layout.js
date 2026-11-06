@@ -3,6 +3,7 @@ import { HEADLINE } from "@/lib/tools";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeScript } from "@/components/Theme";
+import Consent from "@/components/Consent";
 import { SiteFrameProvider, SiteShell, SiteFooter } from "@/components/SiteFrame";
 import { ownerCount } from "@/lib/ownerCountStore";
 import { frameData } from "@/lib/frameData";
@@ -108,6 +109,10 @@ export default async function RootLayout({ children }) {
         {/* Core Web Vitals from real visits. Like Analytics, it injects nothing
           * during SSR and reports only on Vercel. */}
         <SpeedInsights />
+        {/* Google Analytics is never in the layout. It can load only inside
+            Consent, after the person accepts, and only when NEXT_PUBLIC_GA_ID
+            is set (CLAUDE.md, "Privacy and consent"). */}
+        <Consent />
       </body>
     </html>
   );

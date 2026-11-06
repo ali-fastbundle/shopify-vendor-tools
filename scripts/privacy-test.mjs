@@ -5,7 +5,11 @@
  *   node scripts/privacy-test.mjs
  *
  *  - every localStorage key the components use is named on /privacy
- *  - the only cookie set anywhere is the session cookie
+ *  - the only cookie set anywhere is the session cookie; lib/consent.js only
+ *    deletes Google's _ga cookies when consent is withdrawn
+ *  - Google Analytics is imported in one file, mounted only on "granted",
+ *    behind NEXT_PUBLIC_GA_ID, never in the layout; rejecting is one press,
+ *    dismissing rejects, and /privacy describes GA only when it is on
  *  - no script from another origin in the layout but Vercel's two
  *  - rate limiting stores no IP address and every key expires
  *  - /api/stat counts sections and recommender screens from fixed lists only
@@ -54,13 +58,30 @@ const browserKeys = [...prefixes].filter((k) => !serverOnly.test(k));
 const missing = browserKeys.filter((k) => !privacy.includes(k) && k !== "svt:nlvote");
 ok(browserKeys.length >= 5 && missing.length === 0, `every browser key is named on /privacy (${browserKeys.length})`, missing.join(", "));
 
-const cookieSetters = src.filter(([, s]) => /Set-Cookie|document\.cookie/.test(s)).map(([p]) => p.replace(root + "/", ""));
+const cookieSetters = src.filter(([p, s]) => /Set-Cookie|document\.cookie/.test(s) && !p.endsWith("lib/consent.js")).map(([p]) => p.replace(root + "/", ""));
+const consentLib = readFileSync(join(root, "lib/consent.js"), "utf8");
+ok([...consentLib.matchAll(/document\.cookie = `([^`]*)`/g)].every((m) => /Max-Age=0/.test(m[1])) && /\^_ga\(_\|\$\)/.test(consentLib),
+  "lib/consent.js only deletes Google's _ga cookies, never sets one");
 ok(cookieSetters.every((p) => /api\/auth\/(callback|session)/.test(p)), "the only cookie set is the session, by the auth routes", cookieSetters.join(", "));
 
 const layout = readFileSync(join(root, "app/layout.js"), "utf8");
 const external = [...layout.matchAll(/from "([^"]+)"/g)].map((m) => m[1]).filter((m) => !m.startsWith("@/") && !m.startsWith("."));
 ok(external.every((m) => /^(next\/font\/google|@vercel\/analytics\/next|@vercel\/speed-insights\/next|react)$/.test(m)), "no third-party script in the layout but Vercel's", external.join(", "));
 ok(!/<script[^>]+src=/.test(layout), "no external <script src> in the layout");
+
+/* Google Analytics: one file, after consent, never by default. */
+const gaFiles = src.filter(([, s]) => /@next\/third-parties|googletagmanager|gtag\(/.test(s)).map(([p]) => p.replace(root + "/", ""));
+ok(gaFiles.length === 1 && gaFiles[0] === "components/Consent.jsx", "Google Analytics is loaded from one file only", gaFiles.join(", "));
+const consentUi = readFileSync(join(root, "components/Consent.jsx"), "utf8");
+ok(/\{choice === "granted" && <GoogleAnalytics/.test(consentUi), "GA mounts only when the stored choice is granted");
+ok(/if \(!gaConfigured\(\)\) return null;/.test(consentUi) && /NEXT_PUBLIC_GA_ID/.test(consentLib), "no measurement id, no banner and no GA");
+ok(/onClick=\{\(\) => decide\("denied"\)\}>Reject</.test(consentUi) && /onClick=\{\(\) => decide\("granted"\)\}>Accept</.test(consentUi),
+  "Reject and Accept are the same control, one press each");
+ok(/e\.key === "Escape"\) decide\("denied"\)/.test(consentUi) && /aria-label="Close, which rejects"/.test(consentUi), "closing or Escape rejects");
+ok(/href="\/privacy"/.test(consentUi), "the banner links /privacy");
+ok(!/GoogleAnalytics|third-parties/.test(layout), "GA is never in the layout");
+ok(/GA \? \(/.test(privacy) && /Google Analytics 4 records/.test(privacy) && /To withdraw/.test(privacy) && /svt:consent/.test(privacy),
+  "/privacy says what GA collects, that it goes to Google, and how to withdraw, when GA is on");
 
 const { allow } = await L("lib/ratelimit.js");
 const store = readFileSync(join(root, "lib/ratelimit.js"), "utf8");

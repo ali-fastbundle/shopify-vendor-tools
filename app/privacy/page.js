@@ -2,6 +2,8 @@ import { C, S, F, TRACK, LAST_UPDATED } from "@/lib/tools";
 import { withShareImage } from "@/lib/ogCard";
 import { SITE, IDS } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
+import { ConsentSettings } from "@/components/Consent";
+import { gaConfigured } from "@/lib/consent";
 
 /*
  * What the site stores, and why, in plain words. Written from the code, not
@@ -9,11 +11,11 @@ import JsonLd from "@/components/JsonLd";
  * does. If you change what is stored, change this page in the same commit
  * (CLAUDE.md, "Privacy and consent").
  *
- * No cookie banner, on purpose. The only cookie is the sign-in session, which
- * is strictly necessary for the thing the person asked for, and nothing on the
- * site tracks anybody. A banner becomes necessary the day a third-party
- * script arrives, and adding one is a precondition of that script, not a
- * follow-up.
+ * Google Analytics (2026-11-06) is the one third-party script, and it loads
+ * only after the person accepts it in the consent banner (components/Consent.jsx),
+ * and only when NEXT_PUBLIC_GA_ID is set. This page says which of the two
+ * states the site is in, from the same switch: with no id there is no banner,
+ * no GA and no third-party tracking, and the page says so.
  */
 
 /* Dynamic like every other page, so the share image version is read per
@@ -21,8 +23,11 @@ import JsonLd from "@/components/JsonLd";
 export const dynamic = "force-dynamic";
 
 const title = "Privacy | watchfor.tools";
-const description = "What watchfor.tools stores, why, and for how long. No tracking, no advertising, no data sold.";
-const REVISED = "2026-10-10";
+const GA = gaConfigured();
+const description = GA
+  ? "What watchfor.tools stores, why, and for how long. Google Analytics only if you accept it. No advertising, no data sold."
+  : "What watchfor.tools stores, why, and for how long. No tracking, no advertising, no data sold.";
+const REVISED = "2026-11-06";
 
 export async function generateMetadata() {
   return withShareImage({
@@ -55,12 +60,21 @@ export default function Page() {
       <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Privacy</h1>
-          <P>
-            The short version: nothing on this site tracks you, nothing is sold, and there is no
-            advertising. There is one cookie, and only if you sign in. Your email address is stored
-            only if you gave it to us, for the thing you gave it for.
-          </P>
-          <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.sm}px 0 0` }}>Last revised <time dateTime={REVISED}>10 October 2026</time>.</p>
+          {GA ? (
+            <P>
+              The short version: the site uses Google Analytics only if you accept it, and nothing
+              loads before you choose. Nothing is sold, and there is no advertising. Our own cookie is
+              set only if you sign in. Your email address is stored only if you gave it to us, for the
+              thing you gave it for.
+            </P>
+          ) : (
+            <P>
+              The short version: nothing on this site tracks you, nothing is sold, and there is no
+              advertising. There is one cookie, and only if you sign in. Your email address is stored
+              only if you gave it to us, for the thing you gave it for.
+            </P>
+          )}
+          <p style={{ fontSize: F.sm, color: C.dim, margin: `${S.sm}px 0 0` }}>Last revised <time dateTime={REVISED}>6 November 2026</time>.</p>
         </header>
 
         <H>In your browser</H>
@@ -76,6 +90,8 @@ export default function Page() {
             are new since then. It is a date, not a history.</Li>
           <Li k="svt:draft:…, svt:contact:draft">A review, comment or message you started and have not
             sent, so it survives a trip to your inbox to sign in. Deleted when you send it.</Li>
+          {GA && <Li k="svt:consent">Whether you accepted or rejected Google Analytics, so the site
+            does not ask again on your next visit.</Li>}
         </Ul>
         <P>
           &quot;Events near me&quot; asks for your location only when you press it, and works out
@@ -89,7 +105,16 @@ export default function Page() {
           days. It is how the site knows a review is yours. It is not readable by scripts on the
           page and it is not used for anything else. Signing out deletes it.
         </P>
-        <P>That is the whole list. There is no cookie banner because there is nothing else to consent to.</P>
+        {GA ? (
+          <P>
+            If you accept Google Analytics, Google&apos;s script sets two more cookies on this site,
+            <code style={{ fontSize: F.sm }}> _ga</code> and <code style={{ fontSize: F.sm }}>_ga_…</code>,
+            which tell one visit from another. They are set only after you accept. Rejecting, closing
+            the banner or withdrawing later means they are not set, or are deleted.
+          </P>
+        ) : (
+          <P>That is the whole list. There is no cookie banner because there is nothing else to consent to.</P>
+        )}
 
         <H>Analytics</H>
         <P>
@@ -106,6 +131,30 @@ export default function Page() {
           directory could not answer. It is never linked to who typed it: no address, no IP, no
           session.
         </P>
+
+        {GA && (
+          <>
+            <H>Google Analytics</H>
+            <P>
+              Only if you accept it. Until you choose, and after you reject or close the banner, the
+              script is not loaded at all.
+            </P>
+            <P>
+              If you accept, Google Analytics 4 records the pages you open, the page or site you came
+              from, your browser, device and screen size, your approximate location worked out from
+              your IP address, and how long you stay. It is sent to Google, which processes it under
+              its own terms and may do so outside your country. We see totals and reports in the
+              Google Analytics account. We do not send Google your email address or anything else
+              you typed into the site.
+            </P>
+            <P>
+              To withdraw, press <ConsentSettings style={{ color: C.text, fontSize: "inherit", textDecoration: "underline" }} /> here
+              or at the foot of the menu, then Reject. That stops Google Analytics on this site,
+              deletes its cookies here and reloads the page. Clearing this site&apos;s data in your
+              browser does the same and asks you again.
+            </P>
+          </>
+        )}
 
         <H>Email addresses</H>
         <P>Only from people who gave one, and only for the reason they gave it:</P>
@@ -142,7 +191,7 @@ export default function Page() {
         <H>Who else is involved</H>
         <P>
           The site runs on Vercel and stores its data with Upstash. Email is sent through Resend.
-          Each handles data only to provide that service to us.
+          Each handles data only to provide that service to us.{GA ? " If you accept it, Google receives your visits through Google Analytics, as described above." : ""}
         </P>
         <P>
           Some tool and event logos are loaded from Google&apos;s favicon service where we do not host
@@ -151,8 +200,9 @@ export default function Page() {
           see the request. The typeface is served from this site, not from Google.
         </P>
         <P>
-          No third-party tracking, no advertising, no social media widgets. Your data is not sold,
-          rented or shared with anyone for their own use.
+          {GA ? "No third-party tracking except Google Analytics, and that only if you accept it. " : "No third-party tracking. "}
+          No advertising, no social media widgets. Your data is not sold, rented or shared with
+          anyone for their own use.
         </P>
 
         <H>Your data</H>

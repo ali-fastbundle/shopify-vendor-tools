@@ -2,6 +2,7 @@ import React from "react";
 import { LinkedinLogo, UserCircle, ChatCircleText, ShieldCheck } from "@phosphor-icons/react/dist/ssr";
 import { C, S, F, AUTHOR, AUTHOR_URL } from "@/lib/tools";
 import { outbound } from "@/lib/outbound";
+import { ConsentSettings } from "@/components/Consent";
 
 /*
  * The two ways to reach the person behind the directory, on every page's
@@ -48,6 +49,8 @@ export default function FooterLinks() {
           </a>
         );
       })}
+      {/* Only when Google Analytics is configured: where consent is changed or withdrawn. */}
+      <ConsentSettings style={{ color: C.muted, fontSize: F.sm, textAlign: "left" }} />
     </nav>
   );
 }
