@@ -495,7 +495,7 @@ export function SiteFooter() {
   const md = markdownPathFor(path);
   return (
     <footer className="content" style={{ paddingBottom: BAND.mobile }}>
-      <p style={{ fontSize: F.xs, color: C.dim, maxWidth: "78ch", lineHeight: 1.65, margin: `${S["3xl"]}px 0 0`, borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
+      <p style={{ fontSize: F.xs, color: C.dim , lineHeight: 1.65, margin: `${S["3xl"]}px 0 0`, borderTop: `1px solid ${C.line}`, paddingTop: S.lg }}>
         By{" "}
         <a href="/about" style={{ color: C.muted, textDecoration: "none", borderBottom: `1px solid ${C.line}` }}>{AUTHOR}</a>
         {AUTHOR.endsWith(".") ? " " : ". "}

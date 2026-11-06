@@ -23,7 +23,7 @@ const AppStoreLink = ({ href }) => (
 export function OwnerPage({ owner, entries, others = [] }) {
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <nav aria-label="Breadcrumb" style={{ fontSize: F.sm, color: C.dim, marginTop: S["2xl"] }}>
           <a href="/" style={{ color: C.muted }}>Directory</a>{" / "}
           <a href="/owners" style={{ color: C.muted }}>Owners</a>{" / "}
@@ -45,7 +45,7 @@ export function OwnerPage({ owner, entries, others = [] }) {
             {owner.type === "Person" ? "Publishes" : "Also publishes"} apps on the Shopify App Store. <AppStoreLink href={appStoreOf(owner)} />
           </p>
         )}
-        {owner.notes && <p style={{ fontSize: F.lg, lineHeight: 1.6, margin: `${S.lg}px 0 0`, maxWidth: "68ch" }}>{owner.notes}</p>}
+        {owner.notes && <p style={{ fontSize: F.lg, lineHeight: 1.6, margin: `${S.lg}px 0 0`  }}>{owner.notes}</p>}
 
         <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: `${S["2xl"]}px 0 0`, letterSpacing: TRACK.tight }}>What it controls</h2>
         <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
@@ -62,7 +62,7 @@ export function OwnerPage({ owner, entries, others = [] }) {
           ))}
         </ul>
 
-        <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xl}px 0 0`, maxWidth: "68ch" }}>
+        <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xl}px 0 0`  }}>
           Shared ownership is recorded where a listing's own site, or the owner's, states it. Each listing's
           caveat is on its own page.
         </p>
@@ -96,16 +96,16 @@ export function OwnerIndex({ owners }) {
   const shared = owners.filter((o) => o.entries.length >= 2).length;
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
           Owners
         </h1>
-        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
+        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`  }}>
           The companies and people behind the tools, newsletters and events listed here. {owners.length} in
           all, {shared} of them behind more than one listing. When two listings share an owner, read them
           as one source, not two.
         </p>
-        <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
+        <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
           An owner is listed only where the listing's own site, or the owner's, says who it is. A listing
           that names nobody is not on this page. App developer marks an owner that also publishes apps
           on the Shopify App Store, read from the App Store itself, with a link to its developer page there.
@@ -129,7 +129,7 @@ export function OwnerIndex({ owners }) {
                       </span>
                     </div>
                     {o.notes && (
-                      <p style={{ fontSize: F.sm, color: C.text, margin: `${S.xs}px 0 0`, lineHeight: 1.55, maxWidth: "68ch" }}>{o.notes}</p>
+                      <p style={{ fontSize: F.sm, color: C.text, margin: `${S.xs}px 0 0`, lineHeight: 1.55  }}>{o.notes}</p>
                     )}
                     <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
                       {o.entries.map((m) => (

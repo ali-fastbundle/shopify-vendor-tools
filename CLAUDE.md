@@ -2286,9 +2286,8 @@ nobody here checked.
 - **Outbound links in a post carry `utm_source` on the page and in the RSS body**, through
   `outbound()` at render time, never in `lib/posts/`. `postText` (llms.txt) is not tagged.
 
-**A post's text runs the full width of the content column** (2026-11-06, Ali's call), not the
-62ch measure the rest of the site uses: `MEASURE` in `components/Blog.jsx` is `"none"`, set
-explicitly because `globals.css` stops an unclassed paragraph at 62ch.
+**A post's text runs the full width of the content column** (2026-11-06, Ali's call), like every
+other page now (see Design conventions): `MEASURE` in `components/Blog.jsx` is `"none"`.
 
 **Charts are drawn on the page from numbers in the post** (`{ chart }` blocks, 2026-11-06,
 `components/BlogChart.jsx`): bars, grouped bars and a step line, in HTML so the labels are real
@@ -2813,9 +2812,9 @@ every public route; `/admin` keeps its own header and the frame steps aside ther
   carries the promise (no paid placement, no affiliate links, not affiliated with Shopify),
   which has to be visible on every page. The links that were in the footer are at the foot
   of the sidebar.
-- Every page wraps its body in `<main><div class="mx-auto" style="max-width:…">`; inside
-  the content column that reading width starts at the column's left edge on the same 24px
-  as the directory (`.shell-main > main > .mx-auto`).
+- Every page wraps its body in `<main><div class="mx-auto">`, and inside the content column
+  that wrapper fills the column from its left edge on the same 24px as the directory
+  (`.shell-main > main > .mx-auto`, `max-width: none`). No page sets its own width.
 
 Each page used to draw its own frame, and there were four versions that drifted. A page
 renders its content; a note that belongs to one page (the events date policy, the blog's
@@ -3034,7 +3033,10 @@ inline radius is overridden.
 **Fields have an edge of 3:1.** Components draw an input's border inline from `C.line`, a
 hairline too faint to find a field by, so one rule in `globals.css` sets every text field,
 select and textarea to `--c-field-edge`, and focus is a 2px ring, never only a change of
-border colour. A paragraph with no explicit width stops at 62ch, about 75 characters.
+border colour. Text runs the full width of the content column (2026-11-06, Ali's call): no paragraph, intro or
+section has a ch cap, `globals.css` has no 62ch rule, and every page's wrapper fills the column
+(`.shell-main > main > .mx-auto` is `max-width: none`). A new component does not add a reading
+measure; Hallmark's gate 25 is waived in the stamp for this reason.
 
 Components never read a raw colour. They read `C`, and `C` is exactly the set of names
 declared in `globals.css`, so a colour that works in one theme and not the other is a

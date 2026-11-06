@@ -135,7 +135,7 @@ export function EventRow({ e, today }) {
           {[whenLine(e), where].filter(Boolean).join(" · ")}
         </p>
         {e.one && (
-          <p style={{ fontSize: F.sm, color: past ? C.muted : C.text, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "64ch" }}>
+          <p style={{ fontSize: F.sm, color: past ? C.muted : C.text, lineHeight: 1.55, margin: `${S.xs}px 0 0`  }}>
             {e.one}
           </p>
         )}

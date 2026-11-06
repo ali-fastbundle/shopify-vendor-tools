@@ -146,7 +146,7 @@ export default function Ask({ tools = [], onOpenTool, onSuggest, initial = "" })
 
           {!result.error && (total === 0 || result.gap) && (
             <div style={{ marginTop: S.lg }}>
-              <p style={{ fontSize: F.md, color: total ? C.muted : C.text, margin: 0, lineHeight: 1.55, maxWidth: "62ch" }}>
+              <p style={{ fontSize: F.md, color: total ? C.muted : C.text, margin: 0, lineHeight: 1.55  }}>
                 {result.gap || "The directory has nothing that answers this yet."}
               </p>
               {onSuggest && (

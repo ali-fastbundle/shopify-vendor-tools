@@ -18,7 +18,7 @@ export const metadata = {
 export default function NotFound() {
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 640, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
           <p className="tnum" style={{ fontSize: F.sm, color: C.muted, margin: 0 }}>Error 404</p>
           <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S.xs}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>

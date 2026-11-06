@@ -326,7 +326,7 @@ function ReviewList({ id, reviews, session, onChange }) {
               <span className="tnum" style={{ color: C.dim }}>{r.date}</span>
             </p>
             {exclusionNote(r) && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>{exclusionNote(r)}</p>}
-            {r.text && <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "68ch" }}>{r.text}</p>}
+            {r.text && <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`  }}>{r.text}</p>}
             <Helpful id={id} review={r} session={session} onChange={onChange} />
           </div>
         ))}
@@ -488,7 +488,7 @@ function CommentList({ comments }) {
   return (
     <section style={{ marginTop: S.xl }}>
       <h2 style={{ fontSize: F.lg, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
-        Comments <span className="tnum" style={{ color: C.dim, fontWeight: 500 }}>{comments.length}</span>
+        Comments <span className="tnum" style={{ color: C.dim, fontWeight: 400 }}>{comments.length}</span>
       </h2>
       <div style={{ marginTop: S.sm }}>
         {comments.map((c) => (
@@ -497,7 +497,7 @@ function CommentList({ comments }) {
               <b>{c.author}</b>
               <span className="tnum" style={{ color: C.dim }}>{String(c.at).slice(0, 10)}</span>
             </p>
-            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "68ch", whiteSpace: "pre-wrap" }}>{c.text}</p>
+            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0` , whiteSpace: "pre-wrap" }}>{c.text}</p>
           </div>
         ))}
       </div>

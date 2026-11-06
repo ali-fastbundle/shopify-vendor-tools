@@ -33,7 +33,7 @@ export default async function Page({ searchParams }) {
 
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F["2xl"], fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.15 }}>
             Search

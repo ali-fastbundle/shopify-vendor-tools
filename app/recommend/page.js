@@ -25,7 +25,7 @@ export async function generateMetadata() {
 export default function Page() {
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <SectionView id="recommend" />
         {/* The priming screens are the introduction, so the page heading is a
             label, not a second hero competing with them. */}

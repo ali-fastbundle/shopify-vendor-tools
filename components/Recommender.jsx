@@ -95,7 +95,7 @@ function Question({ q, id, children }) {
   const ref = useRef(null);
   useEffect(() => { ref.current?.focus({ preventScroll: false }); }, [q.id]);
   return (
-    <section aria-labelledby={`${id}-h`} style={{ marginTop: S["3xl"], maxWidth: 640 }}>
+    <section aria-labelledby={`${id}-h`} style={{ marginTop: S["3xl"] }}>
       <h2 id={`${id}-h`} ref={ref} tabIndex={-1} style={{ fontSize: F["2xl"], fontWeight: 700, letterSpacing: TRACK.tighter, margin: 0, lineHeight: 1.25, outline: "none" }}>
         <label htmlFor={id} style={{ cursor: "default" }}>{q.heading}</label>
       </h2>
@@ -277,7 +277,7 @@ export default function Recommender() {
     return (
       <>
         <Header step={step} onStartOver={startOver} saved={false} />
-        <section style={{ marginTop: S["4xl"], maxWidth: 640 }}>
+        <section style={{ marginTop: S["4xl"] }}>
           <h2 tabIndex={-1} style={{ fontSize: F.display, fontWeight: 600, letterSpacing: TRACK.tighter, margin: 0, lineHeight: 1.15 }}>{p.title}</h2>
           <dl style={{ margin: `${S.xl}px 0 0` }}>
             {p.points.map(([term, text]) => (
@@ -301,7 +301,7 @@ export default function Recommender() {
     return (
       <>
         <Header step="url" onStartOver={startOver} saved={false} />
-        <div style={{ marginTop: S["3xl"], border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl, maxWidth: 640, background: C.panel }}>
+        <div style={{ marginTop: S["3xl"], border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl, background: C.panel }}>
           <SignInPrompt returnTo="@recommend"
             reason="Sign in to start. Your answers save to your account as you go, so you can leave and pick up where you stopped. One email, no password." />
         </div>
@@ -398,7 +398,7 @@ export default function Recommender() {
               You skipped {skipped.length === 1 ? "one question" : `${skipped.length} questions`}. The picks will have less to go on, and the answer will say so.
             </p>
           )}
-          <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.5, maxWidth: "60ch" }}>
+          <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.5  }}>
             Your answers and the picks are kept, without your email address, so we can see what app teams need. Your saved progress is deleted once you run it.
           </p>
         </Question>
@@ -465,7 +465,7 @@ function ReviewRow({ q, first, answers, skipped, onSave }) {
 function Skeleton() {
   const bar = (w, h = 12) => <div style={{ width: w, height: h, background: C.subtle, borderRadius: R.control, marginTop: S.sm }} />;
   return (
-    <div aria-busy="true" aria-label="Reading your listing and choosing" style={{ marginTop: S["3xl"], maxWidth: 760 }}>
+    <div aria-busy="true" aria-label="Reading your listing and choosing" style={{ marginTop: S["3xl"] }}>
       <p style={{ fontSize: F.md, color: C.muted, margin: 0 }}>Reading your listing and choosing. This takes up to half a minute.</p>
       {[0, 1, 2].map((i) => (
         <div key={i} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl, marginTop: S.lg }}>
@@ -479,7 +479,7 @@ function Skeleton() {
 const block = (title, body) => body ? (
   <div style={{ marginTop: S.md }}>
     <p style={{ fontSize: F.xs, color: C.muted, fontWeight: 700, margin: 0 }}>{title}</p>
-    <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.6, margin: "2px 0 0", maxWidth: "68ch" }}>{body}</p>
+    <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.6, margin: "2px 0 0"  }}>{body}</p>
   </div>
 ) : null;
 
@@ -487,7 +487,7 @@ function Answer({ result, answers, onEdit }) {
   const { app = {}, listingRead, picks = [], path, noneFit, skipped = [] } = result;
   const fb = useFeedback(result.feedbackToken);
   return (
-    <section style={{ marginTop: S["3xl"], maxWidth: 760 }}>
+    <section style={{ marginTop: S["3xl"] }}>
       <h2 tabIndex={-1} style={{ fontSize: F["2xl"], fontWeight: 700, letterSpacing: TRACK.tighter, margin: 0 }}>
         {noneFit ? "Nothing we would recommend yet" : `${picks.length === 3 ? "Three" : picks.length === 2 ? "Two" : "One"} ${picks.length === 1 ? "tool" : "tools"}${app.name ? ` for ${app.name}` : ""}`}
       </h2>
@@ -498,7 +498,7 @@ function Answer({ result, answers, onEdit }) {
         </p>
       )}
 
-      {noneFit && <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.6, margin: `${S.lg}px 0 0`, maxWidth: "64ch" }}>{noneFit}</p>}
+      {noneFit && <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.6, margin: `${S.lg}px 0 0`  }}>{noneFit}</p>}
 
       {picks.map((p) => (
         <article key={p.id} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.card, padding: S.xl, marginTop: S.lg, boxShadow: "var(--c-card-shadow)" }}>
@@ -536,7 +536,7 @@ function Answer({ result, answers, onEdit }) {
       <div className="flex flex-wrap items-center" style={{ gap: S.md, marginTop: S.xl }}>
         <Button onClick={onEdit}>Change my answers</Button>
       </div>
-      <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.5, maxWidth: "60ch" }}>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.md}px 0 0`, lineHeight: 1.5  }}>
         Tools the editor of this directory is connected to are never recommended. Nothing here is paid placement.
       </p>
     </section>

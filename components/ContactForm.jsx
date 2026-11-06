@@ -103,7 +103,7 @@ export default function ContactForm({ token }) {
           <span role="alert" style={{ fontSize: F.sm, color: C.badInk }}>{state.message}</span>
         )}
       </div>
-      <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.lg}px 0 0`, lineHeight: 1.55, maxWidth: "58ch" }}>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.lg}px 0 0`, lineHeight: 1.55  }}>
         Your address is used to reply to you and for nothing else. The message is not stored on
         this site. It is sent as one email.
       </p>

@@ -22,7 +22,7 @@ export default function PostLinks({ posts = [], context }) {
             color: C.text, fontWeight: 700, fontSize: F.md, letterSpacing: TRACK.tight,
             textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: C.edge,
           }}>{p.title}</a>
-          <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>
+          <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0`  }}>
             {p.description}
           </p>
         </div>

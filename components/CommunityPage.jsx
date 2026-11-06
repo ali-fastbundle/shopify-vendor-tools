@@ -60,7 +60,7 @@ export default function CommunityPage({ community: c, related, reviews = [], own
 
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 20px" }}>
+      <div className="mx-auto" style={{ padding: "0 20px" }}>
 
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>

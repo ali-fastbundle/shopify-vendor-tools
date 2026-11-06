@@ -61,9 +61,9 @@ export default function QA({ toolId, toolName, initial = [], heading = "h2", fet
   return (
     <section id="questions" style={{ marginTop: S["3xl"] }}>
       <H style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
-        Questions{questions.length > 0 && <span className="tnum" style={{ fontSize: F.md, color: C.muted, fontWeight: 500, marginLeft: S.sm }}>{questions.length}</span>}
+        Questions{questions.length > 0 && <span className="tnum" style={{ fontSize: F.md, color: C.muted, fontWeight: 400, marginLeft: S.sm }}>{questions.length}</span>}
       </H>
-      <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5, margin: `${S.xs}px 0 0`, maxWidth: "64ch" }}>
+      <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5, margin: `${S.xs}px 0 0`  }}>
         Ask whether {toolName} does something. Anyone signed in can answer. An answer marked as from the vendor comes
         from the verified owner of this listing. Questions are separate from reviews and do not change the rating.
       </p>

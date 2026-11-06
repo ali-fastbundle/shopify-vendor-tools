@@ -114,7 +114,7 @@ function Timeline({ timeline, today, nowMonth }) {
     const allPast = g.items.every((e) => e.at.status === "past");
     out.push(
       <div key={g.key} id={monthKey ? `m-${monthKey}` : `y-${g.key}`} data-now={isNow ? "" : undefined}
-        style={{ marginTop: S.lg }}>
+        style={{ marginTop: S["2xl"] }}>
         {/* Sticky inside the scroller, so the month is always named. */}
         <h3 style={{
           position: "sticky", top: 0, zIndex: 2, background: C.bg,
@@ -150,13 +150,13 @@ export default function Events({ plan, events, lastUpdated }) {
 
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
 
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
             Events
           </h1>
-          <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
+          <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`  }}>
             Conferences and meetups an app vendor might travel for, with who is in the room.
             Only a few are about the Shopify app ecosystem itself. Most are merchant and retail events,
             worth it when your buyers are there.
@@ -193,7 +193,7 @@ export default function Events({ plan, events, lastUpdated }) {
         {unscheduled.length > 0 && (
           <section aria-labelledby="unscheduled" style={{ marginTop: S["4xl"] }}>
             <H2 id="unscheduled">Dates not announced</H2>
-            <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, maxWidth: "64ch", lineHeight: 1.55 }}>
+            <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` , lineHeight: 1.55 }}>
               Running, or recently run, with no next date we could find on the organizer's own site.
             </p>
             <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
@@ -205,7 +205,7 @@ export default function Events({ plan, events, lastUpdated }) {
                   <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>
                     {[placeOf(e), e.at.label].filter(Boolean).join(" · ")}
                   </p>
-                  {e.one && <p style={{ fontSize: F.sm, color: C.text, margin: `${S.xs}px 0 0`, lineHeight: 1.55, maxWidth: "64ch" }}>{e.one}</p>}
+                  {e.one && <p style={{ fontSize: F.sm, color: C.text, margin: `${S.xs}px 0 0`, lineHeight: 1.55  }}>{e.one}</p>}
                   <div style={{ marginTop: S.sm }}><CardVotes id={e.id} noun="event" /></div>
                 </li>
               ))}
@@ -219,7 +219,7 @@ export default function Events({ plan, events, lastUpdated }) {
             (lib/eventDigest.js). Online events reach every region. */}
         <FollowBox id="events-monthly:all" kind="events-month" name="the monthly events digest" />
 
-<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
+<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6 , margin: `${S["3xl"]}px 0 0` }}>
             Dates are checked by hand against each organizer's own site, and an event with no confirmed
             date is never shown as scheduled.
 </p>

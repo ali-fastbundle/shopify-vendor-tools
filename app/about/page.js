@@ -75,7 +75,7 @@ export default async function Page() {
           { ...person, ...(PHOTO ? { image: `${SITE}${PHOTO}` } : {}) },
         ],
       }} />
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <header className={PHOTO ? "about-head" : undefined} style={{ marginTop: S["3xl"] }}>
           {PHOTO && (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -90,7 +90,7 @@ export default async function Page() {
           </div>
         </header>
 
-        <div style={{ marginTop: S["2xl"], maxWidth: "68ch" }}>
+        <div style={{ marginTop: S["2xl"]  }}>
           {about.paragraphs.map((p, i) => (
             <p key={i} style={{ fontSize: F.lg, lineHeight: 1.65, margin: i ? `${S.lg}px 0 0` : 0 }}><Inline text={p} /></p>
           ))}

@@ -74,10 +74,10 @@ function Row({ n }) {
       </div>
       <Signal n={n} />
       {by && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>by {by}</p>}
-      <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
+      <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
         {n.one}
       </p>
-      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>
+      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, margin: `${S.xs}px 0 0`  }}>
         <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{n.watch}
       </p>
       <div className="flex flex-wrap items-center justify-between"
@@ -94,7 +94,7 @@ function Group({ title, blurb, items }) {
   return (
     <section style={{ marginTop: S["3xl"] }}>
       <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
-      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>{blurb}</p>
+      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`  }}>{blurb}</p>
       <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
         {items.map((n) => <Row key={n.id} n={n} />)}
       </ul>
@@ -108,7 +108,7 @@ export default function Newsletters({ newsletters, lastUpdated }) {
 
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 20px" }}>
+      <div className="mx-auto" style={{ padding: "0 20px" }}>
 
 
         <header style={{ marginTop: S["3xl"] }}>
@@ -117,7 +117,7 @@ export default function Newsletters({ newsletters, lastUpdated }) {
           </h1>
           {/* The honest intro. The gap is real and naming it beats pretending
               the list is something it is not. */}
-          <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>
+          <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`  }}>
             Two of these are about the Shopify platform and worth reading directly:
             Shopify App Founders Edition and ShopOps Weekly. The rest are merchant-side and
             operator media. You read them sideways, because what a merchant is sold and what a
@@ -140,7 +140,7 @@ export default function Newsletters({ newsletters, lastUpdated }) {
         />
         </div>
 
-<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "62ch", margin: `${S["3xl"]}px 0 0` }}>
+<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6 , margin: `${S["3xl"]}px 0 0` }}>
             Every entry keeps its watch note, and it is no more the publisher's to edit than a tool's is.
 </p>
       </div>

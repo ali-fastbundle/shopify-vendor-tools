@@ -38,7 +38,7 @@ export default function EventPage({ e, all, today, reviews = [], lastUpdated }) 
 
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
           <span style={{ color: C.dim }}> / </span>
@@ -85,7 +85,7 @@ export default function EventPage({ e, all, today, reviews = [], lastUpdated }) 
           <a href="/events" style={{ color: C.muted }}>All events</a>
         </p>
 
-<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "68ch", margin: `${S["3xl"]}px 0 0` }}>
+<p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6 , margin: `${S["3xl"]}px 0 0` }}>
             Not affiliated with, endorsed by, or sponsored by any organizer listed here.
 </p>
       </div>

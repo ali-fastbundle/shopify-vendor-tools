@@ -61,7 +61,7 @@ export default function PodcastPage({ podcast: p, related, reviews = [], owner =
 
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 20px" }}>
+      <div className="mx-auto" style={{ padding: "0 20px" }}>
 
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
@@ -107,7 +107,7 @@ export default function PodcastPage({ podcast: p, related, reviews = [], owner =
             {p.reach && !p.discontinued && (
               <section style={{ marginTop: S.xl }}>
                 <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>How a vendor gets on it</h2>
-                <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.xs}px 0 0`, color: C.muted, maxWidth: "62ch" }}>
+                <p style={{ fontSize: F.md, lineHeight: 1.6, margin: `${S.xs}px 0 0`, color: C.muted  }}>
                   {p.reach} <span style={{ color: C.dim }}>As of {formatDay(p.updated)}.</span>
                 </p>
               </section>

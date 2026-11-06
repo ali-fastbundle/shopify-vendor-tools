@@ -100,7 +100,7 @@ export default function CopyLink({
         /* Confirmed reads in the text colour, not the accent. Cobalt has three
            jobs on this site and "something just happened" is not one of them. */
         color: done ? C.text : C.muted,
-        fontSize: size, fontWeight: 500, fontFamily: "inherit",
+        fontSize: size, fontWeight: 400, fontFamily: "inherit",
         cursor: "pointer", lineHeight: 1.6, whiteSpace: "nowrap",
       }}
     >

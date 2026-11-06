@@ -41,10 +41,10 @@ const H = ({ children }) => (
   <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tight }}>{children}</h2>
 );
 const P = ({ children }) => (
-  <p style={{ fontSize: F.lg, lineHeight: 1.65, margin: `${S.md}px 0 0`, maxWidth: "68ch" }}>{children}</p>
+  <p style={{ fontSize: F.lg, lineHeight: 1.65, margin: `${S.md}px 0 0`  }}>{children}</p>
 );
 const Li = ({ k, children }) => (
-  <li style={{ fontSize: F.md, lineHeight: 1.6, marginTop: S.sm, maxWidth: "68ch" }}>
+  <li style={{ fontSize: F.md, lineHeight: 1.6, marginTop: S.sm  }}>
     {k && <code style={{ fontSize: F.sm, background: C.subtle, borderRadius: 4, padding: "1px 4px" }}>{k}</code>}{k ? " " : ""}{children}
   </li>
 );
@@ -57,7 +57,7 @@ export default function Page() {
         "@type": "WebPage", "@id": `${SITE}/privacy#page`, url: `${SITE}/privacy`, name: "Privacy",
         isPartOf: { "@id": IDS.website }, dateModified: REVISED,
       }} />
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Privacy</h1>
           {GA ? (

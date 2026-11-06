@@ -51,9 +51,9 @@ export default async function Page() {
           mainEntity: { "@type": "ItemList", itemListElement: lists.map((l, i) => ({ "@type": "ListItem", position: i + 1, name: l.name, url: `${SITE}/lists/${l.id}` })) },
         }} />
       )}
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <h1 style={{ fontSize: F["2xl"], fontWeight: 600, margin: `${S["2xl"]}px 0 0`, letterSpacing: TRACK.tighter }}>Lists</h1>
-        <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
+        <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
           Tools chosen and put in order by people who use them, with their notes. Each list is theirs, not the
           directory's. Each tool keeps its own caveat.
         </p>

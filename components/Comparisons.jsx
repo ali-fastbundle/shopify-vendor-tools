@@ -61,12 +61,12 @@ const Crumbs = ({ items }) => (
 export function AlternativesPage({ tool, owner, alts }) {
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 860, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <Crumbs items={[["Directory", "/"], [tool.name, `/tools/${tool.id}`], ["Alternatives", ""]]} />
         <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
           Alternatives to {tool.name}
         </h1>
-        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "64ch" }}>
+        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`  }}>
           {alts.length} {alts.length === 1 ? "tool competes" : "tools compete"} with {tool.name}: the same category, or named as
           a rival. Each difference below comes from details confirmed on the vendors' own sites, and each tool keeps its caveat.
         </p>
@@ -113,7 +113,7 @@ export function AlternativesPage({ tool, owner, alts }) {
 }
 
 const cell = { padding: "8px 12px", fontSize: F.sm, verticalAlign: "top", borderTop: `1px solid ${C.line}`, lineHeight: 1.5 };
-const head = { ...cell, color: C.muted, fontWeight: 500, textAlign: "left", width: "24%" };
+const head = { ...cell, color: C.muted, fontWeight: 400, textAlign: "left", width: "24%" };
 
 function tiersOf(t) {
   const p = t.structured?.pricing;
@@ -141,12 +141,12 @@ export function ComparePage({ a, b, ownerA, ownerB, why, diffsA, diffsB }) {
   ];
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 960, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <Crumbs items={[["Directory", "/"], [`${a.name} vs ${b.name}`, ""]]} />
         <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
           {a.name} vs {b.name}
         </h1>
-        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "64ch" }}>
+        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`  }}>
           Compared because they are in the {why.map((w) => WHY[w] || w).join(", and ")}. Values come from details confirmed on each
           vendor's own site. Unknown means the site does not say.
         </p>

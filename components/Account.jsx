@@ -114,7 +114,7 @@ export function SignInPrompt({ reason, returnTo = "" }) {
   if (state.status === "sent") {
     return (
       <div>
-        <p style={{ fontSize: F.sm, color: C.text, margin: 0, lineHeight: 1.55, maxWidth: "58ch" }}>
+        <p style={{ fontSize: F.sm, color: C.text, margin: 0, lineHeight: 1.55  }}>
           Check your inbox. The link works once and expires in 15 minutes. It comes back to this
           page, and what you have written is kept.
         </p>
@@ -129,7 +129,7 @@ export function SignInPrompt({ reason, returnTo = "" }) {
 
   return (
     <div>
-      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "58ch" }}>
+      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55  }}>
         {reason}
       </p>
       <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>

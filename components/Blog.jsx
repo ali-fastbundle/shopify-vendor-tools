@@ -22,7 +22,6 @@ import BlogChart from "@/components/BlogChart";
    of the content column rather than stopping at a reading measure. "none" and
    not absent, because globals.css stops an unclassed paragraph at 62ch. */
 const MEASURE = "none";
-const COLUMN = 1040;
 
 function Inline({ text }) {
   return inline(text).map((tk, i) => {
@@ -136,7 +135,7 @@ const Footer = ({ lastUpdated }) => (
 export function BlogIndex({ posts, lastUpdated }) {
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: COLUMN, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>Blog</h1>
           <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: MEASURE }}>
@@ -166,7 +165,7 @@ export function BlogIndex({ posts, lastUpdated }) {
 export function BlogPost({ post, lastUpdated, comments = [] }) {
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: COLUMN, padding: "0 16px" }}>
+      <div className="mx-auto" style={{ padding: "0 16px" }}>
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
           <span style={{ color: C.dim }}> / </span>

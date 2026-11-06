@@ -9,6 +9,9 @@
  * waive 39b · votes and stars are compact icon controls inside a card (rule J), 28px with the card as the hit area
  * waive 49b · a long link wrapping at 320px is a sentence, not a button
  * waive F1 · straight quotes are the house style across the catalogue and the copy
+ * waive 25 · text runs the full width of the content column on Ali's instruction (2026-11-06): he reads the reading measure as a template signal, so no paragraph has a ch cap
+ * waive 72 · a blog chart's "Show the numbers" table sits inside a closed <details>; the linter measures it as if open
+ * waive 71 · the events month headings are sticky labels over their rows, given 24px above; the rows below them are the timeline, not a paragraph
  * fixed F19 · headings moved from 800 to Cobalt's 600; the wordmark, lettermarks and date figures are 700, so 400, 600 and 700 remain
  * answered 28a · logos are 32px tiles under the fold's text, not the largest paint
  * out of scope: components/Admin.jsx (behind auth, CLAUDE.md exempts it from the copy rules) */
@@ -277,7 +280,8 @@
     left: 0;
     width: min(320px, 88vw);
     z-index: 70;
-    border-right: 1px solid var(--c-line);
+    /* Open, the drawer floats over the page, so elevation is its edge: a
+       shadow and no hairline (Hallmark F24). */
     box-shadow: var(--c-shadow-lg);
   }
   .sidebar[data-open="false"] { display: none; }
@@ -359,7 +363,7 @@
    Inside the content column that reading width starts at the column's left
    edge, on the same 24px as the directory and the footer, rather than
    floating in the middle of the space beside the sidebar. */
-.shell-main > main > .mx-auto { margin-left: 0; padding-left: 24px !important; padding-right: 24px !important; }
+.shell-main > main > .mx-auto { margin-left: 0; max-width: none !important; padding-left: 24px !important; padding-right: 24px !important; }
 @media (max-width: 767px) {
   .shell-main > main > .mx-auto { padding-left: 16px !important; padding-right: 16px !important; }
 }
@@ -457,11 +461,11 @@ table {
 }
 
 /* Headings break where the phrase breaks, and running text never leaves one
-   word on its last line. A paragraph with no explicit width stops at 62ch, about 75
-   characters, so a description in a wide column stays readable. */
+   word on its last line. Text runs the full width of the content column, on
+   Ali's call (2026-11-06): no paragraph, intro or section stops at a reading
+   measure, so there is no 62ch rule here and no ch cap in any component. */
 h1, h2, h3 { text-wrap: balance; overflow-wrap: break-word; min-width: 0; }
 p { text-wrap: pretty; }
-p:not([class]) { max-width: 62ch; }
 
 /*
  * Fields. Components draw an input's border inline from C.line, which is a

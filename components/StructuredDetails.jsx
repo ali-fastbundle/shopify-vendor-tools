@@ -21,20 +21,20 @@ export default function StructuredDetails({ tool }) {
         <tbody>
           {/* On every tool, whatever its category: age is a caveat here. */}
           <tr style={{ borderTop: `1px solid ${C.line}` }}>
-            <th scope="row" style={{ textAlign: "left", fontWeight: 500, color: C.muted, padding: "6px 12px 6px 0", width: "50%" }}>Launched</th>
+            <th scope="row" style={{ textAlign: "left", fontWeight: 400, color: C.muted, padding: "6px 12px 6px 0", width: "50%" }}>Launched</th>
             <td style={{ padding: "6px 0", color: launchCell(tool) === "Unknown" ? C.dim : C.text }}>{launchCell(tool)}</td>
           </tr>
           {attrs.map((a) => {
             const v = attributeValue(a, s);
             return (
               <tr key={a.key} style={{ borderTop: `1px solid ${C.line}` }}>
-                <th scope="row" style={{ textAlign: "left", fontWeight: 500, color: C.muted, padding: "6px 12px 6px 0", width: "50%" }}>{a.label}</th>
+                <th scope="row" style={{ textAlign: "left", fontWeight: 400, color: C.muted, padding: "6px 12px 6px 0", width: "50%" }}>{a.label}</th>
                 <td style={{ padding: "6px 0", color: isUnknown(v) ? C.dim : C.text }}>{formatValue(a, v)}</td>
               </tr>
             );
           })}
           <tr style={{ borderTop: `1px solid ${C.line}` }}>
-            <th scope="row" style={{ textAlign: "left", fontWeight: 500, color: C.muted, padding: "6px 12px 6px 0" }}>Integrations</th>
+            <th scope="row" style={{ textAlign: "left", fontWeight: 400, color: C.muted, padding: "6px 12px 6px 0" }}>Integrations</th>
             <td style={{ padding: "6px 0", color: s.integrations?.length ? C.text : C.dim }}>
               {s.integrations?.length ? s.integrations.map(integrationLabel).join(", ") : "None stated"}
             </td>

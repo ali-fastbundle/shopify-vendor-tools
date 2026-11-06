@@ -45,7 +45,7 @@ const Crumbs = ({ cat }) => (
 
 const Shell = ({ children, lastUpdated }) => (
   <main style={{ background: C.bg, color: C.text, }}>
-    <div className="mx-auto" style={{ maxWidth: 900, padding: "0 20px" }}>
+    <div className="mx-auto" style={{ padding: "0 20px" }}>
       {children}
     </div>
   </main>
@@ -119,7 +119,7 @@ function Member({ tool, primary }) {
               under its name, so the subject is never lost: the out-of-context
               quote llms.txt avoids cannot happen here. */}
           {tool.watch && (
-            <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>
+            <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`  }}>
               <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
             </p>
           )}
@@ -168,7 +168,7 @@ export function CategoryPage({ cat, members, related, lastUpdated }) {
         <h1 style={{
           fontSize: F.display, fontWeight: 600, margin: `${S.md}px 0 0`, letterSpacing: TRACK.tighter,
         }}>{cat.label}</h1>
-        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
+        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
           {cat.blurb}
         </p>
         {/* Rule E: a count of zero renders no sentence about the count. */}
@@ -188,7 +188,7 @@ export function CategoryPage({ cat, members, related, lastUpdated }) {
           ))}
         </ul>
       ) : (
-        <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.6, margin: `${S.xl}px 0 0`, maxWidth: "62ch" }}>
+        <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.6, margin: `${S.xl}px 0 0`  }}>
           Nothing is listed in this category yet.{" "}
           <a href="/" style={{ color: C.text }}>Suggest something for it</a>.
         </p>
@@ -235,7 +235,7 @@ export function CategoryIndex({ counts, lastUpdated }) {
         <h1 style={{
           fontSize: F.display, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter,
         }}>Categories</h1>
-        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
+        <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
           Every kind of tool built for the people who build Shopify apps. A tool leads with one
           category and can belong in others, so these counts add up to more than the directory.
         </p>
@@ -261,7 +261,7 @@ export function CategoryIndex({ counts, lastUpdated }) {
                     </span>
                   )}
                 </div>
-                <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>
+                <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.5, margin: `${S.xs}px 0 0`  }}>
                   {cat.blurb}
                 </p>
               </div>

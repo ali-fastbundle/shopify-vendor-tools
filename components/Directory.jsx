@@ -861,7 +861,7 @@ export default function Directory({ tools: initialTools, toolTotal = 0, feed = [
         {/* The one place the site states the editor-use policy: when somebody
             is filtering or sorting by it, which is when they rely on it. */}
         {(refine.used || sort === "editor") && (
-          <p style={{ fontSize: F.sm, color: C.muted, maxWidth: "70ch", lineHeight: 1.5, marginTop: S.md }}>
+          <p style={{ fontSize: F.sm, color: C.muted , lineHeight: 1.5, marginTop: S.md }}>
             {editorUsePolicy(toolTotal)}
           </p>
         )}
@@ -1208,7 +1208,8 @@ function ListView({ rows, avg, reviews, sort, dir, onSort, onOpen, picked, onPic
  */
 function Facts({ tool, owner }) {
   const facts = [
-    tool.free && "free plan",
+    /* No "free plan" here: the price beside this line is priceLine, which
+       already says it (rule J). */
     /* The owner, linked to its page when it has one. Built on the server
        (ownerContext) and nothing when the owner is the tool itself. */
     owner?.line && <OwnerFact key="owner" ctx={owner} />,
@@ -1480,7 +1481,7 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
         </div>
 
         <div className="flex flex-wrap items-baseline" style={{ gap: S.md, marginTop: S.lg }}>
-          <span className="tnum" style={{ fontSize: F.md, fontWeight: 700, color: C.text }}>{tool.price}</span>
+          <span className="tnum" style={{ fontSize: F.md, fontWeight: 700, color: C.text }}>{priceLine(tool)}</span>
           <Facts tool={tool} owner={owner} />
           {tool.dying && <Pill tone="warn">winding down</Pill>}
           <NotShopifyOnly tool={tool} />
@@ -1488,18 +1489,18 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
         </div>
 
         <AlsoFrom ctx={owner} />
-        <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62, maxWidth: "68ch" }}>{tool.note}</p>
-        <p className="mt-3" style={{ fontSize: F.md, lineHeight: 1.6, maxWidth: "68ch", color: C.muted }}>
+        <p className="mt-4" style={{ fontSize: F.lg, lineHeight: 1.62  }}>{tool.note}</p>
+        <p className="mt-3" style={{ fontSize: F.md, lineHeight: 1.6 , color: C.muted }}>
           <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{tool.watch}
         </p>
         {/* The editor's note, under the caveat. The badge is in the facts row. */}
         {editorUseBadge(tool.editorUse) && tool.editorUse.note && (
-          <p className="mt-2" style={{ fontSize: F.sm, lineHeight: 1.55, maxWidth: "68ch", color: C.muted }}>
+          <p className="mt-2" style={{ fontSize: F.sm, lineHeight: 1.55 , color: C.muted }}>
             <span style={{ fontWeight: 600, color: C.text }}>Editor's note. </span>{tool.editorUse.note}
           </p>
         )}
         {tool.claimed && (
-          <p className="mt-2" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.55, maxWidth: "68ch" }}>
+          <p className="mt-2" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.55  }}>
             The summary, description and pricing above are maintained by the vendor
             {tool.editedAt ? `, last updated ${tool.editedAt}` : ""}. The "watch for" note and the
             ratings are not theirs to edit.
@@ -1515,7 +1516,7 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
             <div className="mt-2">
               <ExternalRatings ratings={tool.ratings} detail />
             </div>
-            <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", maxWidth: "68ch", lineHeight: 1.5 }}>
+            <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0" , lineHeight: 1.5 }}>
               Collected on other platforms, from a different set of people than the reviews below, and
               deliberately not averaged with them. Follow a link to read them at source.
             </p>
@@ -1554,7 +1555,7 @@ function DetailModal({ tool, owner = null, onClose, reviews, onReview, onHelpful
                     {r.mine && <span style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 600 }}>yours</span>}
                   </div>
                   {exclusionNote(r) && <p className="mt-1" style={{ fontSize: F.xs, color: C.dim, margin: 0 }}>{exclusionNote(r)}</p>}
-                  {r.text && <p className="mt-1" style={{ fontSize: F.md, lineHeight: 1.55, color: C.muted, maxWidth: "64ch" }}>{r.text}</p>}
+                  {r.text && <p className="mt-1" style={{ fontSize: F.md, lineHeight: 1.55, color: C.muted  }}>{r.text}</p>}
                   <Helpful review={r} signedIn={Boolean(session.signedIn)}
                     onMark={() => onHelpful(r.id)} />
                 </div>
@@ -1664,7 +1665,7 @@ function ReportProblem({ tool }) {
 
       {err && <p style={{ fontSize: F.xs, color: C.badInk, margin: "8px 0 0" }}>{err}</p>}
 
-      <p style={{ fontSize: F.xs, color: C.dim, margin: "12px 0 0", lineHeight: 1.55, maxWidth: "62ch" }}>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "12px 0 0", lineHeight: 1.55  }}>
         This goes to the editor, not to the vendor, and nothing is applied automatically. A social
         profile you send is only added once it can be confirmed on the company's own site. We do not
         link a profile the vendor has not published themselves. Your email is optional and only used
@@ -1847,7 +1848,7 @@ function ReviewForm({ toolId, name, onSubmit, initialRating = 0, session = {}, e
         {heading}
         <div className="mt-3">
           {session.configured === false ? (
-            <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "58ch" }}>
+            <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55  }}>
               Accounts are not enabled on this deployment, so rating is closed. Likes still work and
               do not need one.
             </p>
@@ -1877,7 +1878,7 @@ function ReviewForm({ toolId, name, onSubmit, initialRating = 0, session = {}, e
         }}>{busy ? "Saving…" : existing ? "Update" : "Post"}</button>
       </div>
       {!rating && <p className="mt-2" style={{ fontSize: F.xs, color: C.dim }}>Pick a star rating to post.</p>}
-      <p className="mt-2" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5, maxWidth: "62ch" }}>
+      <p className="mt-2" style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.5  }}>
         Posting as {session.email}. Your address is never shown, only the name you put above. One
         rating per account per tool, so posting again replaces this one rather than adding another.
         {existing?.helpful > 0 && (
@@ -2090,7 +2091,7 @@ function Subscribe() {
       <h3 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
         Know when a section opens
       </h3>
-      <p style={{ fontSize: F.md, color: C.muted, margin: "8px 0 0", maxWidth: "60ch", lineHeight: 1.55 }}>
+      <p style={{ fontSize: F.md, color: C.muted, margin: "8px 0 0" , lineHeight: 1.55 }}>
         One email when new tools go into the directory or a section opens. That is the whole
         thing. It is not a newsletter, there is nothing to read weekly, and there is no pitch
         at the bottom.
@@ -2128,7 +2129,7 @@ function Subscribe() {
         <p className="mt-2" style={{ fontSize: F.sm, color: C.badInk }}>{msg || "That did not go through."}</p>
       )}
 
-      <p className="mt-3" style={{ fontSize: F.xs, color: C.dim, maxWidth: "60ch", lineHeight: 1.6 }}>
+      <p className="mt-3" style={{ fontSize: F.xs, color: C.dim , lineHeight: 1.6 }}>
         Your address is not shared or sold, and it is not passed to any tool listed here.
         It is used for that one email and nothing else. Reply to any of them to be removed.
       </p>
@@ -2244,10 +2245,10 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
 
           <div style={{ flex: 1 }}>
             <h3 style={{ fontSize: F.lg, fontWeight: 700, margin: 0 }}>
-              Suggested so far <span style={{ color: C.dim, fontWeight: 500 }}>{suggestions.length}</span>
+              Suggested so far <span style={{ color: C.dim, fontWeight: 400 }}>{suggestions.length}</span>
             </h3>
             {suggestions.length === 0 ? (
-              <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, maxWidth: "44ch" }}>
+              <p className="mt-3" style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55  }}>
                 Nothing yet. Known gaps: the email and lifecycle layer Mantle also covered, anything
                 aimed at agencies rather than app vendors, and general tools an app vendor does
                 reach for, which get listed and badged rather than left out.
@@ -2262,7 +2263,7 @@ function SuggestModal({ suggestions, initialKind, initialWhy = "", onAdd, onOpen
                         ? <span style={{ fontSize: F.xs, color: ink(kindOf(s.kind).color) }}>{kindOf(s.kind).label}</span>
                         : <span style={{ fontSize: F.xs, color: ink(catOf(s.cat).color) }}>{catOf(s.cat).label}</span>}
                     </div>
-                    {s.why && <p className="mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5, maxWidth: "50ch" }}>{s.why}</p>}
+                    {s.why && <p className="mt-1" style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.5  }}>{s.why}</p>}
                     {s.count > 1 && (
                       <p className="mt-1" style={{ fontSize: F.xs, color: C.accentInk, fontWeight: 600 }}>
                         Suggested by {s.count} people
@@ -2307,14 +2308,14 @@ function SuggestResult({ result, onOpenTool, onClose }) {
   if (result.outOfScope) {
     return (
       <div>
-        <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "52ch" }}>
+        <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55  }}>
           Thank you, and this one will not be listed. This directory covers tools for the people who
           build Shopify apps: rank trackers, revenue analytics, store databases, partner platforms.
           <b style={{ color: C.text }}> {result.outOfScope.name}</b> looks like a Shopify app for
           merchants running a shop. That is a different thing. It belongs in the Shopify App Store,
           where far more people will find it.
         </p>
-        <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5, maxWidth: "52ch" }}>
+        <p style={{ fontSize: F.xs, color: C.dim, margin: "8px 0 0", lineHeight: 1.5  }}>
           We have kept a note of it. What people come here looking for is worth knowing, and if we
           have the boundary wrong we would rather hear it this way. If we have read it wrong, change
           the name or URL and send it again.
@@ -2326,7 +2327,7 @@ function SuggestResult({ result, onOpenTool, onClose }) {
   if (result.duplicate) {
     const { name, count } = result.duplicate;
     return (
-      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "52ch" }}>
+      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55  }}>
         <b style={{ color: C.text }}>{name}</b> was already on the list, so this went on the entry
         that is there rather than starting a second one. <b style={{ color: C.text }}>{count}</b>{" "}
         people have asked for it now, and that number is the part we act on.
@@ -2336,14 +2337,14 @@ function SuggestResult({ result, onOpenTool, onClose }) {
   const { listed } = result;
   return (
     <div>
-      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55, maxWidth: "52ch" }}>
+      <p style={{ fontSize: F.sm, color: C.muted, margin: 0, lineHeight: 1.55  }}>
         <b style={{ color: C.text }}>{listed.name}</b> is already in the directory, so there was
         nothing to add. Thank you for it anyway: asking is recorded even when the answer is a link,
         {listed.count >= 2
           ? <> and <b style={{ color: C.text }}>{listed.count}</b> people have now asked for this one.</>
           : <> and what people go looking for tells us what is hard to find.</>}
       </p>
-      <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5, maxWidth: "52ch" }}>
+      <p style={{ fontSize: F.xs, color: C.dim, margin: "6px 0 0", lineHeight: 1.5  }}>
         If you meant something else, change the name or the URL and send it again.
       </p>
       <div className="flex flex-wrap items-center mt-3" style={{ gap: S.sm }}>

@@ -38,10 +38,10 @@ function Card({ c }) {
       </a>
       <Signal c={c} />
       {c.organisers && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>run by {c.organisers}</p>}
-      <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "62ch" }}>
+      <p style={{ fontSize: F.md, color: C.text, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
         {c.one}
       </p>
-      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>
+      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.6, margin: `${S.xs}px 0 0`  }}>
         <span style={{ color: C.warnInk, fontWeight: 700 }}>Watch for. </span>{c.watch}
       </p>
       <div className="flex flex-wrap items-center justify-between"
@@ -58,7 +58,7 @@ function Group({ title, blurb, items }) {
   return (
     <section style={{ marginTop: S["3xl"] }}>
       <h2 style={{ fontSize: F.md, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>{title}</h2>
-      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`, maxWidth: "62ch" }}>{blurb}</p>
+      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0`  }}>{blurb}</p>
       <ul style={{ listStyle: "none", padding: 0, margin: `${S.sm}px 0 0` }}>
         {items.map((c) => <Card key={c.id} c={c} />)}
       </ul>
@@ -70,13 +70,13 @@ export default function Communities({ communities }) {
   const groups = communityGroups(communities);
   return (
     <main style={{ background: C.bg, color: C.text }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 20px" }}>
+      <div className="mx-auto" style={{ padding: "0 20px" }}>
         <header style={{ marginTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 600, margin: 0, letterSpacing: TRACK.tighter, lineHeight: 1.05 }}>
             Communities
           </h1>
           {communityIntro(communities).map((t) => (
-            <p key={t} style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`, maxWidth: "62ch" }}>{t}</p>
+            <p key={t} style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`  }}>{t}</p>
           ))}
         </header>
 
@@ -84,7 +84,7 @@ export default function Communities({ communities }) {
           {COMMUNITY_GROUPS.map((g) => <Group key={g.key} title={g.title} blurb={g.blurb} items={groups[g.key]} />)}
         </div>
 
-        <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6, maxWidth: "62ch", margin: `${S["3xl"]}px 0 0` }}>
+        <p style={{ fontSize: F.xs, color: C.dim, lineHeight: 1.6 , margin: `${S["3xl"]}px 0 0` }}>
           Member figures are the community&apos;s own, with the day they were read on each listing. Every entry keeps its watch note, and it is no more the organizers&apos; to edit than a tool&apos;s is.
         </p>
       </div>

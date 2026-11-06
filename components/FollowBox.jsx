@@ -70,7 +70,7 @@ export default function FollowBox({ id, kind, name, hasFeed = false, feedKind = 
       <p className="inline-flex items-center" style={{ fontSize: F.md, fontWeight: 700, margin: 0, gap: S.sm }}>
         <Bell size={16} weight="regular" /> {heading}
       </p>
-      <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.55, maxWidth: "62ch" }}>
+      <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.55  }}>
         {whatYouGet(kind, hasFeed, { feedKind, feedItem })} Everything you follow comes in one email a day at most.
       </p>
 

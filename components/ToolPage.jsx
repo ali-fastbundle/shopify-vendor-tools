@@ -2,6 +2,7 @@ import React from "react";
 import { outbound } from "@/lib/outbound";
 import { launchLabel } from "@/lib/launched";
 import {
+  priceLine,
   C, S, R, F, TRACK, ink, catOf, secondaryCats, socialLabel, SOCIALS,
   formatDay,
 } from "@/lib/tools";
@@ -52,8 +53,9 @@ const Fact = ({ children }) => (
 
 function Facts({ tool, owner }) {
   const facts = [
-    tool.price,
-    tool.free && "free plan",
+    /* The price with a free plan folded in, never a second "free plan" label
+       beside a price that already says free (rule J, priceLine). */
+    priceLine(tool),
     /* The owner, linked to its page when it has one (components/OwnerLine.jsx). */
     owner?.line && <OwnerFact key="owner" ctx={owner} />,
     tool.suggestedBy >= 2 && `suggested by ${tool.suggestedBy} people`,
@@ -150,7 +152,7 @@ function OwnerInvite({ tool, viewer = {}, watchLog = [] }) {
           * lib/tools.js, which is reviewable in git. That is the design rather
           * than a missing feature.
           */}
-        <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
+        <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
           {viewer.owns && !viewer.admin ? (
             <>The summary, description, pricing, site URL and social links are editable here. The
             category, the "watch for" note, the external ratings and the community reviews are not:
@@ -193,7 +195,7 @@ function OwnerInvite({ tool, viewer = {}, watchLog = [] }) {
       <p style={{ fontSize: F.md, fontWeight: 700, margin: 0 }}>
         {tool.claimed ? `${tool.name} maintains this listing` : "Is this your tool?"}
       </p>
-      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
+      <p style={{ fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
         {tool.claimed ? (
           <>
             The summary, description, pricing and links above are the vendor's. If you are the
@@ -231,7 +233,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
 
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: 820, padding: "0 20px" }}>
+      <div className="mx-auto" style={{ padding: "0 20px" }}>
 
         <nav aria-label="Breadcrumb" style={{ paddingTop: S["2xl"], fontSize: F.sm }}>
           <a href="/" style={{ color: C.muted, textDecoration: "none" }}>watchfor.tools</a>
@@ -379,7 +381,7 @@ export default function ToolPage({ tool, related, reviews = [], rating, viewer =
             <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>
               What people say
               {rating && (
-                <span className="tnum" style={{ fontSize: F.md, color: C.muted, fontWeight: 500, marginLeft: S.sm }}>
+                <span className="tnum" style={{ fontSize: F.md, color: C.muted, fontWeight: 400, marginLeft: S.sm }}>
                   {rating.ratingValue} from {rating.ratingCount}
                 </span>
               )}

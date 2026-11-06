@@ -111,7 +111,7 @@ function Rows({ entries: initial = [], tools = [], tool, cat, admin = false }) {
 
         <div style={{ marginTop: S.xl }}>
           {entries.length === 0 ? (
-            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.6, maxWidth: "58ch" }}>
+            <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.6  }}>
               Nothing recorded yet. The directory is checked weekly and anything material lands here.
             </p>
           ) : rows.length === 0 ? (
@@ -170,7 +170,7 @@ function Rows({ entries: initial = [], tools = [], tool, cat, admin = false }) {
                     <CopyLink path={`/changes#${e.id}`}
                       title={`Copy a link to this ${e.toolName} update`} />
                   </div>
-                  <p style={{ fontSize: F.md, lineHeight: 1.6, color: C.text, margin: `${S.sm}px 0 0`, maxWidth: "64ch" }}>
+                  <p style={{ fontSize: F.md, lineHeight: 1.6, color: C.text, margin: `${S.sm}px 0 0`  }}>
                     {e.headline}
                   </p>
                   {/* Later changes to the entry, said on the entry: a
@@ -178,7 +178,7 @@ function Rows({ entries: initial = [], tools = [], tool, cat, admin = false }) {
                       wording fix (lib/feedSource.js). Never a silent rewrite. */}
                   {revisionsOf(e).map((v) => (
                     <p key={`${v.kind}${v.on}${v.text.length}`} style={v.kind === "correction"
-                      ? { fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0`, maxWidth: "64ch", borderLeft: `2px solid ${C.edge}`, paddingLeft: S.md }
+                      ? { fontSize: F.sm, color: C.muted, lineHeight: 1.55, margin: `${S.sm}px 0 0` , borderLeft: `2px solid ${C.edge}`, paddingLeft: S.md }
                       : { fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>
                       {v.text}
                     </p>
@@ -218,13 +218,13 @@ function Rows({ entries: initial = [], tools = [], tool, cat, admin = false }) {
 export default function ChangesFeed({ entries = [], tools = [], admin = false }) {
   return (
     <main style={{ background: C.bg, color: C.text, }}>
-      <div className="mx-auto" style={{ maxWidth: 860, padding: "0 20px" }}>
+      <div className="mx-auto" style={{ padding: "0 20px" }}>
 
         <header style={{ paddingTop: S["3xl"] }}>
           <h1 style={{ fontSize: F.hero, fontWeight: 600, letterSpacing: TRACK.tighter, lineHeight: 1.05, margin: 0 }}>
             What's moving
           </h1>
-          <p style={{ fontSize: F.lg, color: C.muted, maxWidth: "58ch", lineHeight: 1.5, margin: `${S.md}px 0 0` }}>
+          <p style={{ fontSize: F.lg, color: C.muted , lineHeight: 1.5, margin: `${S.md}px 0 0` }}>
             What is moving across the directory, dated and in order. Each entry says where it came
             from: observed on the vendor's site, from the vendor, or mentioned by someone else.
             The listings say what each tool is. This says what is happening around it.
