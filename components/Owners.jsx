@@ -46,6 +46,7 @@ export function OwnerPage({ owner, entries, others = [], updates = null }) {
             {owner.type === "Person" ? "Publishes" : "Also publishes"} apps on the Shopify App Store. <AppStoreLink href={appStoreOf(owner)} />
           </p>
         )}
+        <OwnApps o={owner} max={50} />
         {owner.notes && <p style={{ fontSize: F.lg, lineHeight: 1.6, margin: `${S.lg}px 0 0`  }}>{owner.notes}</p>}
         <UpdatesLink link={updates} />
 
@@ -94,8 +95,29 @@ export function OwnerPage({ owner, entries, others = [], updates = null }) {
  * EventLogo's chain (a hosted file, the favicon of the owner's own site, then
  * initials), which is a client island like it is on every event row.
  */
-export function OwnerIndex({ owners }) {
-  const shared = owners.filter((o) => o.entries.length >= 2).length;
+/* An owner's own App Store apps, by name and linked, the first `max` then the
+   rest as a count linking its developer page. Nothing when it has none. */
+function OwnApps({ o, max = 4, size = F.sm }) {
+  const apps = o.apps || [];
+  if (!apps.length) return null;
+  const shown = apps.slice(0, max);
+  const more = apps.length - shown.length;
+  return (
+    <p style={{ fontSize: size, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.6 }}>
+      <span style={{ color: C.text, fontWeight: 600 }}>Also publishes on the Shopify App Store: </span>
+      {shown.map((a, i) => (
+        <React.Fragment key={a.handle}>{i ? ", " : ""}<a href={outbound(`https://apps.shopify.com/${a.handle}`)} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{a.name}</a></React.Fragment>
+      ))}
+      {more > 0 && <>{" and "}<a href={outbound(o.appStore)} target="_blank" rel="noopener noreferrer" style={{ color: C.text }}>{more} more</a></>}
+      .{o.appsRead && <span style={{ color: C.dim }}> Read from its developer page on {o.appsRead}.</span>}
+    </p>
+  );
+}
+
+export function OwnerIndex({ owners: all, onlyApps = false }) {
+  const devs = all.filter((o) => (o.apps || []).length);
+  const owners = onlyApps ? devs : all;
+  const shared = all.filter((o) => o.entries.length >= 2).length;
   return (
     <main style={{ background: C.bg, color: C.text }}>
       <div className="mx-auto" style={{ padding: "0 16px" }}>
@@ -103,14 +125,20 @@ export function OwnerIndex({ owners }) {
           Owners
         </h1>
         <p style={{ fontSize: F.lg, color: C.muted, lineHeight: 1.55, margin: `${S.md}px 0 0`  }}>
-          The companies and people behind the tools, newsletters and events listed here. {owners.length} in
-          all, {shared} of them behind more than one listing. When two listings share an owner, read them
+          The companies and people behind the tools, newsletters and events listed here. {all.length} in
+          all, {shared} of them behind more than one listing, and {devs.length} that also sell their own Shopify apps. When two listings share an owner, read them
           as one source, not two.
         </p>
         <p style={{ fontSize: F.sm, color: C.dim, lineHeight: 1.55, margin: `${S.sm}px 0 0`  }}>
           An owner is listed only where the listing's own site, or the owner's, says who it is. A listing
           that names nobody is not on this page. App developer marks an owner that also publishes apps
           on the Shopify App Store, read from the App Store itself, with a link to its developer page there.
+        </p>
+        {/* A link, not client state: the filtered list is in the first HTML. */}
+        <p style={{ fontSize: F.sm, margin: `${S.md}px 0 0` }}>
+          {onlyApps
+            ? <>Showing the {devs.length} that publish apps. <a href="/owners" style={{ color: C.text, fontWeight: 600 }}>Show all {all.length}</a></>
+            : <a href="/owners?apps=1" style={{ color: C.text, fontWeight: 600 }}>Show only the {devs.length} that publish apps</a>}
         </p>
         <ul style={{ listStyle: "none", padding: 0, margin: `${S.xl}px 0 0` }}>
           {owners.map((o) => {
@@ -143,6 +171,7 @@ export function OwnerIndex({ owners }) {
                         </li>
                       ))}
                     </ul>
+                    <OwnApps o={o} />
                     {(site || o.page || o.appStore) && (
                       <p className="flex flex-wrap" style={{ gap: S.lg, fontSize: F.sm, margin: `${S.sm}px 0 0` }}>
                         {o.page && <a href={o.page} style={{ color: C.muted }}>Owner page</a>}

@@ -20,13 +20,13 @@ export async function generateMetadata() {
   return withShareImage(baseMetadata);
 }
 
-export default async function Page() {
+export default async function Page({ searchParams = {} }) {
   const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
   const owners = allOwners({ tools, newsletters, events });
   return (
     <>
       <JsonLd data={ownersIndexGraph(owners)} />
-      <OwnerIndex owners={owners} />
+      <OwnerIndex owners={owners} onlyApps={searchParams.apps === "1"} />
     </>
   );
 }
