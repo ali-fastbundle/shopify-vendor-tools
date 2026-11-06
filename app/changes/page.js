@@ -34,7 +34,7 @@ export async function generateMetadata() {
   return withShareImage(baseMetadata);
 }
 
-export default async function Page() {
+export default async function Page({ searchParams = {} }) {
   const [entries, tools] = await Promise.all([feedEntries({ limit: 300 }), mergedTools()]);
   /* Edit and Delete under each entry for an admin. An affordance, never the
      permission: /api/admin re-checks on every press (invariant 7). */
@@ -81,7 +81,9 @@ export default async function Page() {
     <>
       <SectionView id="updates" />
       <JsonLd data={graph} />
-      <ChangesFeed entries={entries} tools={tools} admin={admin} />
+      {/* ?on= is applied in the first HTML too, so the "N updates" link from a
+          listing lands on that listing's entries without JavaScript. */}
+      <ChangesFeed entries={entries} tools={tools} admin={admin} on={String(searchParams.on || "").slice(0, 120)} />
     </>
   );
 }

@@ -65,7 +65,7 @@ function Logo({ entry, size = 34 }) {
  * <main> with its own heading; the tab drops it straight under the tab row.
  */
 export function FeedRows(props) {
-  return <Suspense fallback={<Rows {...props} tool="all" cat="all" on="" />}><FromUrl {...props} /></Suspense>;
+  return <Suspense fallback={<Rows {...props} tool="all" cat="all" on={props.on || ""} />}><FromUrl {...props} /></Suspense>;
 }
 
 /* The filters are ?tool= and ?cat=, written by the sidebar
@@ -220,7 +220,7 @@ function Rows({ entries: initial = [], tools = [], tool, cat, on = "", admin = f
  * of the site that moves weekly, which makes it what a crawler comes back for.
  * The tab on the directory renders the same rows without this chrome.
  */
-export default function ChangesFeed({ entries = [], tools = [], admin = false }) {
+export default function ChangesFeed({ entries = [], tools = [], admin = false, on = "" }) {
   return (
     <main style={{ background: C.bg, color: C.text, }}>
       <div className="mx-auto" style={{ padding: "0 20px" }}>
@@ -237,7 +237,7 @@ export default function ChangesFeed({ entries = [], tools = [], admin = false })
         </header>
 
         <div style={{ paddingBottom: S["4xl"] }}>
-          <FeedRows entries={entries} tools={tools} admin={admin} />
+          <FeedRows entries={entries} tools={tools} admin={admin} on={on} />
         </div>
       </div>
     </main>
