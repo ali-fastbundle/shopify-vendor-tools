@@ -6,6 +6,7 @@ import { ownershipLine } from "@/lib/owners";
 import { logoAlt } from "@/lib/seo";
 import { Pill } from "@/components/Pill";
 import PostLinks from "@/components/PostLinks";
+import CategoryGraph from "@/components/CategoryGraph";
 import { postsForCategory } from "@/lib/blog";
 
 /*
@@ -226,7 +227,7 @@ export function CategoryPage({ cat, members, related, lastUpdated }) {
   );
 }
 
-export function CategoryIndex({ counts, lastUpdated }) {
+export function CategoryIndex({ counts, lastUpdated, graph = null }) {
   return (
     <Shell lastUpdated={lastUpdated}>
       <Crumbs cat={null} />
@@ -269,6 +270,22 @@ export function CategoryIndex({ counts, lastUpdated }) {
           </li>
         ))}
       </ul>
+
+      {/* The map: below the list, never instead of it. The heading and the
+          counted sentence are server HTML; the graph is a client island,
+          hidden below 900px where it cannot be used (globals.css). */}
+      {graph && (
+        <section style={{ marginTop: S["3xl"] }} aria-labelledby="overlap-h">
+          <h2 id="overlap-h" style={{ fontSize: F.xl, fontWeight: 700, margin: 0, letterSpacing: TRACK.tight }}>How the categories overlap</h2>
+          <p style={{ fontSize: F.md, color: C.muted, lineHeight: 1.55, margin: `${S.xs}px 0 0` }}>
+            {graph.bridging} of {graph.tools.length} tools are filed in more than one category. They are the ones that connect the shelves below, and they are named on the map. {graph.rivalPairs} pairs of tools name each other as rivals.
+          </p>
+          <div className="cat-graph"><CategoryGraph cats={graph.cats} tools={graph.tools} /></div>
+          <p className="cat-graph-small" style={{ fontSize: F.sm, color: C.muted, margin: `${S.sm}px 0 0` }}>
+            The map is on wider screens. Every category and its tools are in the list above.
+          </p>
+        </section>
+      )}
 
       <p style={{ fontSize: F.sm, margin: `${S.xl}px 0 0` }}>
         <a href="/" style={{ color: C.muted }}>Back to the directory</a>

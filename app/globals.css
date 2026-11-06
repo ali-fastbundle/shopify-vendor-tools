@@ -725,3 +725,13 @@ a:focus-visible,
   .admin-side-foot { display: none; }
   .admin-main { padding: 20px 16px 0; }
 }
+
+/* The category overlap map on /categories (2026-11-06): keyboard focus is a
+   ring on the node, and the map is hidden where it cannot be used. */
+.cg-node:focus { outline: none; }
+.cg-node:focus-visible circle { stroke: var(--c-accent); stroke-width: 3px; }
+.cat-graph-small { display: none; }
+@media (max-width: 899px) {
+  .cat-graph { display: none; }
+  .cat-graph-small { display: block; }
+}

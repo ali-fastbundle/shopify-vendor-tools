@@ -1515,6 +1515,21 @@ itself costs nothing.
 - **`alsoIn` is in `PROTECTED`.** It is `cat` with more room, and filing yourself
   into four more categories is the same act as changing your category.
 
+**How the categories overlap, a map under the list on `/categories`** (2026-11-06,
+`components/CategoryGraph.jsx`). The categories, in their colours, and the published tools,
+neutral; a solid line to a tool's primary category and a dashed one to each `alsoIn`, so the tools
+that bridge shelves are visible and named (the server sentence above it counts them). "Show
+named rivals" adds the `competes` links over the layout without moving it. Click or Enter opens a
+node's page, hover or focus highlights its links and dims the rest, Find centres a tool or
+category, and wheel, drag or the buttons zoom and pan. It is secondary to the list: a client
+island after the server-rendered list, hidden below 900px with a line saying so. `d3-force` is
+pinned to 3.0.0 and **bundled from npm, not loaded from a CDN**: a script from another origin
+is a third-party request, which needs consent here (Privacy and consent). With reduced motion
+the layout is computed and drawn settled; otherwise it settles once and never moves on its own.
+An owners graph was measured first and declined: 42 of 57 owners have one listing and no two
+share anything, so it would be disconnected stars; the owners page shows each owner's own apps
+instead. `scripts/category-graph-test.mjs`.
+
 **`/categories/[id]` and `/categories`**, server rendered, each with its own title,
 description, canonical and JSON-LD, and every one of them in the sitemap with its
 `lastModified` taken from the newest tool in it. These existed only as a filter chip
@@ -3141,7 +3156,9 @@ and the filter chips.
 
 Nowhere else. Not the lettermark, not a badge, not a border, not a button, not a link,
 not the panel a vendor edits their listing in. The wordmark and the masthead bars are
-the palette shown as a legend, which is the same job.
+the palette shown as a legend, which is the same job. **So is the category overlap map on
+`/categories`** (2026-11-06, on Ali's request): its category nodes are filled with their colour
+and labelled in `ink()`, and every tool node is neutral.
 
 **B. Every other badge is a neutral grey tag.** `C.subtle` fill, `C.text`, no border,
 `R.badge` corners. (It was an outline; a border drew more attention than the word inside
@@ -3986,6 +4003,7 @@ node scripts/events-digest-test.mjs  # the monthly events digest and the event r
 node scripts/blog-test.mjs           # links resolve, nothing copied from a listing, criteria first
 node scripts/slop-scan.mjs --summary # AI patterns in every public string; read any new hit before committing
 node scripts/updates-link-test.mjs   # a listing links its What's moving entries in one line and never contains them
+node scripts/category-graph-test.mjs # the overlap map: under the server list, bundled, reduced motion, keyboard, hidden on phones
 node scripts/blog-calendar-test.mjs  # posts publish through the GitHub path on a press, never by date; ideas take weeks; thin search data is refused
 node scripts/privacy-test.mjs        # /privacy names every browser key; one cookie; no IP stored; stat lists fixed
 node scripts/shipping-test.mjs       # recommender feedback, blog comments, the announcement queue
