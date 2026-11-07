@@ -1315,10 +1315,12 @@ way an operations console groups them (`ADMIN_NAV` and `TAB_PURPOSE` in `lib/adm
 sidebar is sticky and the window's height, with each section's count and the account, the way
 back to the directory and the theme at its foot; each section opens with its name and one line
 on what it is for. Below 900px the sidebar is a strip across the top. **Blog is everything about
-the blog**: the calendar (drafts, publishing, blog ideas, Search Console), comments to read, and
-as reference the published posts and comments already read. Its count is comments to read plus
-drafts whose target date has come; the Inbox summary links to it rather than counting the
-comments twice. It had grown to ten tabs added in
+the blog**: the calendar (drafts, publishing, blog ideas, Search Console), comments to read, the
+LinkedIn announcements of a post (2026-11-07: any announcement whose `url` is a post on /blog,
+`isBlogAnnouncement` in `lib/announcementScope.js`; Write lists the rest), and as reference the
+published posts and comments already read. Its count is comments to read, drafts whose target
+date has come and post announcements still to go out; Write's count leaves those out, and the
+Inbox summary links to Blog rather than counting the comments twice. It had grown to ten tabs added in
 the order they were built, with Catalogue holding six unrelated jobs and every panel at
 the same weight, so finding the two things that needed a decision meant reading past
 everything that did not. The tab list and the map from the old names live in
@@ -2523,7 +2525,9 @@ something that shipped. Nothing queues itself: the editor says what shipped and 
 The model is given figures from the published catalogue at that moment and may state no
 others; `unsupportedNumbers` and `hypeIn` check the result in code and the panel shows any
 failure in the warning colour beside the text. Status is draft, ready, posted (with its date)
-or dropped. **Nothing here posts anywhere.** Not to be confused with `lib/announce.js`, which
+or dropped. **Nothing here posts anywhere.** An announcement linking a blog post is listed and counted on
+the Blog section instead of Write (`isBlogAnnouncement`), one queue shown in two halves. Not to be
+confused with `lib/announce.js`, which
 drafts a feed entry. Five seeds (tool and category pages, What's moving, newsletters, events,
 the recommender) live in `SEEDS` with figures computed on read, merge into the queue until first
 touched, and are stored from then on.

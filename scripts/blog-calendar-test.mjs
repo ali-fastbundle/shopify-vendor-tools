@@ -139,6 +139,29 @@ console.log("\nthe route:");
 const { POST } = await L("app/api/admin/blog/route.js");
 const res = await POST(new Request("http://x/api/admin/blog", { method: "POST", body: JSON.stringify({ action: "publish-post", slug: "after-mantle" }) }));
 ok(res.status === 404, "404 to anyone but an admin", String(res.status));
+/* ---------- announcements of a post live on Blog ---------- */
+console.log("\nannouncements of a post:");
+const AS = await L("lib/announcementScope.js");
+const fn = (name) => {
+  const at = adminSrc.indexOf(`\nfunction ${name}(`);
+  if (at < 0) return "";
+  const next = adminSrc.slice(at + 1).search(/\nfunction [A-Z]/);
+  return next < 0 ? adminSrc.slice(at) : adminSrc.slice(at, at + 1 + next);
+};
+ok(AS.isBlogAnnouncement({ url: "https://watchfor.tools/blog/after-mantle" }) && AS.isBlogAnnouncement({ url: "/blog/what-59-tools-say/" })
+  && AS.isBlogAnnouncement({ url: "https://watchfor.tools/blog" }), "a link to a post, or to the blog, is a blog announcement");
+ok(!AS.isBlogAnnouncement({ url: "https://watchfor.tools" }) && !AS.isBlogAnnouncement({ url: "https://watchfor.tools/blog/rss" })
+  && !AS.isBlogAnnouncement({ url: "https://watchfor.tools/tools/shoplist" }) && !AS.isBlogAnnouncement({ url: "" }) && !AS.isBlogAnnouncement({}),
+  "the homepage, the RSS feed, a tool page and no link are not");
+const AN = await L("lib/announcements.js");
+const postSeeds = AN.SEEDS.filter((s) => /\/blog\//.test(s.url || "")).map((s) => s.id);
+ok(postSeeds.length >= 4 && postSeeds.every((id) => AS.isBlogAnnouncement(AN.SEEDS.find((s) => s.id === id))), "every seed linking a post is a blog announcement");
+ok(/<Announcements initial=\{announcements\} scope="blog" \/>/.test(fn("Blog")) && /<Announcements initial=\{announcements\} scope="write" \/>/.test(fn("Write")),
+  "the Blog section lists announcements of a post; Write lists the rest");
+ok(/isBlogAnnouncement\(r\) === blog/.test(fn("Announcements")), "each section shows only its own half of the queue");
+ok(/announcements: \(announcements \|\| \[\]\)\.filter\(\(r\) => isOpenAnnouncement\(r\) && !isBlogAnnouncement\(r\)\)/.test(adminSrc)
+  && /blog: unreadComments\.length \+ draftsDue \+ backlog\.blogAnnouncements/.test(adminSrc), "Write's count leaves them out and Blog's counts them");
+
 const inv = src("lib/inventory.js");
 ok(/svt:blog:schedule/.test(inv) && /svt:searchqueries/.test(inv), "both store keys are in the inventory");
 

@@ -50,7 +50,7 @@ for (const [old, [tab, anchor]] of Object.entries({
 })) {
   const r = resolveAdminTab(old);
   ok(r.tab === tab && r.anchor === anchor && LEGACY_TABS[old], `?tab=${old} lands on ${tab}${anchor ? `#${anchor}` : ""}`);
-  if (anchor) ok(new RegExp(`anchor="${anchor}"`).test(src), `  and the panel it names carries anchor="${anchor}"`);
+  if (anchor) ok(new RegExp(`anchor=(?:"${anchor}"|\\{[^}]*"${anchor}"[^}]*\\})`).test(src), `  and the panel it names carries anchor="${anchor}"`);
 }
 ok(resolveAdminTab("nonsense").tab === "inbox" && resolveAdminTab("").tab === "inbox", "anything else is the Inbox");
 ok(!/^"use client"/m.test(tabsSrc), "the tab list is plain data the server page can read");
@@ -147,7 +147,7 @@ for (const t of ["Reviewed suggestions", "Interest in listed tools", "Accounts",
 ok(!/title="Monitor coverage"[^>]*\n\s*openWhen=/.test(src), "Monitor coverage does not open itself");
 for (const t of ["Suggestions to review", "Claims to check", "Comments to read", "Questions to read", "Lists published", "Media to approve",
   "Reports and corrections", "Reviews to decide", "Drafts", "Ideas", "Announcements", "Details to confirm", "Vendor news to finish"]) {
-  ok(new RegExp(`<WorkList rows=\\{[^}]+\\} title="${t}"`).test(src), `${t} is a work list: open while ten or fewer, shut with its count past ten`);
+  ok(new RegExp(`<WorkList rows=\\{[^}]+\\} title=(?:"${t}"|\\{[^}]*"${t}"[^}]*\\})`).test(src), `${t} is a work list: open while ten or fewer, shut with its count past ten`);
 }
 ok(/function WorkList\(\{ rows = 0, \.\.\.props \}\) \{\s*return <Collapsible \{\.\.\.props\} openWhen=\{rows <= ROW_LIMIT\} \/>/.test(src) && /const ROW_LIMIT = 10;/.test(src), "WorkList opens only at ten rows or fewer");
 const SHORT = ["News from a vendor", "Growth recommender", "Recommender feedback", "Listing changes"];

@@ -32,6 +32,7 @@ import { DEFAULT_SUBJECT, DEFAULT_BODY, PLACEHOLDERS, valuesFor, fill, unfilled 
 import { voiceIssues } from "@/lib/voice";
 import { ownershipLine } from "@/lib/owners";
 import { DEFAULT as ABOUT_DEFAULT, bodyOf, paragraphsOf, aboutIssues, inlineTokens, isAllowedHref, LINKS_MAX } from "@/lib/aboutText";
+import { isBlogAnnouncement, isOpenAnnouncement } from "@/lib/announcementScope";
 import { STATUSES as IDEA_STATUSES, SURFACES, SIZES, VERDICTS, sortIdeas, latestReview, ideaTitle, handoffPrompt, isCommitHash, isBlogIdea } from "@/lib/ideas";
 import { EXCLUSION_REASONS } from "@/lib/reviews";
 import { ThemeToggle } from "./Theme";
@@ -241,18 +242,21 @@ export default function AdminPanel({
       ["youtube", ALL_YOUTUBE], ["award", ALL_AWARDS], ["event", ALL_EVENTS],
     ].reduce((n, [kind, list]) => n + drafted(list).filter((e) => !holdMap[`${kind}:${e.id}`]).length, 0),
     details: published(ALL_TOOLS).filter((t) => !structured?.[t.id]?.confirmedAt || priceOverrides?.[t.id]?.priceAt > structured[t.id].confirmedAt).length,
-    announcements: (announcements || []).filter((r) => r.status === "draft" || r.status === "ready").length,
+    /* Announcements of a blog post are counted on Blog, where they are listed. */
+    announcements: (announcements || []).filter((r) => isOpenAnnouncement(r) && !isBlogAnnouncement(r)).length,
+    blogAnnouncements: (announcements || []).filter((r) => isOpenAnnouncement(r) && isBlogAnnouncement(r)).length,
     ideas: (ideas || []).filter((r) => !isBlogIdea(r) && (r.status === "new" || r.status === "reviewed")).length,
   };
   const inboxCount = Object.values(waiting).reduce((a, b) => a + b, 0);
-  /* Blog: comments to read and drafts whose target date has come. */
+  /* Blog: comments to read, drafts whose target date has come, and
+     announcements of a post still to go out. */
   const todayIso = new Date().toISOString().slice(0, 10);
   const draftsDue = (blogCalendar?.posts || []).filter((p) => p.draft && p.target && p.target <= todayIso).length;
   const counts = {
     inbox: inboxCount,
     updates: openChanges.length + openNews.length,
     listings: backlog.drafts + backlog.details + staleText.length,
-    blog: unreadComments.length + draftsDue,
+    blog: unreadComments.length + draftsDue + backlog.blogAnnouncements,
     write: backlog.announcements,
     audience: 0,
     system: 0,
@@ -427,7 +431,7 @@ export default function AdminPanel({
         )}
 
         {tab === "blog" && (
-          <Blog calendar={blogCalendar} publishing={publishing} comments={commentRows} act={act} busy={busy} />
+          <Blog calendar={blogCalendar} publishing={publishing} comments={commentRows} announcements={announcements} act={act} busy={busy} />
         )}
 
         {tab === "write" && (
@@ -506,10 +510,11 @@ function Summary({ waiting = {}, backlog = {}, findings = 0, blogComments = 0, o
     backlog.drafts > 0 && ["draft", "drafts", "listings"],
     backlog.details > 0 && ["listing with details to confirm", "listings with details to confirm", "listings"],
     backlog.announcements > 0 && ["announcement to post", "announcements to post", "write"],
+    backlog.blogAnnouncements > 0 && ["post announcement to post", "post announcements to post", "blog"],
     backlog.ideas > 0 && ["idea to decide", "ideas to decide", "write"],
   ].filter(Boolean);
   const n = (key, one, many) => `${backlog[key]} ${backlog[key] === 1 ? one : many}`;
-  const keyOf = { draft: "drafts", "listing with details to confirm": "details", "announcement to post": "announcements", "idea to decide": "ideas" };
+  const keyOf = { draft: "drafts", "listing with details to confirm": "details", "announcement to post": "announcements", "post announcement to post": "blogAnnouncements", "idea to decide": "ideas" };
   return (
     <section data-summary="" style={{ paddingBottom: S["2xl"] }}>
       <p style={{ fontSize: F.lg, margin: 0, lineHeight: 1.7 }}>
@@ -675,7 +680,7 @@ function StaleText({ rows = [] }) {
  * the comments to read. Reference: every published post, and comments already
  * read. Posts are files: there is no editor here, by design.
  */
-function Blog({ calendar = null, publishing = { canPublish: false, build: "" }, comments = [], act, busy }) {
+function Blog({ calendar = null, publishing = { canPublish: false, build: "" }, comments = [], announcements = [], act, busy }) {
   const unread = comments.filter((c) => !c.reviewed);
   const read = comments.filter((c) => c.reviewed);
   const live = (calendar?.posts || []).filter((p) => !p.draft).sort((a, b) => b.date.localeCompare(a.date));
@@ -689,6 +694,9 @@ function Blog({ calendar = null, publishing = { canPublish: false, build: "" }, 
         hint="Blog comments are live the moment they are posted. Read each one: Looks fine takes it out of here, Hide takes it off the post with a reason and keeps it, Delete removes it for good.">
         {unread.length === 0 ? <Empty>No comment is waiting.</Empty> : unread.map((c) => <CommentRow key={c.slug + c.id} c={c} act={act} busy={busy} />)}
       </WorkList>
+
+      {/* Announcements whose link is a post (isBlogAnnouncement). The rest are on Write. */}
+      <Announcements initial={announcements} scope="blog" />
 
       <Reference>
         <Collapsible title="Published posts" count={live.length}
@@ -716,7 +724,8 @@ function Blog({ calendar = null, publishing = { canPublish: false, build: "" }, 
 function Write({ announcements = [], subscribers = [], feed = [], about = null, aboutPhoto = "", ideas = [], outreach = { contacts: {}, state: {}, meta: {} }, claims = {}, blogCalendar = null, publishing = { canPublish: false, build: "" } }) {
   return (
     <>
-      <Announcements initial={announcements} />
+      {/* Announcements of a blog post are on the Blog section (isBlogAnnouncement). */}
+      <Announcements initial={announcements} scope="write" />
       <Compose count={subscribers.length} feed={feed} />
       <AboutPage initial={about} photo={aboutPhoto} />
 
@@ -2653,7 +2662,8 @@ function IdeaReview({ review: r, older = 0, closed = null }) {
   );
 }
 
-function Announcements({ initial = [] }) {
+function Announcements({ initial = [], scope = "write" }) {
+  const blog = scope === "blog";
   const [rows, setRows] = useState(initial);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
@@ -2671,13 +2681,18 @@ function Announcements({ initial = [] }) {
     } catch { setErr("Could not reach the server."); return false; } finally { setBusy(""); }
   }
 
-  const open = rows.filter((r) => r.status === "draft" || r.status === "ready");
-  const done = rows.filter((r) => r.status === "posted" || r.status === "dropped");
+  /* The server returns the whole queue; each section shows its own half. */
+  const mine = rows.filter((r) => isBlogAnnouncement(r) === blog);
+  const open = mine.filter(isOpenAnnouncement);
+  const done = mine.filter((r) => r.status === "posted" || r.status === "dropped");
+  const formIsBlog = isBlogAnnouncement(form);
 
   return (
     <>
-      <WorkList rows={open.length} title="Announcements" count={open.length} anchor="announcements"
-        hint="A LinkedIn post for something that shipped, queued until it is posted or dropped. Drafting is a button you press; posting is you, pasting it into LinkedIn and marking it posted. Figures come from the published catalogue at the moment of drafting.">
+      <WorkList rows={open.length} title={blog ? "Post announcements" : "Announcements"} count={open.length} anchor={blog ? "blog-announcements" : "announcements"}
+        hint={blog
+          ? "A LinkedIn post for a blog post, queued until it is posted or dropped. Any announcement whose link is a post on /blog is listed here rather than on Write. Drafting is a button you press; posting is you, pasting it into LinkedIn and marking it posted."
+          : "A LinkedIn post for something that shipped, queued until it is posted or dropped. Drafting is a button you press; posting is you, pasting it into LinkedIn and marking it posted. Figures come from the published catalogue at the moment of drafting. An announcement of a blog post is on the Blog section."}>
         <div style={{ padding: "12px 0", borderTop: 0 }}>
           <div className="flex flex-wrap" style={{ gap: S.sm }}>
             <select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} aria-label="What kind of thing shipped"
@@ -2686,7 +2701,7 @@ function Announcements({ initial = [] }) {
               <option value="section">A section</option>
               <option value="listings">A batch of listings</option>
             </select>
-            <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://watchfor.tools/... (optional)"
+            <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder={blog ? "https://watchfor.tools/blog/<slug>" : "https://watchfor.tools/... (optional)"}
               aria-label="Where it lives" style={{ ...FIELD, flex: 1, minWidth: 220 }} />
             {form.kind === "listings" && (
               <input type="date" value={form.since} onChange={(e) => setForm({ ...form, since: e.target.value })}
@@ -2697,10 +2712,12 @@ function Announcements({ initial = [] }) {
             placeholder="What shipped, in your words. The draft can say only what this and the catalogue say."
             style={{ ...FIELD, marginTop: S.sm }} />
           <div className="flex flex-wrap items-center mt-2" style={{ gap: S.sm }}>
-            <Btn tone="go" busy={busy === "draft"} disabled={form.what.trim().length < 20}
+            <Btn tone="go" busy={busy === "draft"} disabled={form.what.trim().length < 20 || (blog && !formIsBlog)}
               onClick={async () => { if (await post({ action: "draft", ...form }, "draft")) setForm({ kind: "feature", what: "", url: "", since: "" }); }}>
               Draft a post
             </Btn>
+            {blog && !formIsBlog && <span style={{ fontSize: F.xs, color: C.muted }}>Give the post's link, so the draft is listed here.</span>}
+            {!blog && formIsBlog && <span style={{ fontSize: F.xs, color: C.muted }}>That link is a blog post, so the draft will be listed on the Blog section.</span>}
             {err && <span style={{ fontSize: F.xs, color: C.badInk }}>{err}</span>}
           </div>
         </div>
@@ -2708,7 +2725,7 @@ function Announcements({ initial = [] }) {
           ? <Empty>Nothing queued.</Empty>
           : open.map((r) => <AnnouncementRow key={r.id} r={r} busy={busy} post={post} />)}
       </WorkList>
-      <Collapsible title="Posted and dropped" count={done.length}>
+      <Collapsible title={blog ? "Post announcements posted and dropped" : "Posted and dropped"} count={done.length}>
         {done.length === 0 ? <Empty>Nothing posted or dropped yet.</Empty>
           : done.map((r) => <AnnouncementRow key={r.id} r={r} busy={busy} post={post} />)}
       </Collapsible>
