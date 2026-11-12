@@ -201,6 +201,18 @@ ok(liveDiscards(disc, fileKeys()).length === 0, "while the entry is still in the
 ok(liveDiscards(disc, new Set()).length === 1, "once it is gone from the file, it stands");
 ok((await readPublishLog(5))[0]?.outcome === "discarded", "the discard is in the publish log");
 
+console.log("\nwaiting for Vercel only while the deploy has not landed:");
+{
+  const { pendingCommit } = await L("lib/drafts.js");
+  const now = Date.parse("2026-11-12T12:00:00Z");
+  const row = { kind: "event", id: "retailfest-connect", sha: "008f520", outcome: "published", at: "2026-10-10T12:00:00Z" };
+  ok(!pendingCommit([row], { kind: "event", id: "retailfest-connect", build: "b2", now }), "an old publish with no build recorded, since reverted, does not hide the draft's buttons");
+  ok(pendingCommit([{ ...row, at: "2026-11-12T11:55:00Z" }], { kind: "event", id: "retailfest-connect", build: "b2", now }), "a publish minutes old with no build recorded still waits");
+  ok(pendingCommit([{ ...row, build: "b1" }], { kind: "event", id: "retailfest-connect", build: "b1", now }), "a publish made under this build waits for the next deploy");
+  ok(!pendingCommit([{ ...row, build: "b1" }], { kind: "event", id: "retailfest-connect", build: "b2", now }), "once another build serves the page, a draft still in the file was put back, and is actionable");
+  ok(!pendingCommit([{ ...row, build: "b1", outcome: "failed" }], { kind: "event", id: "retailfest-connect", build: "b1", now }), "a failed attempt never waits");
+}
+
 console.log("\na write that cannot complete says so:");
 {
   const lines = [];

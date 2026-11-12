@@ -17,7 +17,7 @@ import { eventEdit, expectOf } from "@/lib/eventEdits";
 import { eventFlags, around } from "@/lib/staleText";
 import { placed as placeEvents } from "@/lib/events";
 import { eventAccuracy } from "@/lib/eventAccuracy";
-import { drafted, published, readiness } from "@/lib/drafts";
+import { drafted, published, readiness, pendingCommit } from "@/lib/drafts";
 import { timesAsked, findDiscarded, normaliseDomain } from "@/lib/suggestions";
 import { TALLIES, pendingCount } from "@/lib/tallies";
 import { diffSentences, growth, GROWTH_WARN_PCT } from "@/lib/sentencediff";
@@ -3871,8 +3871,7 @@ function Drafts({ publishing = { canPublish: false, log: [], build: "" }, holds 
   /* A draft this build still has, which the log says was committed away: the
      commit exists and the deploy has not landed. Without this a refresh in that
      minute looks exactly like a press that did nothing. */
-  const pendingOf = ({ kind, entry }) => (publishing.log || []).find((r) =>
-    r.kind === kind && r.id === entry.id && r.sha && (r.outcome === "discarded" || r.outcome === "published" || !r.outcome)) || null;
+  const pendingOf = ({ kind, entry }) => pendingCommit(publishing.log, { kind, id: entry.id, build: publishing.build });
   const active = rows.filter((r) => !holdOf(r));
   const held = rows.filter((r) => holdOf(r));
   const row = (r) => (

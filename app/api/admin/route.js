@@ -651,7 +651,8 @@ export async function POST(request) {
     const { commitPublish, logPublish } = await import("@/lib/publish");
     const result = await commitPublish({ kind, id, entry });
     if (result.error) return draftDone(502, { kind, entryId: id, name: entry.name, error: result.error });
-    await logPublish({ at: new Date().toISOString(), by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url, outcome: "published" });
+    const { BUILD } = await import("@/lib/draftOutcomes");
+    await logPublish({ at: new Date().toISOString(), by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url, outcome: "published", build: BUILD });
     /* The suggestion that asked for it, if one did, leaves the queue as
        published with this entry's id and today's date, and its interest
        carries across (lib/suggestionPublished.js). */
@@ -678,10 +679,10 @@ export async function POST(request) {
     const { commitDiscard, logPublish } = await import("@/lib/publish");
     const result = await commitDiscard({ kind, id, entry, reason: body.reason });
     if (result.error) return draftDone(/one line|under 200/.test(result.error) ? 400 : 502, { kind, entryId: id, name: entry.name, error: result.error });
-    const { recordDiscard, clearHold } = await import("@/lib/draftOutcomes");
+    const { recordDiscard, clearHold, BUILD } = await import("@/lib/draftOutcomes");
     const record = await recordDiscard({ kind, entry, reason: body.reason, by: session.email, sha: result.sha, url: result.url });
     await clearHold({ kind, id });
-    await logPublish({ at: record.at, by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url, outcome: "discarded", reason: record.reason });
+    await logPublish({ at: record.at, by: session.email, kind, id, name: entry.name, sha: result.sha, url: result.url, outcome: "discarded", reason: record.reason, build: BUILD });
     await draftDone(200, { kind, entryId: id, sha: result.sha });
     return Response.json({ ok: true, sha: result.sha, url: result.url });
   }

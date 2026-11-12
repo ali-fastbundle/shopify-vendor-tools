@@ -294,7 +294,11 @@ This exists because "Discard does not persist" once had no trail: the platform l
 request returned 200, and nothing said which action it was. A draft the log says was
 committed away, in a build that has not deployed yet, shows "waiting for Vercel to deploy
 it" with no buttons, so a refresh in that minute does not look like a press that did
-nothing.
+nothing. Each log row records the build that made the commit, and it counts as waiting
+only while that build is still the one serving (`pendingCommit` in `lib/drafts.js`; a row
+from before that field counts for 30 minutes). Any later deploy carries the commit, so a
+draft still in the file after one was put back by a revert and gets its buttons again:
+RetailFest Connect sat "waiting" for a month on a publish reverted the same day.
 
 **The panel is collapsed per draft**: name, type and the one-line summary. Everything else,
 and every outcome button, is inside the expanded row, after the note and the watch in full,
