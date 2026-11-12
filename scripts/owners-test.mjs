@@ -81,7 +81,8 @@ ok(group("marmeto") === "elevate,marmeto,orbit", "Marmeto: Elevate, Orbit, Marme
 ok(group("mantle") === "mantle,sasi", "Mantle: Mantle, SASI (App Store Analytics is not a listing)");
 ok(group("thesaashub") === "partnerdock,shopifyappfounders", "TheSaaSHub: PartnerDock, Shopify App Founders Edition");
 ok(group("shopexperts") === "appstoreresearch,shopexperts,shopops", "ShopExperts: App Store Research, ShopExperts, ShopOps Weekly");
-ok(X.entriesOf("idube").length === 0, "a draft's owner has no published entries, so no page");
+ok(!X.entriesOf("thesaashub").some((m) => m.id === "saasori"), "a draft (SaaSOri) is on nobody's owner row");
+ok(X.entriesOf("idube").map((m) => m.id).join(",") === "ecomaudience" && !X.hasOwnerPage("idube"), "Idube: EcomAudience, published 2026-11-10, one listing, no page");
 ok(group("dtc-media") === "dtc,dtc-dines-vancouver,dtcpodcast", "DTC Media: a newsletter, an event and a podcast, across three kinds", group("dtc-media"));
 ok(X.entriesOf("electric-eye").map((m) => m.id).join(",") === "honestecommerce" && !X.hasOwnerPage("electric-eye"), "Electric Eye: Honest Ecommerce, one listing, no page");
 
