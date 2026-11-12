@@ -51,7 +51,11 @@ ok([...pairs.values()].every((p) => {
   return a.cat === b.cat || (a.competes || []).includes(b.id) || (b.competes || []).includes(a.id);
 }), "every pair shares a category or is named as rivals");
 ok(!pairs.has(R.pairKey("ranksy", "storeleads")), "an ASO tool and a store database are not a pair");
-ok(TOOLS.every((t) => R.alternativesOf(t, TOOLS, pairs).length > 0), "every tool has at least one alternative");
+/* A tool alone in its category with no named rival has none, and that is
+   stated as none rather than padded (SaaSOri, the first Listing channel). */
+const alone = (t) => !TOOLS.some((o) => o.id !== t.id && (o.cat === t.cat || (o.competes || []).includes(t.id) || (t.competes || []).includes(o.id)));
+ok(TOOLS.every((t) => alone(t) || R.alternativesOf(t, TOOLS, pairs).length > 0), "every tool has at least one alternative, unless nothing shares its category");
+ok(TOOLS.filter(alone).every((t) => R.alternativesOf(t, TOOLS, pairs).length === 0), "and a tool alone in its category gets no padded alternatives");
 {
   const withDiscovery = R.rivalPairs(TOOLS, { rivals: [{ a: "ranksy", b: "storeleads" }], findings: [{ name: "Store Leads", namedBy: ["AppJubilee"] }] });
   ok(withDiscovery.get(R.pairKey("ranksy", "storeleads"))?.why.includes("named on a vendor's comparison page"), "a pair the discovery pass recorded is added");

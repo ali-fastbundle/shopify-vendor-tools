@@ -206,7 +206,7 @@ console.log("\na write that cannot complete says so:");
   const lines = [];
   const orig = console.log;
   console.log = (...a) => { lines.push(a.join(" ")); };
-  const pick = Object.entries(catalogues).flatMap(([kind, list]) => drafted(list).map((e) => [kind, e])).find(([k]) => k === "event") || [DK, dd];
+  const pick = Object.entries(catalogues).flatMap(([kind, list]) => drafted(list).map((e) => [kind, e])).find(([k, e]) => e.id !== dd.id) || [DK, dd]; /* any draft but the one discarded above, which already has a discard on record */
   const [FK, fe] = pick;
   putBody = { content: {} }; // 2xx, no commit
   const a = await call({ action: "discard-file-draft", kind: FK, id: fe.id, reason: "test" }, sess("admin@example.com"));
