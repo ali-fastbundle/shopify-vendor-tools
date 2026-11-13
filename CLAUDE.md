@@ -4139,6 +4139,11 @@ check will silently run against a stale build.
   attached to retail brands rather than to storefronts, which is the only thing it has
   that Store Leads and StoreCensus do not.
 
+  **Alliances PRO was added on request on 2026-11-13, under Analytics & billing**: a CRM for
+  service businesses whose Shopify Partner sync turns installs and uninstalls into merchant
+  records. Its founder asked; its `watch` says it is a general CRM and that its site does not
+  mention Shopify's API terms on emailing merchants.
+
   **TechLeads was added on request on 2026-10-18, as a store database like Store Leads**:
   technographics for 12,000+ technologies with a Shopify apps category of 155 apps, which its
   `watch` states, since that is the question this category exists to answer.
