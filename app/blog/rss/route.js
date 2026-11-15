@@ -1,4 +1,5 @@
-import { POSTS, postHtml } from "@/lib/blog";
+import { POSTS, postHtml, resolvePost } from "@/lib/blog";
+import { toolCounts } from "@/lib/toolCountStore";
 import { SITE } from "@/lib/seo";
 
 /*
@@ -15,8 +16,9 @@ const esc = (s) => String(s ?? "")
 const rfc822 = (day) => new Date(`${day}T09:00:00Z`).toUTCString();
 const cdata = (s) => `<![CDATA[${String(s).replace(/]]>/g, "]]]]><![CDATA[>")}]]>`;
 
-export function GET() {
-  const items = POSTS.map((p) => `    <item>
+export async function GET() {
+  const counts = await toolCounts();
+  const items = POSTS.map((p0) => resolvePost(p0, counts)).map((p) => `    <item>
       <title>${esc(p.title)}</title>
       <link>${SITE}/blog/${p.slug}</link>
       <guid isPermaLink="true">${SITE}/blog/${p.slug}</guid>

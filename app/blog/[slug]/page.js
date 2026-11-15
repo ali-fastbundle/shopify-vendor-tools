@@ -1,6 +1,7 @@
 import { withShareImage, shareImageUrl } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
-import { postBySlug, mentionsOf } from "@/lib/blog";
+import { postBySlug, mentionsOf, resolvePost } from "@/lib/blog";
+import { toolCounts } from "@/lib/toolCountStore";
 import { LAST_UPDATED, TOOLS } from "@/lib/tools";
 import { NEWSLETTERS } from "@/lib/newsletters";
 import { EVENTS } from "@/lib/events";
@@ -44,8 +45,10 @@ const nameOf = ({ kind, id }) =>
   (kind === "tool" ? TOOLS : kind === "newsletter" ? NEWSLETTERS : EVENTS).find((x) => x.id === id)?.name || id;
 
 export default async function Page({ params }) {
-  const post = postBySlug(params.slug);
-  if (!post) notFound();
+  const found = postBySlug(params.slug);
+  if (!found) notFound();
+  /* A chart derived from the catalogue is drawn from the live count (invariant 53). */
+  const post = resolvePost(found, await toolCounts());
   const mentions = mentionsOf(post).map((m) => ({ ...m, name: nameOf(m) }));
   return (
     <>

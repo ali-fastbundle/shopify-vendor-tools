@@ -6,6 +6,7 @@ import { getAbout } from "@/lib/aboutStore";
 import { AUTHOR_URL } from "@/lib/tools";
 import { todayISO } from "@/lib/events";
 import { SITE } from "@/lib/seo";
+import { toolCounts } from "@/lib/toolCountStore";
 import {
   toolMarkdown, indexMarkdown, categoryMarkdown, newsletterMarkdown, newslettersMarkdown, podcastMarkdown, podcastsMarkdown, communityMarkdown, communitiesMarkdown,
   eventMarkdown, eventsMarkdown, ownerMarkdown, ownersMarkdown, postMarkdown, blogMarkdown, changesMarkdown, aboutMarkdown,
@@ -61,7 +62,7 @@ async function build(parts) {
     if (!b) return { md: ownersMarkdown({ tools, newsletters, events }), path: "/owners" };
     return { md: ownerMarkdown(b, { tools, newsletters, events }), path: `/owners/${b}` };
   }
-  if (a === "blog") return b ? { md: postMarkdown(b), path: `/blog/${b}` } : { md: blogMarkdown(), path: "/blog" };
+  if (a === "blog") return b ? { md: postMarkdown(b, await toolCounts()), path: `/blog/${b}` } : { md: blogMarkdown(), path: "/blog" };
   if (a === "changes" && !b) return { md: changesMarkdown({ entries: await feedEntries({ limit: 300 }) }), path: "/changes" };
   if (a === "about" && !b) return { md: aboutMarkdown(await getAbout(), { authorUrl: AUTHOR_URL }), path: "/about" };
   return null;
