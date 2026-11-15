@@ -18,7 +18,9 @@ export const maxDuration = 120;
  *   add-idea        { text, week? }  a blog idea (the Ideas store, shown only here)
  *   review-idea     { id }           the post review: covered, listings, what to read
  *   drop-idea       { id, reason }   dropped, with why, kept
- *   link-post       { id, slug }     the draft it became; publishing ships it
+ *   link-post       { id, slug }     the post it became: a draft ships it when
+ *                                    published, a published post ships it now
+ *   reopen-idea     { id }           a shipped or dropped idea back to open
  *   publish-post    { slug, title, build }  readiness, then the commit
  *   pull-search                     fetch Search Console now
  *   propose                         post ideas from the queries, if not thin
@@ -39,16 +41,21 @@ export async function POST(request) {
   const fresh = async (extra = {}) => Response.json({ calendar: await calendarData(), ...extra });
   const fail = (msg, status = 400) => new Response(msg, { status });
   const action = String(body.action || "");
+  /* A date from a browser field, refused when its year cannot be meant: a
+     native date input passes through 0002 while "2026" is typed. */
+  const badYear = (d) => d && !/^20\d\d-\d\d-\d\d$/.test(String(d));
 
   if (action === "schedule-post") {
     const post = ALL_POSTS.find((p) => p.slug === body.slug);
     if (!post) return fail("No post with that slug in this build.");
     if (!post.draft) return fail("That post is published. Only a draft has a target date.");
+    if (badYear(body.date)) return fail("That date's year is not between 2000 and 2099.");
     const r = await setPostDate({ slug: post.slug, date: String(body.date || ""), by: session.email });
     return r.error ? fail(r.error) : fresh();
   }
 
   if (action === "schedule-idea") {
+    if (badYear(body.week)) return fail("That date's year is not between 2000 and 2099.");
     const r = await updateIdea(String(body.id || ""), { targetWeek: String(body.week ?? "") }, session.email);
     return r.error ? fail(r.error) : fresh();
   }
@@ -80,8 +87,19 @@ export async function POST(request) {
   /* The drafted post an idea became, so publishing it marks the idea shipped. */
   if (action === "link-post") {
     const slug = String(body.slug || "");
-    if (slug && !ALL_POSTS.some((p) => p.slug === slug)) return fail("No post with that slug in this build.");
-    const r = await updateIdea(String(body.id || ""), { type: "blog", postSlug: slug, ...(slug ? { status: "in progress" } : {}) }, session.email);
+    const post = slug ? ALL_POSTS.find((p) => p.slug === slug) : null;
+    if (slug && !post) return fail("No post with that slug in this build.");
+    /* A draft: in progress, shipped by its publish commit. A post already
+       published: the idea is written, so it ships now. */
+    const status = !post ? undefined : post.draft ? "in progress" : "shipped";
+    const reason = post && !post.draft ? `written as /blog/${post.slug}` : undefined;
+    const r = await updateIdea(String(body.id || ""), { type: "blog", postSlug: slug, ...(status ? { status, reason } : {}) }, session.email);
+    return r.error ? fail(r.error) : fresh();
+  }
+
+  /* Undo for shipped or dropped: back to reviewed, the link to a post kept off. */
+  if (action === "reopen-idea") {
+    const r = await updateIdea(String(body.id || ""), { status: "reviewed", reason: "reopened", postSlug: "" }, session.email);
     return r.error ? fail(r.error) : fresh();
   }
 

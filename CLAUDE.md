@@ -2396,8 +2396,12 @@ there is no editor, no media library and no second publishing path.
 - **Blog ideas live on the Blog section, not in the general Ideas panel** (2026-11-06). They are
   stored with the other ideas (`svt:ideas`), but `isBlogIdea` (typed `blog`, or an older idea filed
   under the Blog surface) keeps them out of Write's Ideas panel and its count and shows them only
-  on Blog: an optional `targetWeek` (kept as its Monday), and `postSlug` for the draft it became,
-  which ships it when that draft is published. **A post is not a feature**, so it gets its own review
+  on Blog: an optional `targetWeek` (kept as its Monday), and `postSlug` for the post it became:
+  a draft ships it when that draft is published, a post already published ships it at once
+  (2026-11-15), and Reopen puts a shipped or dropped idea back. Date fields save a whole date, never
+  a keystroke (`DateField`: a native date input passes through year 0002 while 2026 is typed), and
+  the route refuses a year outside 2000 to 2099. An action's result shows beside the row that
+  pressed it, not at the top of the calendar. **A post is not a feature**, so it gets its own review
   (`lib/postIdeaReview.js`): already covered by a published post or another idea, the listings it
   rests on (checked against the catalogue), what only this directory can say, what to read before
   writing, who searches for it, the objections, and write, doubtful or skip. No invariant checks and

@@ -75,12 +75,16 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
   const [month, setMonth] = useState(ym(today()));
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
+  /* Where the last message belongs: a draft's slug, an idea's id, or "" for
+     the top. A Publish error shown only at the top of the calendar was off
+     screen from the button that caused it, so pressing looked like nothing. */
+  const [msgAt, setMsgAt] = useState("");
   const [armed, setArmed] = useState("");
   const [text, setText] = useState("");
   const [week, setWeek] = useState("");
 
-  async function act(action, payload = {}) {
-    setBusy(action); setMsg("");
+  async function act(action, payload = {}, at = "") {
+    setBusy(action); setMsg(""); setMsgAt(at);
     try {
       const res = await fetch("/api/admin/blog", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, build, ...payload }) });
       if (!res.ok) { setMsg(await res.text()); return false; }
@@ -125,7 +129,7 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
         Posts are files in lib/posts. A target date is a plan: on the day, Publish runs the readiness check and commits the file. Nothing publishes on its own.{" "}
         {cal.published} published, {drafts.length} in draft, {openIdeas.length} open {openIdeas.length === 1 ? "idea" : "ideas"}.
       </p>
-      {msg && <p role="status" style={{ fontSize: F.sm, color: C.text, margin: `${S.sm}px 0 0` }}>{msg}</p>}
+      {msg && !msgAt && <p role="status" style={{ fontSize: F.sm, color: C.text, margin: `${S.sm}px 0 0` }}>{msg}</p>}
 
       {/* The month */}
       <div style={{ ...box, marginTop: S.md }}>
@@ -167,10 +171,11 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
             <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
               <Handle drag={drag(`d:${p.slug}`)} label={p.title} />
               <strong style={{ fontSize: F.sm }}>{p.title}</strong>
-              <label style={{ fontSize: F.xs, color: C.muted }}>Target <input type="date" style={field} value={p.target} onChange={(e) => act("schedule-post", { slug: p.slug, date: e.target.value })} /></label>
+              <label style={{ fontSize: F.xs, color: C.muted }}>Target <DateField value={p.target} onSave={(d) => act("schedule-post", { slug: p.slug, date: d }, p.slug)} /></label>
               {p.target && p.target <= t && <span style={{ fontSize: F.xs, fontWeight: 700 }}>{p.target === t ? "Due today" : `Due since ${formatDay(p.target)}`}</span>}
             </div>
             <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>{p.file || "no file mapped"}</p>
+            {msg && msgAt === p.slug && <p role="status" style={{ fontSize: F.sm, color: C.text, fontWeight: 600, margin: `${S.xs}px 0 0` }}>{msg}</p>}
             {p.problems.length > 0
               ? <ul style={{ margin: `${S.xs}px 0 0`, paddingLeft: S.lg, fontSize: F.xs, color: C.warnInk }}>{p.problems.map((x) => <li key={x}>{x}</li>)}</ul>
               : <p style={{ fontSize: F.xs, color: C.muted, margin: `${S.xs}px 0 0` }}>The mechanical checks pass. Whether it is right is still yours to judge.</p>}
@@ -180,7 +185,7 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
                   ? <>
                       <span style={{ fontSize: F.xs, color: C.text }}>Commits {p.file}: removes draft: true and sets date to {formatDay(t)}. </span>
                       <button type="button" style={{ ...btn, background: C.accent, color: C.onAccent, borderColor: C.accent }} disabled={busy === "publish-post" || p.problems.length > 0}
-                        onClick={async () => { await act("publish-post", { slug: p.slug, title: p.title }); setArmed(""); }}>Publish now</button>
+                        onClick={async () => { await act("publish-post", { slug: p.slug, title: p.title }, p.slug); setArmed(""); }}>{busy === "publish-post" ? "Publishing…" : "Publish now"}</button>
                       <button type="button" style={{ ...btn, marginLeft: S.xs }} onClick={() => setArmed("")}>Cancel</button>
                     </>
                   : <button type="button" style={btn} disabled={p.problems.length > 0} title={p.problems.length ? "Fix what is listed first" : ""} onClick={() => setArmed(p.slug)}>Publish</button>}
@@ -196,11 +201,11 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
           Posts to write. Each is reviewed as a post: is it already written, which listings it rests on, what only this directory can say, and what to read first. Not as a feature, so no invariants and no build size. A week puts it on the calendar. Linking its draft marks it shipped when the draft is published.
         </p>
         {!openIdeas.length && <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>No open blog idea.</p>}
-        {openIdeas.map((i) => <IdeaRow key={i.id} i={i} drafts={drafts} busy={busy} act={act} drag={drag(`i:${i.id}`)} />)}
+        {openIdeas.map((i) => <IdeaRow key={i.id} i={i} drafts={drafts} live={live} busy={busy} act={act} drag={drag(`i:${i.id}`)} msg={msgAt === i.id ? msg : ""} />)}
         <form onSubmit={async (e) => { e.preventDefault(); if (await act("add-idea", { text, week })) { setText(""); setWeek(""); } }}
           className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.md }}>
           <input style={{ ...field, flex: 1, minWidth: 260 }} placeholder="A post to write: the title and one line on the angle" value={text} onChange={(e) => setText(e.target.value)} />
-          <label style={{ fontSize: F.xs, color: C.muted }}>Week of <input type="date" style={field} value={week} onChange={(e) => setWeek(e.target.value)} /></label>
+          <label style={{ fontSize: F.xs, color: C.muted }}>Week of <DateField value={week} onSave={setWeek} /></label>
           <button type="submit" style={btn} disabled={busy === "add-idea" || text.trim().length < 10}>Add idea</button>
         </form>
         {closedIdeas.length > 0 && (
@@ -209,7 +214,8 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
             {closedIdeas.map((i) => (
               <p key={i.id} style={{ fontSize: F.xs, color: C.muted, margin: `${S.xs}px 0 0` }}>
                 <strong style={{ color: C.text }}>{i.title}</strong>{" "}
-                {i.status === "shipped" && i.postSlug ? <>written as <a href={`/blog/${i.postSlug}`} style={{ color: C.text }}>/blog/{i.postSlug}</a></> : i.status === "dropped" ? `dropped${i.dropped?.reason ? `: ${i.dropped.reason}` : ""}` : i.status}
+                {i.status === "shipped" && i.postSlug ? <>written as <a href={`/blog/${i.postSlug}`} style={{ color: C.text }}>/blog/{i.postSlug}</a></> : i.status === "dropped" ? `dropped${i.dropped?.reason ? `: ${i.dropped.reason}` : ""}` : i.status}{" "}
+                <button type="button" style={{ ...btn, fontSize: F.xs, padding: "0 8px" }} disabled={busy === "reopen-idea"} onClick={() => act("reopen-idea", { id: i.id })}>Reopen</button>
               </p>
             ))}
           </details>
@@ -267,7 +273,7 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
 const VERDICT_LABEL = { write: "Worth writing", doubtful: "Doubtful", skip: "Do not write" };
 
 /* One blog idea: its week, its evidence, its post review, and what to do with it. */
-function IdeaRow({ i, drafts, busy, act, drag }) {
+function IdeaRow({ i, drafts, live, busy, act, drag, msg }) {
   const [dropping, setDropping] = useState(false);
   const [reason, setReason] = useState("");
   const [copied, setCopied] = useState("");
@@ -281,7 +287,7 @@ function IdeaRow({ i, drafts, busy, act, drag }) {
         <span style={{ fontSize: F.sm, fontWeight: 600 }}>{i.title}</span>
         {i.source === "search-console" && <span style={{ fontSize: F.xs, color: C.muted }}>from Search Console</span>}
         {i.cameFromIdeas && <span style={{ fontSize: F.xs, color: C.muted }}>moved from Ideas</span>}
-        <label style={{ fontSize: F.xs, color: C.muted }}>Week of <input type="date" style={field} value={i.targetWeek} onChange={(e) => act("schedule-idea", { id: i.id, week: e.target.value })} /></label>
+        <label style={{ fontSize: F.xs, color: C.muted }}>Week of <DateField value={i.targetWeek} onSave={(d) => act("schedule-idea", { id: i.id, week: d }, i.id)} /></label>
       </div>
       {full && <p style={{ fontSize: F.sm, color: C.text, margin: `${S.xs}px 0 0`, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{full}</p>}
       {i.evidence && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>"{i.evidence.query}": {i.evidence.impressions} impressions, {i.evidence.clicks} clicks, position {i.evidence.position}{i.evidence.range ? `, ${i.evidence.range}` : ""}.</p>}
@@ -302,14 +308,16 @@ function IdeaRow({ i, drafts, busy, act, drag }) {
       <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.xs }}>
         <button type="button" style={btn} onClick={copy} title="Copies the idea and its latest review as plain text">{copied || "Copy"}</button>
         <button type="button" style={btn} disabled={busy === "review-idea"} onClick={() => act("review-idea", { id: i.id })}>{r ? "Review again" : "Review as a post"}</button>
-        {drafts.length > 0 && (
-          <label style={{ fontSize: F.xs, color: C.muted }}>Draft it became{" "}
-            <select style={field} value={i.postSlug} onChange={(e) => act("link-post", { id: i.id, slug: e.target.value })}>
+        {(drafts.length > 0 || live.length > 0) && (
+          <label style={{ fontSize: F.xs, color: C.muted }} title="A draft ships this idea when the draft is published. A published post ships it now.">Post it became{" "}
+            <select style={field} value={i.postSlug} onChange={(e) => act("link-post", { id: i.id, slug: e.target.value }, i.id)}>
               <option value="">none yet</option>
-              {drafts.map((d) => <option key={d.slug} value={d.slug}>{d.title}</option>)}
+              {drafts.length > 0 && <optgroup label="Drafts: ships when published">{drafts.map((d) => <option key={d.slug} value={d.slug}>{d.title}</option>)}</optgroup>}
+              {live.length > 0 && <optgroup label="Published: ships now">{live.map((d) => <option key={d.slug} value={d.slug}>{d.title}</option>)}</optgroup>}
             </select>
           </label>
         )}
+        {i.postSlug && drafts.some((d) => d.slug === i.postSlug) && <span style={{ fontSize: F.xs, color: C.muted }}>Ships when that draft is published.</span>}
         {dropping
           ? <>
               <input style={{ ...field, minWidth: 220 }} placeholder="Why it is dropped" value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -318,6 +326,28 @@ function IdeaRow({ i, drafts, busy, act, drag }) {
             </>
           : <button type="button" style={btn} onClick={() => setDropping(true)}>Drop</button>}
       </div>
+      {msg && <p role="status" style={{ fontSize: F.sm, color: C.text, fontWeight: 600, margin: `${S.xs}px 0 0` }}>{msg}</p>}
     </div>
+  );
+}
+
+/*
+ * A date field that saves a whole date, never a keystroke. Typing "2026" into
+ * a native date input passes through years 0002, 0020 and 0202, and saving on
+ * every change stored those (2026-11-15). It keeps what is typed locally and
+ * saves when the year is plausible, or on leaving the field; the picker gives
+ * a whole date at once and saves straight away.
+ */
+const plausible = (v) => /^(20\d\d)-\d\d-\d\d$/.test(v);
+function DateField({ value = "", onSave }) {
+  const [v, setV] = useState(value);
+  const [saved, setSaved] = useState(value);
+  if (value !== saved) { setSaved(value); setV(value); }
+  const save = (x) => { if (x === saved) return; if (x === "" || plausible(x)) onSave(x); else setV(saved); };
+  return (
+    <input type="date" style={field} value={v} min="2020-01-01" max="2099-12-31"
+      onChange={(e) => { const x = e.target.value; setV(x); if (x === "" || plausible(x)) save(x); }}
+      onBlur={() => save(v)}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); save(v); } }} />
   );
 }
