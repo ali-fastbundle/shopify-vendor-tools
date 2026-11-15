@@ -346,7 +346,7 @@ console.log("\nthe secondary categories, as assessed:");
   const expect = {
     marmeto: ["biz", "partner"], meridian: ["biz", "aso"], bestappify: ["data"],
     appstorepulse: ["biz"], ranksy: ["biz"], saasinsights: ["aso"],
-    letsmetrix: ["detect"], applora: ["aso"], ppspy: ["storedb"], elevate: ["partner"],
+    letsmetrix: ["detect", "partner"], applora: ["aso"], ppspy: ["storedb"], elevate: ["partner"],
   };
   for (const [id, cats] of Object.entries(expect)) {
     ok(JSON.stringify(by[id]) === JSON.stringify(cats),

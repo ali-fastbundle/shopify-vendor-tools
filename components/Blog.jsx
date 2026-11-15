@@ -1,10 +1,13 @@
 import React from "react";
 import { C, S, R, F, TRACK, formatDay, AUTHOR } from "@/lib/tools";
-import { inline, resolveRef, minutesToRead, UNVERIFIED_LEGEND } from "@/lib/blog";
+import { inline, resolveRef, minutesToRead, UNVERIFIED_LEGEND, listingsIn } from "@/lib/blog";
 import { outbound } from "@/lib/outbound";
 import Engagement from "@/components/Engagement";
 import { postKey } from "@/lib/comments";
 import BlogChart from "@/components/BlogChart";
+import BlogDiagram from "@/components/BlogDiagram";
+import ToolScreen from "@/components/ToolScreen";
+import { TOOLS } from "@/lib/tools";
 
 /*
  * The blog index and a post. Server-rendered with no client state, the same
@@ -23,7 +26,51 @@ import BlogChart from "@/components/BlogChart";
    not absent, because globals.css stops an unclassed paragraph at 62ch. */
 const MEASURE = "none";
 
-function Inline({ text }) {
+/*
+ * A listing's mark, server-rendered: the logo we host, else its initials on a
+ * tile. Not the favicon service: with no onError to fall back on (this file
+ * has no client state), a blank or globe favicon would stay blank, and it did
+ * for Orbit, Elevate and SaaSOri (2026-11-15).
+ */
+function Mark({ l, size = 20 }) {
+  if (l.logo) {
+    return (
+      <img src={l.logo} alt="" aria-hidden="true" width={size} height={size} loading="lazy" decoding="async"
+        style={{ width: size, height: size, borderRadius: 4, background: C.logoTile, objectFit: "contain", padding: 2, flexShrink: 0 }} />
+    );
+  }
+  const initials = String(l.name || "?").replace(/[^A-Za-z0-9 ]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
+  return (
+    <span aria-hidden="true" style={{
+      width: size, height: size, borderRadius: 4, background: C.subtle, color: C.muted, flexShrink: 0,
+      display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: Math.round(size * 0.45), fontWeight: 700,
+    }}>{initials}</span>
+  );
+}
+
+/* The listings a post links, with their marks, under the byline: who the post
+   is about, before a word of it is read (2026-11-15). */
+function InThisPost({ post }) {
+  const ls = listingsIn(post);
+  if (!ls.length) return null;
+  return (
+    <div style={{ margin: `${S.lg}px 0 0` }}>
+      <p style={{ fontSize: F.sm, color: C.muted, margin: 0 }}>Listings in this post</p>
+      <ul style={{ listStyle: "none", padding: 0, margin: `${S.xs}px 0 0`, display: "flex", flexWrap: "wrap", gap: S.sm }}>
+        {ls.map((l) => (
+          <li key={l.ref}>
+            <a href={l.href} className="ctl" style={{
+              display: "inline-flex", alignItems: "center", gap: S.sm, fontSize: F.sm, color: C.text, textDecoration: "none",
+              background: C.panel, border: `1px solid ${C.line}`, borderRadius: R.control, padding: `${S.xs}px ${S.sm}px`,
+            }}><Mark l={l} size={18} />{l.name}</a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Inline({ text, seen }) {
   return inline(text).map((tk, i) => {
     if (tk.t === "text") return <React.Fragment key={i}>{tk.text}</React.Fragment>;
     if (tk.t === "claim") {
@@ -37,6 +84,20 @@ function Inline({ text }) {
     }
     const href = resolveRef(tk.ref) || "#";
     const external = /^https?:\/\//.test(href);
+    /* The first mention of a listed tool carries its mark. */
+    let mark = null;
+    if (seen && tk.ref.startsWith("tool:") && !seen.has(tk.ref)) {
+      seen.add(tk.ref);
+      const t = TOOLS.find((x) => x.id === tk.ref.slice(5));
+      if (t) mark = <Mark l={{ logo: t.logo, name: t.name }} size={18} />;
+    }
+    if (mark) {
+      return (
+        <a key={i} href={href} style={{ color: C.text, textDecoration: "underline", textDecorationColor: C.muted, textUnderlineOffset: 3, whiteSpace: "nowrap" }}>
+          <span style={{ display: "inline-block", verticalAlign: "-3px", marginRight: 4 }}>{mark}</span>{tk.text}
+        </a>
+      );
+    }
     return (
       <a key={i} href={external ? outbound(href) : href}
         {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
@@ -45,19 +106,30 @@ function Inline({ text }) {
   });
 }
 
-function Block({ b }) {
-  if (b.h2) return <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tight }}><Inline text={b.h2} /></h2>;
-  if (b.h3) return <h3 style={{ fontSize: F.lg, fontWeight: 700, margin: `${S["2xl"]}px 0 0` }}><Inline text={b.h3} /></h3>;
-  if (b.p) return <p style={{ fontSize: F.lg, lineHeight: 1.65, margin: `${S.md}px 0 0`, maxWidth: MEASURE }}><Inline text={b.p} /></p>;
+function Block({ b, seen }) {
+  if (b.h2) return <h2 style={{ fontSize: F.xl, fontWeight: 700, margin: `${S["3xl"]}px 0 0`, letterSpacing: TRACK.tight }}><Inline seen={seen} text={b.h2} /></h2>;
+  if (b.h3) return <h3 style={{ fontSize: F.lg, fontWeight: 700, margin: `${S["2xl"]}px 0 0` }}><Inline seen={seen} text={b.h3} /></h3>;
+  if (b.p) return <p style={{ fontSize: F.lg, lineHeight: 1.65, margin: `${S.md}px 0 0`, maxWidth: MEASURE }}><Inline seen={seen} text={b.p} /></p>;
   if (b.note) {
     return (
       <p style={{
         fontSize: F.md, lineHeight: 1.6, color: C.muted, margin: `${S.lg}px 0 0`, maxWidth: MEASURE,
         borderLeft: `2px solid ${C.edge}`, paddingLeft: S.md,
-      }}><Inline text={b.note} /></p>
+      }}><Inline seen={seen} text={b.note} /></p>
     );
   }
   if (b.chart) return <BlogChart c={b.chart} />;
+  if (b.diagram) return <BlogDiagram d={b.diagram} renderCell={(x) => <Inline seen={seen} text={x} />} />;
+  if (b.screen) {
+    const t = TOOLS.find((x) => x.id === b.screen);
+    if (!t) return null;
+    return (
+      <div>
+        <ToolScreen tool={t} />
+        {b.caption && <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.5 }}><Inline seen={seen} text={b.caption} /></p>}
+      </div>
+    );
+  }
   if (b.img) {
     /* A chart: its own description is the alt text, and it scales down to the
        column without ever being wider than it was drawn. */
@@ -72,7 +144,7 @@ function Block({ b }) {
     return (
       <ul style={{ margin: `${S.md}px 0 0`, paddingLeft: S.xl, maxWidth: MEASURE, listStyle: "disc" }}>
         {b.ul.map((item, i) => (
-          <li key={i} style={{ fontSize: F.lg, lineHeight: 1.6, marginTop: S.sm }}><Inline text={item} /></li>
+          <li key={i} style={{ fontSize: F.lg, lineHeight: 1.6, marginTop: S.sm }}><Inline seen={seen} text={item} /></li>
         ))}
       </ul>
     );
@@ -101,7 +173,7 @@ function Block({ b }) {
                       textAlign: "left", verticalAlign: "top", padding: `${S.sm}px ${S.md}px`,
                       borderTop: i ? `1px solid ${C.line}` : 0, fontWeight: j === 0 ? 700 : 400,
                       color: j === 0 ? C.text : C.muted, lineHeight: 1.45,
-                    }}><Inline text={c} /></Cell>
+                    }}><Inline seen={seen} text={c} /></Cell>
                   );
                 })}
               </tr>
@@ -177,8 +249,9 @@ export function BlogPost({ post, lastUpdated, comments = [] }) {
               {post.title}
             </h1>
             <Byline post={post} />
+            <InThisPost post={post} />
           </header>
-          {post.body.map((b, i) => <Block key={i} b={b} />)}
+          {(() => { const seen = new Set(); return post.body.map((b, i) => <Block key={i} b={b} seen={seen} />); })()}
           <p style={{ fontSize: F.xs, color: C.dim, margin: `${S["2xl"]}px 0 0`, maxWidth: MEASURE }}>{UNVERIFIED_LEGEND}</p>
         </article>
         {/* The shared engagement module, as a client island: likes and

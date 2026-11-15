@@ -2365,6 +2365,21 @@ nobody here checked.
 - **Outbound links in a post carry `utm_source` on the page and in the RSS body**, through
   `outbound()` at render time, never in `lib/posts/`. `postText` (llms.txt) is not tagged.
 
+**Every post is visual** (2026-11-15, Ali's rule, applied to every published post the same day).
+Three parts, and `postReadiness` refuses a post without the first two, so blog-test and Publish
+both hold it:
+- **A screenshot of a tool it discusses**, `{ screen: "toolId", caption? }`, the directory's own
+  dated capture (`lib/toolScreens.js`, `components/ToolScreen.jsx`), never vendor media. Rerun
+  `scripts/capture-screens.mjs` for a tool that has none.
+- **At least two visuals in all**: screenshots, charts, diagrams or pictures. A diagram where
+  something connects to something (who owns what, which tool took which job):
+  `{ diagram: { title, caption?, columns, rows } }`, boxes and arrows in HTML
+  (`components/BlogDiagram.jsx`), neutral, stacked with downward arrows below 640px. Its text
+  form, in RSS, llms.txt and the Markdown version, is the table of its rows.
+- **The logos of the listings it links**, added by the page: "Listings in this post" under the
+  byline, and the mark beside each tool's first mention (`listingsIn`). A hosted `logo` or
+  initials, never the favicon service, which with no client fallback stayed blank.
+
 **A post's text runs the full width of the content column** (2026-11-06, Ali's call), like every
 other page now (see Design conventions): `MEASURE` in `components/Blog.jsx` is `"none"`.
 

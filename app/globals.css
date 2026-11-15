@@ -737,3 +737,13 @@ a:focus-visible,
   .cat-graph { display: none; }
   .cat-graph-small { display: block; }
 }
+
+/* A diagram in a blog post (components/BlogDiagram.jsx): a grid of boxes and
+   arrows per row; below 640px the columns stack and the arrows point down. */
+.blog-diagram-row { display: grid; gap: 8px; align-items: center; padding: 8px 0; }
+.blog-diagram-head { padding-top: 0; }
+@media (max-width: 640px) {
+  .blog-diagram-row { grid-template-columns: minmax(0, 1fr) !important; }
+  .blog-diagram-head { display: none; }
+  .blog-diagram-arrow { transform: rotate(90deg); justify-self: start; padding-left: 8px; }
+}
