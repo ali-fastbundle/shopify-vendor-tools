@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { C, S, R, F, TRACK, formatDay } from "@/lib/tools";
 import { mondayOf } from "@/lib/ideas";
+import { DotsSixVertical } from "@phosphor-icons/react";
 
 /*
  * The blog calendar on /admin (Write tab). Not a CMS: posts are files in
@@ -13,6 +14,46 @@ import { mondayOf } from "@/lib/ideas";
  * Drag a draft or an idea onto a day to move it. Every item also has a date
  * field, because dragging is not something everyone can do.
  */
+/* Only this handle drags. A draggable row cannot have its text selected: the
+   press starts a drag instead, which is why ideas could not be copied. */
+function Handle({ drag, label }) {
+  return (
+    <span {...drag} role="img" aria-label={`Drag ${label} to a day`} title="Drag to a day on the calendar"
+      style={{ cursor: "grab", color: C.dim, display: "inline-flex", alignItems: "center" }}>
+      <DotsSixVertical size={16} />
+    </span>
+  );
+}
+
+/* The idea as plain text, with its latest review, for pasting elsewhere. */
+export function ideaAsText(i) {
+  const r = i.review;
+  const lines = [i.title];
+  if (i.text && i.text.trim() !== i.title) lines.push("", i.text.trim());
+  if (i.targetWeek) lines.push("", `Week of ${i.targetWeek}`);
+  if (i.evidence) lines.push(`Search Console: "${i.evidence.query}", ${i.evidence.impressions} impressions, ${i.evidence.clicks} clicks, position ${i.evidence.position}`);
+  if (r) {
+    lines.push("", `Review: ${VERDICT_LABEL[r.verdict] || r.verdict}. ${r.summary || ""}`.trim());
+    if (r.coveredBy?.length) lines.push(`Already covered by: ${r.coveredBy.map((c) => `/blog/${c.slug} (${c.how})`).join("; ")}`);
+    if (r.repeats?.length) lines.push(`Repeats: ${r.repeats.map((x) => `${x.id} (${x.how})`).join("; ")}`);
+    if (r.listings?.length) lines.push(`Rests on: ${r.listings.join(", ")}`);
+    if (r.onlyHere) lines.push(`Only here: ${r.onlyHere}`);
+    if (r.readFirst?.length) lines.push(`Read first: ${r.readFirst.join("; ")}`);
+    if (r.reader) lines.push(`Who searches: ${r.reader}`);
+    if (r.objections?.length) lines.push(`Objections: ${r.objections.join("; ")}`);
+  }
+  return lines.join("\n");
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch {
+    try {
+      const t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select(); const ok = document.execCommand("copy"); t.remove(); return ok;
+    } catch { return false; }
+  }
+}
+
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const ym = (iso) => String(iso).slice(0, 7);
 const today = () => new Date().toISOString().slice(0, 10);
@@ -113,7 +154,7 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
           ))}
         </div>
         <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.sm}px 0 0` }}>
-          Filled grey: published. Dark: a draft on its target date. Dashed: an idea, on the Monday of its target week. Drag a draft or an idea to another day.
+          Filled grey: published. Dark: a draft on its target date. Dashed: an idea, on the Monday of its target week. Drag a draft or an idea to another day, by the handle beside its name in the lists below.
         </p>
       </div>
 
@@ -122,8 +163,9 @@ export default function BlogCalendar({ initial, build = "", canPublish = false }
         <strong style={{ fontSize: F.md }}>Drafts</strong>
         {!drafts.length && <p style={{ fontSize: F.sm, color: C.muted, margin: `${S.xs}px 0 0` }}>No post is in draft. A post becomes one by being written into lib/posts with draft: true.</p>}
         {drafts.map((p) => (
-          <div key={p.slug} style={{ borderTop: `1px solid ${C.line}`, marginTop: S.sm, paddingTop: S.sm }} {...drag(`d:${p.slug}`)}>
+          <div key={p.slug} style={{ borderTop: `1px solid ${C.line}`, marginTop: S.sm, paddingTop: S.sm }}>
             <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+              <Handle drag={drag(`d:${p.slug}`)} label={p.title} />
               <strong style={{ fontSize: F.sm }}>{p.title}</strong>
               <label style={{ fontSize: F.xs, color: C.muted }}>Target <input type="date" style={field} value={p.target} onChange={(e) => act("schedule-post", { slug: p.slug, date: e.target.value })} /></label>
               {p.target && p.target <= t && <span style={{ fontSize: F.xs, fontWeight: 700 }}>{p.target === t ? "Due today" : `Due since ${formatDay(p.target)}`}</span>}
@@ -228,15 +270,20 @@ const VERDICT_LABEL = { write: "Worth writing", doubtful: "Doubtful", skip: "Do 
 function IdeaRow({ i, drafts, busy, act, drag }) {
   const [dropping, setDropping] = useState(false);
   const [reason, setReason] = useState("");
+  const [copied, setCopied] = useState("");
   const r = i.review;
+  const full = i.text && i.text.trim() !== i.title ? i.text.trim() : "";
+  const copy = async () => { setCopied((await copyText(ideaAsText(i))) ? "Copied" : "The browser refused the clipboard"); setTimeout(() => setCopied(""), 2000); };
   return (
-    <div {...drag} style={{ borderTop: `1px solid ${C.line}`, marginTop: S.sm, paddingTop: S.sm }}>
+    <div style={{ borderTop: `1px solid ${C.line}`, marginTop: S.sm, paddingTop: S.sm }}>
       <div className="flex flex-wrap items-center" style={{ gap: S.sm }}>
+        <Handle drag={drag} label={i.title} />
         <span style={{ fontSize: F.sm, fontWeight: 600 }}>{i.title}</span>
         {i.source === "search-console" && <span style={{ fontSize: F.xs, color: C.muted }}>from Search Console</span>}
         {i.cameFromIdeas && <span style={{ fontSize: F.xs, color: C.muted }}>moved from Ideas</span>}
         <label style={{ fontSize: F.xs, color: C.muted }}>Week of <input type="date" style={field} value={i.targetWeek} onChange={(e) => act("schedule-idea", { id: i.id, week: e.target.value })} /></label>
       </div>
+      {full && <p style={{ fontSize: F.sm, color: C.text, margin: `${S.xs}px 0 0`, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{full}</p>}
       {i.evidence && <p style={{ fontSize: F.xs, color: C.dim, margin: `${S.xs}px 0 0` }}>"{i.evidence.query}": {i.evidence.impressions} impressions, {i.evidence.clicks} clicks, position {i.evidence.position}{i.evidence.range ? `, ${i.evidence.range}` : ""}.</p>}
       {r && (
         <div style={{ fontSize: F.xs, color: C.muted, margin: `${S.xs}px 0 0`, lineHeight: 1.55 }}>
@@ -253,6 +300,7 @@ function IdeaRow({ i, drafts, busy, act, drag }) {
         </div>
       )}
       <div className="flex flex-wrap items-center" style={{ gap: S.sm, marginTop: S.xs }}>
+        <button type="button" style={btn} onClick={copy} title="Copies the idea and its latest review as plain text">{copied || "Copy"}</button>
         <button type="button" style={btn} disabled={busy === "review-idea"} onClick={() => act("review-idea", { id: i.id })}>{r ? "Review again" : "Review as a post"}</button>
         {drafts.length > 0 && (
           <label style={{ fontSize: F.xs, color: C.muted }}>Draft it became{" "}
