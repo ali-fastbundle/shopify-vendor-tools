@@ -1,5 +1,9 @@
 import { POSTS, postHtml, resolvePost } from "@/lib/blog";
 import { toolCounts } from "@/lib/toolCountStore";
+
+/* Rendered on request, not at build: a derived chart states the live tool
+   count, the same five-minute figure as the sidebar (invariant 53). */
+export const revalidate = 300;
 import { SITE } from "@/lib/seo";
 
 /*
