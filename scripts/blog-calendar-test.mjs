@@ -156,6 +156,10 @@ ok(!AS.isBlogAnnouncement({ url: "https://watchfor.tools" }) && !AS.isBlogAnnoun
   "the homepage, the RSS feed, a tool page and no link are not");
 const AN = await L("lib/announcements.js");
 const postSeeds = AN.SEEDS.filter((s) => /\/blog\//.test(s.url || "")).map((s) => s.id);
+/* Every published post gets a LinkedIn announcement (the editor, 2026-11-15). */
+const bare = (u) => String(u || "").replace(/[?#].*$/, "").replace(/\/$/, "");
+const unannounced = POSTS.filter((p) => !AN.SEEDS.some((s) => bare(s.url).endsWith(`/blog/${p.slug}`))).map((p) => p.slug);
+ok(!unannounced.length, "every published post has an announcement seed", unannounced.join(", "));
 ok(postSeeds.length >= 4 && postSeeds.every((id) => AS.isBlogAnnouncement(AN.SEEDS.find((s) => s.id === id))), "every seed linking a post is a blog announcement");
 ok(/<Announcements initial=\{announcements\} scope="blog" \/>/.test(fn("Blog")) && /<Announcements initial=\{announcements\} scope="write" \/>/.test(fn("Write")),
   "the Blog section lists announcements of a post; Write lists the rest");

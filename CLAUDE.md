@@ -3978,6 +3978,11 @@ yet visible get no seed. A feature that is live but not ready to talk about (pag
 state nothing until data is confirmed) gets a seed whose `what` says when to post it.
 Nothing posts itself: the seed waits in Announcements on the Write tab for the editor.
 
+**Every blog post gets an announcement** (the editor, 2026-11-15), written in the same commit
+as the post even while it is a draft, since a post can go live from /admin with no commit of
+ours. Its `url` is the post's address, so it is listed on the Blog section.
+`scripts/blog-calendar-test.mjs` fails on any published post with no seed.
+
 **The procedure, on every push, and a commit cannot skip it (2026-10-18).**
 
 1. List what the push changes that a visitor can see: a new feature, a new section, a
