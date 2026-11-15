@@ -57,7 +57,8 @@ console.log("publishing a post:");
 for (const p of ALL_POSTS) {
   const file = POST_FILES[p.slug];
   ok(Boolean(file) && src(file).includes(`slug: "${p.slug}"`), `${p.slug}: mapped to a file that holds it`, file || "no row");
-  const raw = src(file);
+  /* A post may already be a draft in its file. Test both states from it. */
+  const raw = src(file).replace(/\n  draft: true,/, "");
   const drafted = raw.replace(/\n  date: "([^"]+)",/, '\n  date: "$1",\n  draft: true,');
   const r = publishPostInSource(drafted, p.slug, "2027-01-04");
   ok(!r.error && r.source.includes('date: "2027-01-04"') && !/draft: true/.test(r.source)

@@ -83,7 +83,8 @@ const { OWNERS } = await L("lib/owners.js");
 for (const o of OWNERS) check(`owner:${o.id}.notes`, o.notes);
 
 /* ---- the blog ---- */
-const { POSTS, strings } = await L("lib/blog.js");
+/* Drafts too: a post is checked before it is published, not after. */
+const { ALL_POSTS: POSTS, strings } = await L("lib/blog.js");
 for (const p of POSTS) strings(p).forEach((s, i) => check(`post:${p.slug}#${i}`, s));
 
 /* ---- visible text in pages, components and copy files ---- */
