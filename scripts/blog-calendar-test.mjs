@@ -69,6 +69,16 @@ for (const p of ALL_POSTS) {
 const files = readdirSync(join(root, "lib/posts")).map((f) => `lib/posts/${f}`);
 ok(files.every((f) => Object.values(POST_FILES).includes(f)), "every file in lib/posts has a row in POST_FILES");
 
+console.log("\nderived charts:");
+{
+  const B = await L("lib/blog.js");
+  const derived = ALL_POSTS.filter((p) => p.body.some((b) => b.chart?.from));
+  const fake = { total: 1, byCategory: { detect: 14 }, primaryByCategory: { detect: 11 }, order: ["detect"] };
+  ok(derived.length > 0 && derived.every((p) => B.postText(B.resolvePost(p, fake), "https://x").includes("| 11 | 3")
+    && B.postHtml(B.resolvePost(p, fake), "https://x").includes("<td>11</td><td>3</td>")),
+    "a derived chart keeps the count it was given in the text and RSS forms", derived.map((p) => p.slug).join(", "));
+}
+
 console.log("\nreadiness:");
 ok(POSTS.every((p) => postReadiness(p).length === 0), "every published post is ready", POSTS.filter((p) => postReadiness(p).length).map((p) => p.slug).join(", "));
 const bad = postReadiness({ slug: "x", title: "", description: "short", body: [{ p: "a [b](tool:nope) — c" }] });
