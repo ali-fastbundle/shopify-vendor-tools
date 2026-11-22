@@ -3529,6 +3529,14 @@ React `cache()` on top so `generateMetadata` and the page body share one read.
   `read()` inside the callback and the page was built and cached from an empty store; with
   it, a Redis failure during an ISR re-render keeps the last good page. Every
   `unstable_cache` callback that reads the store goes through it.
+- **A failure that is avoided is not a failure that is fixed.** Two commits (`3d53070`,
+  `689045b`) switched `/blog/rss` to `force-dynamic` on the theory that ISR was serving a
+  stale count. The cause was a swallowed store read during static generation (the
+  `inCachedRead` bug above), and rendering per request only dodged it. Before making a route
+  dynamic to solve a data problem, establish why the data is wrong.
+- **Never count from the file to avoid a store read.** The sidebar did this deliberately
+  (`TOOLS.length` in `frameData`) and was wrong by two tools for a month, until 2026-10-21.
+  Every count comes from `toolCounts` (invariant 53).
 - **Filtered views are out of robots.txt** (`/?` and `/changes?`): they canonicalise to their
   bare path. The AI crawlers stay welcome everywhere else (invariant 30).
 
