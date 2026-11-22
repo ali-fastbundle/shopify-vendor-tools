@@ -156,7 +156,11 @@ const adm = src("components/Admin.jsx");
 ok(/edit=1&finding=\$\{encodeURIComponent\(r\.id\)\}/.test(adm) && />Edit the listing</.test(adm), "every finding has an Edit the listing link that opens the form and names the finding");
 ok(/onAct\(r\.id, "start-editing"\)/.test(adm) && /editState === "editing" \? \(\s*<Btn tone="go" onClick=\{\(\) => onAct\(r\.id, "mark-edited"\)\}[^>]*>I have edited it</.test(adm),
   "clicking it records editing, and I have edited it takes its place");
-ok(!/>Edited by hand</.test(adm), "Edited by hand is renamed");
+/* The tool finding row only (ChangeAction). An event finding keeps "Edited by
+   hand" on purpose: invariant 57 names it for events. */
+const changeAction = adm.slice(adm.indexOf("function ChangeAction("), adm.indexOf("function Sentences("));
+ok(changeAction.length > 0 && !/>Edited by hand</.test(changeAction), "Edited by hand is renamed on a tool finding");
+ok(/>Edited by hand</.test(adm.slice(adm.indexOf("function EventFindingRow("), adm.indexOf("function EventMarkWrong("))), "and kept on an event finding, per invariant 57");
 ok(/choices=\{\[\["Not worth acting on", "dismiss"\], \["The monitor got it wrong", "wrong"\]\]\}/.test(adm), "Dismiss and Mark as wrong are one control that asks which");
 ok(/settleHandEdits/.test(src("app/admin/page.js")) && src("app/admin/page.js").indexOf("settleHandEdits") < src("app/admin/page.js").indexOf("Promise.allSettled(SOURCES"),
   "detection runs on /admin load, before anything reads the findings");

@@ -118,6 +118,10 @@ ok(!M.isThirdParty({ affiliate: true }) && M.isThirdParty({}), "other people's w
 
 ok(!("reddit" in M.SOURCES) && ["hackernews", "bluesky", "shopify-community", "shopify-dev-community", "github"].every((k) => k in M.SOURCES), "the sources in use, Reddit left out");
 {
+  /* Fresh state: searches are stamped with the real clock, so the block above
+     leaves every domain searched "now", and this run's earlier `today` would
+     find nothing due. */
+  await (await L("lib/store.js")).write(KEYS.mentions, { items: {} });
   const spam = { bluesky: async (term) => term === "partnerstack.com" ? [1, 2, 3].map((i) => ({ url: `https://bsky.app/p/${i}`, at: "2026-10-30", author: "bot.bsky.social", text: `filler ${i} https://partnerstack.com` })) : [] };
   await M.collectMentions({ targets, sources: spam, today: "2026-11-10", budgetMs: 60_000 });
   const rows = Object.values((await M.getMentions()).items).filter((x) => x.author === "bot.bsky.social");
