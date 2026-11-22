@@ -6,9 +6,10 @@ import { BlogIndex } from "@/components/Blog";
 import JsonLd from "@/components/JsonLd";
 import SectionView from "@/components/SectionView";
 
-/* Dynamic so the share image version is read per request, like every other
-   page; a version frozen at build time is the drift lib/ogCard.js exists to stop. */
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
 
 const title = "Shopify App Developer Tools Compared: the Blog | watchfor.tools";
 const description =

@@ -5,7 +5,11 @@ import { catOf } from "@/lib/tools";
 import { pageFeed } from "@/lib/pageData";
 import { text } from "@/lib/cdnCache";
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The feed
+   comes through a tagged read, but this is a route handler, and Next 14.2's
+   own cache checks tags on pages only, so the timer is the bound: fifteen
+   minutes, the window the feed always had. */
+export const revalidate = 900;
 
 /*
  * RSS, because the people who would follow a weekly feed of Shopify app-vendor

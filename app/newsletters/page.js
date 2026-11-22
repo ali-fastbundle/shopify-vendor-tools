@@ -5,8 +5,12 @@ import { SITE, NEWSLETTERS_URL, IDS } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
 import Newsletters from "@/components/Newsletters";
 import SectionView from "@/components/SectionView";
+import { pageNewsletters } from "@/lib/pageData";
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
 
 const title = "Newsletters for Shopify App Developers | watchfor.tools";
 const description =
@@ -26,7 +30,7 @@ export async function generateMetadata() {
 }
 
 export default async function Page() {
-  const newsletters = await mergedNewsletters();
+  const newsletters = await pageNewsletters();
   /* The only index page that had no structured data. Same shape as /events
      and /blog: the page, and the list of what is on it. */
   const graph = {

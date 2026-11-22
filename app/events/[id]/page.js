@@ -12,12 +12,18 @@ import { updatesLink } from "@/lib/feedSource";
 import EventPage from "@/components/EventPage";
 import JsonLd from "@/components/JsonLd";
 import { cache } from "react";
-import { pageFeed, pageReviews } from "@/lib/pageData";
+import { pageEvents, pageFeed, pageReviews } from "@/lib/pageData";
 
 /* One load per request: generateMetadata and the page body share it. */
 const load = cache(loadUncached);
 
-export const dynamic = "force-dynamic";
+/* Past, imminent and upcoming are worked out when the page renders
+   (placeEvent), so it re-renders every hour: a day never goes stale by more
+   than that, and a write to the catalogue re-renders it at once. */
+export const revalidate = 3600;
+/* No paths at build: each is rendered the first time it is asked for and then
+   cached like the rest, so a build does not read the store for every id. */
+export function generateStaticParams() { return []; }
 
 /*
  * One event at its own URL, server-rendered and complete without JavaScript,
@@ -27,7 +33,7 @@ export const dynamic = "force-dynamic";
  */
 async function loadUncached(id) {
   const today = todayISO();
-  const [events, stored] = await Promise.all([mergedEvents(), pageReviews()]);
+  const [events, stored] = await Promise.all([pageEvents(), pageReviews()]);
   const all = placed(events, today).map((x) => ({ ...x, owner: ownerContext(x, "event", { events }) }));
   const e = all.find((x) => x.id === id);
   return e ? { e, all, today, reviews: stored[id] || [] } : null;

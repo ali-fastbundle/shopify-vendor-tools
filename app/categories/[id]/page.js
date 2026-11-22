@@ -15,7 +15,13 @@ import { pageReviews, pageTools } from "@/lib/pageData";
 /* One load per request: generateMetadata and the page body share it. */
 const load = cache(loadUncached);
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
+/* No paths at build: each is rendered the first time it is asked for and then
+   cached like the rest, so a build does not read the store for every id. */
+export function generateStaticParams() { return []; }
 
 /*
  * A real URL for every category.

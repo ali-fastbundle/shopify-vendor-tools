@@ -4,8 +4,12 @@ import { SITE, COMMUNITIES_URL, IDS } from "@/lib/seo";
 import JsonLd from "@/components/JsonLd";
 import Communities from "@/components/Communities";
 import SectionView from "@/components/SectionView";
+import { pageCommunities } from "@/lib/pageData";
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
 
 const title = "Shopify App Developer Communities and Groups | watchfor.tools";
 const description =
@@ -24,7 +28,7 @@ export async function generateMetadata() {
 }
 
 export default async function Page() {
-  const communities = await mergedCommunities();
+  const communities = await pageCommunities();
   const graph = {
     "@type": "CollectionPage",
     "@id": `${COMMUNITIES_URL}#collection`,

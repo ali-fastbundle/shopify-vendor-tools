@@ -16,7 +16,7 @@ import NewsletterPage from "@/components/NewsletterPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import JsonLd from "@/components/JsonLd";
 import { cache } from "react";
-import { pageFeed, pageReviews } from "@/lib/pageData";
+import { pageFeed, pageNewsletters, pageReviews } from "@/lib/pageData";
 
 /* One load per request: generateMetadata and the page body share it. */
 const load = cache(loadUncached);
@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
  */
 async function loadUncached(id) {
   const [newsletters, storedReviews, claims] = await Promise.all([
-    mergedNewsletters(),
+    pageNewsletters(),
     pageReviews(),
     getClaims(),
   ]);

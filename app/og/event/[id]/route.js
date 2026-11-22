@@ -5,6 +5,7 @@ import { mergedEvents } from "@/lib/listings";
 import { eventOgFacts, ogVersion } from "@/lib/ogCard";
 import { inter } from "@/lib/ogFont";
 import { imageCache } from "@/lib/cdnCache";
+import { pageEvents } from "@/lib/pageData";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 const size = { width: 1200, height: 630 };
 
 export async function GET(request, { params }) {
-  const e = placed(await mergedEvents(), todayISO()).find((x) => x.id === params.id);
+  const e = placed(await pageEvents(), todayISO()).find((x) => x.id === params.id);
   if (!e) return new Response("Not found", { status: 404 });
   const fonts = await inter();
   const f = eventOgFacts(e);

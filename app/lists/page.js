@@ -5,12 +5,15 @@ import { SITE } from "@/lib/seo";
 import { C, S, F, TRACK } from "@/lib/tools";
 import JsonLd from "@/components/JsonLd";
 import { cache } from "react";
-import { pageTools } from "@/lib/pageData";
+import { pageLists, pageTools } from "@/lib/pageData";
 
 /* One load per request: generateMetadata and the page body share it. */
 const load = cache(loadUncached);
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
 
 /*
  * Published lists: the section other people read.
@@ -23,7 +26,7 @@ export const dynamic = "force-dynamic";
  * in the nav at all (lib/listsSection.js).
  */
 async function loadUncached() {
-  const all = Object.values((await readLists()) || {}).filter(isIndexable)
+  const all = Object.values((await pageLists()) || {}).filter(isIndexable)
     .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   const tools = await pageTools();
   const nameOf = (id) => tools.find((t) => t.id === id)?.name;

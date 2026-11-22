@@ -11,7 +11,7 @@ import {
   toolMarkdown, indexMarkdown, categoryMarkdown, newsletterMarkdown, newslettersMarkdown, podcastMarkdown, podcastsMarkdown, communityMarkdown, communitiesMarkdown,
   eventMarkdown, eventsMarkdown, ownerMarkdown, ownersMarkdown, postMarkdown, blogMarkdown, changesMarkdown, aboutMarkdown,
 } from "@/lib/markdown";
-import { pageFeed, pageReviews, pageTools, pageDiscovery } from "@/lib/pageData";
+import { pageCommunities, pageDiscovery, pageEvents, pageFeed, pageNewsletters, pagePodcasts, pageReviews, pageTools } from "@/lib/pageData";
 
 /*
  * Every content page as Markdown, at its own path plus .md. middleware.js
@@ -35,31 +35,31 @@ async function build(parts) {
   }
   if (a === "categories" && b) return { md: categoryMarkdown(b, { tools: await pageTools() }), path: `/categories/${b}` };
   if (a === "newsletters") {
-    const [newsletters, r] = await Promise.all([mergedNewsletters(), reviews()]);
+    const [newsletters, r] = await Promise.all([pageNewsletters(), reviews()]);
     if (!b) return { md: newslettersMarkdown({ newsletters, reviews: r }), path: "/newsletters" };
-    const [tools, events] = await Promise.all([pageTools(), mergedEvents()]);
+    const [tools, events] = await Promise.all([pageTools(), pageEvents()]);
     return { md: newsletterMarkdown(b, { newsletters, tools, events, reviews: r }), path: `/newsletters/${b}` };
   }
   if (a === "podcasts") {
-    const podcasts = await mergedPodcasts();
+    const podcasts = await pagePodcasts();
     if (!b) return { md: podcastsMarkdown({ podcasts }), path: "/podcasts" };
-    const [tools, newsletters, events, r] = await Promise.all([pageTools(), mergedNewsletters(), mergedEvents(), reviews()]);
+    const [tools, newsletters, events, r] = await Promise.all([pageTools(), pageNewsletters(), pageEvents(), reviews()]);
     return { md: podcastMarkdown(b, { podcasts, tools, newsletters, events, reviews: r }), path: `/podcasts/${b}` };
   }
   if (a === "communities") {
-    const communities = await mergedCommunities();
+    const communities = await pageCommunities();
     if (!b) return { md: communitiesMarkdown({ communities }), path: "/communities" };
-    const [tools, newsletters, podcasts, events, r] = await Promise.all([pageTools(), mergedNewsletters(), mergedPodcasts(), mergedEvents(), reviews()]);
+    const [tools, newsletters, podcasts, events, r] = await Promise.all([pageTools(), pageNewsletters(), pagePodcasts(), pageEvents(), reviews()]);
     return { md: communityMarkdown(b, { communities, tools, newsletters, podcasts, events, reviews: r }), path: `/communities/${b}` };
   }
   if (a === "events") {
-    const events = await mergedEvents();
+    const events = await pageEvents();
     if (!b) return { md: eventsMarkdown({ events }, todayISO()), path: "/events" };
-    const [tools, newsletters, r] = await Promise.all([pageTools(), mergedNewsletters(), reviews()]);
+    const [tools, newsletters, r] = await Promise.all([pageTools(), pageNewsletters(), reviews()]);
     return { md: eventMarkdown(b, { events, tools, newsletters, reviews: r }, todayISO()), path: `/events/${b}` };
   }
   if (a === "owners") {
-    const [tools, newsletters, events] = await Promise.all([pageTools(), mergedNewsletters(), mergedEvents()]);
+    const [tools, newsletters, events] = await Promise.all([pageTools(), pageNewsletters(), pageEvents()]);
     if (!b) return { md: ownersMarkdown({ tools, newsletters, events }), path: "/owners" };
     return { md: ownerMarkdown(b, { tools, newsletters, events }), path: `/owners/${b}` };
   }

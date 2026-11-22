@@ -7,10 +7,12 @@ import { SITE, EVENTS_URL } from "@/lib/seo";
 import Events from "@/components/Events";
 import JsonLd from "@/components/JsonLd";
 import SectionView from "@/components/SectionView";
+import { pageEvents } from "@/lib/pageData";
 
-/* Dynamic so past, imminent and upcoming are worked out on the day the page is
-   read, never on the day it was built. */
-export const dynamic = "force-dynamic";
+/* Past, imminent and upcoming are worked out when the page renders
+   (placeEvent), so it re-renders every hour: a day never goes stale by more
+   than that, and a write to the catalogue re-renders it at once. */
+export const revalidate = 3600;
 
 const title = "Events for Shopify App Developers | watchfor.tools";
 const description =
@@ -32,7 +34,7 @@ export async function generateMetadata() {
 export default async function Page() {
   const today = todayISO();
   // Merged, so an organizer's edit to the summary or link shows here too.
-  const EVENTS = await mergedEvents();
+  const EVENTS = await pageEvents();
   const plan = agenda(EVENTS, today);
   const upcoming = plan.timeline.flatMap((g) => g.items)
     .filter((e) => e.at.status !== "past" && e.at.mode === "exact");

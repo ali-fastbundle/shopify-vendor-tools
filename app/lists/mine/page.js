@@ -2,7 +2,10 @@ import { mergedTools } from "@/lib/listings";
 import ListsManager from "@/components/ListsManager";
 import { pageTools } from "@/lib/pageData";
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
 
 /*
  * Your saved lists: the working tool, private, never indexed. Published lists,

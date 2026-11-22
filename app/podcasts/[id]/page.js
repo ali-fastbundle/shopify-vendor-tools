@@ -9,19 +9,25 @@ import PodcastPage from "@/components/PodcastPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import JsonLd from "@/components/JsonLd";
 import { cache } from "react";
-import { pageReviews } from "@/lib/pageData";
+import { pagePodcasts, pageReviews } from "@/lib/pageData";
 
 /* One load per request: generateMetadata and the page body share it. */
 const load = cache(loadUncached);
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
+/* No paths at build: each is rendered the first time it is asked for and then
+   cached like the rest, so a build does not read the store for every id. */
+export function generateStaticParams() { return []; }
 
 /*
  * One podcast at its own URL, server-rendered and complete without
  * JavaScript, the same contract as /newsletters/[id].
  */
 async function loadUncached(id) {
-  const [podcasts, storedReviews] = await Promise.all([mergedPodcasts(), pageReviews()]);
+  const [podcasts, storedReviews] = await Promise.all([pagePodcasts(), pageReviews()]);
   const p = podcasts.find((x) => x.id === id);
   if (!p) return null;
   return { p, podcasts, reviews: storedReviews };

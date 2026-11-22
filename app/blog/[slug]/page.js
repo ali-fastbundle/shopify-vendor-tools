@@ -10,9 +10,13 @@ import { BlogPost } from "@/components/Blog";
 import JsonLd from "@/components/JsonLd";
 import { readComments, publicComments } from "@/lib/comments";
 
-/* Dynamic so the share image version is read per request, like every other
-   page; a version frozen at build time is the drift lib/ogCard.js exists to stop. */
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
+/* No paths at build: each is rendered the first time it is asked for and then
+   cached like the rest, so a build does not read the store for every id. */
+export function generateStaticParams() { return []; }
 
 /*
  * One post at its own URL. Rendered per request (see `dynamic` above). An

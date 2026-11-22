@@ -8,12 +8,18 @@ import { updatesLink } from "@/lib/feedSource";
 import { OwnerPage } from "@/components/Owners";
 import JsonLd from "@/components/JsonLd";
 import { cache } from "react";
-import { pageFeed, pageTools } from "@/lib/pageData";
+import { pageEvents, pageFeed, pageNewsletters, pageTools } from "@/lib/pageData";
 
 /* One load per request: generateMetadata and the page body share it. */
 const load = cache(loadUncached);
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
+/* No paths at build: each is rendered the first time it is asked for and then
+   cached like the rest, so a build does not read the store for every id. */
+export function generateStaticParams() { return []; }
 
 /*
  * One owner, with every published entry it controls. Only owners with two or
@@ -21,7 +27,7 @@ export const dynamic = "force-dynamic";
  * one-listing owner never gets a page that repeats its listing.
  */
 async function loadUncached(id) {
-  const [tools, newsletters, events] = await Promise.all([pageTools(), mergedNewsletters(), mergedEvents()]);
+  const [tools, newsletters, events] = await Promise.all([pageTools(), pageNewsletters(), pageEvents()]);
   const owners = ownersWithPages({ tools, newsletters, events });
   const owner = owners.find((o) => o.id === id);
   return owner ? { owner, others: owners.filter((o) => o.id !== id) } : null;

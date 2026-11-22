@@ -16,7 +16,11 @@ import { countTools } from "@/lib/toolCount";
 import { pageTools } from "@/lib/pageData";
 import { text } from "@/lib/cdnCache";
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   catalogue comes through a tagged read, but this is a route handler, and
+   Next 14.2's own cache checks tags on pages only, so the hour is the bound,
+   the same hour its cache header always gave crawlers. */
+export const revalidate = 3600;
 
 /*
  * /llms.txt — the directory as plain text, for something reading rather than

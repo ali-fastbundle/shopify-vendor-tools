@@ -108,7 +108,7 @@ console.log("\ntwo uses, two places:");
     "/lists is the section: only lists an editor read, and noindex while there are none");
   ok(/id: "lists", label: "Lists", href: "\/lists", when: \(c\) => c\.lists > 0/.test(frame) && /\.filter\(\(v\) => !v\.when \|\| v\.when\(counts\)\)/.test(frame),
     "the section is in the nav only once it has a list worth showing");
-  ok(/publishedListCount/.test(src("app/layout.js")) && /revalidate: 300, tags: \[LISTS_TAG\]/.test(src("lib/listsSection.js")),
+  ok(/publishedListCount/.test(src("app/layout.js")) && /revalidate: 300, tags: \[LISTS_TAG[\],]/.test(src("lib/listsSection.js")),
     "that count is one cached store read, not one per page");
   ok(/listsChanged\(\)/.test(src("app/api/lists/route.js")) && /listsChanged\(\)/.test(src("app/api/admin/route.js")),
     "and is refreshed by every write that can open or close the section");

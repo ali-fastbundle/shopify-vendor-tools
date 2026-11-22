@@ -1,9 +1,10 @@
 import { POSTS, postHtml, resolvePost } from "@/lib/blog";
 import { toolCounts } from "@/lib/toolCountStore";
 
-/* Rendered on every request, not at build: a derived chart states the live tool
-   count, the same five-minute figure as the sidebar (invariant 53). */
-export const dynamic = "force-dynamic";
+/* Cached for five minutes, the same figure as the sidebar: a derived chart
+   states the live tool count (invariant 53), read through toolCounts, whose
+   tags (a queue publish) also re-render this at once. */
+export const revalidate = 300;
 import { SITE } from "@/lib/seo";
 import { text } from "@/lib/cdnCache";
 

@@ -7,7 +7,10 @@ import JsonLd from "@/components/JsonLd";
 import SectionView from "@/components/SectionView";
 import { pageTools } from "@/lib/pageData";
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
 
 const baseMetadata = {
   title: "Categories of Tools for Shopify App Developers | watchfor.tools",

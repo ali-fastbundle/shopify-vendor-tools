@@ -9,19 +9,25 @@ import CommunityPage from "@/components/CommunityPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import JsonLd from "@/components/JsonLd";
 import { cache } from "react";
-import { pageReviews } from "@/lib/pageData";
+import { pageCommunities, pageReviews } from "@/lib/pageData";
 
 /* One load per request: generateMetadata and the page body share it. */
 const load = cache(loadUncached);
 
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
+/* No paths at build: each is rendered the first time it is asked for and then
+   cached like the rest, so a build does not read the store for every id. */
+export function generateStaticParams() { return []; }
 
 /*
  * One community at its own URL, server-rendered and complete without
  * JavaScript, the same contract as /podcasts/[id].
  */
 async function loadUncached(id) {
-  const [communities, storedReviews] = await Promise.all([mergedCommunities(), pageReviews()]);
+  const [communities, storedReviews] = await Promise.all([pageCommunities(), pageReviews()]);
   const c = communities.find((x) => x.id === id);
   if (!c) return null;
   return { c, communities, reviews: storedReviews };

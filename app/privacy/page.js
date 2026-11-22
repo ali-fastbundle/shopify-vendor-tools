@@ -18,9 +18,10 @@ import { gaConfigured } from "@/lib/consent";
  * no GA and no third-party tracking, and the page says so.
  */
 
-/* Dynamic like every other page, so the share image version is read per
-   request rather than frozen at build time (lib/ogCard.js). */
-export const dynamic = "force-dynamic";
+/* Cached, not rendered per request (CLAUDE.md, Page caching and CPU). The
+   data and the share image version come through tagged reads, so a write to
+   any store key this page shows re-renders it at once; the hour is a backstop. */
+export const revalidate = 3600;
 
 const title = "Privacy | watchfor.tools";
 const GA = gaConfigured();

@@ -3509,6 +3509,26 @@ React `cache()` on top so `generateMetadata` and the page body share one read.
   RSS feeds and the sitemap with `text(seconds)`. `/sitemap.xml` is served by
   `app/sitemap-xml/route.js` through a `beforeFiles` rewrite, because the metadata route
   cannot set a header; `app/sitemap.js` is still what it lists.
+- **Pages that do not read the request are ISR, not `force-dynamic`** (2026-11-22). Only
+  pages that read cookies, headers or search params stay dynamic: `/`, `/tools/[id]`,
+  `/newsletters/[id]`, `/changes`, `/owners`, `/search`, `/about`, `/admin`, plus `/contact`
+  (its form token is signed at render). Everything else has `export const revalidate`
+  (an hour; `/events` and `/events/[id]` an hour because status is worked out at render;
+  `/blog/rss` five minutes; `/changes/rss` fifteen) and `generateStaticParams` returning `[]`
+  on a dynamic segment. An ISR page inherits the tags of the data it read, so a write still
+  re-renders it at once. Route handlers are the exception: Next 14.2's own cache checks tags
+  on pages only, so for `/llms.txt` and the feeds the timer is the bound.
+- **A static page must read the store only through a cached reader.** A raw `read()` makes a
+  `no-store` fetch, which during static generation turns the page dynamic, silently, with no
+  build error. Check the build table after a change: ○ or ● means cached, ƒ means per request.
+  To check what Vercel will do, build once with `UPSTASH_REDIS_REST_URL=http://127.0.0.1:9
+  UPSTASH_REDIS_REST_TOKEN=x`, so every store read is a real fetch: a "Dynamic server usage"
+  line in the log names a read that is not cached.
+- **Cached readers run in `inCachedRead`** (`lib/store.js`), which drops `no-store` from the
+  Redis fetch and makes a failed read throw. Without it, the no-store error was caught by
+  `read()` inside the callback and the page was built and cached from an empty store; with
+  it, a Redis failure during an ISR re-render keeps the last good page. Every
+  `unstable_cache` callback that reads the store goes through it.
 - **Filtered views are out of robots.txt** (`/?` and `/changes?`): they canonicalise to their
   bare path. The AI crawlers stay welcome everywhere else (invariant 30).
 
@@ -3604,8 +3624,9 @@ at `/events/[id]`, sitemap entries, `llms.txt`, and a place in the top-level vie
 default view.
 
 - **Status is never stored.** Past, imminent (within 30 days) and upcoming are
-  derived by `placeEvent` at render, and the pages are `force-dynamic` so that
-  happens on the day the page is read. The spreadsheet the entries came from had
+  derived by `placeEvent` at render, and the pages re-render every hour
+  (`revalidate = 3600`, 2026-11-22; they were `force-dynamic`), so status is
+  never more than an hour behind the day the page is read. The spreadsheet the entries came from had
   a Status column that was wrong for six of them on the day it was imported.
 - **An inferred date is never presented as scheduled.** Only an `annual` series
   with a known `lastHeld` inside two years is placed at its next anniversary, and
