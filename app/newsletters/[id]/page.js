@@ -15,6 +15,11 @@ import {
 import NewsletterPage from "@/components/NewsletterPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+import { pageFeed, pageReviews } from "@/lib/pageData";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -23,15 +28,15 @@ export const dynamic = "force-dynamic";
  * JavaScript, the same contract as /tools/[id]. The one interactive piece lives
  * in a client island (components/Engagement.jsx); everything a crawler reads is here.
  */
-async function load(id) {
+async function loadUncached(id) {
   const [newsletters, storedReviews, claims] = await Promise.all([
     mergedNewsletters(),
-    read(KEYS.reviews, {}),
+    pageReviews(),
     getClaims(),
   ]);
   const n = newsletters.find((x) => x.id === id);
   if (!n) return null;
-  return { n, newsletters, claims, reviews: publicReviews(storedReviews) };
+  return { n, newsletters, claims, reviews: storedReviews };
 }
 
 async function baseMetadata({ params }) {
@@ -66,7 +71,7 @@ export default async function Page({ params }) {
       <JsonLd data={newsletterGraph(n, reviews)} />
       <NewsletterPage
         newsletter={n}
-        updates={updatesLink(await feedEntries({ limit: 1000 }), `/newsletters/${n.id}`)}
+        updates={updatesLink(await pageFeed(1000), `/newsletters/${n.id}`)}
         owner={ownerContext(n, "newsletter")}
         related={related}
         reviews={nReviews}

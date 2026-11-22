@@ -1,6 +1,7 @@
 import { C, S, R, F, TRACK } from "@/lib/tools";
 import { mergedTools, mergedNewsletters, mergedEvents, mergedPodcasts, mergedCommunities } from "@/lib/listings";
 import { searchAll, summaryLine, cleanQuery, MIN_QUERY, MAX_QUERY } from "@/lib/universalSearch";
+import { pageTools } from "@/lib/pageData";
 
 /*
  * Search across every section: tools, categories, newsletters, events (past
@@ -27,7 +28,7 @@ export async function generateMetadata({ searchParams }) {
 export default async function Page({ searchParams }) {
   const q = cleanQuery(searchParams?.q);
   const [tools, newsletters, events, podcasts, communities] = q.length >= MIN_QUERY
-    ? await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents(), mergedPodcasts(), mergedCommunities()])
+    ? await Promise.all([pageTools(), mergedNewsletters(), mergedEvents(), mergedPodcasts(), mergedCommunities()])
     : [[], [], [], [], []];
   const result = searchAll(q, { tools, newsletters, events, podcasts, communities });
 

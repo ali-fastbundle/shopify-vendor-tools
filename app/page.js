@@ -12,6 +12,7 @@ import { HEADLINE } from "@/lib/tools";
 import { ogFacts, ogVersion } from "@/lib/ogCard";
 import JsonLd from "@/components/JsonLd";
 import { countTools } from "@/lib/toolCount";
+import { pageFeed, pageReviews, pageTools } from "@/lib/pageData";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function Page({ searchParams = {} }) {
   // Rendered on the server so the catalogue, including vendor edits, is in the
   // HTML for crawlers rather than arriving after hydration.
   const [tools, stored, allFeed, votes] = await Promise.all([
-    mergedTools(), read(KEYS.reviews, {}), feedEntries({ limit: 1000 }), read(KEYS.votes, {}),
+    pageTools(), pageReviews(), pageFeed(1000), read(KEYS.votes, {}),
   ]);
   const feed = allFeed.slice(0, 150);
   /* Each tool's one-line pointer to its What's moving entries, for the
@@ -56,7 +57,7 @@ export default async function Page({ searchParams = {} }) {
    * the better reason is that a directory claiming ratings it does not have is
    * the thing this site exists not to be.
    */
-  const reviews = publicReviews(stored);
+  const reviews = stored;
 
   return (
     <>

@@ -3489,6 +3489,29 @@ tool compare modal is untouched: the list is the pass where you work out which t
 - Tools that are `dying` sort last in every order. A shut-down product must never lead
   the grid.
 
+## Page caching and CPU
+
+Vercel Hobby bills Active CPU, and most page requests are crawlers, so public renders read
+the store through `lib/pageData.js` (2026-11-22): `pageTools`, `pageFeed`, `pageReviews`,
+`pageQA` and `pageDiscovery`, each in Next's data cache with one tag per store key, and
+React `cache()` on top so `generateMetadata` and the page body share one read.
+
+- **The store clears the tags, not the routes.** `write`, `del`, `pushCapped` and
+  `writeCapped` in `lib/store.js` call `revalidateTag(storeTag(key))` for every key in
+  `CACHED_KEYS`, so no write path can forget. Adding a store read to `mergedTools()` means
+  adding its key to `CACHED_KEYS` and to `MERGED_KEYS` in `lib/pageData.js`, in the same commit.
+- **Write routes and /admin never read through `lib/pageData.js`.** Next applies a
+  revalidation after the request, so a cached read inside a read-modify-write would return
+  the value from before the write and lose an update.
+- **A response the CDN should keep says `s-maxage`.** A bare `max-age` is for the browser and
+  Vercel's CDN ignores it. `lib/cdnCache.js` holds the values: `/og` and `/og/event/<id>`
+  for a year when `?v=` names the version drawn and ten minutes otherwise, `llms.txt`, both
+  RSS feeds and the sitemap with `text(seconds)`. `/sitemap.xml` is served by
+  `app/sitemap-xml/route.js` through a `beforeFiles` rewrite, because the metadata route
+  cannot set a header; `app/sitemap.js` is still what it lists.
+- **Filtered views are out of robots.txt** (`/?` and `/changes?`): they canonicalise to their
+  bare path. The AI crawlers stay welcome everywhere else (invariant 30).
+
 ## Sections beyond tools
 
 `RESOURCE_KINDS` in `lib/tools.js` names every section: tools, newsletters, events,

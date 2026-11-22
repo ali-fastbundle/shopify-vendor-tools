@@ -4,6 +4,11 @@ import { mergedTools } from "@/lib/listings";
 import { SITE } from "@/lib/seo";
 import { C, S, F, TRACK } from "@/lib/tools";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+import { pageTools } from "@/lib/pageData";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +22,10 @@ export const dynamic = "force-dynamic";
  * With none to show the page says so and is noindex, and the section is not
  * in the nav at all (lib/listsSection.js).
  */
-async function load() {
+async function loadUncached() {
   const all = Object.values((await readLists()) || {}).filter(isIndexable)
     .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-  const tools = await mergedTools();
+  const tools = await pageTools();
   const nameOf = (id) => tools.find((t) => t.id === id)?.name;
   return all.map((l) => ({ ...publicList(l), names: l.items.map((x) => nameOf(x.toolId)).filter(Boolean) }));
 }

@@ -2,6 +2,8 @@ import { sourceOf, revisionsOf } from "@/lib/feedSource";
 import { feedEntries } from "@/lib/feed";
 import { SITE } from "@/lib/seo";
 import { catOf } from "@/lib/tools";
+import { pageFeed } from "@/lib/pageData";
+import { text } from "@/lib/cdnCache";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +39,7 @@ const rfc822 = (iso) => {
 };
 
 export async function GET() {
-  const entries = await feedEntries({ limit: 100 });
+  const entries = await pageFeed(100);
   const updated = entries[0]?.at || new Date().toISOString();
 
   const items = entries.map((e) => `    <item>
@@ -65,7 +67,7 @@ ${items}
   return new Response(xml, {
     headers: {
       "content-type": "application/rss+xml; charset=utf-8",
-      "cache-control": "public, max-age=900",
+      "cache-control": text(900, 900),
     },
   });
 }

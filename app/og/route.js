@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { DARK, CATEGORIES, HEADLINE } from "@/lib/tools";
 import { ogFacts, ogVersion } from "@/lib/ogCard";
 import { inter } from "@/lib/ogFont";
+import { imageCache } from "@/lib/cdnCache";
 
 /*
  * The share card, served from a route we name ourselves.
@@ -41,12 +42,14 @@ const size = { width: 1200, height: 630 };
  * saying so. next.config.mjs traces app/_fonts into the bundle so the read still
  * works once deployed.
  */
-export async function GET() {
+export async function GET(request) {
   const fonts = await inter();
   /* The facts the card draws, from the one function its URL version is a
      hash of (lib/ogCard.js), so the two cannot disagree again. */
   const facts = await ogFacts();
   const { toolCount } = facts;
+  const version = ogVersion(facts);
+  const asked = new URL(request.url).searchParams.get("v");
 
   return new ImageResponse(
     (
@@ -95,7 +98,9 @@ export async function GET() {
       // the homepage from outside.
       /* The count it drew, so scripts/tool-count-test.mjs can compare it
          with every other surface from outside. */
-      headers: { "x-og-version": ogVersion(facts), "x-og-tools": String(toolCount) },
+      /* The CDN keeps the image for a year when the URL names the version
+         drawn, which is the URL every page links (lib/cdnCache.js). */
+      headers: { "x-og-version": version, "x-og-tools": String(toolCount), "cache-control": imageCache(asked, version) },
     },
   );
 }

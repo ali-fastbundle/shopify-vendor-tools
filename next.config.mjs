@@ -51,6 +51,11 @@ const nextConfig = {
       { source: "/blog/free-tiers.md", destination: "/blog/free-tools-for-shopify-app-developers.md", permanent: true },
     ];
   },
+  /* /sitemap.xml is served by app/sitemap-xml/route.js, which sends a header
+     the CDN can cache. beforeFiles, so it wins over the metadata route. */
+  async rewrites() {
+    return { beforeFiles: [{ source: "/sitemap.xml", destination: "/sitemap-xml" }] };
+  },
   async headers() {
     return [{
       source: "/(.*)",

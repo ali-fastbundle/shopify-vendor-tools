@@ -4,6 +4,7 @@ import { allOwners } from "@/lib/ownerIndex";
 import { ownersIndexGraph } from "@/lib/seo";
 import { OwnerIndex } from "@/components/Owners";
 import JsonLd from "@/components/JsonLd";
+import { pageTools } from "@/lib/pageData";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export async function generateMetadata() {
 }
 
 export default async function Page({ searchParams = {} }) {
-  const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
+  const [tools, newsletters, events] = await Promise.all([pageTools(), mergedNewsletters(), mergedEvents()]);
   const owners = allOwners({ tools, newsletters, events });
   return (
     <>

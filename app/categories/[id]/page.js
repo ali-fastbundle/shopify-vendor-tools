@@ -9,6 +9,11 @@ import {
 } from "@/lib/seo";
 import { CategoryPage } from "@/components/Categories";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+import { pageReviews, pageTools } from "@/lib/pageData";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -27,15 +32,15 @@ export const dynamic = "force-dynamic";
  * misspelled URLs and let a crawler index every one of them.
  */
 
-async function load(id) {
+async function loadUncached(id) {
   const cat = findCat(id);
   if (!cat) return null;
-  const [tools, storedReviews] = await Promise.all([mergedTools(), read(KEYS.reviews, {})]);
+  const [tools, storedReviews] = await Promise.all([pageTools(), pageReviews()]);
   return {
     cat,
     members: categoryMembers(id, tools),
     related: relatedCategories(id, tools),
-    reviews: publicReviews(storedReviews),
+    reviews: storedReviews,
   };
 }
 

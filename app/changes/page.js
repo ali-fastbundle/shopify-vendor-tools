@@ -8,6 +8,7 @@ import { SITE, IDS } from "@/lib/seo";
 import ChangesFeed from "@/components/ChangesFeed";
 import JsonLd from "@/components/JsonLd";
 import SectionView from "@/components/SectionView";
+import { pageFeed, pageTools } from "@/lib/pageData";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function generateMetadata() {
 }
 
 export default async function Page({ searchParams = {} }) {
-  const [entries, tools] = await Promise.all([feedEntries({ limit: 300 }), mergedTools()]);
+  const [entries, tools] = await Promise.all([pageFeed(300), pageTools()]);
   /* Edit and Delete under each entry for an admin. An affordance, never the
      permission: /api/admin re-checks on every press (invariant 7). */
   const session = sessionFrom({ cookies: cookies(), headers: headers() });

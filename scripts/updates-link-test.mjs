@@ -46,7 +46,7 @@ ok(/useParam\("on"\)/.test(feed) && /entryHref\(e\) === `\/\$\{on/.test(feed), "
 const pages = { "components/ToolPage.jsx": "app/tools/[id]/page.js", "components/NewsletterPage.jsx": "app/newsletters/[id]/page.js", "components/EventPage.jsx": "app/events/[id]/page.js", "components/Owners.jsx": "app/owners/[id]/page.js" };
 for (const [comp, route] of Object.entries(pages)) {
   const c = src(comp), r = src(route);
-  ok(/<UpdatesLink link=\{updates\} \/>/.test(c) && /updates=\{updatesLink\(await feedEntries/.test(r) && !/feedEntries|lib\/feed"/.test(c),
+  ok(/<UpdatesLink link=\{updates\} \/>/.test(c) && /updates=\{updatesLink\(await (feedEntries|pageFeed)\(/.test(r) && !/feedEntries|lib\/feed"/.test(c),
     `${comp}: gets the computed link from its route, never feed entries`);
 }
 const dir = src("components/Directory.jsx"), home = src("app/page.js");

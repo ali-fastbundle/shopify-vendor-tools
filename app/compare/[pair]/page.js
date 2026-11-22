@@ -6,6 +6,10 @@ import { ownerContext } from "@/lib/ownerIndex";
 import { compareGraph } from "@/lib/seo";
 import { ComparePage } from "@/components/Comparisons";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +20,7 @@ export const dynamic = "force-dynamic";
  * redirects to it permanently, so a-vs-b and b-vs-a are one URL. Indexed only
  * when both tools have confirmed details.
  */
-async function load(slug) {
+async function loadUncached(slug) {
   const ids = parseSlug(slug);
   if (!ids) return null;
   const { tools, pairs } = await rivalsData();

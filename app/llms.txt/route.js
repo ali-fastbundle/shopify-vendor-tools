@@ -13,6 +13,8 @@ import { COMMUNITY_GROUPS, communityGroups, communityIntro } from "@/lib/communi
 import { EVENTS, agenda } from "@/lib/events";
 import { POSTS } from "@/lib/blog";
 import { countTools } from "@/lib/toolCount";
+import { pageTools } from "@/lib/pageData";
+import { text } from "@/lib/cdnCache";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,7 @@ export const dynamic = "force-dynamic";
  * one.
  */
 export async function GET() {
-  const tools = await mergedTools();
+  const tools = await pageTools();
   /* The public count, the same function every other surface states. */
   const counted = countTools(tools);
   /*
@@ -184,7 +186,7 @@ flat accusation without the entry around it.
   return new Response(body, {
     headers: {
       "content-type": "text/plain; charset=utf-8",
-      "cache-control": "public, max-age=3600",
+      "cache-control": text(3600, 3600),
     },
   });
 }

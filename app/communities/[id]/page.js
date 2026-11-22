@@ -8,6 +8,11 @@ import { communityUrl, communityDescription, communityGraph, relatedCommunities 
 import CommunityPage from "@/components/CommunityPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+import { pageReviews } from "@/lib/pageData";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +20,11 @@ export const dynamic = "force-dynamic";
  * One community at its own URL, server-rendered and complete without
  * JavaScript, the same contract as /podcasts/[id].
  */
-async function load(id) {
-  const [communities, storedReviews] = await Promise.all([mergedCommunities(), read(KEYS.reviews, {})]);
+async function loadUncached(id) {
+  const [communities, storedReviews] = await Promise.all([mergedCommunities(), pageReviews()]);
   const c = communities.find((x) => x.id === id);
   if (!c) return null;
-  return { c, communities, reviews: publicReviews(storedReviews) };
+  return { c, communities, reviews: storedReviews };
 }
 
 async function baseMetadata({ params }) {

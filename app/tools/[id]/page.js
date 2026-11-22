@@ -2,20 +2,19 @@ import { withShareImage } from "@/lib/ogCard";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
 import { sessionFrom, isAdmin } from "@/lib/auth";
-import { read, KEYS } from "@/lib/store";
-import { mergedTools, getClaims } from "@/lib/listings";
-import { publicReviews } from "@/lib/reviews";
+import { cache } from "react";
+import { getClaims } from "@/lib/listings";
+import { pageTools, pageReviews, pageQA, pageDiscovery, pageFeed } from "@/lib/pageData";
 import { catOf, categorySearchTitle, C, S, R, F, TRACK, ink, LAST_UPDATED, formatDay } from "@/lib/tools";
 import { outbound } from "@/lib/outbound";
 import {
   SITE, toolUrl, toolDescription, toolGraph, relatedTools, logoAlt, ratingOf,
 } from "@/lib/seo";
-import { feedEntries } from "@/lib/feed";
 import { updatesLink } from "@/lib/feedSource";
 import ToolPage from "@/components/ToolPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import { rivalPairs, alternativesOf, pairSlug } from "@/lib/rivals";
-import { readQA, publicQA } from "@/lib/qa";
+import { publicQA } from "@/lib/qa";
 import { readWatchLog } from "@/lib/publish";
 import JsonLd from "@/components/JsonLd";
 
@@ -35,18 +34,21 @@ export const dynamic = "force-dynamic";
  * stays for in-page browsing; this is the same content at an address.
  */
 
-async function load(id) {
-  const [tools, storedReviews, claims, discovery] = await Promise.all([
-    mergedTools(),
-    read(KEYS.reviews, {}),
-    getClaims(),
-    read("svt:discovery", {}),
+/*
+ * One load per request, whoever asks. generateMetadata and the page body both
+ * call this, and React's cache() makes the second call free; the reads under
+ * it come from lib/pageData.js, cached until a write touches them.
+ */
+const load = cache(async (id) => {
+  const [tools, reviews, qa, discovery] = await Promise.all([
+    pageTools(), pageReviews(), pageQA(), pageDiscovery(),
   ]);
-  const qa = await readQA();
   const tool = tools.find((t) => t.id === id);
   if (!tool) return null;
-  return { tool, tools, claims, discovery: discovery || {}, reviews: publicReviews(storedReviews), questions: publicQA(qa[tool.id]) };
-}
+  /* Claims are not loaded here: only the viewer box needs one, and only for a
+     signed-in visitor, so viewerOf reads them then. */
+  return { tool, tools, discovery, reviews, questions: publicQA(qa[tool.id]) };
+});
 
 /*
  * Who is looking, worked out on the server.
@@ -65,10 +67,12 @@ async function load(id) {
  * rendered either: the whole output is a link and a sentence, so a signed-out
  * crawler sees the public page and no data has moved.
  */
-function viewerOf({ tool, claims }) {
+async function viewerOf({ tool }) {
   const session = sessionFrom({ cookies: cookies(), headers: headers() });
   if (!session) return { signedIn: false, admin: false, owns: false };
-  const claim = claims[tool.id];
+  /* Fresh, not cached: whether this person owns the listing is a permission
+     question for the affordance, and it is one read for signed-in people only. */
+  const claim = (await getClaims())[tool.id];
   return {
     signedIn: true,
     admin: isAdmin(session.email),
@@ -107,7 +111,7 @@ export default async function Page({ params }) {
 
   const related = relatedTools(tool, tools);
   const toolReviews = reviews[tool.id] || [];
-  const viewer = viewerOf(found);
+  const viewer = await viewerOf(found);
 
   return (
     <>
@@ -128,7 +132,7 @@ export default async function Page({ params }) {
         watchLog={viewer.admin ? (await readWatchLog(500)).filter((l) => l.id === tool.id) : []}
         rivals={alternativesOf(tool, tools, rivalPairs(tools, discovery)).map((x) => ({ name: x.tool.name, slug: pairSlug(tool.id, x.tool.id) }))}
         /* A count and a link, never entries (invariant 31). */
-        updates={updatesLink(await feedEntries({ limit: 1000 }), `/tools/${tool.id}`)}
+        updates={updatesLink(await pageFeed(1000), `/tools/${tool.id}`)}
       />
     </>
   );

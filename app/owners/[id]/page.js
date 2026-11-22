@@ -7,6 +7,11 @@ import { feedEntries } from "@/lib/feed";
 import { updatesLink } from "@/lib/feedSource";
 import { OwnerPage } from "@/components/Owners";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+import { pageFeed, pageTools } from "@/lib/pageData";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +20,8 @@ export const dynamic = "force-dynamic";
  * more entries have a page (lib/owners.js); anything else is a 404, so a
  * one-listing owner never gets a page that repeats its listing.
  */
-async function load(id) {
-  const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
+async function loadUncached(id) {
+  const [tools, newsletters, events] = await Promise.all([pageTools(), mergedNewsletters(), mergedEvents()]);
   const owners = ownersWithPages({ tools, newsletters, events });
   const owner = owners.find((o) => o.id === id);
   return owner ? { owner, others: owners.filter((o) => o.id !== id) } : null;
@@ -43,7 +48,7 @@ export default async function Page({ params }) {
     <>
       <JsonLd data={ownerGraph(owner, owner.entries)} />
       <OwnerPage owner={owner} entries={owner.entries} others={others}
-        updates={updatesLink(await feedEntries({ limit: 1000 }), `/owners/${owner.id}`)} />
+        updates={updatesLink(await pageFeed(1000), `/owners/${owner.id}`)} />
     </>
   );
 }

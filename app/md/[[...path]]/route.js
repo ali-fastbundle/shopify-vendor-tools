@@ -11,6 +11,7 @@ import {
   toolMarkdown, indexMarkdown, categoryMarkdown, newsletterMarkdown, newslettersMarkdown, podcastMarkdown, podcastsMarkdown, communityMarkdown, communitiesMarkdown,
   eventMarkdown, eventsMarkdown, ownerMarkdown, ownersMarkdown, postMarkdown, blogMarkdown, changesMarkdown, aboutMarkdown,
 } from "@/lib/markdown";
+import { pageFeed, pageReviews, pageTools, pageDiscovery } from "@/lib/pageData";
 
 /*
  * Every content page as Markdown, at its own path plus .md. middleware.js
@@ -22,48 +23,48 @@ import {
  */
 export const dynamic = "force-dynamic";
 
-const reviews = async () => publicReviews(await read(KEYS.reviews, {}));
+const reviews = () => pageReviews();
 
 async function build(parts) {
   const [a, b, extra] = parts;
   if (extra) return null;
-  if (!a || a === "index") return b ? null : indexMarkdown({ tools: await mergedTools(), reviews: await reviews() });
+  if (!a || a === "index") return b ? null : indexMarkdown({ tools: await pageTools(), reviews: await reviews() });
   if (a === "tools" && b) {
-    const [tools, r, discovery] = await Promise.all([mergedTools(), reviews(), read("svt:discovery", {})]);
+    const [tools, r, discovery] = await Promise.all([pageTools(), reviews(), pageDiscovery()]);
     return { md: toolMarkdown(b, { tools, reviews: r, discovery: discovery || {} }), path: `/tools/${b}` };
   }
-  if (a === "categories" && b) return { md: categoryMarkdown(b, { tools: await mergedTools() }), path: `/categories/${b}` };
+  if (a === "categories" && b) return { md: categoryMarkdown(b, { tools: await pageTools() }), path: `/categories/${b}` };
   if (a === "newsletters") {
     const [newsletters, r] = await Promise.all([mergedNewsletters(), reviews()]);
     if (!b) return { md: newslettersMarkdown({ newsletters, reviews: r }), path: "/newsletters" };
-    const [tools, events] = await Promise.all([mergedTools(), mergedEvents()]);
+    const [tools, events] = await Promise.all([pageTools(), mergedEvents()]);
     return { md: newsletterMarkdown(b, { newsletters, tools, events, reviews: r }), path: `/newsletters/${b}` };
   }
   if (a === "podcasts") {
     const podcasts = await mergedPodcasts();
     if (!b) return { md: podcastsMarkdown({ podcasts }), path: "/podcasts" };
-    const [tools, newsletters, events, r] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents(), reviews()]);
+    const [tools, newsletters, events, r] = await Promise.all([pageTools(), mergedNewsletters(), mergedEvents(), reviews()]);
     return { md: podcastMarkdown(b, { podcasts, tools, newsletters, events, reviews: r }), path: `/podcasts/${b}` };
   }
   if (a === "communities") {
     const communities = await mergedCommunities();
     if (!b) return { md: communitiesMarkdown({ communities }), path: "/communities" };
-    const [tools, newsletters, podcasts, events, r] = await Promise.all([mergedTools(), mergedNewsletters(), mergedPodcasts(), mergedEvents(), reviews()]);
+    const [tools, newsletters, podcasts, events, r] = await Promise.all([pageTools(), mergedNewsletters(), mergedPodcasts(), mergedEvents(), reviews()]);
     return { md: communityMarkdown(b, { communities, tools, newsletters, podcasts, events, reviews: r }), path: `/communities/${b}` };
   }
   if (a === "events") {
     const events = await mergedEvents();
     if (!b) return { md: eventsMarkdown({ events }, todayISO()), path: "/events" };
-    const [tools, newsletters, r] = await Promise.all([mergedTools(), mergedNewsletters(), reviews()]);
+    const [tools, newsletters, r] = await Promise.all([pageTools(), mergedNewsletters(), reviews()]);
     return { md: eventMarkdown(b, { events, tools, newsletters, reviews: r }, todayISO()), path: `/events/${b}` };
   }
   if (a === "owners") {
-    const [tools, newsletters, events] = await Promise.all([mergedTools(), mergedNewsletters(), mergedEvents()]);
+    const [tools, newsletters, events] = await Promise.all([pageTools(), mergedNewsletters(), mergedEvents()]);
     if (!b) return { md: ownersMarkdown({ tools, newsletters, events }), path: "/owners" };
     return { md: ownerMarkdown(b, { tools, newsletters, events }), path: `/owners/${b}` };
   }
   if (a === "blog") return b ? { md: postMarkdown(b, await toolCounts()), path: `/blog/${b}` } : { md: blogMarkdown(), path: "/blog" };
-  if (a === "changes" && !b) return { md: changesMarkdown({ entries: await feedEntries({ limit: 300 }) }), path: "/changes" };
+  if (a === "changes" && !b) return { md: changesMarkdown({ entries: await pageFeed(300) }), path: "/changes" };
   if (a === "about" && !b) return { md: aboutMarkdown(await getAbout(), { authorUrl: AUTHOR_URL }), path: "/about" };
   return null;
 }

@@ -22,7 +22,17 @@ const READERS = ["GPTBot", "ClaudeBot", "Claude-Web", "PerplexityBot", "Google-E
  * internally, and is kept out so the same text is not indexed at two addresses.
  */
 const MARKDOWN = ["/*.md$", "/index.md"];
-const OFF = ["/admin", "/api/", "/md/"];
+/*
+ * Filtered views of the directory and of What's moving. Every one canonicalises
+ * to its bare path (/ and /changes), so a crawler walking the category, sort,
+ * filter and tool combinations was rendering the same two pages hundreds of
+ * times for nothing it could index. Robots matching is by prefix: "/?" is the
+ * home page with any query and never "/" itself, and "/changes?" leaves
+ * /changes and /changes/rss alone. The category pages at /categories/<id> are
+ * the indexable form of a category filter.
+ */
+const FILTERED = ["/?", "/changes?"];
+const OFF = ["/admin", "/api/", "/md/", ...FILTERED];
 
 export default function robots() {
   return {

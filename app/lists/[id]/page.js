@@ -5,6 +5,11 @@ import { mergedTools } from "@/lib/listings";
 import { SITE } from "@/lib/seo";
 import { C, S, F, TRACK, ink, catOf, priceLine } from "@/lib/tools";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+import { pageTools } from "@/lib/pageData";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +19,11 @@ export const dynamic = "force-dynamic";
  * made it by the name they chose, never an address, and every tool carries
  * its own caveat, the same as anywhere else in the directory.
  */
-async function load(id) {
+async function loadUncached(id) {
   const all = await readLists();
   const l = all[id];
   if (!isShown(l)) return null;
-  const tools = await mergedTools();
+  const tools = await pageTools();
   const items = l.items.map((it) => ({ ...it, tool: tools.find((t) => t.id === it.toolId) })).filter((x) => x.tool);
   return { list: publicList(l), items, indexable: isIndexable(l) };
 }

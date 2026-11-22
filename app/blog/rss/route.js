@@ -5,6 +5,7 @@ import { toolCounts } from "@/lib/toolCountStore";
    count, the same five-minute figure as the sidebar (invariant 53). */
 export const dynamic = "force-dynamic";
 import { SITE } from "@/lib/seo";
+import { text } from "@/lib/cdnCache";
 
 /*
  * The blog as RSS, full text, for the same reason as /changes/rss: a feed that
@@ -45,6 +46,6 @@ ${items}
 </rss>`;
 
   return new Response(xml, {
-    headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": "public, max-age=3600" },
+    headers: { "content-type": "application/rss+xml; charset=utf-8", "cache-control": text(3600, 3600) },
   });
 }

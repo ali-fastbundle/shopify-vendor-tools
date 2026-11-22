@@ -5,6 +5,7 @@ import { categoryCounts, categoriesGraph, CATEGORIES_URL } from "@/lib/seo";
 import { CategoryIndex } from "@/components/Categories";
 import JsonLd from "@/components/JsonLd";
 import SectionView from "@/components/SectionView";
+import { pageTools } from "@/lib/pageData";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ function graphOf(tools) {
 }
 
 export default async function Page() {
-  const tools = await mergedTools();
+  const tools = await pageTools();
   const counts = categoryCounts(tools);
 
   return (

@@ -1,5 +1,6 @@
 import { mergedTools } from "@/lib/listings";
 import ListsManager from "@/components/ListsManager";
+import { pageTools } from "@/lib/pageData";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,6 @@ export const metadata = {
 };
 
 export default async function Page() {
-  const tools = (await mergedTools()).map((t) => ({ id: t.id, name: t.name }));
+  const tools = (await pageTools()).map((t) => ({ id: t.id, name: t.name }));
   return <ListsManager tools={tools} />;
 }

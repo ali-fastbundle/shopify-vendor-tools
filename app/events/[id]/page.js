@@ -11,6 +11,11 @@ import { feedEntries } from "@/lib/feed";
 import { updatesLink } from "@/lib/feedSource";
 import EventPage from "@/components/EventPage";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+import { pageFeed, pageReviews } from "@/lib/pageData";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +25,12 @@ export const dynamic = "force-dynamic";
  * modal and pushes this address, so what is in the bar is always a page that
  * exists.
  */
-async function load(id) {
+async function loadUncached(id) {
   const today = todayISO();
-  const [events, stored] = await Promise.all([mergedEvents(), read(KEYS.reviews, {})]);
+  const [events, stored] = await Promise.all([mergedEvents(), pageReviews()]);
   const all = placed(events, today).map((x) => ({ ...x, owner: ownerContext(x, "event", { events }) }));
   const e = all.find((x) => x.id === id);
-  return e ? { e, all, today, reviews: publicReviews(stored)[id] || [] } : null;
+  return e ? { e, all, today, reviews: stored[id] || [] } : null;
 }
 
 async function baseMetadata({ params }) {
@@ -51,7 +56,7 @@ export default async function Page({ params }) {
     <>
       <JsonLd data={eventGraph(e, { image: `${SITE}${eventSharePath(e)}` })} />
       <EventPage e={e} all={all} today={today} reviews={reviews} lastUpdated={LAST_UPDATED}
-        updates={updatesLink(await feedEntries({ limit: 1000 }), `/events/${e.id}`)} />
+        updates={updatesLink(await pageFeed(1000), `/events/${e.id}`)} />
     </>
   );
 }

@@ -6,6 +6,10 @@ import { ownerContext } from "@/lib/ownerIndex";
 import { alternativesGraph } from "@/lib/seo";
 import { AlternativesPage } from "@/components/Comparisons";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +19,7 @@ export const dynamic = "force-dynamic";
  * can state no differences and is the SEO shell this directory exists against.
  * It renders either way, so the links to it always work.
  */
-async function load(id) {
+async function loadUncached(id) {
   const { tools, pairs } = await rivalsData();
   const tool = tools.find((t) => t.id === id);
   if (!tool) return null;

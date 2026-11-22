@@ -8,6 +8,11 @@ import { podcastUrl, podcastDescription, podcastGraph, relatedPodcasts } from "@
 import PodcastPage from "@/components/PodcastPage";
 import { ownerContext } from "@/lib/ownerIndex";
 import JsonLd from "@/components/JsonLd";
+import { cache } from "react";
+import { pageReviews } from "@/lib/pageData";
+
+/* One load per request: generateMetadata and the page body share it. */
+const load = cache(loadUncached);
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +20,11 @@ export const dynamic = "force-dynamic";
  * One podcast at its own URL, server-rendered and complete without
  * JavaScript, the same contract as /newsletters/[id].
  */
-async function load(id) {
-  const [podcasts, storedReviews] = await Promise.all([mergedPodcasts(), read(KEYS.reviews, {})]);
+async function loadUncached(id) {
+  const [podcasts, storedReviews] = await Promise.all([mergedPodcasts(), pageReviews()]);
   const p = podcasts.find((x) => x.id === id);
   if (!p) return null;
-  return { p, podcasts, reviews: publicReviews(storedReviews) };
+  return { p, podcasts, reviews: storedReviews };
 }
 
 async function baseMetadata({ params }) {
