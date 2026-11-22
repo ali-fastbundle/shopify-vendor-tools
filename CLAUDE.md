@@ -2695,7 +2695,7 @@ monitor path and legacy values.
 Each tool has category attributes, pricing tiers and integrations. The shapes are in
 `lib/categories.js`:
 - `ATTRIBUTES` per category: key, label, type (boolean, enum, number, text), comparable.
-- `INTEGRATIONS`, a closed vocabulary of ten.
+- `INTEGRATIONS`, a closed vocabulary of eleven (Salesforce added 2026-11-22, for StoreCensus's CRM sync).
 - The pricing structure: `published`, `free`, `trialDays`, `tiers` of name, amount,
   currency, period and unit, plus one `note`.
 

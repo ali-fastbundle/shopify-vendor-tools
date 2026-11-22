@@ -57,7 +57,7 @@ console.log("the schema:");
 ok(CATEGORIES.every((c) => K.attributesFor(c.id).length >= 3), "every category has an attribute set", CATEGORIES.filter((c) => !K.attributesFor(c.id).length).map((c) => c.id).join(", "));
 ok(Object.values(K.ATTRIBUTES).flat().every((a) => ["boolean", "enum", "number", "text"].includes(a.type) && typeof a.comparable === "boolean"),
   "every attribute has a type and says whether it is comparable");
-ok(K.INTEGRATIONS.length === 10, "ten integrations in the controlled vocabulary");
+ok(K.INTEGRATIONS.length === 11, "eleven integrations in the controlled vocabulary");
 ok(K.formatValue({ type: "boolean" }, K.UNKNOWN) === "Unknown", "unknown displays as Unknown");
 
 console.log("\nthe drafts:");
